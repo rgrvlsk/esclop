@@ -1,6 +1,7 @@
 # Design brief
 
-This brief describes the planned GUI. The current app is a minimal menu-bar stub.
+This brief describes the GUI. Result cards, the drop zone and the menu are built to it; the
+settings window is still minimal.
 Results should be easy to read without interrupting work, using native macOS controls.
 
 ## Result animation

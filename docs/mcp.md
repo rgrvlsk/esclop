@@ -6,8 +6,9 @@ part of the `esclop` command line: agents start it as `esclop mcp serve` and tal
 stdin and stdout (newline-delimited JSON-RPC, MCP protocol 2025-11-25 and earlier). The server
 is named `esclop-mcp`; its entry in agent configs is called `esclop`.
 
-The server runs jobs in its own process without the app. The IPC library supports routing
-jobs through an app server, but the current GUI stub does not start that server or show results.
+When the L'Esclop app is running, the server sends jobs to it: they join the app's queue and
+show the same floating result cards as copied and dropped files, and the app applies the agent
+permissions again. Without the app, the server runs jobs in its own process.
 
 ## Install
 
