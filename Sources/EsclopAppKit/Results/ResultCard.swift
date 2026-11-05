@@ -70,4 +70,22 @@ public final class ResultCard: Identifiable {
     public var presentation: CardPresentation {
         CardPresentation(card: self)
     }
+
+    /// The file the card stands for: the optimised output, the original once restored, else the
+    /// source. Show in Finder and Copy use it.
+    public var shownFile: URL {
+        switch phase {
+        case let .done(result): return result.output
+        case let .restored(result): return result.source
+        default: return source
+        }
+    }
+
+    /// The file the thumbnail can be dragged out as, or nil while there is nothing finished to give.
+    public var draggableFile: URL? {
+        switch phase {
+        case .done, .unchanged, .restored: return shownFile
+        default: return nil
+        }
+    }
 }

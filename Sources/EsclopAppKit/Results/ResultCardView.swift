@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// A result card: thumbnail left, text right, the deflating bar, actions on hover below. 300 pt
+// A result card: thumbnail left, text right, the deflating bar, actions over the bar on hover. 300 pt
 // wide, left aligned, HUD material. The saving is the one large figure.
 
 import EsclopCore
@@ -13,6 +13,9 @@ public struct ResultCardView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var focused: Bool
+    /// SwiftUI gives the card focus even while its panel is not key, so focus only counts once the
+    /// panel is key (the card was clicked); otherwise every card would show its actions.
+    @Environment(\.controlActiveState) private var activeState
     /// False until the deflate plays: the bar sits at full width and the figure at the original size.
     @State private var deflated = false
 
@@ -39,18 +42,27 @@ public struct ResultCardView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             if let end = info.barEnd {
-                // Reduced motion: the full bar and the deflated one crossfade instead of moving.
+                // The actions take the bar's place on hover, in a row always sized for them, so the
+                // card never changes height under the pointer: at a bottom corner a taller card would
+                // push the thumbnail up just as someone reaches for it.
+                let showing = showsActions(info)
                 ZStack {
-                    DeflateBar(
-                        end: deflated ? end : 1, progress: info.progress,
-                        tint: card.isWorking ? (card.aggressive ? Palette.warm : Palette.accent) : color(info.tone),
-                        filled: card.result != nil
-                    )
-                    .id(reduceMotion ? AnyHashable(deflated) : AnyHashable(0))
-                    .transition(.opacity)
+                    // Reduced motion: the full bar and the deflated one crossfade instead of moving.
+                    ZStack {
+                        DeflateBar(
+                            end: deflated ? end : 1, progress: info.progress,
+                            tint: card.isWorking ? (card.aggressive ? Palette.warm : Palette.accent) : color(info.tone),
+                            filled: card.result != nil
+                        )
+                        .id(reduceMotion ? AnyHashable(deflated) : AnyHashable(0))
+                        .transition(.opacity)
+                    }
+                    .opacity(showing ? 0 : 1)
+                    actions(info)
+                        .opacity(showing ? 1 : 0)
+                        .allowsHitTesting(showing)
                 }
-            }
-            if showsActions(info) {
+            } else if showsActions(info) {
                 actions(info)
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
@@ -97,6 +109,7 @@ public struct ResultCardView: View {
         .frame(width: Metrics.thumbnail, height: Metrics.thumbnail)
         .clipShape(shape)
         .overlay { shape.strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5) }
+        .modifier(DragOut(file: card.draggableFile))
         .accessibilityHidden(true)
     }
 
@@ -162,7 +175,7 @@ public struct ResultCardView: View {
     // MARK: Behaviour
 
     private func showsActions(_ info: CardPresentation) -> Bool {
-        card.isHovered || focused || info.tone == .error
+        card.isHovered || (focused && activeState == .key) || info.tone == .error
     }
 
     private func run(_ action: CardPresentation.Action, in info: CardPresentation) -> KeyPress.Result {
@@ -200,6 +213,23 @@ public struct ResultCardView: View {
         case .warm: return Palette.warm
         case .neutral: return .secondary
         case .error: return .red
+        }
+    }
+}
+
+/// Lets the thumbnail be dragged into another app as the finished file. Only the thumbnail takes
+/// the drag, so the card's own state (the deflate, focus) never rebuilds when it becomes draggable.
+/// Copy (⌘C) is the keyboard and VoiceOver route to the same file.
+private struct DragOut: ViewModifier {
+    let file: URL?
+
+    func body(content: Content) -> some View {
+        if let file {
+            content
+                .onDrag { NSItemProvider(contentsOf: file) ?? NSItemProvider(object: file as NSURL) }
+                .help("Drag the file into another app")
+        } else {
+            content
         }
     }
 }

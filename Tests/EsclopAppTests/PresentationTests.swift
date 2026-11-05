@@ -45,6 +45,27 @@ import Testing
         #expect(card.presentation.tone == .warm)
     }
 
+    @Test func onlyAFinishedCardCanBeDraggedOutAndItGivesTheFileItShows() {
+        let source = URL(fileURLWithPath: "/tmp/in.png")
+        let output = URL(fileURLWithPath: "/tmp/in-optimised.png")
+        let done = OptimisationResult(
+            source: source, output: output, backup: nil, kind: .image,
+            bytesBefore: 1000, bytesAfter: 400, startedAt: Date(), finishedAt: Date()
+        )
+        let card = ResultCard(jobID: UUID(), source: source, origin: .clipboard, bytesBefore: 1000)
+        #expect(card.draggableFile == nil)
+        card.phase = .done(done)
+        #expect(card.draggableFile == output)
+        card.phase = .restored(done)
+        #expect(card.draggableFile == source)
+        card.phase = .unchanged(bytes: 1000)
+        #expect(card.draggableFile == source)
+        card.phase = .failed("broken")
+        #expect(card.draggableFile == nil)
+        card.phase = .notice(title: "Paused", detail: "")
+        #expect(card.draggableFile == nil)
+    }
+
     @Test func otherPhases() {
         let card = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/tmp/none.png"), origin: .app, bytesBefore: 412_000)
         card.phase = .working(fraction: 0.4)
