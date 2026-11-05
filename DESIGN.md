@@ -53,9 +53,28 @@ on that one file. It replaces a long context menu. It is not the menu-bar menu. 
   shelf app, Upload with Dropshare. Footer: keep visible duration, customise hover buttons.
 - Every choice that changes size shows an estimate before it is applied. Long lists are
   drill-downs inside the popover, never inline walls. Only installed apps are listed.
+- Header and tabs stay pinned. When "Format and options" is open the content grows to the
+  560 pt limit and then scrolls inside the popover, with a soft fade at the bottom edge while
+  more content remains. Never shrink type or spacing to make it fit.
+
+Components, so the popover keeps one finish across tabs:
+
+| Element | Spec |
+|---|---|
+| Popover | 360 pt wide, 16 pt padding, 14 pt between sections, rows 34–36 pt |
+| Type | body 13 pt, secondary 12 pt, filename 14 pt semibold, section labels 13 pt semibold with the live value right-aligned in secondary colour ("Size ··· 1470 × 956 · ≈ 180 kB") |
+| Tabs | full-width glass segmented control, 30 pt tall |
+| Format choice | two-line tiles in a 4-column grid: name 13 pt semibold, "≈ 410 kB" 12 pt; selected = accent border and tint |
+| Rows | 16 pt leading SF Symbol, trailing chevron or shortcut |
+| On/off settings | native switches; the rule is the only checkbox |
+| Sliders | 10 % tick marks with end labels |
+| Share actions | round icon buttons with label and shortcut underneath |
 
 ## Origin rules
-The suggestion comes from where the file came from and its format.
+The suggestion comes from where the file came from and its format. It is shown as a card: the
+origin glyph in a 28 pt tinted circle, the origin as a small secondary label ("Screenshot"),
+the suggestion as the main line ("PNG · Adaptive · strip metadata", 13 pt semibold), and an
+"Applied" pill when that suggestion produced the current result.
 
 | Origin signal | Suggestion |
 |---|---|
@@ -75,8 +94,12 @@ At the bottom of Optimise a small native checkbox turns the current choice into 
 "Always apply to PNG screenshots". The rule key is origin + input format. Unticking deletes the
 rule, so the next item of that kind gets the default behaviour again; ⌘Z only restores the
 current file. When a rule was applied, the result capsule shows a small rule glyph with the
-tooltip "Rule: PNG screenshots → WebP", and the popover opens with the box ticked. Rules are
-listed and edited in Settings › Automation › Clipboard rules.
+tooltip "Rule: PNG screenshots → WebP", and the popover opens with the box ticked. In that
+case the card is titled "Rule" instead of "Suggestion", shows the rule's pipeline with the
+"Applied" pill, and keeps the default suggestion as a secondary line, so the card never
+contradicts the result. Ticking the box shows what will happen next ("Next PNG screenshots
+will be converted to WebP · Adaptive") and a "Manage rules…" link. Rules are listed and
+edited in Settings › Automation › Clipboard rules.
 
 ## Color
 Use system Liquid Glass materials for floating surfaces, with one accent colour and one warning
@@ -94,7 +117,8 @@ Never: cream page backgrounds, terracotta, acid green on black, gradient washes.
 stays translucent; it must not become an opaque slab.
 
 ## Type
-System font (SF Pro) everywhere, sizes from the macOS text styles, nothing below 11 pt. Byte
+System font (SF Pro) everywhere, sizes from the macOS text styles, nothing below 11 pt (the
+popover scale is in its components table). Byte
 figures and percentages use SF Pro with monospaced digits (`monospacedDigit()`), never a
 monospaced typeface. The saving percentage is the one large figure: `title2`, semibold,
 rounded design. Labels are sentence case, never all caps, never tracked out. Icons are SF
