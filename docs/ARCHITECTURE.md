@@ -109,7 +109,9 @@ and AppKit for floating panels, pasteboard access and global hotkeys:
 
 ## Build and packaging
 - `swift build` builds the CLI and libraries with Command Line Tools. The package includes
-  the app target when Xcode is installed or `ESCLOP_WITH_APP` is set.
+  the app target when the active developer directory is an Xcode (`DEVELOPER_DIR` or
+  `xcode-select`) or `ESCLOP_WITH_APP` is set. Without switching globally:
+  `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift build`.
 - `Scripts/build-tools.sh` builds ffmpeg, Ghostscript and gifsicle from pinned upstream
   tarballs (sha256 checked, patches in `Binaries/patches/`), universal, minimal ffmpeg
   configuration (`--disable-network`, no GPL components), into `Binaries/`, and records each

@@ -198,7 +198,8 @@ struct Session {
         } catch {
             Issue.record("wrong error \(error)")
         }
-        #expect(Date().timeIntervalSince(started) < 3)
+        // The request sleeps 30 s; anything well below that proves the 0.3 s timeout fired.
+        #expect(Date().timeIntervalSince(started) < 15)
     }
 
     @Test func outcomes() async throws {

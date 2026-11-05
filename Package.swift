@@ -7,9 +7,14 @@ import PackageDescription
 
 // SwiftUI needs Xcode's macro plugins; the Command Line Tools alone cannot compile the app.
 // Everything else (CLI, MCP, engines, pipelines) builds without Xcode, so the app target only
-// joins the package when Xcode is present or ESCLOP_WITH_APP is set.
-let buildApp = FileManager.default.fileExists(atPath: "/Applications/Xcode.app")
-    || ProcessInfo.processInfo.environment["ESCLOP_WITH_APP"] != nil
+// joins the package when the active developer directory is an Xcode (DEVELOPER_DIR, else the
+// one `xcode-select` chose) or ESCLOP_WITH_APP is set. Having Xcode installed is not enough:
+// with the Command Line Tools selected, the SwiftUI macro plugins are still missing.
+let environment = ProcessInfo.processInfo.environment
+let developerDir = environment["DEVELOPER_DIR"]
+    ?? (try? FileManager.default.destinationOfSymbolicLink(atPath: "/var/db/xcode_select_link"))
+    ?? ""
+let buildApp = developerDir.contains(".app/") || environment["ESCLOP_WITH_APP"] != nil
 
 let appProducts: [Product] = buildApp ? [.executable(name: "EsclopApp", targets: ["EsclopApp"])] : []
 let appDependencies: [Package.Dependency] = buildApp

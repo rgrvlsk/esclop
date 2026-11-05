@@ -433,6 +433,11 @@ public final class RunningProcess: @unchecked Sendable {
     private let errPipe = Pipe()
     private var exitHandlers: [@Sendable (Int32) -> Void] = []
     private var exited: Int32?
+    /// stderr reached end of file, or the grace after the exit ran out (a descendant holds it).
+    private var stderrDone = false
+    /// The exit handlers have run; later ones run at once.
+    private var reported = false
+    private let drainGrace: TimeInterval = 2
     /// Writes and kill escalation; never the global queue (see the top of this file).
     private let queue: DispatchQueue
 
@@ -470,6 +475,10 @@ public final class RunningProcess: @unchecked Sendable {
             guard let self else { return }
             if data.isEmpty {
                 handle.readabilityHandler = nil
+                self.lock.lock()
+                self.stderrDone = true
+                self.lock.unlock()
+                self.reportExitIfDone()
                 return
             }
             self.lock.lock()
@@ -477,13 +486,21 @@ public final class RunningProcess: @unchecked Sendable {
             if self.errTail.count > 32 * 1024 { self.errTail = self.errTail.suffix(16 * 1024) }
             self.lock.unlock()
         }
+        // The exit is reported once stderr is drained too, so `stderrTail` holds the child's last
+        // words (a crash message) when the handlers run.
         process.terminationHandler = { [weak self] process in
             guard let self else { return }
             self.lock.lock()
             self.exited = process.terminationStatus
-            let handlers = self.exitHandlers
             self.lock.unlock()
-            handlers.forEach { $0(process.terminationStatus) }
+            self.queue.asyncAfter(deadline: .now() + self.drainGrace) { [weak self] in
+                guard let self else { return }
+                self.lock.lock()
+                self.stderrDone = true
+                self.lock.unlock()
+                self.reportExitIfDone()
+            }
+            self.reportExitIfDone()
         }
         try process.run()
     }
@@ -497,16 +514,30 @@ public final class RunningProcess: @unchecked Sendable {
         return String(decoding: errTail, as: UTF8.self)
     }
 
-    /// Called once with the exit status; immediately if the child already exited.
+    /// Called once with the exit status, after the child has exited and its stderr is drained;
+    /// immediately if that already happened.
     public func onExit(_ handler: @escaping @Sendable (Int32) -> Void) {
         lock.lock()
-        if let exited {
+        if reported, let exited {
             lock.unlock()
             handler(exited)
             return
         }
         exitHandlers.append(handler)
         lock.unlock()
+    }
+
+    private func reportExitIfDone() {
+        lock.lock()
+        guard !reported, let status = exited, stderrDone else {
+            lock.unlock()
+            return
+        }
+        reported = true
+        let handlers = exitHandlers
+        exitHandlers = []
+        lock.unlock()
+        handlers.forEach { $0(status) }
     }
 
     /// Queues one line (a newline is added) for the child's stdin. Never blocks the caller, even

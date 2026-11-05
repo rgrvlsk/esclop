@@ -26,7 +26,7 @@ import Testing
         defer { Task { await client.shutdown() } }
         _ = try await client.call("sleep", params: ["seconds": 0.0]) // child started
         let order = LockedOrder()
-        async let slow: Void = { _ = try await client.call("sleep", params: ["seconds": 0.8]); order.append("slow") }()
+        async let slow: Void = { _ = try await client.call("sleep", params: ["seconds": 4.0]); order.append("slow") }()
         try await Task.sleep(nanoseconds: 50_000_000)
         async let fast: Void = { _ = try await client.call("sleep", params: ["seconds": 0.05]); order.append("fast") }()
         _ = try await (slow, fast)
@@ -67,11 +67,12 @@ import Testing
         let client = try await client()
         defer { Task { await client.shutdown() } }
         let started = Date()
-        let task = Task { try await client.call("sleep", params: ["seconds": 5]) }
+        let task = Task { try await client.call("sleep", params: ["seconds": 30]) }
         try await Task.sleep(nanoseconds: 200_000_000)
         task.cancel()
         await #expect(throws: EsclopError.cancelled) { try await task.value }
-        #expect(Date().timeIntervalSince(started) < 2)
+        // The call sleeps 30 s; anything well below that proves cancellation stopped the wait.
+        #expect(Date().timeIntervalSince(started) < 15)
         let reply = try await client.call("sleep", params: ["seconds": 0.01])
         #expect(reply.raw["slept"] != nil)
     }
