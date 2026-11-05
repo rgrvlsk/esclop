@@ -1,0 +1,205 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Builds what goes into Resources/bin, universal: esclop-engine (with its checks) and the tools
+# from pinned source. Called by ci.yml and release.yml. Artefacts are tarballs, because
+# upload-artifact drops the executable bit.
+name: binaries
+
+on:
+  workflow_call:
+    inputs:
+      tool-sources:
+        description: Also upload the upstream tarballs (Binaries/.cache/dl, and libaom's from the engine job) for the release's source archive
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: "1.99"
+  MACOSX_DEPLOYMENT_TARGET: "14.0"
+  HOMEBREW_NO_AUTO_UPDATE: "1"
+  HOMEBREW_NO_INSTALL_CLEANUP: "1"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  engine-checks:
+    name: engine checks (fmt, clippy, deny, test)
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Rust toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --component rustfmt,clippy
+          rustup default "$RUST_TOOLCHAIN"
+      - name: cargo fmt --check
+        working-directory: engine
+        run: cargo fmt --all --check
+      - name: cmake (libaom, libavif)
+        run: command -v cmake >/dev/null || brew install cmake
+      # The AVIF encoder links libaom 3.15.3 built from its pinned tarball (tune=iq); libaom-sys's
+      # bundled 3.11 would compile too, but tests and lints must see what ships.
+      - id: aom
+        run: echo "sha256=$(Scripts/build-libaom.sh --sha256)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            Binaries/.cache/libaom
+            Binaries/.cache/dl/libaom-*.tar.gz
+          key: libaom-${{ runner.os }}-${{ runner.arch }}-${{ steps.aom.outputs.sha256 }}-${{ hashFiles('Scripts/build-libaom.sh') }}-host
+      - name: libaom from pinned source (host)
+        run: Scripts/build-libaom.sh --github-env >> "$GITHUB_ENV"
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: engine -> target
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@b80e2bb2635f28eb98b9fce1e2f0887e1535c6b2 # v2.90.0
+        with:
+          tool: cargo-deny
+      - name: cargo deny check
+        working-directory: engine
+        run: cargo deny --locked check
+      - name: cargo clippy -D warnings
+        working-directory: engine
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: cargo test
+        working-directory: engine
+        run: cargo test --locked
+
+  engine:
+    name: esclop-engine (arm64 + x86_64)
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The finished archive is cached by its inputs; a hit skips the whole build. A release
+      # (tool-sources) always rebuilds, because it also ships the sources.
+      - id: engine-tar
+        if: ${{ !inputs.tool-sources }}
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: engine.tar
+          key: engine-tar-${{ runner.os }}-${{ hashFiles('engine/Cargo.toml', 'engine/Cargo.lock', 'engine/crates/**', 'engine/deny.toml', 'engine/about.*', 'engine/THIRD_PARTY-engine.md', 'Scripts/build-engine.sh', 'Scripts/build-libaom.sh') }}
+      - if: steps.engine-tar.outputs.cache-hit != 'true'
+        name: Rust toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --target aarch64-apple-darwin,x86_64-apple-darwin
+          rustup default "$RUST_TOOLCHAIN"
+      - if: steps.engine-tar.outputs.cache-hit != 'true'
+        name: nasm (x86_64 SIMD of mozjpeg and libaom), cmake (libaom, libavif)
+        run: |
+          brew install nasm
+          command -v cmake >/dev/null || brew install cmake
+      # libaom 3.15.3 for both targets, from its pinned tarball; keyed by the tarball's SHA-256
+      # and the recipe, so a pin or flag change rebuilds it and nothing else does.
+      - if: steps.engine-tar.outputs.cache-hit != 'true'
+        id: aom
+        run: echo "sha256=$(Scripts/build-libaom.sh --sha256)" >> "$GITHUB_OUTPUT"
+      - if: steps.engine-tar.outputs.cache-hit != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            Binaries/.cache/libaom
+            Binaries/.cache/dl/libaom-*.tar.gz
+          key: libaom-${{ runner.os }}-${{ runner.arch }}-${{ steps.aom.outputs.sha256 }}-${{ hashFiles('Scripts/build-libaom.sh') }}-universal
+      - if: steps.engine-tar.outputs.cache-hit != 'true'
+        name: libaom from pinned source (arm64, x86_64)
+        run: |
+          Scripts/build-libaom.sh aarch64-apple-darwin
+          Scripts/build-libaom.sh x86_64-apple-darwin
+      - if: steps.engine-tar.outputs.cache-hit != 'true'
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: engine -> target
+          key: universal-release
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      # also fails unless the engine reports libaom with tune=iq, and writes LICENSES/libaom.txt
+      - if: steps.engine-tar.outputs.cache-hit != 'true'
+        name: Build, lipo, strip, sign, check size, linkage and libaom
+        run: Scripts/build-engine.sh
+      - if: steps.engine-tar.outputs.cache-hit != 'true'
+        name: Both slices present
+        run: test "$(lipo -archs Binaries/esclop-engine | tr ' ' '\n' | sort | xargs)" = "arm64 x86_64"
+      - if: steps.engine-tar.outputs.cache-hit != 'true'
+        name: Engine notices name the libaom that was linked
+        run: grep -F "| libaom | static in \`esclop-engine\` | $(Binaries/esclop-engine hello | sed -n 's/.*libaom \([0-9.]*\).*/\1/p') |" engine/THIRD_PARTY-engine.md
+      - if: steps.engine-tar.outputs.cache-hit != 'true'
+        run: tar -cf engine.tar -C Binaries esclop-engine LICENSES/libaom.txt
+      - if: steps.engine-tar.outputs.cache-hit != 'true' && !inputs.tool-sources
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: engine.tar
+          key: engine-tar-${{ runner.os }}-${{ hashFiles('engine/Cargo.toml', 'engine/Cargo.lock', 'engine/crates/**', 'engine/deny.toml', 'engine/about.*', 'engine/THIRD_PARTY-engine.md', 'Scripts/build-engine.sh', 'Scripts/build-libaom.sh') }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: engine
+          path: engine.tar
+          retention-days: 7
+      - if: inputs.tool-sources
+        run: tar -cf engine-sources.tar -C Binaries/.cache dl
+      - if: inputs.tool-sources
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: engine-sources
+          path: engine-sources.tar
+          retention-days: 7
+
+  tools:
+    name: ffmpeg, gs, gifsicle from pinned source
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The finished archive is cached by its inputs; a hit skips the whole build. A release
+      # (tool-sources) always rebuilds, because it also ships the sources.
+      - id: tools-tar
+        if: ${{ !inputs.tool-sources }}
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: tools.tar
+          key: tools-tar-${{ runner.os }}-${{ hashFiles('Scripts/build-tools.sh', 'Binaries/patches/**', 'THIRD_PARTY.md') }}
+      - if: steps.tools-tar.outputs.cache-hit != 'true'
+        name: Build tools (never libraries)
+        run: brew install nasm cmake pkg-config
+      # The script keys each tool group by its pins, patches and recipe, so a restore from an
+      # older key still reuses every group that did not change.
+      - if: steps.tools-tar.outputs.cache-hit != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: Binaries/.cache
+          key: tools-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Scripts/build-tools.sh', 'Binaries/patches/**') }}
+          restore-keys: tools-${{ runner.os }}-${{ runner.arch }}-
+      - if: steps.tools-tar.outputs.cache-hit != 'true'
+        name: Build (or reinstall from cache) and verify
+        run: Scripts/build-tools.sh
+      - name: Keep the failed step's logs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tools-failed-logs
+          path: Binaries/.cache/failed-logs
+          if-no-files-found: ignore
+      - if: steps.tools-tar.outputs.cache-hit != 'true'
+        name: THIRD_PARTY.md is what the script generates
+        run: git diff --exit-code THIRD_PARTY.md
+      - if: steps.tools-tar.outputs.cache-hit != 'true'
+        run: tar -cf tools.tar -C Binaries ffmpeg ffprobe gs gifsicle LICENSES
+      - if: steps.tools-tar.outputs.cache-hit != 'true' && !inputs.tool-sources
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: tools.tar
+          key: tools-tar-${{ runner.os }}-${{ hashFiles('Scripts/build-tools.sh', 'Binaries/patches/**', 'THIRD_PARTY.md') }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tools
+          path: tools.tar
+          retention-days: 7
+      - if: inputs.tool-sources
+        run: tar -cf tool-sources.tar -C Binaries/.cache dl
+      - if: inputs.tool-sources
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tool-sources
+          path: tool-sources.tar
+          retention-days: 7

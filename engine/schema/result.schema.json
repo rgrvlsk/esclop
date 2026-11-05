@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OpResult",
+  "description": "`result` of every op except `hello`.",
+  "type": "object",
+  "properties": {
+    "backend": {
+      "description": "`gif.*`: `gifsicle` or `builtin`.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "bytes_after": {
+      "description": "Size of the output file (equal to `bytes_before` for `probe`).",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "bytes_before": {
+      "description": "Size of the input file.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "fitted": {
+      "description": "`fit`: whether the output is at most `target_bytes`. When false the output is the smallest\nthe search reached.",
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "format": {
+      "description": "Format of the output (for `probe`, of the input).",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Format"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "frames": {
+      "description": "Frame count of the output (or for `probe`, of the input).",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "minimum": 0
+    },
+    "height": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "ignored_params": {
+      "description": "Params the op did not recognise and ignored.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "lossy": {
+      "description": "Whether pixels changed (false for lossless recompression and `metadata.strip`).",
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "output": {
+      "description": "Where the result was written.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "probe": {
+      "description": "`probe` only.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProbeInfo"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "quality": {
+      "description": "Encoder quality used (jpeg/webp/avif/gif quality, png target quality); for `fit`, the\nquality chosen. Absent for lossless paths.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint8",
+      "maximum": 255,
+      "minimum": 0
+    },
+    "scale": {
+      "description": "`fit` and `resize`: the scale applied to the input's displayed size.",
+      "type": [
+        "number",
+        "null"
+      ],
+      "format": "double"
+    },
+    "width": {
+      "description": "Width of the output (stored pixels; for `probe`, of the input).",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "bytes_before",
+    "bytes_after",
+    "width",
+    "height"
+  ],
+  "$defs": {
+    "Format": {
+      "description": "Image formats the engine recognises. Decodable: png, jpeg, gif, webp, tiff, bmp.\nEncodable: png, jpeg, webp, avif, gif. heic, avif and jxl are recognised by `probe` only.",
+      "type": "string",
+      "enum": [
+        "png",
+        "jpeg",
+        "gif",
+        "webp",
+        "avif",
+        "tiff",
+        "bmp",
+        "heic",
+        "jxl"
+      ]
+    },
+    "ProbeInfo": {
+      "description": "What `probe` found out about the input.",
+      "type": "object",
+      "properties": {
+        "animated": {
+          "type": "boolean"
+        },
+        "bit_depth": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0
+        },
+        "color_space": {
+          "description": "`rgb`, `gray`, `cmyk`, `ycck` or `indexed`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "decodable": {
+          "description": "Whether the engine can decode this format (heic, avif and jxl: false).",
+          "type": "boolean"
+        },
+        "display_height": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "display_width": {
+          "description": "Size as displayed, after orientation.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "frames": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "has_alpha": {
+          "type": "boolean"
+        },
+        "has_exif": {
+          "type": "boolean"
+        },
+        "has_icc": {
+          "type": "boolean"
+        },
+        "has_xmp": {
+          "type": "boolean"
+        },
+        "jpeg_quality": {
+          "description": "JPEG: estimated libjpeg quality of the luminance table.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0
+        },
+        "multi_picture": {
+          "description": "JPEG: has an MPF index of secondary images (an HDR gain map, a depth map). The engine\ndrops those when it rewrites the file; route such files to ImageIO to keep them.",
+          "type": "boolean",
+          "default": false
+        },
+        "orientation": {
+          "description": "EXIF orientation 1..=8 (1 when absent).",
+          "type": "integer",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0
+        },
+        "progressive": {
+          "description": "JPEG: progressive scans.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "decodable",
+        "has_alpha",
+        "has_exif",
+        "has_icc",
+        "has_xmp",
+        "orientation",
+        "display_width",
+        "display_height",
+        "frames",
+        "animated"
+      ]
+    }
+  }
+}

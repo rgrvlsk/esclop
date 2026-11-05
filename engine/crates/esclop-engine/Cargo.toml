@@ -1,0 +1,48 @@
+[package]
+name = "esclop-engine"
+description = "L'Esclop image engine: PNG, JPEG, WebP, AVIF and GIF work behind a JSON-lines protocol on stdio"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "esclop-engine"
+path = "src/main.rs"
+
+[features]
+default = ["avif-aom"]
+# libaom through libavif, tune=iq, grids for large images (matches the encoder Clop runs)
+avif-aom = ["dep:libavif-sys", "dep:libaom-sys"]
+# rav1e through ravif, pure Rust (larger files; `--no-default-features --features avif-rav1e`)
+avif-rav1e = ["dep:ravif"]
+
+[dependencies]
+fast_image_resize = { version = "6.1.0", features = ["rayon"] }
+crc32fast = "1.5"
+gif = "0.14.2"
+# AGPL-3.0-or-later. The `gifsicle` feature (a port of gifsicle's lossy LZW writer) stays off:
+# gifsicle is GPL-2.0-only and never enters the engine; it is only ever run as a separate process.
+gifski = { version = "1.34.0", default-features = false }
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "webp", "tiff", "bmp"] }
+imagequant = "4.4.1"
+imgref = "1.12.3"
+libc = "0.2.191"
+miniz_oxide = "0.8"
+mozjpeg-sys = "2.2.3"
+oxipng = { version = "10.2.1", default-features = false, features = ["parallel"] }
+# AVIF encoders, one chosen at build time (codec/avif.rs). libaom: BSD-2-Clause plus the AOM
+# patent licence; release builds link the libaom 3.15 that Scripts/build-libaom.sh builds.
+libaom-sys = { version = "0.17.2", optional = true }
+libavif-sys = { version = "0.17.0", default-features = false, features = ["codec-aom"], optional = true }
+ravif = { version = "0.13.0", optional = true }
+rayon = "1.12"
+rgb = "0.8.53"
+schemars = "1.2.3"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+tempfile = "3.27.0"
+webp = { version = "0.3.1", default-features = false }
+
+[dev-dependencies]

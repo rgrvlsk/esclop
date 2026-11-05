@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PngParams",
+  "description": "`png.optimise`: imagequant (when lossy) then oxipng. Falls back to lossless oxipng when the\npalette would miss `quality[0]` or comes out bigger.",
+  "type": "object",
+  "properties": {
+    "allow_larger": {
+      "description": "Write the result even when it is not smaller than the input. Optimise ops default to false\n(and answer `already_smaller`); resize, crop, convert and encode ops default to true.",
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "default": null
+    },
+    "colors": {
+      "description": "Maximum palette size 2..=256. Default from `compression`.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint16",
+      "default": null,
+      "maximum": 256,
+      "minimum": 2
+    },
+    "compression": {
+      "description": "Compression factor; see `EncodeParams.compression`.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint8",
+      "default": null,
+      "maximum": 100,
+      "minimum": 0
+    },
+    "dither": {
+      "description": "Dithering level 0..=1 (default 1, like pngquant).",
+      "type": [
+        "number",
+        "null"
+      ],
+      "format": "float",
+      "default": null
+    },
+    "in_place": {
+      "description": "Allow `output` to equal `input` (or be omitted). The engine writes a temporary file in the\nsame folder and renames it over the input, keeping its mode, creation date and extended\nattributes.",
+      "type": "boolean",
+      "default": false
+    },
+    "keep": {
+      "description": "What `strip` keeps. Default `[\"icc\", \"orientation\"]`; `[]` strips everything.",
+      "type": [
+        "array",
+        "null"
+      ],
+      "default": null,
+      "items": {
+        "$ref": "#/$defs/Keep"
+      }
+    },
+    "level": {
+      "description": "oxipng effort preset 0..=6. Default from `compression`: 0 below 50, 1 below 85, else 2.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint8",
+      "default": null,
+      "maximum": 6,
+      "minimum": 0
+    },
+    "lossy": {
+      "description": "Quantise to a palette. Default true (the PNG path Clop takes). Animated PNGs are always\noptimised losslessly.",
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "default": null
+    },
+    "quality": {
+      "description": "imagequant `[minimum, target]` quality, 0..=100. Default from `compression`.",
+      "type": [
+        "array",
+        "null"
+      ],
+      "default": null,
+      "items": {
+        "type": "integer",
+        "format": "uint8",
+        "maximum": 255,
+        "minimum": 0
+      },
+      "maxItems": 2,
+      "minItems": 2
+    },
+    "speed": {
+      "description": "imagequant speed 1..=10 (1 slowest, best). Default from `compression`.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint8",
+      "default": null,
+      "maximum": 10,
+      "minimum": 1
+    },
+    "strip": {
+      "description": "Remove metadata (EXIF, XMP, IPTC, comments, text chunks) except what `keep` lists.",
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "$defs": {
+    "Keep": {
+      "description": "Metadata that `strip` keeps.",
+      "oneOf": [
+        {
+          "description": "The colour profile (ICC, and PNG sRGB/gAMA/cHRM/cICP). Dropping it changes how wide-gamut\nimages look.",
+          "type": "string",
+          "const": "icc"
+        },
+        {
+          "description": "The EXIF orientation tag, rewritten as a minimal EXIF block.",
+          "type": "string",
+          "const": "orientation"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GifParams",
+  "description": "`gif.optimise`.",
+  "type": "object",
+  "properties": {
+    "allow_larger": {
+      "description": "Write the result even when it is not smaller than the input. Optimise ops default to false\n(and answer `already_smaller`); resize, crop, convert and encode ops default to true.",
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "default": null
+    },
+    "backend": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GifBackend"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "colors": {
+      "description": "Maximum palette size 2..=256. Default from `compression`.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint16",
+      "default": null,
+      "maximum": 256,
+      "minimum": 2
+    },
+    "compression": {
+      "description": "Compression factor; see `EncodeParams.compression`.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint8",
+      "default": null,
+      "maximum": 100,
+      "minimum": 0
+    },
+    "in_place": {
+      "description": "Allow `output` to equal `input` (or be omitted). The engine writes a temporary file in the\nsame folder and renames it over the input, keeping its mode, creation date and extended\nattributes.",
+      "type": "boolean",
+      "default": false
+    },
+    "keep": {
+      "description": "What `strip` keeps. Default `[\"icc\", \"orientation\"]`; `[]` strips everything.",
+      "type": [
+        "array",
+        "null"
+      ],
+      "default": null,
+      "items": {
+        "$ref": "#/$defs/Keep"
+      }
+    },
+    "level": {
+      "description": "gifsicle `-O` level 1..=3. Default from `compression`.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint8",
+      "default": null,
+      "maximum": 3,
+      "minimum": 1
+    },
+    "lossy": {
+      "description": "gifsicle `--lossy` 0..=200 (0 = lossless). Default from `compression` (30 at 30).",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "default": null,
+      "maximum": 200,
+      "minimum": 0
+    },
+    "strip": {
+      "description": "Remove metadata (EXIF, XMP, IPTC, comments, text chunks) except what `keep` lists.",
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "$defs": {
+    "GifBackend": {
+      "description": "Which GIF optimiser runs.",
+      "oneOf": [
+        {
+          "description": "gifsicle when found (`$ESCLOP_BIN`, next to the engine, then `PATH`), else built-in.",
+          "type": "string",
+          "const": "auto"
+        },
+        {
+          "description": "gifsicle, or `unsupported` when it is not found.",
+          "type": "string",
+          "const": "gifsicle"
+        },
+        {
+          "description": "The engine's own re-encode (gif decoder + gifski/imagequant).",
+          "type": "string",
+          "const": "builtin"
+        }
+      ]
+    },
+    "Keep": {
+      "description": "Metadata that `strip` keeps.",
+      "oneOf": [
+        {
+          "description": "The colour profile (ICC, and PNG sRGB/gAMA/cHRM/cICP). Dropping it changes how wide-gamut\nimages look.",
+          "type": "string",
+          "const": "icc"
+        },
+        {
+          "description": "The EXIF orientation tag, rewritten as a minimal EXIF block.",
+          "type": "string",
+          "const": "orientation"
+        }
+      ]
+    }
+  }
+}

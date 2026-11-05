@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Response",
+  "description": "One response line: exactly one per request (except `cancel`, which has none).",
+  "type": "object",
+  "properties": {
+    "error": {
+      "description": "Present when `ok` is false.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ErrorBody"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "result": {
+      "description": "Present when `ok` is true. `OpResult` for every op but `hello`, which returns `HelloResult`."
+    }
+  },
+  "required": [
+    "ok"
+  ],
+  "$defs": {
+    "ErrorBody": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/ErrorCode"
+        },
+        "message": {
+          "description": "For people and agents; do not parse.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ]
+    },
+    "ErrorCode": {
+      "description": "Error codes from `engine/PROTOCOL.md`. The set is closed: clients switch on it.",
+      "oneOf": [
+        {
+          "description": "The input format, or this combination of input and op, is not handled by the engine.",
+          "type": "string",
+          "const": "unsupported"
+        },
+        {
+          "description": "The input file (or the folder of the output) does not exist.",
+          "type": "string",
+          "const": "not_found"
+        },
+        {
+          "description": "The input could not be decoded (corrupt or truncated file).",
+          "type": "string",
+          "const": "decode"
+        },
+        {
+          "description": "An encoder failed.",
+          "type": "string",
+          "const": "encode"
+        },
+        {
+          "description": "Reading or writing a file failed.",
+          "type": "string",
+          "const": "io"
+        },
+        {
+          "description": "The result would not be smaller than the input; nothing was written.",
+          "type": "string",
+          "const": "already_smaller"
+        },
+        {
+          "description": "The request or its params are malformed or out of range.",
+          "type": "string",
+          "const": "invalid_params"
+        },
+        {
+          "description": "The request was cancelled before it finished; nothing was written.",
+          "type": "string",
+          "const": "cancelled"
+        },
+        {
+          "description": "A bug in the engine (a caught panic, an impossible state).",
+          "type": "string",
+          "const": "internal"
+        }
+      ]
+    }
+  }
+}

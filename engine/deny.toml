@@ -1,0 +1,73 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Licence and supply-chain policy for esclop-engine. `cargo deny check` runs it.
+# The engine is GPL-3.0-or-later; everything it links must be compatible with that.
+
+[graph]
+targets = ["aarch64-apple-darwin", "x86_64-apple-darwin"]
+# every buildable configuration: both AVIF codecs (avif-aom, avif-rav1e)
+all-features = true
+
+[licenses]
+# GPL-3.0-or-later compatible. GPL-2.0-only (gifsicle) is deliberately absent: it is only ever
+# run as a separate process. Anything unlisted, unknown or without a licence fails the check.
+allow = [
+    "MIT",
+    "MIT-0",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSD-3-Clause-Clear",
+    "ISC",
+    "Zlib",
+    "IJG",
+    "MPL-2.0",
+    "LGPL-2.1-or-later",
+    "LGPL-3.0-or-later",
+    "GPL-3.0-or-later",
+    "AGPL-3.0-or-later",
+    "Unicode-3.0",
+    "CC0-1.0",
+    "Unlicense",
+    "BSL-1.0",
+]
+confidence-threshold = 0.93
+# the allowlist is policy, not inventory: entries no current crate uses are fine
+unused-allowed-license = "allow"
+
+[licenses.private]
+ignore = false
+
+[bans]
+multiple-versions = "allow"
+wildcards = "deny"
+# The engine never talks to the network: no HTTP, TLS or socket crates may enter the tree.
+deny = [
+    { crate = "reqwest" },
+    { crate = "hyper" },
+    { crate = "ureq" },
+    { crate = "curl" },
+    { crate = "openssl" },
+    { crate = "openssl-sys" },
+    { crate = "native-tls" },
+    { crate = "rustls" },
+    { crate = "tokio" },
+    { crate = "mio" },
+    { crate = "ffmpeg-sys-next" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+
+[advisories]
+# Advisories need the RustSec database (a network fetch at check time; the engine itself never
+# reads the network). Offline runs can use `cargo deny check licenses bans sources`.
+yanked = "warn"
+ignore = [
+    # `paste` is a proc-macro rav1e uses at compile time (avif-rav1e builds only); no code of it
+    # ends up in the binary.
+    # The advisory is "unmaintained", not a vulnerability. Revisit when rav1e drops it.
+    { id = "RUSTSEC-2024-0436", reason = "compile-time proc-macro of rav1e, unmaintained only" },
+]

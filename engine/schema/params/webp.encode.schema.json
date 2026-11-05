@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WebpParams",
+  "description": "`webp.encode`: libwebp from any decodable input; animated GIF/WebP input stays animated.",
+  "type": "object",
+  "properties": {
+    "allow_larger": {
+      "description": "Write the result even when it is not smaller than the input. Optimise ops default to false\n(and answer `already_smaller`); resize, crop, convert and encode ops default to true.",
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "default": null
+    },
+    "compression": {
+      "description": "Compression factor; see `EncodeParams.compression`.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint8",
+      "default": null,
+      "maximum": 100,
+      "minimum": 0
+    },
+    "in_place": {
+      "description": "Allow `output` to equal `input` (or be omitted). The engine writes a temporary file in the\nsame folder and renames it over the input, keeping its mode, creation date and extended\nattributes.",
+      "type": "boolean",
+      "default": false
+    },
+    "keep": {
+      "description": "What `strip` keeps. Default `[\"icc\", \"orientation\"]`; `[]` strips everything.",
+      "type": [
+        "array",
+        "null"
+      ],
+      "default": null,
+      "items": {
+        "$ref": "#/$defs/Keep"
+      }
+    },
+    "lossless": {
+      "description": "Lossless WebP (default false).",
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "default": null
+    },
+    "method": {
+      "description": "libwebp method 0..=6 (default 4, as cwebp).",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint8",
+      "default": null,
+      "maximum": 6,
+      "minimum": 0
+    },
+    "quality": {
+      "description": "cwebp `-q` 0..=100. Default from `compression` (60 at 30).",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint8",
+      "default": null,
+      "maximum": 100,
+      "minimum": 0
+    },
+    "strip": {
+      "description": "Remove metadata (EXIF, XMP, IPTC, comments, text chunks) except what `keep` lists.",
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "$defs": {
+    "Keep": {
+      "description": "Metadata that `strip` keeps.",
+      "oneOf": [
+        {
+          "description": "The colour profile (ICC, and PNG sRGB/gAMA/cHRM/cICP). Dropping it changes how wide-gamut\nimages look.",
+          "type": "string",
+          "const": "icc"
+        },
+        {
+          "description": "The EXIF orientation tag, rewritten as a minimal EXIF block.",
+          "type": "string",
+          "const": "orientation"
+        }
+      ]
+    }
+  }
+}

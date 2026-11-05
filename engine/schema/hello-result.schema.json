@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HelloResult",
+  "description": "`result` of `hello`.",
+  "type": "object",
+  "properties": {
+    "features": {
+      "$ref": "#/$defs/Features"
+    },
+    "ops": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "protocol": {
+      "description": "Wire protocol version; see `PROTOCOL_VERSION`.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "version": {
+      "description": "Engine version (semver).",
+      "type": "string"
+    }
+  },
+  "required": [
+    "version",
+    "protocol",
+    "ops",
+    "features"
+  ],
+  "$defs": {
+    "Features": {
+      "type": "object",
+      "properties": {
+        "avif_encoder": {
+          "description": "The AVIF encoder of this build, e.g. `\"libaom 3.15.3 (tune=iq)\"`, or null when the build\nhas none: then `avif.encode` answers `unsupported` and the client encodes AVIF itself\n(ImageIO).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "capabilities": {
+          "description": "Extra protocol capabilities: `cancel`, `progress`, `in_place`, `ignored_params`.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "compression_aggressive": {
+          "type": "integer",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0
+        },
+        "compression_normal": {
+          "description": "The compression factor anchors.",
+          "type": "integer",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0
+        },
+        "decode": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Format"
+          }
+        },
+        "encode": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Format"
+          }
+        },
+        "gifsicle": {
+          "description": "Path of the gifsicle `gif.optimise` would run, or null.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "jpeg_codec": {
+          "description": "The JPEG codec behind `jpeg.*` (`mozjpeg`).",
+          "type": "string"
+        },
+        "workers": {
+          "description": "Requests that run at the same time in `serve`; the rest wait in order.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "decode",
+        "encode",
+        "jpeg_codec",
+        "workers",
+        "compression_normal",
+        "compression_aggressive",
+        "capabilities"
+      ]
+    },
+    "Format": {
+      "description": "Image formats the engine recognises. Decodable: png, jpeg, gif, webp, tiff, bmp.\nEncodable: png, jpeg, webp, avif, gif. heic, avif and jxl are recognised by `probe` only.",
+      "type": "string",
+      "enum": [
+        "png",
+        "jpeg",
+        "gif",
+        "webp",
+        "avif",
+        "tiff",
+        "bmp",
+        "heic",
+        "jxl"
+      ]
+    }
+  }
+}

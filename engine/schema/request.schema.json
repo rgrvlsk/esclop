@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Request",
+  "description": "One request line.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "description": "Ties responses and progress events to the request. Strings are recommended; numbers are\nechoed back unchanged. For `cancel`, the id of the request to cancel.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null
+    },
+    "input": {
+      "description": "Absolute path of the input file. Not used by `hello`, `cancel` and `gif.from_frames`.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null
+    },
+    "op": {
+      "description": "One of the ops listed by `hello`.",
+      "type": "string"
+    },
+    "output": {
+      "description": "Absolute path of the output file. May equal `input` only with `params.in_place`;\nwith `in_place` it may be omitted. Not used by `probe`.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null
+    },
+    "params": {
+      "description": "The op's params (see the per-op schemas). Unknown keys are reported back in\n`result.ignored_params`, never silently dropped.",
+      "default": null
+    }
+  },
+  "required": [
+    "op"
+  ]
+}

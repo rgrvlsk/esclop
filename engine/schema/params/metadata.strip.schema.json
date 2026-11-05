@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StripParams",
+  "description": "`metadata.strip`: removes metadata without re-encoding pixels (JPEG segments, PNG chunks,\nWebP chunks, GIF comments and application extensions).",
+  "type": "object",
+  "properties": {
+    "allow_larger": {
+      "description": "Write even when nothing was removed (default true).",
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "default": null
+    },
+    "in_place": {
+      "type": "boolean",
+      "default": false
+    },
+    "keep": {
+      "description": "What to keep. Default `[\"icc\", \"orientation\"]`; `[]` strips everything.",
+      "type": [
+        "array",
+        "null"
+      ],
+      "default": null,
+      "items": {
+        "$ref": "#/$defs/Keep"
+      }
+    }
+  },
+  "$defs": {
+    "Keep": {
+      "description": "Metadata that `strip` keeps.",
+      "oneOf": [
+        {
+          "description": "The colour profile (ICC, and PNG sRGB/gAMA/cHRM/cICP). Dropping it changes how wide-gamut\nimages look.",
+          "type": "string",
+          "const": "icc"
+        },
+        {
+          "description": "The EXIF orientation tag, rewritten as a minimal EXIF block.",
+          "type": "string",
+          "const": "orientation"
+        }
+      ]
+    }
+  }
+}

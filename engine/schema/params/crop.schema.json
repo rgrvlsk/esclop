@@ -1,0 +1,288 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CropParams",
+  "description": "`crop`. Three forms:\n1. `x`, `y`, `width`, `height`: that rectangle.\n2. `aspect` (+ `gravity` or `smart`): the largest rectangle of that aspect; then, when `width`\n   or `height` is also given, scaled down to it.\n3. `width` and `height` alone: crop to their aspect, then scale to exactly that size (Clop's\n   \"crop to size\").\n\n`smart` is a saliency rectangle (from Vision on the Swift side): the crop is centred on it as\nfar as the image allows, and `gravity` is ignored. Coordinates are in displayed pixels.",
+  "type": "object",
+  "properties": {
+    "allow_larger": {
+      "description": "Write the result even when it is not smaller than the input. Optimise ops default to false\n(and answer `already_smaller`); resize, crop, convert and encode ops default to true.",
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "default": null
+    },
+    "aspect": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Aspect"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "colors": {
+      "description": "png/gif: maximum palette size 2..=256.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint16",
+      "default": null,
+      "maximum": 256,
+      "minimum": 2
+    },
+    "compression": {
+      "description": "Compression factor 0..=100, higher is smaller: 30 is \"normal\", 64 \"aggressive\". Used for\nevery encoder setting not given explicitly. Default 30.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint8",
+      "default": null,
+      "maximum": 100,
+      "minimum": 0
+    },
+    "format": {
+      "description": "Output format (default: the input's).",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Format"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "gravity": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Gravity"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "height": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "default": null,
+      "minimum": 0
+    },
+    "in_place": {
+      "description": "Allow `output` to equal `input` (or be omitted). The engine writes a temporary file in the\nsame folder and renames it over the input, keeping its mode, creation date and extended\nattributes.",
+      "type": "boolean",
+      "default": false
+    },
+    "keep": {
+      "description": "What `strip` keeps. Default `[\"icc\", \"orientation\"]`; `[]` strips everything.",
+      "type": [
+        "array",
+        "null"
+      ],
+      "default": null,
+      "items": {
+        "$ref": "#/$defs/Keep"
+      }
+    },
+    "lossless": {
+      "description": "webp: lossless encoding (default false).",
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "default": null
+    },
+    "lossy": {
+      "description": "png: quantise to a palette (default true). false keeps every colour (oxipng only).",
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "default": null
+    },
+    "method": {
+      "description": "webp: libwebp method 0..=6 (default 4).",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint8",
+      "default": null,
+      "maximum": 6,
+      "minimum": 0
+    },
+    "progressive": {
+      "description": "jpeg: progressive scans (default true).",
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "default": null
+    },
+    "quality": {
+      "description": "Encoder quality 0..=100, higher is better. jpeg: libjpeg quality; webp: cwebp `-q`;\navif: heif-enc quality; png: imagequant target quality (minimum 0); gif: gifski quality.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint8",
+      "default": null,
+      "maximum": 100,
+      "minimum": 0
+    },
+    "smart": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Rect"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "speed": {
+      "description": "png: imagequant speed 1..=10; avif: encoder speed 1..=10 (default 6).",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint8",
+      "default": null,
+      "maximum": 10,
+      "minimum": 1
+    },
+    "strip": {
+      "description": "Remove metadata (EXIF, XMP, IPTC, comments, text chunks) except what `keep` lists.",
+      "type": "boolean",
+      "default": false
+    },
+    "width": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "default": null,
+      "minimum": 0
+    },
+    "x": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "default": null,
+      "minimum": 0
+    },
+    "y": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "default": null,
+      "minimum": 0
+    }
+  },
+  "$defs": {
+    "Aspect": {
+      "description": "An aspect ratio: `\"16:9\"`, `\"1:1\"` or a number (width / height).",
+      "anyOf": [
+        {
+          "type": "number",
+          "format": "double"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "Format": {
+      "description": "Image formats the engine recognises. Decodable: png, jpeg, gif, webp, tiff, bmp.\nEncodable: png, jpeg, webp, avif, gif. heic, avif and jxl are recognised by `probe` only.",
+      "type": "string",
+      "enum": [
+        "png",
+        "jpeg",
+        "gif",
+        "webp",
+        "avif",
+        "tiff",
+        "bmp",
+        "heic",
+        "jxl"
+      ]
+    },
+    "Gravity": {
+      "description": "Where an aspect crop sits when it does not use the whole image.",
+      "type": "string",
+      "enum": [
+        "center",
+        "top",
+        "bottom",
+        "left",
+        "right",
+        "top_left",
+        "top_right",
+        "bottom_left",
+        "bottom_right"
+      ]
+    },
+    "Keep": {
+      "description": "Metadata that `strip` keeps.",
+      "oneOf": [
+        {
+          "description": "The colour profile (ICC, and PNG sRGB/gAMA/cHRM/cICP). Dropping it changes how wide-gamut\nimages look.",
+          "type": "string",
+          "const": "icc"
+        },
+        {
+          "description": "The EXIF orientation tag, rewritten as a minimal EXIF block.",
+          "type": "string",
+          "const": "orientation"
+        }
+      ]
+    },
+    "Rect": {
+      "description": "A rectangle in displayed pixels.",
+      "type": "object",
+      "properties": {
+        "height": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "width": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "x": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "y": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ]
+    }
+  }
+}

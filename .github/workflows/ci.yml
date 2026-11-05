@@ -1,0 +1,115 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Build and test Swift, the engine and bundled tools on every pull request and push to main.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  HOMEBREW_NO_AUTO_UPDATE: "1"
+  HOMEBREW_NO_INSTALL_CLEANUP: "1"
+
+jobs:
+  privacy:
+    name: secrets and private paths
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Gitleaks
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/gitleaks.tar.gz" https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git --log-opts=--all --redact --no-banner
+      - name: Private paths
+        run: python3 Scripts/privacy-check.py
+
+  scripts:
+    name: scripts and workflows
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # A pinned release instead of `brew install`, which spent most of this job's minutes.
+      - name: actionlint
+        run: |
+          curl -fsSL -o actionlint.tar.gz "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_darwin_arm64.tar.gz"
+          echo "aba9ced2dee8d27fecca3dc7feb1a7f9a52caefa1eb46f3271ea66b6e0e6953f  actionlint.tar.gz" | shasum -a 256 -c -
+          tar -xzf actionlint.tar.gz actionlint
+          ./actionlint
+      - name: Shell syntax
+        run: for f in Scripts/*.sh; do bash -n "$f" || exit 1; done
+      - name: Licence gate tests
+        run: Scripts/licence-gate-test.sh
+      - name: Release notes render from CHANGELOG.md
+        run: Scripts/release-notes.sh --unreleased 0.0.0 > /dev/null
+
+  swift:
+    name: swift build and test
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: swift --version
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .build
+          key: swift-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved') }}-${{ github.sha }}
+          restore-keys: swift-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved') }}-
+      # With Xcode on the runner, Package.swift includes the app, so this also compiles EsclopApp.
+      - run: swift build --build-tests
+      # Suites that need ffmpeg, gs, gifsicle or esclop-engine skip here; the gate job reruns
+      # them with the real tools.
+      - run: Scripts/test.sh
+      - if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .build
+          key: swift-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved') }}-${{ github.sha }}
+
+  binaries:
+    uses: ./.github/workflows/binaries.yml
+
+  gate:
+    name: licence gate and tests with the real tools
+    needs: [binaries]
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: "{tools,engine}"
+          merge-multiple: true
+      - name: Unpack into Binaries/
+        run: |
+          tar -xf tools.tar -C Binaries
+          tar -xf engine.tar -C Binaries
+          ls -l Binaries
+      - name: Payload size per architecture
+        run: Scripts/payload-size.sh Binaries
+      # Limit payload growth above the measured 96.7 MB with a 5 % margin.
+      - name: Licence gate over Binaries/
+        run: Scripts/licence-gate.sh --universal --max-mb 102 Binaries
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .build
+          key: swift-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved') }}-${{ github.sha }}
+          restore-keys: swift-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved') }}-
+      - name: swift test with the bundled tools
+        run: Scripts/test.sh

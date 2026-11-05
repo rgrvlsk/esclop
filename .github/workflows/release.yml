@@ -1,0 +1,178 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# On a tag v<version>: build everything universal, run the licence gate, package the CLI and
+# the complete corresponding source, and open a DRAFT GitHub release with them. A person
+# reviews and publishes the draft.
+#
+# Run it by hand (workflow_dispatch) for a dry run: same build and artefacts, kept as a workflow
+# artefact, no release.
+#
+# Signing and notarisation read these secrets by name and are skipped when they are absent:
+#   MACOS_CERTIFICATE           base64 of a Developer ID Application .p12
+#   MACOS_CERTIFICATE_PASSWORD  its password
+#   APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD   notarytool credentials (app-specific password)
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: "1.99"
+  MACOSX_DEPLOYMENT_TARGET: "14.0"
+  HOMEBREW_NO_AUTO_UPDATE: "1"
+  HOMEBREW_NO_INSTALL_CLEANUP: "1"
+
+jobs:
+  binaries:
+    uses: ./.github/workflows/binaries.yml
+    with:
+      tool-sources: true
+
+  package:
+    name: package and draft release
+    needs: [binaries]
+    runs-on: macos-15
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    env:
+      DRY_RUN: ${{ github.event_name != 'push' }}
+      HAS_CERT: ${{ secrets.MACOS_CERTIFICATE != '' && secrets.MACOS_CERTIFICATE_PASSWORD != '' }}
+      HAS_NOTARY: ${{ secrets.APPLE_ID != '' && secrets.APPLE_TEAM_ID != '' && secrets.APPLE_APP_PASSWORD != '' }}
+      # Enable once the menu bar app is ready for distribution.
+      # Until then the .app is assembled as a smoke test of Scripts/bundle-app.sh but no DMG is
+      # made or attached.
+      SHIP_APP: "false"
+      ESCLOP_SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+      ESCLOP_BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Signing keychain path
+        run: echo "KEYCHAIN=$RUNNER_TEMP/esclop-signing.keychain-db" >> "$GITHUB_ENV"
+      - name: Rust toolchain (cargo vendor, the gate's cargo tree)
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+          rustup default "$RUST_TOOLCHAIN"
+      - name: zstd
+        run: command -v zstd || brew install zstd
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: "{tools,engine,tool-sources,engine-sources}"
+          merge-multiple: true
+      - name: Unpack into Binaries/
+        run: |
+          tar -xf tools.tar -C Binaries
+          tar -xf engine.tar -C Binaries
+          mkdir -p Binaries/.cache && tar -xf tool-sources.tar -C Binaries/.cache
+          tar -xf engine-sources.tar -C Binaries/.cache
+          rm -f tools.tar engine.tar tool-sources.tar engine-sources.tar
+      - name: Licence gate over Binaries/
+        run: Scripts/licence-gate.sh --universal Binaries
+
+      # ---------------------------------------------------------------- signing (optional)
+      - name: Import the Developer ID certificate
+        if: env.HAS_CERT == 'true'
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          kc_pass="$(uuidgen)"
+          security create-keychain -p "$kc_pass" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$kc_pass" "$KEYCHAIN"
+          printf '%s' "$MACOS_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/cert.p12"
+          security set-key-partition-list -S apple-tool:,apple: -k "$kc_pass" "$KEYCHAIN" > /dev/null
+          search=("$KEYCHAIN")
+          while read -r k; do search+=("$(printf '%s' "$k" | tr -d '"')"); done < <(security list-keychains -d user)
+          security list-keychains -d user -s "${search[@]}"
+          identity="$(security find-identity -v -p codesigning "$KEYCHAIN" | awk -F'"' '/Developer ID Application/ {print $2; exit}')"
+          [ -n "$identity" ] || { echo "::error::no Developer ID Application identity in MACOS_CERTIFICATE"; exit 1; }
+          echo "ESCLOP_SIGN_IDENTITY=$identity" >> "$GITHUB_ENV"
+      - name: Store notarisation credentials
+        if: env.HAS_CERT == 'true' && env.HAS_NOTARY == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          xcrun notarytool store-credentials esclop-notary --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" --keychain "$KEYCHAIN"
+          echo "ESCLOP_NOTARY_PROFILE=esclop-notary" >> "$GITHUB_ENV"
+      - name: Signing skipped
+        if: env.HAS_CERT != 'true' || env.HAS_NOTARY != 'true'
+        run: |
+          echo "::notice::Signing secrets present: ${HAS_CERT}, notarisation secrets present: ${HAS_NOTARY}. Missing ones are skipped; without a certificate the binaries are signed ad hoc."
+
+      # ---------------------------------------------------------------- artefacts
+      - name: Package the CLI and the corresponding source
+        run: |
+          if [ "$DRY_RUN" = true ]; then
+            Scripts/package-release.sh --dry-run
+          else
+            Scripts/package-release.sh --ref "$GITHUB_REF_NAME"
+          fi
+
+      - name: App and DMG
+        # App bundling is a smoke check until SHIP_APP is enabled.
+        continue-on-error: ${{ env.SHIP_APP != 'true' }}
+        run: |
+          Scripts/bundle-app.sh
+          if [ "$SHIP_APP" != true ]; then
+            echo "::notice::App/DMG skipped: SHIP_APP is false until the app is ready. The .app above was a smoke test and is not attached."
+            exit 0
+          fi
+          app="dist/L'Esclop.app"
+          [ -d "$app" ] || { echo "::error::Scripts/bundle-app.sh produced no app"; exit 1; }
+          version="$(plutil -extract CFBundleShortVersionString raw -o - "$app/Contents/Info.plist")"
+          dmg="dist/LEsclop-$version.dmg"
+          hdiutil create -volname "L'Esclop" -srcfolder "$app" -fs APFS -format ULFO -ov "$dmg"
+          if [ -n "${ESCLOP_SIGN_IDENTITY:-}" ]; then
+            codesign --force --timestamp --sign "$ESCLOP_SIGN_IDENTITY" "$dmg"
+          fi
+          if [ -n "${ESCLOP_NOTARY_PROFILE:-}" ]; then
+            xcrun notarytool submit "$dmg" --keychain-profile "$ESCLOP_NOTARY_PROFILE" --wait
+            xcrun stapler staple "$dmg"
+          fi
+          (cd dist && shasum -a 256 "$(basename "$dmg")" >> SHA256SUMS)
+
+      - name: Keep the artefacts on the run
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-${{ github.ref_name }}
+          path: |
+            dist/*.tar.*
+            dist/*.dmg
+            dist/SHA256SUMS
+            dist/release-notes.md
+          retention-days: 14
+
+      - name: Draft GitHub release
+        if: env.DRY_RUN != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          files=(dist/*.tar.* dist/SHA256SUMS)
+          for d in dist/*.dmg; do [ -f "$d" ] && files+=("$d"); done
+          if draft="$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft 2>/dev/null)"; then
+            [ "$draft" = true ] || { echo "::error::Refusing to replace assets of a published release"; exit 1; }
+            gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" --draft --verify-tag \
+              --title "L'Esclop ${GITHUB_REF_NAME#v}" --notes-file dist/release-notes.md "${files[@]}"
+          fi
+
+      - name: Remove the signing keychain
+        if: always() && env.HAS_CERT == 'true'
+        run: security delete-keychain "$KEYCHAIN" || true

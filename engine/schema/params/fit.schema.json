@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FitParams",
+  "description": "`fit`: the best quality, then the largest scale, whose output is at most `target_bytes`.\nEvery probe encodes from the original pixels, so nothing compounds.",
+  "type": "object",
+  "properties": {
+    "allow_larger": {
+      "description": "Write the result even when it is not smaller than the input. Optimise ops default to false\n(and answer `already_smaller`); resize, crop, convert and encode ops default to true.",
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "default": null
+    },
+    "allow_resize": {
+      "description": "Downscale when even `min_quality` is too big (default true).",
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "default": null
+    },
+    "format": {
+      "description": "Output format (default: the input's).",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Format"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "in_place": {
+      "description": "Allow `output` to equal `input` (or be omitted). The engine writes a temporary file in the\nsame folder and renames it over the input, keeping its mode, creation date and extended\nattributes.",
+      "type": "boolean",
+      "default": false
+    },
+    "keep": {
+      "description": "What `strip` keeps. Default `[\"icc\", \"orientation\"]`; `[]` strips everything.",
+      "type": [
+        "array",
+        "null"
+      ],
+      "default": null,
+      "items": {
+        "$ref": "#/$defs/Keep"
+      }
+    },
+    "lossy": {
+      "description": "png: quantise (default true). webp: lossless is never used by fit.",
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "default": null
+    },
+    "max_quality": {
+      "description": "Highest encoder quality to try (default 95; for a JPEG input, at most its own quality).",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint8",
+      "default": null,
+      "maximum": 100,
+      "minimum": 0
+    },
+    "min_quality": {
+      "description": "Lowest encoder quality to try (default 10).",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint8",
+      "default": null,
+      "maximum": 100,
+      "minimum": 0
+    },
+    "min_scale": {
+      "description": "Smallest scale to try (default 0.1).",
+      "type": [
+        "number",
+        "null"
+      ],
+      "format": "double",
+      "default": null
+    },
+    "speed": {
+      "description": "avif speed (default 6).",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint8",
+      "default": null,
+      "maximum": 10,
+      "minimum": 1
+    },
+    "strip": {
+      "description": "Remove metadata (EXIF, XMP, IPTC, comments, text chunks) except what `keep` lists.",
+      "type": "boolean",
+      "default": false
+    },
+    "target_bytes": {
+      "description": "Required, > 0.",
+      "type": "integer",
+      "format": "uint64",
+      "default": 0,
+      "minimum": 0
+    }
+  },
+  "$defs": {
+    "Format": {
+      "description": "Image formats the engine recognises. Decodable: png, jpeg, gif, webp, tiff, bmp.\nEncodable: png, jpeg, webp, avif, gif. heic, avif and jxl are recognised by `probe` only.",
+      "type": "string",
+      "enum": [
+        "png",
+        "jpeg",
+        "gif",
+        "webp",
+        "avif",
+        "tiff",
+        "bmp",
+        "heic",
+        "jxl"
+      ]
+    },
+    "Keep": {
+      "description": "Metadata that `strip` keeps.",
+      "oneOf": [
+        {
+          "description": "The colour profile (ICC, and PNG sRGB/gAMA/cHRM/cICP). Dropping it changes how wide-gamut\nimages look.",
+          "type": "string",
+          "const": "icc"
+        },
+        {
+          "description": "The EXIF orientation tag, rewritten as a minimal EXIF block.",
+          "type": "string",
+          "const": "orientation"
+        }
+      ]
+    }
+  }
+}
