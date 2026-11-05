@@ -7,6 +7,7 @@
 #   Contents/MacOS/esclop        the command line (universal), so the app can install it
 #   Contents/Resources/bin/      the bundled tools and esclop-engine, from Binaries/
 #   Contents/Resources/LICENSES/ every licence text and notice (Scripts/stage-notices.sh)
+#   Contents/Resources/AppIcon.icns from assets/icon.svg (Scripts/make-icon.swift)
 # then signs it (ad hoc, or with $ESCLOP_SIGN_IDENTITY and the hardened runtime), verifies the
 # signature and runs the licence gate on the result.
 #
@@ -54,15 +55,23 @@ printf 'APPL????' > "$APP/Contents/PkgInfo"
 for t in esclop-engine ffmpeg ffprobe gs gifsicle; do cp "Binaries/$t" "$APP/Contents/Resources/bin/"; done
 Scripts/stage-notices.sh "$APP/Contents/Resources/LICENSES"
 
-# SwiftPM resource bundles (Bundle.module). TODO(app): SwiftPM's generated accessor looks for
-# them next to the executable's bundle URL; check it finds Contents/Resources once the app has
-# resources, or load them through Bundle.main instead.
+# SwiftPM resource bundles (Bundle.module), for the app's dependencies (KeyboardShortcuts). The
+# generated accessors look in Bundle.main.resourceURL first, which is Contents/Resources.
 bindir="$(swift build -c release --triple arm64-apple-macosx14.0 --show-bin-path)"
-for b in "$bindir"/*_"$EXEC".bundle; do
+for b in "$bindir"/*.bundle; do
   [ -d "$b" ] && cp -R "$b" "$APP/Contents/Resources/"
 done
-# TODO(app): an icon. assets/icon.svg has to become AppIcon.icns (iconutil) and
-# CFBundleIconFile has to be added to the template.
+
+# The icon: assets/icon.svg drawn at every size into AppIcon.icns (CFBundleIconFile in the
+# template). A template glyph at assets/menubar-icon.{pdf,png,svg}, when there is one, becomes
+# the menu bar icon (Contents/Resources/MenuBarIcon.*); without it the app uses a system symbol.
+iconset="$(mktemp -d "${TMPDIR:-/tmp}/esclop-icon.XXXXXX")/AppIcon.iconset"
+swift Scripts/make-icon.swift assets/icon.svg "$iconset"
+iconutil -c icns "$iconset" -o "$APP/Contents/Resources/AppIcon.icns"
+rm -rf "$(dirname "$iconset")"
+for ext in pdf png svg; do
+  [ -f "assets/menubar-icon.$ext" ] && cp "assets/menubar-icon.$ext" "$APP/Contents/Resources/MenuBarIcon.$ext"
+done
 
 # Sign inside out: nested executables first, then the bundle.
 if [ -n "${ESCLOP_SIGN_IDENTITY:-}" ]; then
