@@ -209,6 +209,26 @@ func scratchFolder(_ name: String = #function) throws -> URL {
         #expect(offending.isEmpty, "\(offending)")
     }
 
+    @Test func longRunningChildStreamsLines() async throws {
+        let child = try ProcessRunner.launch(executable: URL(fileURLWithPath: "/bin/cat"), arguments: [])
+        try child.send("one")
+        try child.send("two")
+        var received: [String] = []
+        for await line in child.lines {
+            received.append(line)
+            if received.count == 2 { break }
+        }
+        #expect(received == ["one", "two"])
+        child.stop(grace: 0.1)
+    }
+}
+
+
+/// Stress judges for ProcessRunner. They saturate the CPUs for several seconds, which makes
+/// the wall-clock assertions of other suites in the same test process flaky on a 5-CPU CI
+/// runner, so they run on their own: `ESCLOP_STRESS=1 Scripts/test.sh --filter ProcessRunnerStressTests`.
+@Suite(.enabled(if: ProcessInfo.processInfo.environment["ESCLOP_STRESS"] != nil, "set ESCLOP_STRESS=1"))
+struct ProcessRunnerStressTests {
     /// The stress judge for pipe draining: many children at once, each interleaving megabytes on
     /// stdout and stderr (more than a pipe buffer holds, so a reader that stalls blocks the child),
     /// some fed megabytes on stdin while they write, with line handlers on both streams.
@@ -273,19 +293,6 @@ func scratchFolder(_ name: String = #function) throws -> URL {
             for try await tail in group where !tail.contains("dying-") { missing += 1 }
             #expect(missing == 0, "\(missing) of 200 exit handlers ran before the child's stderr arrived")
         }
-    }
-
-    @Test func longRunningChildStreamsLines() async throws {
-        let child = try ProcessRunner.launch(executable: URL(fileURLWithPath: "/bin/cat"), arguments: [])
-        try child.send("one")
-        try child.send("two")
-        var received: [String] = []
-        for await line in child.lines {
-            received.append(line)
-            if received.count == 2 { break }
-        }
-        #expect(received == ["one", "two"])
-        child.stop(grace: 0.1)
     }
 }
 

@@ -80,6 +80,14 @@ jobs:
         timeout-minutes: 10
         env:
           ESCLOP_TEST_TIMEOUT: "300"
+      # The ProcessRunner stress judges run alone, so their CPU load cannot skew the
+      # wall-clock assertions of the other suites.
+      - name: ProcessRunner stress tests
+        run: Scripts/test.sh --filter ProcessRunnerStressTests
+        timeout-minutes: 10
+        env:
+          ESCLOP_STRESS: "1"
+          ESCLOP_TEST_TIMEOUT: "300"
       - if: github.ref == 'refs/heads/main'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
