@@ -209,15 +209,6 @@ func scratchFolder(_ name: String = #function) throws -> URL {
         #expect(offending.isEmpty, "\(offending)")
     }
 
-    @Test func setsEsclopBin() async throws {
-        let folder = try scratchFolder()
-        let locator = ToolLocator(searchDirectories: [folder])
-        let result = try await ProcessRunner.run(
-            executable: URL(fileURLWithPath: "/bin/sh"), arguments: ["-c", "printf %s \"$ESCLOP_BIN\""], locator: locator
-        )
-        #expect(result.stdoutString == folder.path)
-    }
-
     @Test func longRunningChildStreamsLines() async throws {
         let child = try ProcessRunner.launch(executable: URL(fileURLWithPath: "/bin/cat"), arguments: [])
         try child.send("one")
@@ -229,6 +220,79 @@ func scratchFolder(_ name: String = #function) throws -> URL {
         }
         #expect(received == ["one", "two"])
         child.stop(grace: 0.1)
+    }
+}
+
+
+/// Stress judges for ProcessRunner. They saturate the CPUs for several seconds, which makes
+/// the wall-clock assertions of other suites in the same test process flaky on a 5-CPU CI
+/// runner, so they run on their own: `ESCLOP_STRESS=1 Scripts/test.sh --filter ProcessRunnerStressTests`.
+@Suite(.enabled(if: ProcessInfo.processInfo.environment["ESCLOP_STRESS"] != nil, "set ESCLOP_STRESS=1"))
+struct ProcessRunnerStressTests {
+    /// The stress judge for pipe draining: many children at once, each interleaving megabytes on
+    /// stdout and stderr (more than a pipe buffer holds, so a reader that stalls blocks the child),
+    /// some fed megabytes on stdin while they write, with line handlers on both streams.
+    @Test(.timeLimit(.minutes(1))) func manyChildrenWritingMegabytesToBothPipesAllFinish() async throws {
+        let perl = URL(fileURLWithPath: "/usr/bin/perl")
+        let chunk = 64 * 1024
+        let chunks = 48 // 3 MB per stream
+        let writer = "for (1..\(chunks)) { print STDOUT 'o' x \(chunk - 1), qq(\\n); print STDERR 'e' x \(chunk - 1), qq(\\n) }"
+        let echo = "binmode STDIN; my $n = 0; while (read(STDIN, my $b, 65536)) { $n += length $b; print STDERR 'e' x 65535, qq(\\n) } print $n"
+        let input = Data(repeating: 0x69, count: 2 * 1024 * 1024)
+        for _ in 0 ..< 3 {
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for index in 0 ..< 24 {
+                    group.addTask {
+                        let lines = LockedArray()
+                        if index % 3 == 2 {
+                            let result = try await ProcessRunner.run(
+                                executable: perl, arguments: ["-e", echo],
+                                options: ProcessOptions(timeout: 45, stdin: input, onStderrLine: { _ in lines.append("") })
+                            )
+                            #expect(result.stdoutString == "\(input.count)")
+                            #expect(result.stderr.count <= 64 * 1024)
+                        } else {
+                            let result = try await ProcessRunner.run(
+                                executable: perl, arguments: ["-e", writer],
+                                options: ProcessOptions(timeout: 45, onStdoutLine: { _ in lines.append("") }, onStderrLine: { _ in lines.append("") })
+                            )
+                            #expect(result.stdout.count == chunk * chunks)
+                            #expect(result.stderr.count == 64 * 1024)
+                            #expect(lines.values.count == 2 * chunks)
+                        }
+                    }
+                }
+                try await group.waitForAll()
+            }
+        }
+    }
+
+    @Test func setsEsclopBin() async throws {
+        let folder = try scratchFolder()
+        let locator = ToolLocator(searchDirectories: [folder])
+        let result = try await ProcessRunner.run(
+            executable: URL(fileURLWithPath: "/bin/sh"), arguments: ["-c", "printf %s \"$ESCLOP_BIN\""], locator: locator
+        )
+        #expect(result.stdoutString == folder.path)
+    }
+
+    /// A long-lived child's last words on stderr (a crash message) must be in `stderrTail` by
+    /// the time `onExit` runs, or the error that reports the crash loses them.
+    @Test(.timeLimit(.minutes(1))) func exitHandlersSeeTheLastStderr() async throws {
+        let sh = URL(fileURLWithPath: "/bin/sh")
+        try await withThrowingTaskGroup(of: String.self) { group in
+            for index in 0 ..< 200 {
+                group.addTask {
+                    let child = try ProcessRunner.launch(executable: sh, arguments: ["-c", "echo dying-\(index) >&2; exit 3"])
+                    return await withCheckedContinuation { continuation in
+                        child.onExit { _ in continuation.resume(returning: child.stderrTail) }
+                    }
+                }
+            }
+            var missing = 0
+            for try await tail in group where !tail.contains("dying-") { missing += 1 }
+            #expect(missing == 0, "\(missing) of 200 exit handlers ran before the child's stderr arrived")
+        }
     }
 }
 
