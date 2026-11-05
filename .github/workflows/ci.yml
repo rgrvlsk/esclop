@@ -74,8 +74,12 @@ jobs:
       # With Xcode on the runner, Package.swift includes the app, so this also compiles EsclopApp.
       - run: swift build --build-tests
       # Suites that need ffmpeg, gs, gifsicle or esclop-engine skip here; the gate job reruns
-      # them with the real tools.
+      # them with the real tools. The suite takes under a minute; a hang fails after 5 minutes
+      # with the unfinished tests and their stacks (Scripts/test.sh), not at the job timeout.
       - run: Scripts/test.sh
+        timeout-minutes: 10
+        env:
+          ESCLOP_TEST_TIMEOUT: "300"
       - if: github.ref == 'refs/heads/main'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -113,3 +117,6 @@ jobs:
           restore-keys: swift-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved') }}-
       - name: swift test with the bundled tools
         run: Scripts/test.sh
+        timeout-minutes: 10
+        env:
+          ESCLOP_TEST_TIMEOUT: "300"

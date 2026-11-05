@@ -40,6 +40,7 @@ final class ServerProcess: @unchecked Sendable {
     private var lines: [String] = []
     private(set) var allLines: [String] = []
     private var closed = false
+    private var eofCallbacks = 0
     let support: URL
 
     init(binary: URL) throws {
@@ -54,18 +55,26 @@ final class ServerProcess: @unchecked Sendable {
         process.standardInput = stdin
         process.standardOutput = stdout
         process.standardError = stderr
+        // Each handler clears itself at end of file. Foundation calls a handler again and again
+        // for a pipe at EOF, so one left in place spins a thread for the rest of the run.
         stdout.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
+            if data.isEmpty { handle.readabilityHandler = nil }
             self?.receive(data)
         }
-        stderr.fileHandleForReading.readabilityHandler = { handle in _ = handle.availableData }
+        stderr.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            if handle.availableData.isEmpty {
+                handle.readabilityHandler = nil
+                self?.countEOF()
+            }
+        }
         try process.run()
     }
 
     private func receive(_ data: Data) {
         lock.lock()
         defer { lock.broadcast(); lock.unlock() }
-        if data.isEmpty { closed = true; return }
+        if data.isEmpty { closed = true; eofCallbacks += 1; return }
         buffer.append(data)
         while let newline = buffer.firstIndex(of: 0x0A) {
             let line = String(decoding: buffer[buffer.startIndex ..< newline], as: UTF8.self)
@@ -73,6 +82,16 @@ final class ServerProcess: @unchecked Sendable {
             lines.append(line)
             allLines.append(line)
         }
+    }
+
+    private func countEOF() {
+        lock.lock(); eofCallbacks += 1; lock.unlock()
+    }
+
+    /// How many times a handler has been called at end of file, both streams together.
+    var endOfFileCallbacks: Int {
+        lock.lock(); defer { lock.unlock() }
+        return eofCallbacks
     }
 
     func send(_ line: String) {
@@ -124,12 +143,30 @@ final class ServerProcess: @unchecked Sendable {
     }
 
     deinit {
+        stdout.fileHandleForReading.readabilityHandler = nil
+        stderr.fileHandleForReading.readabilityHandler = nil
         if process.isRunning { process.terminate() }
         try? FileManager.default.removeItem(at: support)
     }
 }
 
 @Suite(.serialized) struct MCPConformance {
+    /// A readability handler that is not cleared at end of file is called again and again, so
+    /// every server that exits would leave two threads spinning for the rest of the run. One
+    /// server per core is enough to take every CPU, after which GCD stops serving its
+    /// non-overcommit queues: Vision's smart crop waited there for ever and hung CI.
+    @Test(.timeLimit(.minutes(1))) func serversThatExitLeaveNoHandlerSpinning() throws {
+        let binary = try esclopBinary()
+        let servers = try (0 ..< ProcessInfo.processInfo.activeProcessorCount).map { _ in try ServerProcess(binary: binary) }
+        for server in servers { #expect(server.closeInputAndWait() == 0) }
+        Thread.sleep(forTimeInterval: 0.3) // both pipes have reached end of file
+        let settled = servers.map(\.endOfFileCallbacks)
+        Thread.sleep(forTimeInterval: 0.5)
+        let later = servers.map(\.endOfFileCallbacks)
+        #expect(settled.allSatisfy { $0 <= 2 }, "end-of-file callbacks per server: \(settled)")
+        #expect(later == settled, "handlers still running after end of file: \(settled) then \(later)")
+    }
+
     @Test func initializeListCallAndShutDown() throws {
         let server = try ServerProcess(binary: try esclopBinary())
 
