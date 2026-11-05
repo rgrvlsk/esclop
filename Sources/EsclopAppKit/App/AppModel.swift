@@ -279,18 +279,12 @@ public final class AppModel {
             guard let result = card.result else { return }
             Task { await restore(result) }
         case .reveal:
-            reveal([fileShown(by: card)])
+            reveal([card.shownFile])
         case .copy:
-            Clipboard.write(files: [fileShown(by: card)], to: pasteboard)
+            Clipboard.write(files: [card.shownFile], to: pasteboard)
         case .dismiss:
             dismiss(card)
         }
-    }
-
-    private func fileShown(by card: ResultCard) -> URL {
-        if case let .done(result) = card.phase { return result.output }
-        if case let .restored(result) = card.phase { return result.source }
-        return card.source
     }
 
     /// Puts the original back, from a card or the backups menu.

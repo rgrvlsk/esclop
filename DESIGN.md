@@ -30,8 +30,9 @@ is the one large figure on a card: `title2`, semibold, rounded design. Labels ar
 never all caps, never tracked out.
 
 ## Layout
-- Result cards: thumbnail left, text right, actions on hover below. Left aligned. Width 300pt,
-  stack at a screen corner with 8pt gaps, newest at the bottom.
+- Result cards: thumbnail left, text right, actions on hover below, in place of the bar, so a
+  card never changes height under the pointer. The thumbnail drags out as the file. Left
+  aligned. Width 300pt, stack at a screen corner with 8pt gaps, newest at the bottom.
 - Drop zone: a single rounded rectangle at the cursor or screen edge, label "Drop to optimise",
   holding Command changes it to "Drop to optimise harder".
 - Settings: sidebar sections, forms with native controls, search at the top.
