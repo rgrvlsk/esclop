@@ -11,10 +11,12 @@ import SwiftUI
 public struct MenuContent: View {
     let model: AppModel
     let settings: SettingsWindowController
+    let onboarding: OnboardingWindowController?
 
-    public init(model: AppModel, settings: SettingsWindowController) {
+    public init(model: AppModel, settings: SettingsWindowController, onboarding: OnboardingWindowController? = nil) {
         self.model = model
         self.settings = settings
+        self.onboarding = onboarding
     }
 
     public var body: some View {
@@ -57,6 +59,9 @@ public struct MenuContent: View {
 
         Divider()
 
+        if let onboarding {
+            Button("Welcome to L'Esclop…") { onboarding.show() }
+        }
         Button("Settings…") { settings.show() }
         .keyboardShortcut(",")
         Button("Quit L'Esclop") { NSApp.terminate(nil) }
