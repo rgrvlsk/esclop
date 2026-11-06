@@ -58,12 +58,12 @@ import Testing
         _ = await harness.model.run(harness.job(harness.temp.file("b.png")))
         let hovered = try #require(harness.model.cards.last)
         harness.model.interact(hovered, .pointerEnteredButtons)
-        #expect(await eventually(.seconds(10)) { harness.model.cards.count == 1 })
+        #expect(await eventually { harness.model.cards.count == 1 })
         try await Task.sleep(for: .milliseconds(200))
         #expect(harness.model.cards.first?.id == hovered.id, "the hovered card stays")
         harness.model.interact(hovered, .pointerExited)
         // Leaving a card whose time ran out hides it two seconds later.
-        #expect(await eventually(.seconds(10)) { harness.model.cards.isEmpty })
+        #expect(await eventually { harness.model.cards.isEmpty })
     }
 
     @Test func autoHideCanBeTurnedOff() async throws {
@@ -79,7 +79,7 @@ import Testing
         let harness = Harness(delay: .seconds(30))
         let job = harness.job(harness.temp.file("a.png"))
         let run = Task { await harness.model.run(job) }
-        #expect(await eventually(.seconds(10)) { !harness.model.cards.isEmpty })
+        #expect(await eventually { !harness.model.cards.isEmpty })
         harness.model.dismiss(try #require(harness.model.cards.first))
         let report = await run.value
         #expect(report.failures.first?.error == .cancelled)
@@ -93,7 +93,7 @@ import Testing
         let card = try #require(harness.model.cards.first)
         #expect(harness.model.restorable.count == 1)
         harness.model.perform(.undo, on: card)
-        #expect(await eventually(.seconds(10)) { if case .restored = card.phase { return true } else { return false } })
+        #expect(await eventually { if case .restored = card.phase { return true } else { return false } })
         #expect(AppModel.size(of: file) == 100_000)
         #expect(harness.model.restorable.isEmpty)
     }
@@ -116,11 +116,11 @@ import Testing
         let harness = Harness()
         let data = pngData() + Data(count: 60_000)
         harness.model.handleClipboard(.optimiseImage(data, .png))
-        #expect(await eventually(.seconds(10)) { harness.model.cards.first?.result != nil })
+        #expect(await eventually { harness.model.cards.first?.result != nil })
         let card = try #require(harness.model.cards.first)
         #expect(card.presentation.fileName == "Copied image")
         #expect(card.origin == .clipboard)
-        #expect(await eventually(.seconds(10)) { Clipboard.isOwnWrite(harness.pasteboard) })
+        #expect(await eventually { Clipboard.isOwnWrite(harness.pasteboard) })
     }
 
     @Test func pauseCyclesLikeClop() throws {
@@ -147,7 +147,7 @@ import Testing
         _ = harness.temp.file("drop/a.png")
         _ = harness.temp.file("drop/notes.txt")
         harness.model.optimiseDropped([folder], harder: true)
-        #expect(await eventually(.seconds(10)) { harness.model.cards.first?.result != nil })
+        #expect(await eventually { harness.model.cards.first?.result != nil })
         #expect(harness.model.cards.count == 1)
         #expect(harness.model.cards.first?.aggressive == true)
         harness.model.optimiseDropped([harness.temp.file("notes2.txt")], harder: false)
@@ -160,7 +160,7 @@ import Testing
         _ = await harness.model.run(harness.job(file))
         let first = try #require(harness.model.cards.first)
         harness.model.perform(.convert(.webp), on: first)
-        #expect(await eventually(.seconds(10)) { harness.requests.requests.count == 2 && harness.model.cards.first?.result != nil && harness.model.cards.first?.id != first.id })
+        #expect(await eventually { harness.requests.requests.count == 2 && harness.model.cards.first?.result != nil && harness.model.cards.first?.id != first.id })
         #expect(harness.model.cards.count == 1, "the new result takes the card's place")
         let converted = try #require(harness.requests.requests.last)
         #expect(converted.format == .webp)
@@ -169,7 +169,7 @@ import Testing
 
         let second = try #require(harness.model.cards.first)
         harness.model.perform(.downscale, on: second)
-        #expect(await eventually(.seconds(10)) { harness.requests.requests.count == 3 && harness.model.cards.first?.result != nil && harness.model.cards.first?.id != second.id })
+        #expect(await eventually { harness.requests.requests.count == 3 && harness.model.cards.first?.result != nil && harness.model.cards.first?.id != second.id })
         #expect(harness.requests.requests.last?.downscale == 0.5)
         #expect(harness.requests.requests.last?.format == nil, "one change at a time")
     }
@@ -183,7 +183,7 @@ import Testing
         harness.model.interact(card, .capsuleClicked)
         // The engine logs the request before it throws; the card turns to an error only after
         // the job has settled, so wait for that, not for the request.
-        #expect(await eventually(.seconds(10)) {
+        #expect(await eventually {
             harness.requests.requests.count == 2 && harness.model.cards.first.map { $0.id != card.id && !$0.isWorking } == true
         })
         #expect(harness.model.cards.count == 1)
