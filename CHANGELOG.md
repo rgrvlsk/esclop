@@ -22,8 +22,9 @@ Watched folders and the batch and crop windows remain planned.
 - Settings → Agents and MCP: lists the agents on this Mac (the ones `esclop mcp install`
   supports) with whether each runs L'Esclop, connects, updates and disconnects them in one
   click after showing the exact change to their config file as a diff, keeps a backup, refuses
-  to write a file that changed after the preview, tests the server live (initialize,
-  tools/list, `esclop_status`) and offers JSON, TOML and `claude mcp add` snippets.
+  to write a file that changed after the preview or any file but the agent's own config, tests
+  the server live (initialize, tools/list, `esclop_status`) and offers JSON, TOML and
+  `claude mcp add` snippets.
 - First-run tour: welcome, what is optimised on its own (the same switches as Settings), what
   macOS will ask and why (clipboard access with its current status, files in Desktop,
   Documents and Downloads, open at login), connecting an agent, and where the app lives. Every
