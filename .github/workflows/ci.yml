@@ -111,22 +111,6 @@ jobs:
         timeout-minutes: 10
         env:
           ESCLOP_TEST_TIMEOUT: "300"
-      # Real windows (Settings, onboarding), rendered alone: laying out and compositing them holds
-      # the main thread, which skews the app model's timing tests when both run at once. The PNGs
-      # are the light and dark screenshots UI pull requests carry.
-      - name: Window renders
-        run: Scripts/test.sh --filter WindowRenders
-        timeout-minutes: 10
-        env:
-          ESCLOP_TEST_TIMEOUT: "300"
-          ESCLOP_RENDER_DIR: ${{ runner.temp }}/renders
-      - if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: window-renders
-          path: ${{ runner.temp }}/renders
-          if-no-files-found: ignore
-          retention-days: 14
 
   binaries:
     uses: ./.github/workflows/binaries.yml

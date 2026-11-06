@@ -6,7 +6,6 @@
 swift build                 # make build: CLI and libraries; includes the app when enabled
 Scripts/test.sh             # make test: swift test, with a workaround for Command Line Tools only
 ESCLOP_TEST_TIMEOUT=300 Scripts/test.sh   # as CI: a hang fails with the unfinished tests and stacks
-ESCLOP_RENDER_DIR=~/Desktop/renders Scripts/test.sh --filter WindowRenders   # real-window PNGs, light and dark, for UI PRs
 Scripts/build-tools.sh      # make tools: ffmpeg, gs, gifsicle from pinned source into Binaries/ (not committed)
 Scripts/build-engine.sh     # make engine: esclop-engine, universal, into Binaries/
 Scripts/bundle-app.sh       # make bundle: dist/L'Esclop.app (needs Xcode for the app target)
