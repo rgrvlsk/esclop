@@ -10,10 +10,12 @@ import SwiftUI
 
 public struct SettingsView: View {
     @Bindable var model: SettingsViewModel
+    let agents: AgentsModel?
     let actions: SettingsActions
 
-    public init(model: SettingsViewModel, actions: SettingsActions = SettingsActions()) {
+    public init(model: SettingsViewModel, agents: AgentsModel? = nil, actions: SettingsActions = SettingsActions()) {
         self.model = model
+        self.agents = agents
         self.actions = actions
     }
 
@@ -22,7 +24,7 @@ public struct SettingsView: View {
             SettingsSidebar(model: model)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 280)
         } detail: {
-            SettingsPaneView(pane: model.pane, model: model, actions: actions)
+            SettingsPaneView(pane: model.pane, model: model, agents: agents, actions: actions)
                 .navigationTitle(model.pane.title)
         }
         .searchable(text: $model.query, placement: .sidebar, prompt: "Search settings")

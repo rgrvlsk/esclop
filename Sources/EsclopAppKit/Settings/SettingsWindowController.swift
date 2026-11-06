@@ -10,11 +10,13 @@ import SwiftUI
 @MainActor
 public final class SettingsWindowController {
     public let model: SettingsViewModel
+    public let agents: AgentsModel
     let actions: SettingsActions
     private var window: NSWindow?
 
-    public init(model: SettingsViewModel, actions: SettingsActions) {
+    public init(model: SettingsViewModel, agents: AgentsModel = AgentsModel(), actions: SettingsActions) {
         self.model = model
+        self.agents = agents
         self.actions = actions
     }
 
@@ -22,6 +24,7 @@ public final class SettingsWindowController {
 
     public func show(_ route: SettingsRoute? = nil) {
         if let route { model.open(route) }
+        if model.pane == .agents { Task { await agents.refresh() } }
         let window = window ?? makeWindow()
         self.window = window
         NSApp.activate()
@@ -37,7 +40,7 @@ public final class SettingsWindowController {
     }
 
     private func makeWindow() -> NSWindow {
-        let host = NSHostingController(rootView: SettingsView(model: model, actions: actions))
+        let host = NSHostingController(rootView: SettingsView(model: model, agents: agents, actions: actions))
         host.sceneBridgingOptions = [.title, .toolbars]
         let window = NSWindow(contentViewController: host)
         window.title = "Settings"
