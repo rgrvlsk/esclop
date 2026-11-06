@@ -11,17 +11,19 @@ in a floating card and restore the original. CLI and MCP workflows already run w
 - Pinned tool builds, licence checks, CI and CLI release packaging.
 - Menu-bar app: clipboard watcher, the Liquid Glass floating result (thumbnail, detail with
   before/after comparison, activity capsule for long jobs), drop zone, hotkeys, backups menu,
-  a minimal settings window, and the IPC server that runs CLI and MCP jobs with results.
+  and the IPC server that runs CLI and MCP jobs with results.
+- Settings window: a sidebar of panes generated from the registry, search across every
+  setting, `esclop://settings/<key>` deep links, validation and reset per setting.
 
 ## Next
 
 - The options popover from "…" (Optimise, Size, Share), origin suggestions and clipboard rules.
-- Full settings window with search and deep links; onboarding.
+- Agents pane with one-click MCP install; onboarding.
 - Watched folders (screenshots and recordings) and pipeline triggers in the app.
 
 ## Later
 
-- Settings search, deep links, a pipeline editor, MCP setup and onboarding.
+- A pipeline editor.
 - Batch and crop windows.
 - Watched folders, preset zones, Finder actions, uploads and shelf integrations.
 - App release validation, notarisation, Sparkle updates and a Homebrew cask.

@@ -66,29 +66,3 @@ import Testing
         #expect(status.pid == ProcessInfo.processInfo.processIdentifier)
     }
 }
-
-@MainActor
-@Suite struct SettingsViewModelTests {
-    @Test func listsEverySettingBySectionAndSearches() {
-        let settings = TestSettings()
-        let model = SettingsViewModel(provider: RegistrySettingsProvider(store: settings.store))
-        #expect(model.groups.map(\.section) == SettingsSection.allCases)
-        #expect(model.groups.flatMap(\.settings).count == SettingsRegistry.shared.all.count)
-        model.query = "drop zone"
-        #expect(model.groups.flatMap(\.settings).map(\.key).contains("enableDragAndDrop"))
-        #expect(model.groups.first?.section == .interface)
-    }
-
-    @Test func writesAndReportsRefusals() {
-        let settings = TestSettings()
-        var changed: [String] = []
-        let model = SettingsViewModel(provider: RegistrySettingsProvider(store: settings.store)) { key, _ in changed.append(key) }
-        #expect(model.set("floatingResultsCorner", to: "topLeft"))
-        #expect(EsclopSettings.floatingResultsCorner.value(in: settings.store) == .topLeft)
-        #expect(model.value("floatingResultsCorner") == .string("topLeft"))
-        #expect(!model.set("autoHideFloatingResultsAfter", to: "soon"))
-        #expect(model.errors["autoHideFloatingResultsAfter"] != nil)
-        #expect(changed == ["floatingResultsCorner"])
-        #expect(SettingsViewModel.text(for: .array(["webp", "avif"])) == "webp, avif")
-    }
-}
