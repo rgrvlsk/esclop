@@ -2,7 +2,7 @@
 # One entry point for contributors; every target is a thin wrapper around a script or tool.
 # `make help` lists them.
 
-.PHONY: help build test engine engine-check tools bundle gate release-dry-run lint clean
+.PHONY: help build test engine engine-check tools icons bundle gate release-dry-run lint clean
 
 help: ## list the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
@@ -25,6 +25,9 @@ engine-check: ## rustfmt, clippy, tests and cargo-deny for the engine (against t
 
 tools: ## ffmpeg, ffprobe, gs and gifsicle from pinned source into Binaries/ (cached)
 	Scripts/build-tools.sh
+
+icons: ## regenerate the app icon and the menu bar glyph from assets/ (macOS, librsvg required)
+	Scripts/build-icons.sh
 
 bundle: ## dist/L'Esclop.app (skipped when the app product is absent)
 	Scripts/bundle-app.sh
