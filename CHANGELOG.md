@@ -7,7 +7,7 @@ into the body of its GitHub release.
 
 ## [Unreleased]
 
-Watched folders and the batch and crop windows remain planned.
+Watched folders and the batch window remain planned.
 
 ### Added
 - Settings window: a sidebar of panes (General, Images, Video, PDF, Audio, Clipboard, Floating
@@ -34,6 +34,19 @@ Watched folders and the batch and crop windows remain planned.
   "…"), a 320 pt detail with a before/after divider opened by the capsule or a still pointer,
   an activity capsule with the time left for jobs over two seconds, errors in the capsule with
   retry, the newest three stacked, two-finger swipe to dismiss. VoiceOver announces each result.
+- Options popover from the "…" hover button (DESIGN.md): Optimise (a suggestion from where the
+  file came from, compression, format tiles with size estimates, quality, metadata, HDR, encoder,
+  video, PDF and audio controls), Size (downscale in 10 % steps, fit under a size, crop presets
+  and a crop editor with a free or locked rectangle and the size in pixels) and Share (Copy,
+  AirDrop, Save as, Finder, Quick Look, Share, Open with, Shortcuts, pipelines, shelf and upload
+  apps when installed). Audio gets Sound in place of Size. Choices run again on the same card.
+- Clipboard rules: "Always apply to PNG screenshots" stores the current choice for that origin
+  and format; the next copy of that kind uses it and the capsule shows a pin. Rules live in the
+  `clipboardRules` setting and are listed, with a delete button, in Settings › Clipboard.
+- `hoverButtons` setting, switches in Settings › Floating results and "Customise buttons…" in
+  the popover, for the round buttons above a result.
+- `CropSize.rect`: a free crop region for images and videos, in the engine and the contracts.
+- Catalan localisation of the floating result, the popover and the rules (String Catalog).
 - App icon and menu bar glyph: the carved wooden clog on the green squircle, and a rounded
   template clog for the menu bar that dims while paused. `make icons` regenerates them.
 - Menu-bar app: optimises copied images (and copied videos, PDFs and audio when enabled), shows

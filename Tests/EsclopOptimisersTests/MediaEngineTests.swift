@@ -279,6 +279,16 @@ import UniformTypeIdentifiers
         #expect(Inspect.type(files[0]) == .png)
     }
 
+    @Test func copiesInTheSameSecondKeepTheirOwnFiles() throws {
+        let folder = try Harness.folder()
+        let first = try Clipboard.materialise(.image(Data([1, 2, 3]), .png), folder: folder)[0]
+        let second = try Clipboard.materialise(.image(Data([4, 5]), .png), folder: folder)[0]
+        #expect(first != second)
+        #expect(first.lastPathComponent.hasPrefix("Clipboard "), "the readable name stays")
+        #expect(try Data(contentsOf: first) == Data([1, 2, 3]))
+        #expect(try Data(contentsOf: second) == Data([4, 5]))
+    }
+
     @Test func pathsAndBase64Text() throws {
         let board = pasteboard()
         defer { board.releaseGlobally() }

@@ -77,6 +77,11 @@ public enum EsclopSettings {
         "autoHideClipboardResultAfter", default: 10, title: "Hide clipboard results after",
         description: "Seconds the card for a copied image stays on screen.", section: .interface, minimum: 1, maximum: 3600
     )
+    public static let hoverButtons = Setting<[String]>(
+        "hoverButtons", default: ["undo", "convert", "downscale", "crop"], title: "Hover buttons",
+        description: "The round buttons above a floating result, in order: undo, convert, downscale, crop. \"…\" is always last.",
+        section: .interface
+    )
     public static let enableDragAndDrop = Setting<Bool>(
         "enableDragAndDrop", default: true, title: "Show the drop zone",
         description: "Show a drop zone while dragging files, to optimise whatever is dropped on it.", section: .interface
@@ -351,6 +356,11 @@ public enum EsclopSettings {
         "clipboardIgnoredAppBundleIds", default: [], title: "Ignored apps",
         description: "Bundle identifiers of apps whose copies are never optimised.", section: .clipboard
     )
+    public static let clipboardRules = Setting<[String]>(
+        "clipboardRules", default: [], title: "Clipboard rules",
+        description: "Choices saved with \"Always apply\" in a file's options. Each one applies to the next copies of one origin and format, such as PNG screenshots; stored as one JSON object per rule.",
+        section: .clipboard
+    )
     public static let autoCopyToClipboard = Setting<Bool>(
         "autoCopyToClipboard", default: true, title: "Copy results to the clipboard",
         description: "Put the optimised file back on the clipboard after optimising a copied one.",
@@ -425,7 +435,7 @@ public enum EsclopSettings {
     public static let all: [AnySetting] = [
         stripMetadata.erased, preserveDates.erased, keepHDR.erased,
         floatingResultsCorner.erased, followCursorScreen.erased, autoHideFloatingResults.erased,
-        autoHideFloatingResultsAfter.erased, autoHideClipboardResultAfter.erased, enableDragAndDrop.erased,
+        autoHideFloatingResultsAfter.erased, autoHideClipboardResultAfter.erased, hoverButtons.erased, enableDragAndDrop.erased,
         imageCompression.erased, imageAggressiveCompression.erased,
         useAggressiveOptimisationJPEG.erased, useAggressiveOptimisationPNG.erased, useAggressiveOptimisationGIF.erased,
         adaptiveImageSize.erased, formatsToConvertToJPEG.erased, formatsToConvertToPNG.erased,
@@ -444,7 +454,7 @@ public enum EsclopSettings {
         backupRetentionDays.erased,
         enableClipboardOptimiser.erased, optimiseVideoClipboard.erased, optimisePDFClipboard.erased,
         optimiseAudioClipboard.erased, optimiseImagePathClipboard.erased, clipboardIgnoredAppBundleIds.erased,
-        autoCopyToClipboard.erased,
+        clipboardRules.erased, autoCopyToClipboard.erased,
         pauseAutomaticOptimisations.erased, enableAutomaticImageOptimisations.erased,
         enableAutomaticVideoOptimisations.erased, enableAutomaticPDFOptimisations.erased,
         enableAutomaticAudioOptimisations.erased, imageDirs.erased, videoDirs.erased, pdfDirs.erased, audioDirs.erased,

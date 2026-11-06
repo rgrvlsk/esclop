@@ -71,9 +71,12 @@ public enum Clipboard {
         case let .files(urls): return urls
         case let .path(url): return [url]
         case let .image(data, type), let .base64Image(data, type):
-            try Paths.ensure(folder)
+            // A folder per copy: two copies in the same second keep their own files, and the
+            // file keeps the readable name that pasting it elsewhere shows.
+            let own = folder.appendingPathComponent(UUID().uuidString, isDirectory: true)
+            try Paths.ensure(own)
             let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: ".")
-            let url = folder.appendingPathComponent("Clipboard \(stamp)").appendingPathExtension(type.preferredFilenameExtension ?? "png")
+            let url = own.appendingPathComponent("Clipboard \(stamp)").appendingPathExtension(type.preferredFilenameExtension ?? "png")
             try data.write(to: url, options: .atomic)
             return [url]
         case .empty:

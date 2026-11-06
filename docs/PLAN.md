@@ -17,16 +17,18 @@ in a floating card and restore the original. CLI and MCP workflows already run w
 - Agents and MCP pane: agent detection, connect and disconnect with a preview of the config
   change, the permission switches, snippets and a live server test.
 - First-run onboarding, skippable and reopened from the menu.
+- The options popover from "…" (Optimise, Size with the crop editor, Share; Sound for audio)
+  with size estimates, origin suggestions, clipboard rules and the Catalan localisation.
 
 ## Next
 
-- The options popover from "…" (Optimise, Size, Share), origin suggestions and clipboard rules.
+- The batch window: many files at once, with progress, aggregate saving, cancel and restore-all.
 - Watched folders (screenshots and recordings) and pipeline triggers in the app.
 
 ## Later
 
 - A pipeline editor.
-- Batch and crop windows.
+- A crop window for files that are not on screen as a floating result.
 - Watched folders, preset zones, Finder actions, uploads and shelf integrations.
 - App release validation, notarisation, Sparkle updates and a Homebrew cask.
 - Shortcuts actions through AppIntents.
