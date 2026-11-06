@@ -12,6 +12,14 @@ permissions again. Without the app, the server runs jobs in its own process.
 
 ## Install
 
+In the app: Settings → Agents and MCP (`esclop://settings/agents`) lists the agents on this Mac
+and whether each runs L'Esclop. Connect shows the exact change to the agent's config file as a
+diff and writes it only after you agree; if the file changed in the meantime nothing is
+written. Run Test starts the server as agents do and reports its tools. The same pane has the
+JSON, TOML and `claude mcp add` snippets for setting an agent up by hand.
+
+From a terminal:
+
 ```
 esclop mcp install --all            # every agent found on this Mac
 esclop mcp install claude-code      # one or more by name

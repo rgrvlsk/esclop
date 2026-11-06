@@ -99,6 +99,8 @@ public struct AgentPolicy: Sendable {
     }
 
     private func refusal(_ permission: AgentPermission, _ why: String) -> EsclopError {
-        .notPermitted("\(why). The person can allow it with “\(permission.title)” in L'Esclop Settings → Agents and MCP (setting \(permission.rawValue), link esclop://settings/agents/\(permission.rawValue)); ask them rather than working around it.")
+        // The switch's name as the Settings window shows it.
+        let title = SettingsRegistry.shared.setting(permission.rawValue)?.title ?? permission.title
+        return .notPermitted("\(why). The person can allow it with “\(title)” in L'Esclop Settings → Agents and MCP (setting \(permission.rawValue), link esclop://settings/agents/\(permission.rawValue)); ask them rather than working around it.")
     }
 }
