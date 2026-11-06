@@ -10,10 +10,11 @@ import SwiftUI
 
 public struct MenuContent: View {
     let model: AppModel
-    @Environment(\.openSettings) private var openSettings
+    let settings: SettingsWindowController
 
-    public init(model: AppModel) {
+    public init(model: AppModel, settings: SettingsWindowController) {
         self.model = model
+        self.settings = settings
     }
 
     public var body: some View {
@@ -56,10 +57,7 @@ public struct MenuContent: View {
 
         Divider()
 
-        Button("Settings…") {
-            NSApp.activate(ignoringOtherApps: true)
-            openSettings()
-        }
+        Button("Settings…") { settings.show() }
         .keyboardShortcut(",")
         Button("Quit L'Esclop") { NSApp.terminate(nil) }
             .keyboardShortcut("q")

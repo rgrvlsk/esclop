@@ -96,7 +96,7 @@ universal with `lipo` and placed in `Contents/Resources/bin`.
 ### esclop (CLI)
 swift-argument-parser. Subcommands: `optimise`, `convert`, `downscale`, `crop`, `fit`,
 `strip`, `pdf crop|uncrop|pages`, `pipeline list|show|run|write|delete`, `settings
-get|set|schema`, `status`, `logs`, `mcp serve|install|uninstall|status`.
+get|set|reset|schema`, `status`, `logs`, `mcp serve|install|uninstall|status`.
 
 ### EsclopApp and EsclopAppKit
 `EsclopApp` holds only the `@main` scene (menu bar extra and Settings window). `EsclopAppKit`
@@ -131,10 +131,17 @@ holds the rest, in folders by feature:
   ⌃⇧A harder).
 - `IPC/AppIPCHandler`: the `AppRequestHandler`; applies `AgentPolicy` again, then routes jobs
   into `AppModel.run` so CLI and MCP jobs show floating results too.
-- `Menu`, `Settings`: the menu bar menu and a minimal Settings window over the registry.
+- `Menu`: the menu bar menu.
+- `Settings`: the Settings window. `SettingsPane` maps registry sections to sidebar panes, so a
+  new registry setting appears in its pane without view code; `SettingPresentation` picks each
+  setting's control, words and unit, and which switch it depends on; `SettingsRoute` parses
+  `esclop://settings[/<pane>][/<key>][?highlight=<key>]` (the shape of Clop's settings links).
+  `SettingsViewModel` reads and writes through the same `SettingsProvider` as the CLI and MCP
+  and observes the defaults suite with key-value observation, which also reports writes from
+  other processes, so `esclop settings set` shows up in an open window.
+  `SettingsWindowController` owns the one window; `AppServices.open(_:)` routes links to it.
 
-Planned: the full settings window with sidebar and deep links, watched folders, pipeline
-editor, MCP pane, batch and crop windows, onboarding.
+Planned: watched folders, pipeline editor, MCP install pane, batch and crop windows, onboarding.
 
 ## Build and packaging
 - `swift build` builds the CLI and libraries with Command Line Tools. The package includes

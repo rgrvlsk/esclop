@@ -60,7 +60,7 @@ public struct AgentPolicy: Sendable {
     public func checkSettingsChange(_ descriptor: SettingDescriptor) throws {
         guard applies else { return }
         guard descriptor.agentWritable else {
-            throw EsclopError.notPermitted("\(descriptor.key) can only be changed by the person, in L'Esclop Settings → MCP. Agents can read it")
+            throw EsclopError.notPermitted("\(descriptor.key) can only be changed by the person, in L'Esclop Settings → Agents and MCP (esclop://settings/agents/\(descriptor.key)). Agents can read it")
         }
         if !permissions.isAllowed(.allowSettingsChanges) {
             throw refusal(.allowSettingsChanges, "Changing settings is off for agents")
@@ -99,6 +99,6 @@ public struct AgentPolicy: Sendable {
     }
 
     private func refusal(_ permission: AgentPermission, _ why: String) -> EsclopError {
-        .notPermitted("\(why). The person can allow it with “\(permission.title)” in L'Esclop Settings → MCP (setting \(permission.rawValue)); ask them rather than working around it.")
+        .notPermitted("\(why). The person can allow it with “\(permission.title)” in L'Esclop Settings → Agents and MCP (setting \(permission.rawValue), link esclop://settings/agents/\(permission.rawValue)); ask them rather than working around it.")
     }
 }
