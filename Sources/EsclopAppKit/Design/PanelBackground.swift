@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The floating surfaces' material (DESIGN.md › Layout, Color, Motion):
-// - macOS 26 and later: Liquid Glass (`glassEffect`), inside a `GlassEffectContainer` so shapes
+// - macOS 26 and later, built with Xcode 26 or later (Swift 6.2): Liquid Glass (`glassEffect`), inside a `GlassEffectContainer` so shapes
 //   with a shared glass ID morph into each other;
 // - macOS 14–25: the `.hudWindow` visual effect material with a 1 pt hairline;
 // - Reduce Transparency: an opaque system background with a contrasting border;
@@ -60,16 +60,24 @@ struct GlassSurface<S: InsettableShape>: ViewModifier {
                 .background(shape.fill(colorScheme == .dark ? Color(white: 0.2).opacity(0.78) : Color(white: 0.97).opacity(0.82)))
                 .overlay(shape.strokeBorder(rim ?? Color.white.opacity(colorScheme == .dark ? 0.28 : 0.7), lineWidth: rim == nil ? 1 : 1.5))
                 .shadow(color: .black.opacity(colorScheme == .dark ? 0.35 : 0.18), radius: 12, y: 5)
-        } else if #available(macOS 26, *) {
-            glass(content)
         } else {
-            content
-                .background(VisualEffectBackground().clipShape(shape))
-                .overlay(shape.strokeBorder(rim ?? Color.primary.opacity(colorScheme == .dark ? 0.2 : 0.12), lineWidth: rim == nil ? 1 : 1.5))
-                .shadow(color: .black.opacity(colorScheme == .dark ? 0.4 : 0.16), radius: 10, y: 4)
+            #if compiler(>=6.2)
+            if #available(macOS 26, *) { glass(content) } else { hud(content) }
+            #else
+            hud(content)
+            #endif
         }
     }
 
+    /// Before macOS 26, or built with an SDK that has no Liquid Glass (Xcode 16 and earlier).
+    private func hud(_ content: Content) -> some View {
+        content
+            .background(VisualEffectBackground().clipShape(shape))
+            .overlay(shape.strokeBorder(rim ?? Color.primary.opacity(colorScheme == .dark ? 0.2 : 0.12), lineWidth: rim == nil ? 1 : 1.5))
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.4 : 0.16), radius: 10, y: 4)
+    }
+
+    #if compiler(>=6.2)
     @available(macOS 26, *)
     @ViewBuilder private func glass(_ content: Content) -> some View {
         let glass = interactive ? Glass.regular.interactive() : Glass.regular
@@ -84,6 +92,7 @@ struct GlassSurface<S: InsettableShape>: ViewModifier {
             surface
         }
     }
+    #endif
 }
 
 extension View {
@@ -104,11 +113,15 @@ struct GlassGroup<Content: View>: View {
     @Namespace private var namespace
 
     var body: some View {
+        #if compiler(>=6.2)
         if #available(macOS 26, *) {
             GlassEffectContainer(spacing: spacing) { content }
                 .environment(\.glassNamespace, namespace)
         } else {
             content
         }
+        #else
+        content
+        #endif
     }
 }
