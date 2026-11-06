@@ -6,6 +6,11 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>ca</string>
+	</array>
 	<key>CFBundleDisplayName</key>
 	<string>L'Esclop</string>
 	<key>CFBundleExecutable</key>

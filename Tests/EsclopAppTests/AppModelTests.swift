@@ -40,7 +40,7 @@ import Testing
         #expect(report.failures.first?.error == .toolMissing("ffmpeg"))
         #expect(events.kinds == ["failure"])
         let card = try #require(failing.model.cards.first)
-        #expect(card.presentation.capsule == .error(title: "Couldn't optimise", message: "ffmpeg is missing. Reinstall L'Esclop or run Scripts/build-tools.sh."))
+        #expect(card.presentation.capsule == .error(title: "Couldn’t optimise", message: "ffmpeg is missing. Reinstall L’Esclop or run Scripts/build-tools.sh."))
         #expect(failing.model.recent.isEmpty)
     }
 
@@ -160,8 +160,9 @@ import Testing
         _ = await harness.model.run(harness.job(file))
         let first = try #require(harness.model.cards.first)
         harness.model.perform(.convert(.webp), on: first)
-        #expect(await eventually { harness.requests.requests.count == 2 && harness.model.cards.first?.result != nil && harness.model.cards.first?.id != first.id })
-        #expect(harness.model.cards.count == 1, "the new result takes the card's place")
+        #expect(await eventually { harness.requests.requests.count == 2 && first.result != nil })
+        #expect(harness.model.cards.count == 1, "the new result shows on the same card")
+        #expect(first.choice.format == .webp)
         let converted = try #require(harness.requests.requests.last)
         #expect(converted.format == .webp)
         #expect(converted.sources == [file])
@@ -169,9 +170,9 @@ import Testing
 
         let second = try #require(harness.model.cards.first)
         harness.model.perform(.downscale, on: second)
-        #expect(await eventually { harness.requests.requests.count == 3 && harness.model.cards.first?.result != nil && harness.model.cards.first?.id != second.id })
+        #expect(await eventually { harness.requests.requests.count == 3 && second.result != nil })
         #expect(harness.requests.requests.last?.downscale == 0.5)
-        #expect(harness.requests.requests.last?.format == nil, "one change at a time")
+        #expect(harness.requests.requests.last?.format == .webp, "the card's choice stays; downscale adds to it")
     }
 
     @Test func clickingAnErrorRetriesTheFile() async throws {

@@ -23,6 +23,10 @@ public enum SettingControl: Equatable, Sendable {
     case folders
     /// Apps, added with an open panel and stored as bundle identifiers.
     case apps
+    /// The rules made with "Always apply" in the options popover, each with a delete button.
+    case clipboardRules
+    /// A switch for each round button above a floating result.
+    case hoverButtons
 
     public struct Choice: Equatable, Hashable, Sendable {
         public var value: JSONValue
@@ -57,6 +61,8 @@ public enum SettingPresentation {
         }
         if key.hasSuffix("Dirs") { return .folders }
         if key == EsclopSettings.clipboardIgnoredAppBundleIds.key { return .apps }
+        if key == EsclopSettings.clipboardRules.key { return .clipboardRules }
+        if key == EsclopSettings.hoverButtons.key { return .hoverButtons }
         if key.hasPrefix("formatsToConvert") { return .extensions }
         switch descriptor.type {
         case .bool: return .toggle
@@ -130,6 +136,12 @@ public enum SettingPresentation {
         case .folders, .apps, .extensions:
             let items = value?.arrayValue ?? []
             return items.isEmpty ? "none" : text(for: value)
+        case .clipboardRules:
+            let rules = ClipboardRuleList.decode(value)
+            return rules.isEmpty ? "none" : rules.map { $0.subject() }.joined(separator: ", ")
+        case .hoverButtons:
+            let names = (value?.arrayValue ?? []).compactMap(\.stringValue)
+            return names.isEmpty ? "none" : names.map(CardPresentation.hoverButtonTitle).joined(separator: ", ")
         default:
             return text(for: value)
         }

@@ -124,14 +124,14 @@ import Testing
         #expect(!card.presentation.tools.contains(.undo), "nothing left to undo")
         card.phase = .failed("ffmpeg is missing.")
         #expect(card.presentation.tone == .error)
-        #expect(card.presentation.capsule == .error(title: "Couldn't optimise", message: "ffmpeg is missing."))
+        #expect(card.presentation.capsule == .error(title: "Couldn’t optimise", message: "ffmpeg is missing."))
         #expect(card.presentation.actions == [.dismiss], "the file is not there, so no retry or Show in Finder")
         card.displayName = "Copied image"
         #expect(card.presentation.fileName == "Copied image")
     }
 
     @Test func errorMessagesSayWhatToDo() {
-        #expect(CardPresentation.message(for: EsclopError.toolMissing("ffmpeg")) == "ffmpeg is missing. Reinstall L'Esclop or run Scripts/build-tools.sh.")
+        #expect(CardPresentation.message(for: EsclopError.toolMissing("ffmpeg")) == "ffmpeg is missing. Reinstall L’Esclop or run Scripts/build-tools.sh.")
         #expect(CardPresentation.message(for: EsclopError.toolFailed(tool: "gs", exitCode: 1, stderr: "x\nBad PDF")) == "gs stopped with code 1: Bad PDF")
         #expect(CardPresentation.message(for: CancellationError()) == "Stopped before it finished.")
         #expect(

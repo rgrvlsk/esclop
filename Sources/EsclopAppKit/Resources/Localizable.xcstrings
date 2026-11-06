@@ -1,0 +1,1596 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "%@ animated GIFs": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ animats"
+          }
+        }
+      }
+    },
+    "%@ copied files": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "fitxers %@ copiats"
+          }
+        }
+      }
+    },
+    "%@ exported documents": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "documents %@ exportats"
+          }
+        }
+      }
+    },
+    "%@ graphics with transparency": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "gràfics %@ amb transparència"
+          }
+        }
+      }
+    },
+    "%@ images from browsers": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "imatges %@ dels navegadors"
+          }
+        }
+      }
+    },
+    "%@ is missing. Reinstall L’Esclop or run Scripts/build-tools.sh.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Falta %@. Torna a instal·lar L’Esclop o executa Scripts/build-tools.sh."
+          }
+        }
+      }
+    },
+    "%@ is no longer there.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ja no hi és."
+          }
+        }
+      }
+    },
+    "%@ photos from Photos": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "fotos %@ de Fotos"
+          }
+        }
+      }
+    },
+    "%@ screen recordings": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "gravacions de pantalla %@"
+          }
+        }
+      }
+    },
+    "%@ screenshots": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "captures de pantalla %@"
+          }
+        }
+      }
+    },
+    "%@ voice memos": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "notes de veu %@"
+          }
+        }
+      }
+    },
+    "%@, already optimised, kept the original": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, ja optimitzat, s’ha conservat l’original"
+          }
+        }
+      }
+    },
+    "%@, not optimised: %@ The original is kept.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, no s’ha optimitzat: %@ L’original es conserva."
+          }
+        }
+      }
+    },
+    "%@, optimising, %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, comprimint, %@"
+          }
+        }
+      }
+    },
+    "%@, original restored": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, original restaurat"
+          }
+        }
+      }
+    },
+    "%d min left": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Queden %d min"
+          }
+        }
+      }
+    },
+    "%d page": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d pàgina"
+          }
+        }
+      }
+    },
+    "%d pages": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d pàgines"
+          }
+        }
+      }
+    },
+    "%d s left": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Queden %d s"
+          }
+        }
+      }
+    },
+    "Adaptive": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adaptativa"
+          }
+        }
+      }
+    },
+    "Add to %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afegeix a %@"
+          }
+        }
+      }
+    },
+    "Aggressive": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agressiva"
+          }
+        }
+      }
+    },
+    "Already optimised": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ja optimitzat"
+          }
+        }
+      }
+    },
+    "Already optimised · %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ja optimitzat · %@"
+          }
+        }
+      }
+    },
+    "Always": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sempre"
+          }
+        }
+      }
+    },
+    "Always apply to %@ animated GIFs": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplica-ho sempre als %@ animats"
+          }
+        }
+      }
+    },
+    "Always apply to %@ copied files": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplica-ho sempre als fitxers %@ copiats"
+          }
+        }
+      }
+    },
+    "Always apply to %@ exported documents": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplica-ho sempre als documents %@"
+          }
+        }
+      }
+    },
+    "Always apply to %@ graphics with transparency": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplica-ho sempre als gràfics %@ amb transparència"
+          }
+        }
+      }
+    },
+    "Always apply to %@ images from browsers": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplica-ho sempre a les imatges %@ dels navegadors"
+          }
+        }
+      }
+    },
+    "Always apply to %@ photos from Photos": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplica-ho sempre a les fotos %@"
+          }
+        }
+      }
+    },
+    "Always apply to %@ screen recordings": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplica-ho sempre a les gravacions %@"
+          }
+        }
+      }
+    },
+    "Always apply to %@ screenshots": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplica-ho sempre a les captures de pantalla %@"
+          }
+        }
+      }
+    },
+    "Always apply to %@ voice memos": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplica-ho sempre a les notes de veu %@"
+          }
+        }
+      }
+    },
+    "Animated GIF": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GIF animat"
+          }
+        }
+      }
+    },
+    "Applied": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplicat"
+          }
+        }
+      }
+    },
+    "Apply": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplica"
+          }
+        }
+      }
+    },
+    "Audio": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Àudio"
+          }
+        }
+      }
+    },
+    "Audio optimised": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Àudio optimitzat"
+          }
+        }
+      }
+    },
+    "Bitrate": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taxa de bits"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel·la"
+          }
+        }
+      }
+    },
+    "Clipboard rules": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regles del porta-retalls"
+          }
+        }
+      }
+    },
+    "Close details": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tanca el detall"
+          }
+        }
+      }
+    },
+    "Collapsed": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plegat"
+          }
+        }
+      }
+    },
+    "Compression": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compressió"
+          }
+        }
+      }
+    },
+    "Convert": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Converteix"
+          }
+        }
+      }
+    },
+    "Convert HDR to SDR": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Converteix l’HDR a SDR"
+          }
+        }
+      }
+    },
+    "Convert to %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Converteix a %@"
+          }
+        }
+      }
+    },
+    "Convert to GIF": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Converteix a GIF"
+          }
+        }
+      }
+    },
+    "Copied image": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imatge copiada"
+          }
+        }
+      }
+    },
+    "Copy": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia"
+          }
+        }
+      }
+    },
+    "Copy the file": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia el fitxer"
+          }
+        }
+      }
+    },
+    "Could not save the rule": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha pogut desar la regla"
+          }
+        }
+      }
+    },
+    "Couldn’t optimise": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha pogut comprimir"
+          }
+        }
+      }
+    },
+    "Crop": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retalla"
+          }
+        }
+      }
+    },
+    "Crop area": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zona de retall"
+          }
+        }
+      }
+    },
+    "Customise buttons…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personalitza els botons…"
+          }
+        }
+      }
+    },
+    "Custom…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personalitzat…"
+          }
+        }
+      }
+    },
+    "Default": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Per defecte"
+          }
+        }
+      }
+    },
+    "Delete": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elimina"
+          }
+        }
+      }
+    },
+    "Delete the rule for %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elimina la regla de %@"
+          }
+        }
+      }
+    },
+    "Dismiss": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descarta"
+          }
+        }
+      }
+    },
+    "Downscale": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redueix"
+          }
+        }
+      }
+    },
+    "Downscale to half": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redueix a la meitat"
+          }
+        }
+      }
+    },
+    "Estimating": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calculant"
+          }
+        }
+      }
+    },
+    "Expanded": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desplegat"
+          }
+        }
+      }
+    },
+    "Exported document": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Document exportat"
+          }
+        }
+      }
+    },
+    "File name": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nom del fitxer"
+          }
+        }
+      }
+    },
+    "Fit": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encaixa"
+          }
+        }
+      }
+    },
+    "Fit under": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encaixa sota"
+          }
+        }
+      }
+    },
+    "Format": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Format"
+          }
+        }
+      }
+    },
+    "Format and options": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Format i opcions"
+          }
+        }
+      }
+    },
+    "Free": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lliure"
+          }
+        }
+      }
+    },
+    "Graphic with transparency": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gràfic amb transparència"
+          }
+        }
+      }
+    },
+    "Height": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alçada"
+          }
+        }
+      }
+    },
+    "Hover buttons": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Botons sobre la miniatura"
+          }
+        }
+      }
+    },
+    "Image": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imatge"
+          }
+        }
+      }
+    },
+    "Image from a browser": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imatge d’un navegador"
+          }
+        }
+      }
+    },
+    "Image optimised": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imatge optimitzada"
+          }
+        }
+      }
+    },
+    "Keep visible": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mantén visible"
+          }
+        }
+      }
+    },
+    "Kept the original, %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’ha conservat l’original, %@"
+          }
+        }
+      }
+    },
+    "Lossless": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sense pèrdua"
+          }
+        }
+      }
+    },
+    "L’Esclop cannot optimise this kind of file (%@).": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’Esclop no pot optimitzar aquest tipus de fitxer (%@)."
+          }
+        }
+      }
+    },
+    "More options": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Més opcions"
+          }
+        }
+      }
+    },
+    "Next %@ animated GIFs will become %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els propers %@ animats es convertiran a %@"
+          }
+        }
+      }
+    },
+    "Next %@ copied files will become %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els propers fitxers %@ copiats es convertiran a %@"
+          }
+        }
+      }
+    },
+    "Next %@ exported documents will become %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els propers documents %@ es convertiran a %@"
+          }
+        }
+      }
+    },
+    "Next %@ graphics with transparency will become %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els propers gràfics %@ amb transparència es convertiran a %@"
+          }
+        }
+      }
+    },
+    "Next %@ images from browsers will become %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les properes imatges %@ dels navegadors es convertiran a %@"
+          }
+        }
+      }
+    },
+    "Next %@ photos from Photos will become %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les properes fotos %@ es convertiran a %@"
+          }
+        }
+      }
+    },
+    "Next %@ screen recordings will become %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les properes gravacions %@ es convertiran a %@"
+          }
+        }
+      }
+    },
+    "Next %@ screenshots will become %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les properes captures %@ es convertiran a %@"
+          }
+        }
+      }
+    },
+    "Next %@ voice memos will become %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les properes notes de veu %@ es convertiran a %@"
+          }
+        }
+      }
+    },
+    "No clipboard rules yet. Tick “Always apply” in a file’s options to make one.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encara no hi ha cap regla. Marca «Aplica-ho sempre» a les opcions d’un fitxer per crear-ne una."
+          }
+        }
+      }
+    },
+    "No estimate": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sense estimació"
+          }
+        }
+      }
+    },
+    "No pipelines yet. Save one in Settings or with `esclop pipeline`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encara no hi ha cap pipeline. Desa’n un a Configuració o amb `esclop pipeline`."
+          }
+        }
+      }
+    },
+    "No shortcuts yet. Make one in the Shortcuts app.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encara no hi ha cap drecera. Crea’n una a l’app Dreceres."
+          }
+        }
+      }
+    },
+    "Normal": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Velocitat normal"
+          }
+        }
+      }
+    },
+    "Normalise loudness (%@)": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Normalitza el volum (%@)"
+          }
+        }
+      }
+    },
+    "Open the editor…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obre l’editor…"
+          }
+        }
+      }
+    },
+    "Open with": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obre amb"
+          }
+        }
+      }
+    },
+    "Optimise": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optimitza"
+          }
+        }
+      }
+    },
+    "Optimised": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optimitzat"
+          }
+        }
+      }
+    },
+    "Optimised, %@, %@ larger": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optimitzat, %@, %@ més gran"
+          }
+        }
+      }
+    },
+    "Optimised, %@, %@ smaller": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optimitzat, %@, %@ més petit"
+          }
+        }
+      }
+    },
+    "Optimising harder…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprimint més fort…"
+          }
+        }
+      }
+    },
+    "Optimising…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprimint…"
+          }
+        }
+      }
+    },
+    "Options": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opcions"
+          }
+        }
+      }
+    },
+    "Original": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Original"
+          }
+        }
+      }
+    },
+    "Original kept · Try again": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’original es conserva · Torna-ho a provar"
+          }
+        }
+      }
+    },
+    "Original restored": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Original restaurat"
+          }
+        }
+      }
+    },
+    "Original restored · %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Original restaurat · %@"
+          }
+        }
+      }
+    },
+    "PDF optimised": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PDF optimitzat"
+          }
+        }
+      }
+    },
+    "Photo from Photos": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Foto de Fotos"
+          }
+        }
+      }
+    },
+    "Playback speed": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Velocitat de reproducció"
+          }
+        }
+      }
+    },
+    "Quality": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qualitat"
+          }
+        }
+      }
+    },
+    "Quality %d %%": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qualitat %d %%"
+          }
+        }
+      }
+    },
+    "Quick Look": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vista ràpida"
+          }
+        }
+      }
+    },
+    "Re-optimise with": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Torna a optimitzar amb"
+          }
+        }
+      }
+    },
+    "Remove audio": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elimina l’àudio"
+          }
+        }
+      }
+    },
+    "Resolution": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resolució"
+          }
+        }
+      }
+    },
+    "Restore original": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaura l’original"
+          }
+        }
+      }
+    },
+    "Restore original size (100 %)": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaura la mida original (100 %)"
+          }
+        }
+      }
+    },
+    "Rule": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regla"
+          }
+        }
+      }
+    },
+    "Rule: %@ → %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regla: %@ → %@"
+          }
+        }
+      }
+    },
+    "Run a Shortcut": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passa per una drecera"
+          }
+        }
+      }
+    },
+    "Run a pipeline": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passa per un pipeline"
+          }
+        }
+      }
+    },
+    "Save as…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desa com a…"
+          }
+        }
+      }
+    },
+    "Screen recording": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gravació de pantalla"
+          }
+        }
+      }
+    },
+    "Screenshot": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Captura de pantalla"
+          }
+        }
+      }
+    },
+    "Share": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comparteix"
+          }
+        }
+      }
+    },
+    "Share…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comparteix…"
+          }
+        }
+      }
+    },
+    "Show details": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obre el detall"
+          }
+        }
+      }
+    },
+    "Show in Finder": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra al Finder"
+          }
+        }
+      }
+    },
+    "Size": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mida"
+          }
+        }
+      }
+    },
+    "Size in kB": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mida en kB"
+          }
+        }
+      }
+    },
+    "Sound": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "So"
+          }
+        }
+      }
+    },
+    "Space": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "espai"
+          }
+        }
+      }
+    },
+    "Stopped before it finished.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’ha aturat abans d’acabar."
+          }
+        }
+      }
+    },
+    "Strip metadata": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elimina les metadades"
+          }
+        }
+      }
+    },
+    "Suggested: %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggerit: %@"
+          }
+        }
+      }
+    },
+    "Suggestion": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggeriment"
+          }
+        }
+      }
+    },
+    "Try again": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Torna-ho a provar"
+          }
+        }
+      }
+    },
+    "Undo": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desfés"
+          }
+        }
+      }
+    },
+    "Undo, restore the original": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desfés, restaura l’original"
+          }
+        }
+      }
+    },
+    "Unknown origin": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Origen desconegut"
+          }
+        }
+      }
+    },
+    "Upload with %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puja amb %@"
+          }
+        }
+      }
+    },
+    "Video": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vídeo"
+          }
+        }
+      }
+    },
+    "Video optimised": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vídeo optimitzat"
+          }
+        }
+      }
+    },
+    "Voice memo": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nota de veu"
+          }
+        }
+      }
+    },
+    "Width": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amplada"
+          }
+        }
+      }
+    },
+    "keep text": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "conserva el text"
+          }
+        }
+      }
+    },
+    "keep timing": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "conserva el ritme"
+          }
+        }
+      }
+    },
+    "keep transparency": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "conserva la transparència"
+          }
+        }
+      }
+    },
+    "no audio": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sense àudio"
+          }
+        }
+      }
+    },
+    "strip location": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sense ubicació"
+          }
+        }
+      }
+    },
+    "strip metadata": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sense metadades"
+          }
+        }
+      }
+    },
+    "“…” always stays, so the options are one click away.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“…” sempre hi és, perquè les opcions quedin a un clic."
+          }
+        }
+      }
+    },
+    "⌥ keeps both": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌥ conserva tots dos"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

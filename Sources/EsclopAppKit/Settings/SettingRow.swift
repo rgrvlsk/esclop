@@ -95,6 +95,10 @@ struct SettingRow: View {
             }
         case .folders, .apps:
             StringListEditor(descriptor: descriptor, model: model, label: AnyView(label))
+        case .clipboardRules:
+            ClipboardRuleList(descriptor: descriptor, model: model, label: AnyView(label))
+        case .hoverButtons:
+            HoverButtonSwitches(descriptor: descriptor, model: model, label: AnyView(label))
         }
     }
 

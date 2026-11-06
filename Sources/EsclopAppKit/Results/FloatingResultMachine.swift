@@ -69,8 +69,11 @@ public struct FloatingResultMachine: Equatable, Sendable {
     /// The pointer is on the object, or just crossed to its buttons.
     var pointerInside: Bool { hovering || leaveDeadline != nil }
 
+    /// The row stays while the options popover is open, even while a choice from it runs again,
+    /// so the popover keeps its anchor.
     public var showsHoverButtons: Bool {
-        stage == .finished && level == .thumbnail && (pointerInside || focused || menuOpen)
+        guard level == .thumbnail else { return false }
+        return menuOpen || stage == .finished && (pointerInside || focused)
     }
 
     /// Dismissal pauses while the object is hovered, focused, dragged or open.
@@ -91,6 +94,15 @@ public struct FloatingResultMachine: Equatable, Sendable {
     public mutating func estimateChanged(_ expectedDuration: TimeInterval) {
         guard stage == .working else { return }
         activity = expectedDuration > Self.activityThreshold ? .running : .hidden
+    }
+
+    /// The same file runs again with another choice (from the options popover or a hover
+    /// button): back to working, keeping the level, the pointer and the open popover.
+    public mutating func restarted(expectedDuration: TimeInterval) {
+        stage = .working
+        activity = expectedDuration > Self.activityThreshold ? .running : .hidden
+        dwellDeadline = nil
+        hideDeadline = nil
     }
 
     public mutating func finished(at now: Date, hideAfter: TimeInterval?) {

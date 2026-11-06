@@ -13,6 +13,9 @@ cd "$(dirname "$0")/.."
 swift build --product esclop >&2
 ESCLOP_TEST_BINARY="$(swift build --show-bin-path)/esclop"
 export ESCLOP_TEST_BINARY
+# The app's copy follows the system language; tests check the English base unless asked.
+ESCLOP_LANGUAGE="${ESCLOP_LANGUAGE:-en}"
+export ESCLOP_LANGUAGE
 DEV_DIR="$(xcode-select -p)"
 PLUGIN="$DEV_DIR/usr/lib/swift/host/plugins/testing/libTestingMacros.dylib"
 if [ -f "$PLUGIN" ] && ! [ -d "$DEV_DIR/../Applications" ]; then

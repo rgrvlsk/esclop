@@ -105,7 +105,8 @@ struct VideoEngine: Sendable {
             let target = crop.targetSize(fromWidth: width, height: height)
             if crop.cropsAspect(fromWidth: width, height: height) {
                 let aspect = Double(target.width) / Double(target.height)
-                let rect = ImageIOCodec.cropRect(for: nil, width: width, height: height, aspect: aspect, smart: false)
+                let rect = crop.region(inWidth: width, height: height)
+                    ?? ImageIOCodec.cropRect(for: nil, width: width, height: height, aspect: aspect, smart: false)
                 filters.append("crop=\(even(rect.width)):\(even(rect.height)):\(Int(rect.minX)):\(Int(rect.minY))")
                 steps.append("Cropped to \(even(rect.width))x\(even(rect.height))")
             }
@@ -383,7 +384,8 @@ struct VideoEngine: Sendable {
         if let crop = plan.crop {
             let target = crop.targetSize(fromWidth: video.width, height: video.height)
             if crop.cropsAspect(fromWidth: video.width, height: video.height) {
-                let rect = ImageIOCodec.cropRect(for: nil, width: video.width, height: video.height, aspect: Double(target.width) / Double(target.height), smart: false)
+                let rect = crop.region(inWidth: video.width, height: video.height)
+                    ?? ImageIOCodec.cropRect(for: nil, width: video.width, height: video.height, aspect: Double(target.width) / Double(target.height), smart: false)
                 cropFilter = "crop=\(even(rect.width)):\(even(rect.height)):\(Int(rect.minX)):\(Int(rect.minY)),"
             }
             width = min(width, target.width)
