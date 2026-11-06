@@ -39,7 +39,8 @@ jobs:
   package:
     name: package and draft release
     needs: [binaries]
-    runs-on: macos-15
+    # The app ships Liquid Glass, which needs the macOS 26 SDK; the tools come from binaries.yml.
+    runs-on: macos-26
     timeout-minutes: 60
     permissions:
       contents: write
@@ -57,6 +58,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+      - name: Swift 6.2 or later (Liquid Glass)
+        run: |
+          swift --version
+          swift --version 2>&1 | grep -Eq 'Swift version (6\.([2-9]|[1-9][0-9])|[7-9])' || { echo "The macOS 26 SDK (Swift 6.2+) is needed for Liquid Glass." >&2; exit 1; }
       - name: Signing keychain path
         run: echo "KEYCHAIN=$RUNNER_TEMP/esclop-signing.keychain-db" >> "$GITHUB_ENV"
       - name: Rust toolchain (cargo vendor, the gate's cargo tree)

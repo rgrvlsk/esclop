@@ -7,7 +7,7 @@
 #   Contents/MacOS/esclop        the command line (universal), so the app can install it
 #   Contents/Resources/bin/      the bundled tools and esclop-engine, from Binaries/
 #   Contents/Resources/LICENSES/ every licence text and notice (Scripts/stage-notices.sh)
-#   Contents/Resources/AppIcon.icns from assets/icon.svg (Scripts/make-icon.swift)
+#   Contents/Resources/AppIcon.icns from assets/AppIcon.icns (regenerate with `make icons`)
 # then signs it (ad hoc, or with $ESCLOP_SIGN_IDENTITY and the hardened runtime), verifies the
 # signature and runs the licence gate on the result.
 #
@@ -62,16 +62,9 @@ for b in "$bindir"/*.bundle; do
   [ -d "$b" ] && cp -R "$b" "$APP/Contents/Resources/"
 done
 
-# The icon: assets/icon.svg drawn at every size into AppIcon.icns (CFBundleIconFile in the
-# template). A template glyph at assets/menubar-icon.{pdf,png,svg}, when there is one, becomes
-# the menu bar icon (Contents/Resources/MenuBarIcon.*); without it the app uses a system symbol.
-iconset="$(mktemp -d "${TMPDIR:-/tmp}/esclop-icon.XXXXXX")/AppIcon.iconset"
-swift Scripts/make-icon.swift assets/icon.svg "$iconset"
-iconutil -c icns "$iconset" -o "$APP/Contents/Resources/AppIcon.icns"
-rm -rf "$(dirname "$iconset")"
-for ext in pdf png svg; do
-  [ -f "assets/menubar-icon.$ext" ] && cp "assets/menubar-icon.$ext" "$APP/Contents/Resources/MenuBarIcon.$ext"
-done
+# The app icon is committed (assets/AppIcon.icns, CFBundleIconFile in the template), so bundling
+# needs no SVG tools. The menu bar glyph travels in EsclopAppKit's resource bundle, copied above.
+cp assets/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
 # Sign inside out: nested executables first, then the bundle.
 if [ -n "${ESCLOP_SIGN_IDENTITY:-}" ]; then
