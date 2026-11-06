@@ -214,6 +214,11 @@ extension AppModel {
         var current = Set(hoverButtons)
         if shown { current.insert(name) } else { current.remove(name) }
         try? EsclopSettings.hoverButtons.set(order.filter(current.contains), in: settings)
+        hoverButtonsChanged()
+    }
+
+    /// The setting changed, here or in Settings: the rows on screen follow.
+    public func hoverButtonsChanged() {
         let shownNow = hoverButtons
         cards.forEach { $0.hoverButtons = shownNow }
     }

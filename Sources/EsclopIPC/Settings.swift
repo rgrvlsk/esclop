@@ -163,6 +163,8 @@ public protocol SettingsProvider: AgentPermissionReading {
     func value(forKey key: String) throws -> JSONValue
     /// Parses `text` for the setting's type, stores it and returns the stored value.
     func setValue(_ text: String, forKey key: String) throws -> JSONValue
+    /// Removes the stored value so the default applies again; returns the default.
+    func resetValue(forKey key: String) throws -> JSONValue
 }
 
 extension SettingsProvider {
@@ -232,6 +234,12 @@ public struct RegistrySettingsProvider: SettingsProvider {
         try registry.set(key, text: text, in: store)
         return try registry.get(key, in: store)
     }
+
+    public func resetValue(forKey key: String) throws -> JSONValue {
+        _ = try descriptor(forKey: key)
+        try registry.reset(key, in: store)
+        return try registry.get(key, in: store)
+    }
 }
 
 /// In-memory settings, for tests and previews.
@@ -261,5 +269,12 @@ public final class InMemorySettingsProvider: SettingsProvider, @unchecked Sendab
         lock.lock(); defer { lock.unlock() }
         values[key] = value
         return value
+    }
+
+    public func resetValue(forKey key: String) throws -> JSONValue {
+        let descriptor = try descriptor(forKey: key)
+        lock.lock(); defer { lock.unlock() }
+        values[key] = nil
+        return descriptor.defaultValue
     }
 }

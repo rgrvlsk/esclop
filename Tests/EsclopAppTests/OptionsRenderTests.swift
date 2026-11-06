@@ -121,11 +121,25 @@ import UniformTypeIdentifiers
         let harness = Harness()
         try harness.model.rules.save(ClipboardRule(origin: .screenshot, inputType: UTType.png.identifier, choice: OptimiseChoice(format: .webp)))
         try harness.model.rules.save(ClipboardRule(origin: .photos, inputType: UTType.heic.identifier, choice: OptimiseChoice(format: .jpeg, stripMetadata: true)))
-        let settings = SettingsViewModel(provider: harness.model.service.context.settings, rules: harness.model.rules)
-        #expect(settings.clipboardRules.count == 2)
-        let list = Form { ClipboardRulesSection(model: settings) }.formStyle(.grouped).frame(width: 480, height: 200)
+        let settings = SettingsViewModel(provider: harness.model.service.context.settings)
+        let rules = try #require(settings.descriptor(EsclopSettings.clipboardRules.key))
+        #expect(SettingPresentation.control(for: rules) == .clipboardRules)
+        #expect(settings.pane(of: rules.key) == .clipboard, "the rules sit in Settings › Clipboard")
+        let hover = try #require(settings.descriptor(EsclopSettings.hoverButtons.key))
+        #expect(SettingsPane.pane(for: SettingsViewModel.section(of: hover)) == .floatingResults)
+        let label = AnyView(SettingLabel(title: rules.title, summary: rules.summary))
+        let list = Form { ClipboardRuleList(descriptor: rules, model: settings, label: label) }.formStyle(.grouped).frame(width: 480, height: 240)
         try await snapshot(list, name: "settings-clipboard-rules", scheme: scheme)
-        settings.delete(settings.clipboardRules[0])
-        #expect(settings.clipboardRules.count == 1)
+
+        // Search finds the rules and the hover buttons.
+        settings.query = "clipboard rules"
+        #expect(settings.hits.contains { $0.id == EsclopSettings.clipboardRules.key && $0.pane == .clipboard })
+        settings.query = "hover buttons"
+        #expect(settings.hits.contains { $0.id == EsclopSettings.hoverButtons.key && $0.pane == .floatingResults })
+
+        // Deleting goes through the registry, like any other setting.
+        let stored = EsclopSettings.clipboardRules.value(in: harness.settings.store)
+        settings.set(rules.key, to: .array(Array(stored.dropFirst()).map { .string($0) }))
+        #expect(harness.model.rules.all.map(\.origin) == [.photos])
     }
 }

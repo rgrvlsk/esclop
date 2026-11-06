@@ -31,9 +31,26 @@ public struct ServerCommand: Codable, Hashable, Sendable {
         return ServerCommand(command: stable.path)
     }
 
-    /// For a person to paste: `/path/to/esclop mcp serve`.
+    /// For a person to paste: `/path/to/esclop mcp serve`. Quoted for the shell where needed:
+    /// the app's own copy lives under `/Applications/L'Esclop.app`, whose apostrophe a shell
+    /// would otherwise take as the start of a string.
     public var shellLine: String {
-        ([command] + args).map { $0.contains(" ") ? "'\($0)'" : $0 }.joined(separator: " ")
+        ([command] + args).map(Self.shellQuoted).joined(separator: " ")
+    }
+
+    public static func shellQuoted(_ word: String) -> String {
+        let safe = !word.isEmpty && word.allSatisfy { $0.isLetter || $0.isNumber || "-_./:=@%+,".contains($0) }
+        return safe ? word : "'" + word.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+
+    /// The `esclop` command line next to the running executable: inside the app bundle
+    /// (`Contents/MacOS/esclop`, where the bundle script puts it) or in the same build folder in a
+    /// checkout. Nil when there is none.
+    public static func sibling(of executable: URL? = Bundle.main.executableURL) -> ServerCommand? {
+        guard let executable else { return nil }
+        let candidate = executable.resolvingSymlinksInPath().deletingLastPathComponent().appendingPathComponent("esclop")
+        guard FileManager.default.isExecutableFile(atPath: candidate.path) else { return nil }
+        return ServerCommand(command: candidate.path)
     }
 }
 
@@ -191,9 +208,16 @@ public struct AgentInstaller: Sendable {
         OrderedJSON.object([(entryName, entry(.standard, command))]).render(indent: "", unit: "  ")
     }
 
+    /// The whole config an agent would need if it had none: `{"mcpServers": {"esclop": ...}}`
+    /// for most, the `[mcp_servers.esclop]` table for Codex. Nil for agents without a file.
+    public func snippet(for agent: AgentDefinition, command: ServerCommand) -> String? {
+        if case .manual = agent.style { return nil }
+        return try? render(agent, into: "", command: command).trimmingCharacters(in: .newlines)
+    }
+
     public func status(_ agent: AgentDefinition, expected: ServerCommand) -> AgentStatus {
         var status = AgentStatus(
-            id: agent.id, name: agent.name, present: isPresent(agent), configPath: configURL(agent).map { PathInput.abbreviate($0) },
+            id: agent.id, name: agent.name, present: isPresent(agent), configPath: configURL(agent).map { shown($0) },
             format: agent.format.rawValue, state: .absent, command: nil, detail: nil
         )
         if case let .manual(how) = agent.style {
@@ -216,44 +240,116 @@ public struct AgentInstaller: Sendable {
     /// Writes the entry, keeping everything else, and verifies by reading it back.
     @discardableResult
     public func install(_ agent: AgentDefinition, command: ServerCommand) throws -> AgentStatus {
-        if case let .manual(how) = agent.style {
-            throw ConfigLayoutError("\(agent.name) has no config file esclop can edit. \(how)\n\(manualSnippet(command))")
-        }
-        guard let url = configURL(agent) else { throw ConfigLayoutError("\(agent.name) has no config path") }
-        try edit(url, agent: agent) { text in
-            let after = try render(agent, into: text, command: command)
-            // Checked before anything is written: the new text parses and holds the entry.
-            guard try installedCommand(agent, in: after) == command else {
-                throw ConfigLayoutError("The edited \(PathInput.abbreviate(url)) would not read back the esclop entry; nothing was written")
-            }
-            return after
-        }
-        let status = status(agent, expected: command)
-        guard status.state == .installed else {
-            throw ConfigLayoutError("Wrote \(PathInput.abbreviate(url)) but reading it back found \(status.state.rawValue)\(status.detail.map { ": \($0)" } ?? "")")
-        }
-        return status
+        try apply(planInstall(agent, command: command))
     }
 
     /// Removes the entry. Returns the status after removal (absent).
     @discardableResult
     public func uninstall(_ agent: AgentDefinition) throws -> AgentStatus {
+        guard let change = try planUninstall(agent) else {
+            return status(agent, expected: ServerCommand(command: ""))
+        }
+        return try apply(change)
+    }
+
+    // MARK: Planning and applying
+
+    /// The exact text an install would write, computed without writing anything. The app shows it
+    /// before the person agrees; `apply` then writes these bytes or nothing.
+    public func planInstall(_ agent: AgentDefinition, command: ServerCommand) throws -> ConfigChange {
+        if case let .manual(how) = agent.style {
+            throw ConfigLayoutError("\(agent.name) has no config file esclop can edit. \(how)\n\(manualSnippet(command))")
+        }
+        guard let url = configURL(agent) else { throw ConfigLayoutError("\(agent.name) has no config path") }
+        let (target, before, exists) = try read(url)
+        let after = try render(agent, into: before, command: command)
+        // Checked before anything is written: the new text parses and holds the entry.
+        guard try installedCommand(agent, in: after) == command else {
+            throw ConfigLayoutError("The edited \(shown(url)) would not read back the esclop entry; nothing was written")
+        }
+        return ConfigChange(
+            agentID: agent.id, agentName: agent.name, action: .install, file: target, shownPath: shown(url),
+            fileExists: exists, before: before, after: after, command: command, backup: exists ? backupURL(agent, target) : nil, shownBackup: exists ? shown(backupURL(agent, target)) : nil
+        )
+    }
+
+    /// The text an uninstall would leave, or nil when there is no entry to remove.
+    public func planUninstall(_ agent: AgentDefinition) throws -> ConfigChange? {
         if case let .manual(how) = agent.style {
             throw ConfigLayoutError("\(agent.name) is configured in its own settings: remove esclop there. \(how)")
         }
-        guard let url = configURL(agent), FileManager.default.fileExists(atPath: url.path), try installedCommand(agent) != nil else {
-            return status(agent, expected: ServerCommand(command: ""))
+        guard let url = configURL(agent), FileManager.default.fileExists(atPath: url.path) else { return nil }
+        let (target, before, _) = try read(url)
+        guard try installedCommand(agent, in: before) != nil else { return nil }
+        let after = try remove(agent, from: before)
+        guard try installedCommand(agent, in: after) == nil else {
+            throw ConfigLayoutError("Removing esclop from \(shown(url)) did not take; nothing was written")
         }
-        try edit(url, agent: agent) { text in
-            let after = try remove(agent, from: text)
-            guard try installedCommand(agent, in: after) == nil else {
-                throw ConfigLayoutError("Removing esclop from \(PathInput.abbreviate(url)) did not take; nothing was written")
+        return ConfigChange(
+            agentID: agent.id, agentName: agent.name, action: .uninstall, file: target, shownPath: shown(url),
+            fileExists: true, before: before, after: after, command: nil, backup: backupURL(agent, target), shownBackup: shown(backupURL(agent, target))
+        )
+    }
+
+    /// Writes a planned change: only to the agent's config file, after keeping its previous
+    /// version in `backupFolder`. Refuses when the file changed since the plan, so what is written
+    /// is what was shown. Verifies by reading the file back.
+    @discardableResult
+    public func apply(_ change: ConfigChange) throws -> AgentStatus {
+        guard let agent = AgentCatalog.agent(change.agentID) ?? AgentCatalog.all.first(where: { $0.id == change.agentID }) else {
+            throw ConfigLayoutError("Unknown agent \(change.agentID)")
+        }
+        let fm = FileManager.default
+        let target = change.file
+        let exists = fm.fileExists(atPath: target.path)
+        let current = exists ? try String(contentsOf: target, encoding: .utf8) : ""
+        guard exists == change.fileExists, current == change.before else {
+            throw ConfigLayoutError("\(change.shownPath) changed since it was read; nothing was written. Look at the change again")
+        }
+        if change.after != change.before {
+            if exists, let backup = change.backup {
+                // The version before esclop touched it, one per agent, overwritten each time.
+                try fm.createDirectory(at: backup.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try Data(change.before.utf8).write(to: backup, options: .atomic)
             }
+            try fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+            let permissions = exists ? (try? fm.attributesOfItem(atPath: target.path))?[.posixPermissions] : nil
+            try change.after.write(to: target, atomically: true, encoding: .utf8)
+            if let permissions { try? fm.setAttributes([.posixPermissions: permissions], ofItemAtPath: target.path) }
+        }
+        switch change.action {
+        case .install:
+            let command = change.command ?? ServerCommand(command: "")
+            let status = status(agent, expected: command)
+            guard status.state == .installed else {
+                throw ConfigLayoutError("Wrote \(change.shownPath) but reading it back found \(status.state.rawValue)\(status.detail.map { ": \($0)" } ?? "")")
+            }
+            return status
+        case .uninstall:
+            let after = status(agent, expected: ServerCommand(command: ""))
+            guard after.state == .absent else { throw ConfigLayoutError("Removed esclop from \(change.shownPath) but it is still there") }
             return after
         }
-        let after = status(agent, expected: ServerCommand(command: ""))
-        guard after.state == .absent else { throw ConfigLayoutError("Removed esclop from \(PathInput.abbreviate(url)) but it is still there") }
-        return after
+    }
+
+    /// The file behind a config path (a symlinked dotfile resolves to its target), its text, and
+    /// whether it exists.
+    private func read(_ url: URL) throws -> (URL, String, Bool) {
+        let target = url.resolvingSymlinksInPath()
+        guard FileManager.default.fileExists(atPath: target.path) else { return (target, "", false) }
+        return (target, try String(contentsOf: target, encoding: .utf8), true)
+    }
+
+    /// `~/.claude.json`: the path under this installer's home, as the docs name it.
+    public func shown(_ url: URL) -> String {
+        let home = self.home.standardizedFileURL.path
+        let path = url.standardizedFileURL.path
+        return path.hasPrefix(home + "/") ? "~/" + path.dropFirst(home.count + 1) : path
+    }
+
+    func backupURL(_ agent: AgentDefinition, _ target: URL) -> URL {
+        let ext = target.pathExtension.isEmpty ? "txt" : target.pathExtension
+        return backupFolder.appendingPathComponent("\(agent.id).\(ext)")
     }
 
     // MARK: Reading
@@ -360,26 +456,5 @@ public struct AgentInstaller: Sendable {
         case .manual:
             return text
         }
-    }
-
-    /// Reads, transforms and writes a config atomically, following a symlinked dotfile to its target
-    /// and keeping the file's permissions. Writes nothing when the text does not change.
-    func edit(_ url: URL, agent: AgentDefinition, _ transform: (String) throws -> String) throws {
-        let fm = FileManager.default
-        let target = url.resolvingSymlinksInPath()
-        let existing = fm.fileExists(atPath: target.path)
-        let before = existing ? try String(contentsOf: target, encoding: .utf8) : ""
-        let after = try transform(before)
-        guard after != before else { return }
-        if existing {
-            // The version before esclop touched it, one per agent, overwritten each time.
-            try fm.createDirectory(at: backupFolder, withIntermediateDirectories: true)
-            let ext = target.pathExtension.isEmpty ? "txt" : target.pathExtension
-            try Data(before.utf8).write(to: backupFolder.appendingPathComponent("\(agent.id).\(ext)"), options: .atomic)
-        }
-        try fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let permissions = existing ? (try? fm.attributesOfItem(atPath: target.path))?[.posixPermissions] : nil
-        try after.write(to: target, atomically: true, encoding: .utf8)
-        if let permissions { try? fm.setAttributes([.posixPermissions: permissions], ofItemAtPath: target.path) }
     }
 }

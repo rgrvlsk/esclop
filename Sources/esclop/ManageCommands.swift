@@ -225,7 +225,7 @@ struct PipelineListing: Codable {
 struct Settings: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "Read and change L'Esclop's settings.",
-        subcommands: [Schema.self, Get.self, Set.self], defaultSubcommand: Schema.self
+        subcommands: [Schema.self, Get.self, Set.self, Reset.self], defaultSubcommand: Schema.self
     )
 
     struct Schema: AsyncParsableCommand {
@@ -273,6 +273,20 @@ struct Settings: AsyncParsableCommand {
             try await guarded(global) {
                 let stored = try await EsclopService(global.context()).setSetting(key, to: value)
                 if global.json { Output.json(["key": JSONValue.string(key), "value": stored]) } else { print("\(key) = \(stored.plain)") }
+                return 0
+            }
+        }
+    }
+
+    struct Reset: AsyncParsableCommand {
+        static let configuration = CommandConfiguration(abstract: "Put one setting back to its default.")
+        @Argument(help: "The key.") var key: String
+        @OptionGroup var global: GlobalOptions
+
+        func run() async throws {
+            try await guarded(global) {
+                let stored = try EsclopService(global.context()).resetSetting(key)
+                if global.json { Output.json(["key": JSONValue.string(key), "value": stored]) } else { print("\(key) = \(stored.plain) (default)") }
                 return 0
             }
         }
