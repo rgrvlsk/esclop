@@ -121,6 +121,13 @@ import Testing
     }
 
     @Test(arguments: [ColorScheme.light, .dark])
+    func ruleGlyphOnTheCapsule(scheme: ColorScheme) throws {
+        let ruled = card(.done(saved(after: 410_000)))
+        ruled.appliedRule = ClipboardRule(origin: .screenshot, inputType: "public.png", choice: OptimiseChoice(format: .webp))
+        try render(object(ruled), name: "result-rule", scheme: scheme)
+    }
+
+    @Test(arguments: [ColorScheme.light, .dark])
     func floatingResultStates(scheme: ColorScheme) throws {
         let hovered = card(.done(saved()))
         hovered.machine.pointerEnteredButtons(at: Date())

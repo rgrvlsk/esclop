@@ -22,7 +22,7 @@ public final class AppServices {
     public init(settings: SettingsStore = .shared) {
         let model = AppModel(settings: settings, service: AppModel.makeService(settings: settings))
         self.model = model
-        settingsModel = SettingsViewModel(provider: model.service.context.settings) { [weak model] key, value in
+        settingsModel = SettingsViewModel(provider: model.service.context.settings, rules: model.rules) { [weak model] key, value in
             if key == EsclopSettings.pauseAutomaticOptimisations.key { model?.pauseChanged(value.boolValue ?? false) }
         }
         let panels = FloatingPanelController(model: model)

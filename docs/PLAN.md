@@ -12,17 +12,19 @@ in a floating card and restore the original. CLI and MCP workflows already run w
 - Menu-bar app: clipboard watcher, the Liquid Glass floating result (thumbnail, detail with
   before/after comparison, activity capsule for long jobs), drop zone, hotkeys, backups menu,
   a minimal settings window, and the IPC server that runs CLI and MCP jobs with results.
+- The options popover from "…" (Optimise, Size with the crop editor, Share; Sound for audio)
+  with size estimates, origin suggestions, clipboard rules and the Catalan localisation.
 
 ## Next
 
-- The options popover from "…" (Optimise, Size, Share), origin suggestions and clipboard rules.
+- The batch window: many files at once, with progress, aggregate saving, cancel and restore-all.
 - Full settings window with search and deep links; onboarding.
 - Watched folders (screenshots and recordings) and pipeline triggers in the app.
 
 ## Later
 
 - Settings search, deep links, a pipeline editor, MCP setup and onboarding.
-- Batch and crop windows.
+- A crop window for files that are not on screen as a floating result.
 - Watched folders, preset zones, Finder actions, uploads and shelf integrations.
 - App release validation, notarisation, Sparkle updates and a Homebrew cask.
 - Shortcuts actions through AppIntents.

@@ -20,22 +20,35 @@ public final class SettingsViewModel {
     public private(set) var descriptors: [SettingDescriptor] = []
     /// The last refusal per key, shown under the control.
     public private(set) var errors: [String: String] = [:]
+    /// Settings › Clipboard rules.
+    public private(set) var clipboardRules: [ClipboardRule] = []
     @ObservationIgnored let provider: any SettingsProvider
+    @ObservationIgnored let rules: ClipboardRules?
     @ObservationIgnored let onChange: (String, JSONValue) -> Void
 
-    public init(provider: any SettingsProvider, onChange: @escaping (String, JSONValue) -> Void = { _, _ in }) {
+    public init(provider: any SettingsProvider, rules: ClipboardRules? = nil, onChange: @escaping (String, JSONValue) -> Void = { _, _ in }) {
         self.provider = provider
+        self.rules = rules
         self.onChange = onChange
         reload()
     }
 
     public func reload() {
         descriptors = provider.descriptors()
+        clipboardRules = rules?.all ?? []
     }
+
+    public func delete(_ rule: ClipboardRule) {
+        try? rules?.delete(origin: rule.origin, inputType: rule.inputType)
+        reload()
+    }
+
+    /// Settings with a control of their own instead of a text field.
+    static let customised: Set<String> = [EsclopSettings.clipboardRules.key]
 
     public var groups: [Group] {
         let matching = provider.search(query).map(\.key)
-        let visible = descriptors.filter { matching.contains($0.key) }
+        let visible = descriptors.filter { matching.contains($0.key) && !Self.customised.contains($0.key) }
         return SettingsSection.allCases.compactMap { section in
             let settings = visible.filter { Self.section(of: $0) == section }
             return settings.isEmpty ? nil : Group(section: section, settings: settings)

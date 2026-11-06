@@ -19,24 +19,55 @@ extension AppModel {
             skipNextCopy = false
             return
         }
+        // The app in front and the pasteboard types are origin signals; read them now, while the
+        // copy is fresh.
+        let copy = CopyMoment(app: frontmostApp(), types: Set((pasteboard.types ?? []).map(\.rawValue)))
         switch action {
         case .ignore:
             return
         case let .optimiseImage(data, type):
-            optimiseImageData(data, type: type, aggressive: false)
+            optimiseImageData(data, type: type, aggressive: false, copy: copy)
         case let .optimiseFiles(urls):
-            optimise(urls, origin: .clipboard)
+            optimise(urls, origin: .clipboard, copy: copy)
         }
+    }
+
+    /// The app in front and the pasteboard types at the moment of a copy.
+    struct CopyMoment {
+        var app: String?
+        var types: Set<String>
+    }
+
+    /// Origin, format and rule for a copied file, read before it is optimised (stripping
+    /// metadata removes the screenshot mark). A rule replaces the default choice.
+    func clipboardContext(for file: URL, copy: CopyMoment, aggressive: Bool) async -> CardContext {
+        let signals = await OriginSignals.read(file, sourceApp: copy.app, pasteboardTypes: copy.types)
+        let origin = OriginClassifier.classify(signals)
+        if !aggressive, let rule = rules.rule(origin: origin, inputType: signals.inputType) {
+            return CardContext(origin: origin, inputType: signals.inputType, choice: rule.choice, rule: rule)
+        }
+        return CardContext(origin: origin, inputType: signals.inputType, choice: OptimiseChoice(compression: aggressive ? .aggressive : .adaptive))
     }
 
     /// Optimises files; results go back on the clipboard when they came from it and the setting
     /// says so.
     public func optimise(_ urls: [URL], origin: RequestOrigin, aggressive: Bool = false) {
+        optimise(urls, origin: origin, aggressive: aggressive, copy: nil)
+    }
+
+    func optimise(_ urls: [URL], origin: RequestOrigin, aggressive: Bool = false, copy: CopyMoment?) {
         let copyBack = origin == .clipboard && EsclopSettings.autoCopyToClipboard.value(in: settings)
         for url in urls {
-            let job = factory.job(for: url, origin: origin, aggressive: aggressive)
+            let base = factory.job(for: url, origin: origin, aggressive: aggressive)
             Task {
-                await run(job, onResult: { result in
+                var job = base
+                var context: CardContext?
+                if origin == .clipboard {
+                    let found = await clipboardContext(for: url, copy: copy ?? CopyMoment(app: nil, types: []), aggressive: aggressive)
+                    if found.rule != nil { found.choice.apply(to: &job.request) }
+                    context = found
+                }
+                await run(job, context: context, onResult: { result in
                     guard copyBack else { return }
                     Clipboard.write(files: [result.output], to: self.pasteboard)
                 })
@@ -46,7 +77,7 @@ extension AppModel {
 
     /// Copied pixels: saved to a temporary file, optimised in place (the backup is the original),
     /// then put back on the clipboard.
-    func optimiseImageData(_ data: Data, type: UTType, aggressive: Bool) {
+    func optimiseImageData(_ data: Data, type: UTType, aggressive: Bool, copy: CopyMoment? = nil) {
         let file: URL
         do {
             guard let url = try Clipboard.materialise(.image(data, type)).first else { return }
@@ -56,9 +87,12 @@ extension AppModel {
             return
         }
         let copyBack = EsclopSettings.autoCopyToClipboard.value(in: settings)
-        let job = factory.job(for: file, origin: .clipboard, aggressive: aggressive, location: .inPlace)
+        let base = factory.job(for: file, origin: .clipboard, aggressive: aggressive, location: .inPlace)
         Task {
-            await run(job, displayName: "Copied image", onResult: { result in
+            var job = base
+            let context = await clipboardContext(for: file, copy: copy ?? CopyMoment(app: nil, types: []), aggressive: aggressive)
+            if context.rule != nil { context.choice.apply(to: &job.request) }
+            await run(job, displayName: Strings.text("Copied image"), context: context, onResult: { result in
                 guard copyBack else { return }
                 Clipboard.write(files: [result.output], to: self.pasteboard)
             })
@@ -99,7 +133,7 @@ extension AppModel {
         let job = factory.job(for: source, origin: .clipboard, aggressive: true, location: location)
         let copyBack = EsclopSettings.autoCopyToClipboard.value(in: settings)
         Task {
-            await run(job, displayName: wasClipboardImage ? "Copied image" : nil, onResult: { result in
+            await run(job, displayName: wasClipboardImage ? Strings.text("Copied image") : nil, onResult: { result in
                 guard copyBack else { return }
                 Clipboard.write(files: [result.output], to: self.pasteboard)
             })

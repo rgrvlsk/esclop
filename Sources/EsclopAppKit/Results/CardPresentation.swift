@@ -27,26 +27,37 @@ public struct CardPresentation: Equatable, Sendable {
         /// The label on a button in the detail card.
         public var title: String {
             switch self {
-            case .undo: return "Undo"
-            case let .convert(format): return "Convert to \(CardPresentation.formatName(format))"
-            case .downscale: return "Downscale to half"
-            case .crop: return "Crop"
-            case .more: return "More options"
-            case .openDetail: return "Show details"
-            case .closeDetail: return "Close details"
-            case .retry: return "Try again"
-            case .reveal: return "Show in Finder"
-            case .copy: return "Copy"
-            case .dismiss: return "Dismiss"
+            case .undo: return Strings.text("Undo")
+            case let .convert(format): return Strings.format("Convert to %@", CardPresentation.formatName(format))
+            case .downscale: return Strings.text("Downscale to half")
+            case .crop: return Strings.text("Crop")
+            case .more: return Strings.text("More options")
+            case .openDetail: return Strings.text("Show details")
+            case .closeDetail: return Strings.text("Close details")
+            case .retry: return Strings.text("Try again")
+            case .reveal: return Strings.text("Show in Finder")
+            case .copy: return Strings.text("Copy")
+            case .dismiss: return Strings.text("Dismiss")
             }
         }
 
         /// The tooltip of a round hover button, and what VoiceOver says for the action.
         public var accessibilityName: String {
             switch self {
-            case .undo: return "Undo, restore the original"
-            case .copy: return "Copy the file"
+            case .undo: return Strings.text("Undo, restore the original")
+            case .copy: return Strings.text("Copy the file")
             default: return title
+            }
+        }
+
+        /// Its name in the `hoverButtons` setting.
+        var settingName: String? {
+            switch self {
+            case .undo: return "undo"
+            case .convert: return "convert"
+            case .downscale: return "downscale"
+            case .crop: return "crop"
+            default: return nil
             }
         }
 
@@ -103,7 +114,9 @@ public struct CardPresentation: Equatable, Sendable {
     public var accessibilityLabel: String
 
     @MainActor
-    public init(card: ResultCard, locale: Locale = .current) {
+    public init(card: ResultCard, locale: Locale = Strings.locale) {
+        func t(_ key: String) -> String { Strings.text(key, locale: locale) }
+        func f(_ key: String, _ arguments: any CVarArg...) -> String { String(format: t(key), locale: locale, arguments: arguments) }
         let name = card.displayName ?? card.source.lastPathComponent
         let kind = MediaKind.of(card.source)
         fileName = name
@@ -124,18 +137,21 @@ public struct CardPresentation: Equatable, Sendable {
         switch card.phase {
         case let .working(fraction):
             isWorking = true
-            capsule = .working(card.aggressive ? "Optimising harder…" : "Optimising…")
+            capsule = .working(card.aggressive ? t("Optimising harder…") : t("Optimising…"))
             progress = fraction >= 0 ? min(1, fraction) : nil
+            // The row only shows while the options popover is open; "…" must stay in it so the
+            // popover keeps its anchor while a choice from it runs.
+            tools = card.machine.menuOpen ? [.more] : []
             actions = [.dismiss]
-            accessibilityLabel = "\(name), optimising, \(Figures.bytes(card.bytesBefore, locale: locale))"
+            accessibilityLabel = f("%@, optimising, %@", name, Figures.bytes(card.bytesBefore, locale: locale))
         case let .done(result):
             fileName = card.displayName ?? result.output.lastPathComponent
             capsule = .result(before: result.bytesBefore, after: result.bytesAfter)
             if result.bytesAfter > result.bytesBefore { tone = .neutral }
             let undo: [Action] = result.backup != nil ? [.undo] : []
             let resultEditing = Self.editingActions(for: result.output, kind: result.kind)
-            tools = undo + resultEditing + [.more]
-            detailTitle = "Optimised"
+            tools = Self.hoverTools(resultEditing, undo: !undo.isEmpty, shown: card.hoverButtons)
+            detailTitle = t("Optimised")
             change = Figures.change(before: result.bytesBefore, after: result.bytesAfter, locale: locale)
             percent = Figures.percent(before: result.bytesBefore, after: result.bytesAfter, locale: locale)
             barEnd = result.bytesBefore > 0 ? min(1, max(0, Double(result.bytesAfter) / Double(result.bytesBefore))) : 1
@@ -145,34 +161,34 @@ public struct CardPresentation: Equatable, Sendable {
             actions = [.openDetail] + tools + [.reveal, .copy, .dismiss]
             accessibilityLabel = "\(fileName), \(Self.announcement(for: result, locale: locale))"
         case let .unchanged(bytes):
-            capsule = .status(symbol: "checkmark", text: "Already optimised · \(Figures.bytes(bytes, locale: locale))")
+            capsule = .status(symbol: "checkmark", text: f("Already optimised · %@", Figures.bytes(bytes, locale: locale)))
             tone = .neutral
-            tools = editing + [.more]
-            detailTitle = "Already optimised"
-            change = "Kept the original, \(Figures.bytes(bytes, locale: locale))"
+            tools = Self.hoverTools(editing, undo: false, shown: card.hoverButtons)
+            detailTitle = t("Already optimised")
+            change = f("Kept the original, %@", Figures.bytes(bytes, locale: locale))
             detailActions = editing
             actions = [.openDetail] + tools + [.reveal, .copy, .dismiss]
-            accessibilityLabel = "\(name), already optimised, kept the original"
+            accessibilityLabel = f("%@, already optimised, kept the original", name)
         case let .restored(result):
             fileName = card.displayName ?? result.source.lastPathComponent
-            capsule = .status(symbol: "arrow.uturn.backward", text: "Original restored · \(Figures.bytes(result.bytesBefore, locale: locale))")
+            capsule = .status(symbol: "arrow.uturn.backward", text: f("Original restored · %@", Figures.bytes(result.bytesBefore, locale: locale)))
             tone = .neutral
             let restoredEditing = Self.editingActions(for: result.source, kind: result.kind)
-            tools = restoredEditing + [.more]
-            detailTitle = "Original restored"
+            tools = Self.hoverTools(restoredEditing, undo: false, shown: card.hoverButtons)
+            detailTitle = t("Original restored")
             detailSymbol = "arrow.uturn.backward"
             change = Figures.bytes(result.bytesBefore, locale: locale)
             formats = Self.formatName(of: result.source)
             dimensions = Self.dimensions(result)
             detailActions = restoredEditing
             actions = [.openDetail] + tools + [.reveal, .copy, .dismiss]
-            accessibilityLabel = "\(fileName), original restored"
+            accessibilityLabel = f("%@, original restored", fileName)
         case let .failed(message):
-            capsule = .error(title: "Couldn't optimise", message: message)
+            capsule = .error(title: t("Couldn’t optimise"), message: message)
             tone = .error
             let exists = FileManager.default.fileExists(atPath: card.source.path)
             actions = exists ? [.retry, .reveal, .dismiss] : [.dismiss]
-            accessibilityLabel = "\(name), not optimised: \(message) The original is kept."
+            accessibilityLabel = f("%@, not optimised: %@ The original is kept.", name, message)
         case let .notice(title, message):
             fileName = ""
             capsule = .notice(title: title, detail: message)
@@ -190,6 +206,23 @@ public struct CardPresentation: Equatable, Sendable {
         return actions
     }
 
+    /// The hover row: the editing actions the person kept in "Customise buttons", then "…".
+    static func hoverTools(_ editing: [Action], undo: Bool, shown: [String]) -> [Action] {
+        let names = Set(shown)
+        let kept = editing.filter { names.contains($0.settingName ?? "") }
+        return (undo && names.contains("undo") ? [.undo] : []) + kept + [.more]
+    }
+
+    /// The name of a hover button in the `hoverButtons` setting.
+    public static func hoverButtonTitle(_ name: String) -> String {
+        switch name {
+        case "undo": return Strings.text("Undo")
+        case "convert": return Strings.text("Convert")
+        case "downscale": return Strings.text("Downscale")
+        default: return Strings.text("Crop")
+        }
+    }
+
     /// The one-click conversion: WebP for images (PNG for WebP itself), MP4 for other videos,
     /// AAC for audio. PDFs have none.
     public static func convertTarget(for url: URL, kind: MediaKind?) -> OutputFormat? {
@@ -203,11 +236,11 @@ public struct CardPresentation: Equatable, Sendable {
     }
 
     /// "Optimised, 612 kB, 75 % smaller": said once when a result arrives.
-    public static func announcement(for result: OptimisationResult, locale: Locale = .current) -> String {
+    public static func announcement(for result: OptimisationResult, locale: Locale = Strings.locale) -> String {
         let size = Figures.bytes(result.bytesAfter, locale: locale)
         let percent = Figures.percent(before: result.bytesBefore, after: result.bytesAfter, locale: locale).dropFirst()
-        let change = result.bytesAfter <= result.bytesBefore ? "\(percent) smaller" : "\(percent) larger"
-        return "Optimised, \(size), \(change)"
+        let key = result.bytesAfter <= result.bytesBefore ? "Optimised, %@, %@ smaller" : "Optimised, %@, %@ larger"
+        return String(format: Strings.text(key, locale: locale), locale: locale, size, String(percent))
     }
 
     static func dimensions(_ result: OptimisationResult) -> String? {
@@ -244,16 +277,16 @@ public struct CardPresentation: Equatable, Sendable {
     public static func message(for error: Error) -> String {
         switch EsclopError.wrap(error) {
         case let .toolMissing(tool):
-            return "\(tool) is missing. Reinstall L'Esclop or run Scripts/build-tools.sh."
+            return Strings.format("%@ is missing. Reinstall L’Esclop or run Scripts/build-tools.sh.", tool)
         case let .unsupportedFile(file):
-            return "L'Esclop cannot optimise this kind of file (\(URL(fileURLWithPath: file).lastPathComponent))."
+            return Strings.format("L’Esclop cannot optimise this kind of file (%@).", URL(fileURLWithPath: file).lastPathComponent)
         case let .fileNotFound(path):
-            return "\(URL(fileURLWithPath: path).lastPathComponent) is no longer there."
+            return Strings.format("%@ is no longer there.", URL(fileURLWithPath: path).lastPathComponent)
         case let .toolFailed(tool, code, stderr):
             let line = readable(stderr.split(separator: "\n").last.map(String.init) ?? "")
             return "\(tool) stopped with code \(code)\(line.isEmpty ? "" : ": \(line)")"
         case .cancelled:
-            return "Stopped before it finished."
+            return Strings.text("Stopped before it finished.")
         case let .notPermitted(why):
             return why
         case let other:

@@ -14,6 +14,8 @@ public struct FloatingResultView: View {
     let corner: ScreenCorner
     let perform: (CardPresentation.Action) -> Void
     let interact: (AppModel.Interaction) -> Void
+    /// Makes the options popover's model when "…" opens it.
+    let options: (() -> OptionsModel)?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.controlActiveState) private var activeState
@@ -24,9 +26,11 @@ public struct FloatingResultView: View {
 
     public init(
         card: ResultCard, corner: ScreenCorner = .bottomRight,
-        perform: @escaping (CardPresentation.Action) -> Void, interact: @escaping (AppModel.Interaction) -> Void = { _ in }
+        perform: @escaping (CardPresentation.Action) -> Void, interact: @escaping (AppModel.Interaction) -> Void = { _ in },
+        options: (() -> OptionsModel)? = nil
     ) {
         self.card = card
+        self.options = options
         self.corner = corner
         self.perform = perform
         self.interact = interact
@@ -66,8 +70,9 @@ public struct FloatingResultView: View {
             }
             return .handled
         }
-        .onKeyPress(.return) { run(.openDetail, in: info) }
-        .onKeyPress(.space) { run(.openDetail, in: info) }
+        // With the options popover open, Return and Space belong to it.
+        .onKeyPress(.return) { card.machine.menuOpen ? .ignored : run(.openDetail, in: info) }
+        .onKeyPress(.space) { card.machine.menuOpen ? .ignored : run(.openDetail, in: info) }
         .onKeyPress(characters: ["z", "c", "r"], phases: .down) { press in
             guard press.modifiers.contains(.command) else { return .ignored }
             switch press.characters {
@@ -183,7 +188,7 @@ public struct FloatingResultView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title).font(.callout.weight(.semibold)).foregroundStyle(.red)
                     Text(message).font(.subheadline).lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                    Text("Original kept · Try again").font(.subheadline).foregroundStyle(.secondary)
+                    Text(Strings.text("Original kept · Try again")).font(.subheadline).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: 236, alignment: .leading)
                 .padding(.horizontal, 12)
@@ -216,7 +221,14 @@ public struct FloatingResultView: View {
             Text(text).font(.callout.weight(.semibold))
         case let .result(before, after):
             HStack(spacing: 5) {
-                Image(systemName: "checkmark").font(.callout.weight(.semibold)).foregroundStyle(tint)
+                if let rule = card.appliedRule {
+                    // A clipboard rule chose this result.
+                    Image(systemName: "pin.fill").font(.callout.weight(.semibold)).foregroundStyle(tint)
+                        .help(rule.tooltip())
+                        .accessibilityLabel(rule.tooltip())
+                } else {
+                    Image(systemName: "checkmark").font(.callout.weight(.semibold)).foregroundStyle(tint)
+                }
                 CountingResult(before: before, after: after, progress: arrival, tint: info.tone == .neutral ? .primary : tint)
             }
         case let .status(symbol, text):
@@ -242,7 +254,11 @@ public struct FloatingResultView: View {
                         ),
                         arrowEdge: corner.isTop ? .top : .bottom
                     ) {
-                        OptionsPlaceholder(card: card, info: info, perform: perform)
+                        if let options {
+                            OptionsPopover(model: options(), arrowAtBottom: !corner.isTop)
+                        } else {
+                            OptionsPlaceholder(card: card, info: info, perform: perform)
+                        }
                     }
             }
         }
@@ -446,7 +462,7 @@ struct ActivityWing: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("\(Figures.bytes(result.bytesAfter)) · \(Figures.percent(before: result.bytesBefore, after: result.bytesAfter))")
                         .font(.body.weight(.semibold))
-                    Text("\(Self.kindName(result.kind)) optimised").font(.subheadline).foregroundStyle(.secondary)
+                    Text(Self.optimisedName(result.kind)).font(.subheadline).foregroundStyle(.secondary)
                 }
             } else {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -475,10 +491,20 @@ struct ActivityWing: View {
 
     static func kindName(_ kind: MediaKind?) -> String {
         switch kind {
-        case .video: return "Video"
+        case .video: return Strings.text("Video")
         case .pdf: return "PDF"
-        case .audio: return "Audio"
-        case .image, nil: return "Image"
+        case .audio: return Strings.text("Audio")
+        case .image, nil: return Strings.text("Image")
+        }
+    }
+
+    /// "Video optimised": whole phrases, since Catalan puts the adjective after a gendered noun.
+    static func optimisedName(_ kind: MediaKind?) -> String {
+        switch kind {
+        case .video: return Strings.text("Video optimised")
+        case .pdf: return Strings.text("PDF optimised")
+        case .audio: return Strings.text("Audio optimised")
+        case .image, nil: return Strings.text("Image optimised")
         }
     }
 }

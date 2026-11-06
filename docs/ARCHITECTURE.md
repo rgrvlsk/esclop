@@ -125,6 +125,19 @@ holds the rest, in folders by feature:
   material before, opaque under Reduce Transparency. `FloatingPanelController` is a
   non-activating `NSPanel` at the chosen corner of the screen with the pointer; it grows at
   once and shrinks after animations, and a two-finger swipe toward the edge dismisses.
+- `Options`: the options popover (DESIGN.md › Options popover). `OptionsModel` holds one
+  popover's state; `OptimiseChoice` is a choice as a value that writes the fields of an
+  `OptimisationRequest`, so a suggestion, a popover change and a clipboard rule all run the
+  same engine operations, from the original, on the same card. `OriginClassifier` is a pure
+  function of `OriginSignals` (EXIF screenshot mark, the app in front at the copy, pasteboard
+  types, folders, PDF creator, audio encoder); `Suggestion` maps origin and format to a choice.
+  `ClipboardRules` stores rules in the `clipboardRules` setting, keyed by origin and input
+  UTType. `SizeEstimator` (an actor) caches estimates per file and choice, two at a time,
+  cancelled when the popover closes: real encodes into a scratch folder for images and PDFs up
+  to 25 MB, a bitrate model calibrated by the card's result for video and audio.
+  `CropGeometry` is the crop editor's arithmetic; `CropSize.rect` carries a free crop to the
+  engines. Copy goes through `Strings`, which reads `Localizable.xcstrings` (English base,
+  Catalan) by locale; `ESCLOP_LANGUAGE` overrides the system language.
 - `DropZone`: global mouse-drag monitors and the drag pasteboard (read off the main thread)
   show a panel at the results corner; Command switches it to "optimise harder".
 - `Hotkeys`: KeyboardShortcuts names with Clop's default keys (⌃⇧P pause cycle, ⌃⇧C clipboard,

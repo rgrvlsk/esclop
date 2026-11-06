@@ -131,9 +131,9 @@ struct Comparison: View {
                 Picture(card: card, width: width, radius: Metrics.detailPictureRadius, image: before)
                     .mask(alignment: .leading) { Rectangle().frame(width: width * split) }
                 HStack {
-                    tag("Original")
+                    tag(Strings.text("Original"))
                     Spacer()
-                    tag("Optimised")
+                    tag(Strings.text("Optimised"))
                 }
                 .padding(8)
                 divider(height: height)
