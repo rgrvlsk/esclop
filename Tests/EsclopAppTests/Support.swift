@@ -34,13 +34,24 @@ final class TestSettings: @unchecked Sendable {
 }
 
 /// Writes a smaller file in place (keeping a backup), or fails as told.
+/// The requests an engine was given, in order.
+final class RequestLog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: [OptimisationRequest] = []
+
+    func add(_ request: OptimisationRequest) { lock.withLock { stored.append(request) } }
+    var requests: [OptimisationRequest] { lock.withLock { stored } }
+}
+
 struct ShrinkingEngine: OptimisationEngine {
     var factor = 0.4
     var backups: URL
     var failure: EsclopError?
     var delay: Duration = .zero
+    var log: RequestLog?
 
     func optimise(_ source: URL, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult {
+        log?.add(request)
         progress(OptimisationProgress(requestID: request.id, source: source, fraction: 0.5))
         if delay > .zero { try await Task.sleep(for: delay) }
         if let failure { throw failure }
@@ -70,14 +81,19 @@ struct Harness {
     let pasteboard = NSPasteboard.withUniqueName()
     let model: AppModel
     let revealed = Revealed()
+    let requests = RequestLog()
+    let announcements = Revealed()
 
-    final class Revealed: @unchecked Sendable { var urls: [URL] = [] }
+    final class Revealed: @unchecked Sendable {
+        var urls: [URL] = []
+        var texts: [String] = []
+    }
 
     init(failure: EsclopError? = nil, delay: Duration = .zero, gate: WorkGate = WorkGate(limit: 4)) {
         let locations = EsclopLocations(support: temp.url.appendingPathComponent("support", isDirectory: true))
         let service = EsclopService(ServiceContext(
             origin: .app,
-            engine: ShrinkingEngine(backups: locations.backups, failure: failure, delay: delay),
+            engine: ShrinkingEngine(backups: locations.backups, failure: failure, delay: delay, log: requests),
             engineName: "test", settings: RegistrySettingsProvider(store: settings.store),
             pipelines: PipelineStore(directory: locations.pipelines, useTrash: false),
             locations: locations, useApp: false
@@ -85,6 +101,8 @@ struct Harness {
         let revealed = revealed
         model = AppModel(settings: settings.store, service: service, pasteboard: pasteboard, gate: gate) { revealed.urls += $0 }
         model.loadsThumbnails = false
+        let announcements = announcements
+        model.announce = { announcements.texts.append($0) }
     }
 
     func job(_ file: URL, origin: RequestOrigin = .dropZone, showUI: Bool = true, location: OutputLocation = .inPlace) -> OptimisationJob {

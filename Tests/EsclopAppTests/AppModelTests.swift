@@ -21,7 +21,8 @@ import Testing
         let result = try #require(card.result)
         #expect(result.bytesBefore == 100_000)
         #expect(result.bytesAfter == 40_000)
-        #expect(card.presentation.headline == "−60%")
+        #expect(card.presentation.capsule == .result(before: 100_000, after: 40_000))
+        #expect(harness.announcements.texts.count == 1, "VoiceOver hears each result once")
         #expect(harness.model.recent.first?.id == result.id)
         #expect(harness.model.service.results.recent(limit: 5).map(\.id) == [result.id], "the CLI and MCP see it in the shared log")
         #expect(events.kinds == ["result"])
@@ -31,7 +32,7 @@ import Testing
     @Test func nothingSmallerAndFailuresGetTheirOwnCards() async throws {
         let unchanged = Harness(failure: .alreadySmaller)
         _ = await unchanged.model.run(unchanged.job(unchanged.temp.file("a.png", bytes: 5000)))
-        #expect(unchanged.model.cards.first?.presentation.headline == "Already optimised")
+        #expect(unchanged.model.cards.first?.presentation.detailTitle == "Already optimised")
 
         let failing = Harness(failure: .toolMissing("ffmpeg"))
         let events = EventLog()
@@ -39,7 +40,7 @@ import Testing
         #expect(report.failures.first?.error == .toolMissing("ffmpeg"))
         #expect(events.kinds == ["failure"])
         let card = try #require(failing.model.cards.first)
-        #expect(card.presentation.detail == "ffmpeg is missing. Reinstall L'Esclop or run Scripts/build-tools.sh.")
+        #expect(card.presentation.capsule == .error(title: "Couldn't optimise", message: "ffmpeg is missing. Reinstall L'Esclop or run Scripts/build-tools.sh."))
         #expect(failing.model.recent.isEmpty)
     }
 
@@ -56,11 +57,11 @@ import Testing
         _ = await harness.model.run(harness.job(harness.temp.file("a.png")))
         _ = await harness.model.run(harness.job(harness.temp.file("b.png")))
         let hovered = try #require(harness.model.cards.last)
-        hovered.isHovered = true
+        harness.model.interact(hovered, .pointerEnteredButtons)
         #expect(await eventually(.seconds(10)) { harness.model.cards.count == 1 })
         try await Task.sleep(for: .milliseconds(200))
         #expect(harness.model.cards.first?.id == hovered.id, "the hovered card stays")
-        hovered.isHovered = false
+        harness.model.interact(hovered, .pointerExited)
         // Leaving a card whose time ran out hides it two seconds later.
         #expect(await eventually(.seconds(10)) { harness.model.cards.isEmpty })
     }
@@ -91,7 +92,7 @@ import Testing
         _ = await harness.model.run(harness.job(file))
         let card = try #require(harness.model.cards.first)
         #expect(harness.model.restorable.count == 1)
-        harness.model.perform(.restore, on: card)
+        harness.model.perform(.undo, on: card)
         #expect(await eventually(.seconds(10)) { if case .restored = card.phase { return true } else { return false } })
         #expect(AppModel.size(of: file) == 100_000)
         #expect(harness.model.restorable.isEmpty)
@@ -150,7 +151,88 @@ import Testing
         #expect(harness.model.cards.count == 1)
         #expect(harness.model.cards.first?.aggressive == true)
         harness.model.optimiseDropped([harness.temp.file("notes2.txt")], harder: false)
-        #expect(harness.model.cards.last?.presentation.headline == "Nothing to optimise")
+        #expect(harness.model.cards.last?.presentation.capsule == .notice(title: "Nothing to optimise", detail: "Drop images, videos, PDFs or audio files."))
+    }
+
+    @Test func convertAndDownscaleRunAgainFromTheOriginal() async throws {
+        let harness = Harness()
+        let file = harness.temp.file("a.png", bytes: 100_000)
+        _ = await harness.model.run(harness.job(file))
+        let first = try #require(harness.model.cards.first)
+        harness.model.perform(.convert(.webp), on: first)
+        #expect(await eventually(.seconds(10)) { harness.requests.requests.count == 2 && harness.model.cards.first?.result != nil && harness.model.cards.first?.id != first.id })
+        #expect(harness.model.cards.count == 1, "the new result takes the card's place")
+        let converted = try #require(harness.requests.requests.last)
+        #expect(converted.format == .webp)
+        #expect(converted.sources == [file])
+        #expect(harness.model.cards.first?.result?.bytesBefore == 100_000, "it started from the restored original")
+
+        let second = try #require(harness.model.cards.first)
+        harness.model.perform(.downscale, on: second)
+        #expect(await eventually(.seconds(10)) { harness.requests.requests.count == 3 && harness.model.cards.first?.result != nil && harness.model.cards.first?.id != second.id })
+        #expect(harness.requests.requests.last?.downscale == 0.5)
+        #expect(harness.requests.requests.last?.format == nil, "one change at a time")
+    }
+
+    @Test func clickingAnErrorRetriesTheFile() async throws {
+        // The delay holds the engine between logging the request and failing, the window a busy
+        // CI runner opens by chance.
+        let harness = Harness(failure: .toolMissing("ffmpeg"), delay: .milliseconds(300))
+        _ = await harness.model.run(harness.job(harness.temp.file("a.mov")))
+        let card = try #require(harness.model.cards.first)
+        harness.model.interact(card, .capsuleClicked)
+        // The engine logs the request before it throws; the card turns to an error only after
+        // the job has settled, so wait for that, not for the request.
+        #expect(await eventually(.seconds(10)) {
+            harness.requests.requests.count == 2 && harness.model.cards.first.map { $0.id != card.id && !$0.isWorking } == true
+        })
+        #expect(harness.model.cards.count == 1)
+        #expect(harness.model.cards.first?.presentation.tone == .error, "the fake engine still fails")
+    }
+
+    @Test func onlyOneDetailIsOpenAndOnlyTheNewestThreeShow() async throws {
+        let harness = Harness()
+        for name in ["a", "b", "c", "d"] {
+            _ = await harness.model.run(harness.job(harness.temp.file("\(name).png")))
+        }
+        #expect(harness.model.cards.count == 4)
+        #expect(harness.model.visibleCards.map(\.id) == harness.model.cards.suffix(3).map(\.id), "older ones live on in Recent Results")
+        let (first, second) = (harness.model.cards[1], harness.model.cards[2])
+        harness.model.interact(first, .capsuleClicked)
+        #expect(first.machine.level == .detail)
+        harness.model.interact(second, .openDetail)
+        #expect(second.machine.level == .detail)
+        #expect(first.machine.level == .thumbnail, "details never stack")
+    }
+
+    @Test func aStillPointerOpensTheDetailOnTheModelsClock() async throws {
+        let harness = Harness()
+        var clock = Date(timeIntervalSinceReferenceDate: 800_000_000)
+        harness.model.now = { clock }
+        _ = await harness.model.run(harness.job(harness.temp.file("a.png")))
+        let card = try #require(harness.model.cards.first)
+        var pointer = CGPoint(x: 100, y: 100)
+        harness.model.pointerLocation = { pointer }
+        harness.model.interact(card, .pointerEntered)
+        // The panel does not hear every move: the pointer slides on without an event.
+        pointer.x += 40
+        clock += 0.61
+        harness.model.advance(card)
+        #expect(card.machine.level == .thumbnail, "it moved, so that was a pass")
+        clock += 0.3
+        harness.model.advance(card)
+        #expect(card.machine.level == .thumbnail)
+        clock += 0.31
+        harness.model.advance(card)
+        #expect(card.machine.level == .detail)
+        harness.model.interact(card, .closeDetail)
+        harness.model.interact(card, .pointerExited)
+        clock += 3600
+        harness.model.advance(card)
+        #expect(harness.model.cards.count == 1, "the time ran out while it was open: two more seconds")
+        clock += 2
+        harness.model.advance(card)
+        #expect(harness.model.cards.isEmpty)
     }
 }
 
