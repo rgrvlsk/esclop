@@ -45,4 +45,12 @@ import Testing
             _ = try await MCPProbe.run(ServerCommand(command: "/usr/bin/true", args: []))
         }
     }
+
+    @Test func aServerThatClosesItsInputDoesNotKillTheCaller() async throws {
+        // Closes stdin, then answers initialize, so the probe's next write hits a closed pipe.
+        let script = #"exec 0<&-; printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"x","serverInfo":{"name":"t","version":"1"}}}'; sleep 1"#
+        await #expect(throws: (any Error).self) {
+            _ = try await MCPProbe.run(ServerCommand(command: "/bin/sh", args: ["-c", script]), timeout: .seconds(5))
+        }
+    }
 }
