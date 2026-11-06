@@ -10,6 +10,8 @@ into the body of its GitHub release.
 The full settings window, watched folders and the batch and crop windows remain planned.
 
 ### Added
+- App icon and menu bar glyph: the carved wooden clog on the green squircle, and a rounded
+  template clog for the menu bar that dims while paused. `make icons` regenerates them.
 - Menu-bar app: optimises copied images (and copied videos, PDFs and audio when enabled), shows
   a floating card per file whose bar deflates to the new size, offers Restore, Show in Finder
   and Copy, and a drop zone while files are dragged (Command optimises harder). Hotkeys
