@@ -118,13 +118,35 @@ public struct CropSize: Codable, Hashable, Sendable {
     /// "16:9", "1:1", "4:5"...
     public var aspectRatio: String?
     public var smart: Bool
+    /// A free crop: the region to keep, in pixels of the upright image. `width`, `height` or
+    /// `longEdge` then scale that region; `aspectRatio` and `smart` are ignored.
+    public var rect: CropRect?
 
-    public init(width: Int? = nil, height: Int? = nil, longEdge: Int? = nil, aspectRatio: String? = nil, smart: Bool = false) {
+    public init(
+        width: Int? = nil, height: Int? = nil, longEdge: Int? = nil, aspectRatio: String? = nil, smart: Bool = false,
+        rect: CropRect? = nil
+    ) {
         self.width = width
         self.height = height
         self.longEdge = longEdge
         self.aspectRatio = aspectRatio
         self.smart = smart
+        self.rect = rect
+    }
+}
+
+/// A region of an image in pixels, origin at the top left.
+public struct CropRect: Codable, Hashable, Sendable {
+    public var x: Int
+    public var y: Int
+    public var width: Int
+    public var height: Int
+
+    public init(x: Int, y: Int, width: Int, height: Int) {
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
     }
 }
 
