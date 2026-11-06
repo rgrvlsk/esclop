@@ -30,7 +30,7 @@ public final class AppServices {
             if key == EsclopSettings.pauseAutomaticOptimisations.key { model?.pauseChanged(value.boolValue ?? false) }
         }
         self.settingsModel = settingsModel
-        settingsWindow = SettingsWindowController(model: settingsModel, actions: SettingsActions(
+        settingsWindow = SettingsWindowController(model: settingsModel, agents: AgentsModel(), actions: SettingsActions(
             reveal: { [weak model] in model?.reveal([$0]) },
             copy: { text in
                 let pasteboard = NSPasteboard.general

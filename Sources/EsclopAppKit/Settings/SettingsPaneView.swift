@@ -6,12 +6,14 @@
 
 import EsclopCore
 import EsclopIPC
+import EsclopMCP
 import KeyboardShortcuts
 import SwiftUI
 
 struct SettingsPaneView: View {
     let pane: SettingsPane
     let model: SettingsViewModel
+    let agents: AgentsModel?
     let actions: SettingsActions
 
     @State private var confirmingReset = false
@@ -27,6 +29,10 @@ struct SettingsPaneView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+                if pane == .agents, let agents {
+                    AgentsConnectSection(agents: agents, model: model, actions: actions)
+                    AgentsTestSection(agents: agents)
+                }
                 ForEach(model.groups(in: pane)) { group in
                     Section {
                         ForEach(group.settings, id: \.key) { setting in
@@ -34,6 +40,13 @@ struct SettingsPaneView: View {
                         }
                     } header: {
                         if let heading = group.heading { Text(heading) }
+                    } footer: {
+                        if let footer = pane.footer(for: group.section) {
+                            Text(footer)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                 }
                 extras
@@ -52,7 +65,7 @@ struct SettingsPaneView: View {
     }
 
     static let intro: [SettingsPane: String] = [
-        .agents: "AI agents reach L'Esclop through its MCP server. Every request they make is checked against these switches, by the server and again by the app. They start off, and agents cannot turn them on. The esclop command line acts for you and is not limited by them.",
+        .agents: "AI agents such as Claude, Codex and Cursor use L'Esclop through its MCP server: they can optimise, convert and crop files, and write pipelines. Connect an agent here, then restart it.",
         .advanced: "Watching folders for new screenshots and recordings is configured here; the app does not watch folders yet.",
     ]
 
@@ -96,6 +109,8 @@ struct SettingsPaneView: View {
                     Text("Agent permissions are switched off again. This cannot be undone.")
                 }
             }
+        case .agents:
+            if let agents { AgentsManualSection(agents: agents, actions: actions) }
         default:
             EmptyView()
         }
@@ -110,7 +125,16 @@ struct SettingsPaneView: View {
                 id: Hotkeys.rowID(hotkey.name), title: hotkey.title, summary: "Keyboard shortcut",
                 pane: .general, keywords: ["hotkey", "shortcut", "keyboard"]
             )
+        } + AgentCatalog.all.map { agent in
+            SettingsViewModel.ExtraRow(
+                id: AgentRow.rowID(agent), title: "Connect \(agent.name)", summary: "Add L'Esclop's MCP server to \(agent.name).",
+                pane: .agents, keywords: ["mcp", "install", "agent", "ai", agent.id]
+            )
         } + [
+            SettingsViewModel.ExtraRow(
+                id: AgentsTestSection.rowID, title: "Test the MCP server", summary: "Start esclop mcp serve and ask for its tools.",
+                pane: .agents, keywords: ["mcp", "smoke", "handshake", "check"]
+            ),
             SettingsViewModel.ExtraRow(
                 id: resetAllRow, title: "Reset every setting", summary: "Puts every setting back to its default.",
                 pane: .advanced, keywords: ["defaults", "restore", "factory"]

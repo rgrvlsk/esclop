@@ -86,7 +86,11 @@ universal with `lipo` and placed in `Contents/Resources/bin`.
   `esclop_settings_schema/get/set`, `esclop_status`, `esclop_start_app`, `esclop_stop_app`,
   `esclop_recent_results`, `esclop_restore_backup`, `esclop_logs`.
 - Resources: recent results, pipelines, settings. Prompts: "write a pipeline for…".
-- Installers: write the server entry into each agent's config (Claude Code, Claude Desktop,
+- Installers: plan an edit of an agent's config (`ConfigChange`: the text before and after, the
+  backup path, a diff), apply it only when the file is unchanged since the plan, and read it
+  back. `esclop mcp install` and the app's Agents pane both go through plan and apply.
+  `MCPProbe` starts `esclop mcp serve` and runs initialize, tools/list and `esclop_status`.
+  The installers write the server entry into each agent's config (Claude Code, Claude Desktop,
   Codex and ChatGPT desktop, Cursor, Windsurf, Zed, Gemini CLI, Copilot CLI, OpenCode, pi,
   Warp) and verify it.
 - Permission gate: requests carry `origin = .mcp`; the app's settings say what agents may do
@@ -132,8 +136,11 @@ holds the rest, in folders by feature:
   and observes the defaults suite with key-value observation, which also reports writes from
   other processes, so `esclop settings set` shows up in an open window.
   `SettingsWindowController` owns the one window; `AppServices.open(_:)` routes links to it.
+  `AgentsModel` backs the Agents and MCP pane: agent statuses read off the main thread, the
+  planned `ConfigChange` shown as a diff before it is applied, and the `MCPProbe` test. The
+  command agents run is the `esclop` next to the app's executable (inside the bundle).
 
-Planned: watched folders, pipeline editor, MCP install pane, batch and crop windows, onboarding.
+Planned: watched folders, pipeline editor, batch and crop windows, onboarding.
 
 ## Build and packaging
 - `swift build` builds the CLI and libraries with Command Line Tools. The package includes

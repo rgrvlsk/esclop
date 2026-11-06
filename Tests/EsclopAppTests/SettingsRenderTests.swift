@@ -8,6 +8,7 @@
 import AppKit
 import EsclopCore
 import EsclopIPC
+import EsclopMCP
 @testable import EsclopAppKit
 import SwiftUI
 import Testing
@@ -94,6 +95,35 @@ import Testing
         model.open(SettingsRoute(pane: .images, row: "maxImageSizeMB"))
         model.set("maxImageSizeMB", text: "50000")
         try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-deep-link-error", scheme: scheme, settle: .milliseconds(600))
+    }
+}
+
+@MainActor
+@Suite(.serialized) struct AgentsRenderTests {
+    @Test(arguments: [ColorScheme.light, .dark])
+    func agentsPane(scheme: ColorScheme) async throws {
+        let fixture = AgentsFixture()
+        fixture.populate()
+        let settings = TestSettings()
+        let model = SettingsViewModel(provider: RegistrySettingsProvider(store: settings.store), extraRows: SettingsPaneView.extraRows)
+        model.pane = .agents
+        let agents = AgentsModel(installer: fixture.installer, command: AgentsFixture.command)
+        await agents.refresh()
+        agents.connect(try #require(AgentCatalog.agent("codex")))
+        await agents.confirm()
+        agents.probe = .passed(MCPProbeReport(
+            serverName: "esclop-mcp", serverVersion: "0.1.0", protocolVersion: MCPProbe.protocolVersion, toolCount: 24,
+            route: "app", appRunning: true, elapsed: .milliseconds(184)
+        ))
+        try await SettingsRenderTests.renderWindow(SettingsView(model: model, agents: agents), size: CGSize(width: 800, height: 900), name: "settings-agents-connect", scheme: scheme)
+    }
+
+    @Test(arguments: [ColorScheme.light, .dark])
+    func changePreview(scheme: ColorScheme) async throws {
+        let fixture = AgentsFixture()
+        fixture.populate()
+        let change = try fixture.installer.planInstall(try #require(AgentCatalog.agent("cursor")), command: AgentsFixture.command)
+        try await SettingsRenderTests.renderWindow(ConfigChangeSheet(change: change, onCancel: {}, onConfirm: {}), size: CGSize(width: 560, height: 470), name: "settings-agents-preview", scheme: scheme)
     }
 }
 
