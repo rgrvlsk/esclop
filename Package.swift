@@ -29,6 +29,8 @@ let appTargets: [Target] = buildApp ? [
             "EsclopCore", "EsclopIPC", "EsclopPipelines", "EsclopOptimisers", "EsclopMCP",
             .product(name: "KeyboardShortcuts", package: "KeyboardShortcuts"),
         ],
+        // MenuBarIcon.pdf: the menu bar glyph, generated from assets/menubar.svg (make icons).
+        resources: [.process("Resources")],
         swiftSettings: appSwiftSettings
     ),
     .executableTarget(name: "EsclopApp", dependencies: ["EsclopAppKit"], swiftSettings: appSwiftSettings),

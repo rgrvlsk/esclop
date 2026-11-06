@@ -141,8 +141,9 @@ editor, MCP pane, batch and crop windows, onboarding.
   `esclop-engine`. The build scripts cache outputs by content hash.
 - `Scripts/bundle-app.sh` assembles `dist/L'Esclop.app` from the release build: Info.plist
   (from `Scripts/templates/Info.plist.in`), `Resources/bin`, `Resources/LICENSES`, SwiftPM
-  resource bundles, `AppIcon.icns` drawn from `assets/icon.svg` (`Scripts/make-icon.swift`), an
-  optional `assets/menubar-icon.*` template glyph, the CLI inside `Contents/MacOS`, codesign
+  resource bundles (EsclopAppKit's carries the menu bar glyph `MenuBarIcon.pdf`), the committed
+  `assets/AppIcon.icns` (`make icons` regenerates it, see `assets/README.md`), the CLI inside
+  `Contents/MacOS`, codesign
   (ad hoc without a Developer ID). It exits cleanly when the app product is absent.
 - `Scripts/licence-gate.sh DIR` finds every Mach-O file under `Binaries/`, an `.app` or a
   release directory by content and fails on any without a record: a `THIRD_PARTY.md` row
