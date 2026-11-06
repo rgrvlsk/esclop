@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Reruns a ci run once when GitHub never gave some of its jobs a runner ("The job was not
+# acquired by Runner of type hosted even after multiple attempts", seen when macOS arm64
+# capacity is short). Such a job ends cancelled or failed with no runner and no steps. The
+# run is rerun only when every unsuccessful job is of that kind, so a real failure is never
+# retried away.
+name: retry lost runners
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+
+permissions:
+  actions: write
+
+jobs:
+  retry:
+    if: >-
+      github.event.workflow_run.run_attempt == 1 &&
+      contains(fromJSON('["failure", "cancelled"]'), github.event.workflow_run.conclusion)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
+    steps:
+      - name: Rerun when every unsuccessful job never got a runner
+        run: |
+          jobs="$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/attempts/1/jobs" \
+            --jq '.jobs[] | select(.conclusion == "failure" or .conclusion == "cancelled")
+                  | "\(if ((.runner_name // "") == "" and (.steps | length) == 0) then "lost" else "real" end) \(.name)"')"
+          printf '%s\n' "$jobs"
+          if [ -z "$jobs" ]; then echo "Nothing failed or was cancelled."; exit 0; fi
+          if printf '%s\n' "$jobs" | grep -q '^real '; then
+            echo "A job failed after it started; not rerunning."
+            exit 0
+          fi
+          echo "Every unsuccessful job never got a runner; rerunning them."
+          gh run rerun "$RUN_ID" --failed --repo "$GITHUB_REPOSITORY"
