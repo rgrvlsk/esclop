@@ -22,8 +22,13 @@ Watched folders and the batch and crop windows remain planned.
 - Settings → Agents and MCP: lists the agents on this Mac (the ones `esclop mcp install`
   supports) with whether each runs L'Esclop, connects, updates and disconnects them in one
   click after showing the exact change to their config file as a diff, keeps a backup, refuses
-  to write a file that changed after the preview, tests the server live (initialize,
-  tools/list, `esclop_status`) and offers JSON, TOML and `claude mcp add` snippets.
+  to write a file that changed after the preview or any file but the agent's own config, tests
+  the server live (initialize, tools/list, `esclop_status`) and offers JSON, TOML and
+  `claude mcp add` snippets.
+- First-run tour: welcome, what is optimised on its own (the same switches as Settings), what
+  macOS will ask and why (clipboard access with its current status, files in Desktop,
+  Documents and Downloads, open at login), connecting an agent, and where the app lives. Every
+  step can be skipped; the menu's "Welcome to L'Esclop…" opens it again.
 - Floating result redesigned for Liquid Glass (DESIGN.md): a ~200 pt thumbnail with a capsule
   that counts down to "612 kB · −75 %", round hover buttons (Undo, Convert, Downscale, Crop,
   "…"), a 320 pt detail with a before/after divider opened by the capsule or a still pointer,

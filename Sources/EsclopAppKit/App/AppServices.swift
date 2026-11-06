@@ -15,6 +15,7 @@ public final class AppServices {
     public let model: AppModel
     public let settingsModel: SettingsViewModel
     public let settingsWindow: SettingsWindowController
+    public let onboarding: OnboardingWindowController
     let panels: FloatingPanelController
     let dropZone: DropZoneController
     let watcher: ClipboardWatcher
@@ -54,6 +55,7 @@ public final class AppServices {
                 Task { @MainActor in model?.handleClipboard(action) }
             }
         )
+        onboarding = OnboardingWindowController(model: OnboardingModel(defaults: settings.defaults), settings: settingsWindow)
         server = AppServer(handler: AppIPCHandler(model: model))
         model.onCardsChange = { [weak panels] in panels?.update() }
     }
@@ -64,6 +66,7 @@ public final class AppServices {
         watcher.start()
         dropZone.start()
         Hotkeys.register(model)
+        onboarding.showIfFirstRun()
         log.info("L'Esclop \(EsclopVersion.string, privacy: .public) is running")
     }
 

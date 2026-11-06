@@ -118,6 +118,10 @@ Symbols; checkmarks are symbols, not text glyphs.
   the value differs from the default. A typed value is checked as it is typed, and a refused one
   keeps the field and says why under the row in red. A deep link scrolls to its row and marks
   it with an accent wash that fades after 2.5 s (no scroll animation with Reduce Motion).
+- Onboarding: one 640 × 560 window with a transparent title bar, five steps (welcome, automatic,
+  permissions, agents, done) and a footer with Skip, step dots and Back/Continue. Steps slide in
+  the direction of travel (350 ms spring); Reduce Motion turns it into a 180 ms crossfade. The
+  steps reuse Settings rows, so a switch flipped in the tour is the same setting.
 
 ## Motion
 | Event | Motion |

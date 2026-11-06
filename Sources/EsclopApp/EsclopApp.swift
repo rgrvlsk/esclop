@@ -12,7 +12,7 @@ struct EsclopMenuBarApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuContent(model: delegate.services.model, settings: delegate.services.settingsWindow)
+            MenuContent(model: delegate.services.model, settings: delegate.services.settingsWindow, onboarding: delegate.services.onboarding)
         } label: {
             MenuBarLabel(model: delegate.services.model)
         }
