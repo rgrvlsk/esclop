@@ -179,6 +179,14 @@ public struct EsclopService: Sendable {
         return try context.settings.setValue(value, forKey: key)
     }
 
+    /// Puts a setting back to its default. Writes the shared defaults suite directly: a running
+    /// app sees the change, since its Settings window observes the suite.
+    public func resetSetting(_ key: String) throws -> JSONValue {
+        let descriptor = try context.settings.descriptor(forKey: key)
+        try policy.checkSettingsChange(descriptor)
+        return try context.settings.resetValue(forKey: key)
+    }
+
     // MARK: Pipelines
 
     /// Saves pipeline text (steps, optionally with front matter and sections) after the gate.

@@ -86,7 +86,11 @@ universal with `lipo` and placed in `Contents/Resources/bin`.
   `esclop_settings_schema/get/set`, `esclop_status`, `esclop_start_app`, `esclop_stop_app`,
   `esclop_recent_results`, `esclop_restore_backup`, `esclop_logs`.
 - Resources: recent results, pipelines, settings. Prompts: "write a pipeline for…".
-- Installers: write the server entry into each agent's config (Claude Code, Claude Desktop,
+- Installers: plan an edit of an agent's config (`ConfigChange`: the text before and after, the
+  backup path, a diff), apply it only when the file is unchanged since the plan, and read it
+  back. `esclop mcp install` and the app's Agents pane both go through plan and apply.
+  `MCPProbe` starts `esclop mcp serve` and runs initialize, tools/list and `esclop_status`.
+  The installers write the server entry into each agent's config (Claude Code, Claude Desktop,
   Codex and ChatGPT desktop, Cursor, Windsurf, Zed, Gemini CLI, Copilot CLI, OpenCode, pi,
   Warp) and verify it.
 - Permission gate: requests carry `origin = .mcp`; the app's settings say what agents may do
@@ -96,7 +100,7 @@ universal with `lipo` and placed in `Contents/Resources/bin`.
 ### esclop (CLI)
 swift-argument-parser. Subcommands: `optimise`, `convert`, `downscale`, `crop`, `fit`,
 `strip`, `pdf crop|uncrop|pages`, `pipeline list|show|run|write|delete`, `settings
-get|set|schema`, `status`, `logs`, `mcp serve|install|uninstall|status`.
+get|set|reset|schema`, `status`, `logs`, `mcp serve|install|uninstall|status`.
 
 ### EsclopApp and EsclopAppKit
 `EsclopApp` holds only the `@main` scene (menu bar extra and Settings window). `EsclopAppKit`
@@ -144,10 +148,20 @@ holds the rest, in folders by feature:
   ⌃⇧A harder).
 - `IPC/AppIPCHandler`: the `AppRequestHandler`; applies `AgentPolicy` again, then routes jobs
   into `AppModel.run` so CLI and MCP jobs show floating results too.
-- `Menu`, `Settings`: the menu bar menu and a minimal Settings window over the registry.
+- `Menu`: the menu bar menu.
+- `Settings`: the Settings window. `SettingsPane` maps registry sections to sidebar panes, so a
+  new registry setting appears in its pane without view code; `SettingPresentation` picks each
+  setting's control, words and unit, and which switch it depends on; `SettingsRoute` parses
+  `esclop://settings[/<pane>][/<key>][?highlight=<key>]` (the shape of Clop's settings links).
+  `SettingsViewModel` reads and writes through the same `SettingsProvider` as the CLI and MCP
+  and observes the defaults suite with key-value observation, which also reports writes from
+  other processes, so `esclop settings set` shows up in an open window.
+  `SettingsWindowController` owns the one window; `AppServices.open(_:)` routes links to it.
+  `AgentsModel` backs the Agents and MCP pane: agent statuses read off the main thread, the
+  planned `ConfigChange` shown as a diff before it is applied, and the `MCPProbe` test. The
+  command agents run is the `esclop` next to the app's executable (inside the bundle).
 
-Planned: the full settings window with sidebar and deep links, watched folders, pipeline
-editor, MCP pane, batch and crop windows, onboarding.
+Planned: watched folders, pipeline editor, batch and crop windows, onboarding.
 
 ## Build and packaging
 - `swift build` builds the CLI and libraries with Command Line Tools. The package includes

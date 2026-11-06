@@ -1,130 +1,95 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// A minimal Settings window: search at the top, every registry setting in its section with a
-// native control, and the hotkey recorders. The full window with a sidebar is planned.
+// The Settings window: a sidebar of panes with the search at its top, and the chosen pane as a
+// grouped form. While a search is typed, the sidebar lists the matching settings across every
+// pane; picking one opens its pane and marks the row.
 
 import EsclopCore
 import EsclopIPC
-import KeyboardShortcuts
 import SwiftUI
 
 public struct SettingsView: View {
-    @State private var model: SettingsViewModel
+    @Bindable var model: SettingsViewModel
+    let agents: AgentsModel?
+    let actions: SettingsActions
 
-    public init(model: SettingsViewModel) {
-        _model = State(initialValue: model)
+    public init(model: SettingsViewModel, agents: AgentsModel? = nil, actions: SettingsActions = SettingsActions()) {
+        self.model = model
+        self.agents = agents
+        self.actions = actions
     }
 
     public var body: some View {
-        Form {
-            Section("Hotkeys") {
-                ForEach(Hotkeys.all, id: \.name.rawValue) { hotkey in
-                    KeyboardShortcuts.Recorder(hotkey.title, name: hotkey.name)
-                }
-            }
-            ClipboardRulesSection(model: model)
-            ForEach(model.groups) { group in
-                Section(group.section.title) {
-                    ForEach(group.settings, id: \.key) { setting in
-                        SettingRow(setting: setting, error: model.errors[setting.key]) { model.set(setting.key, to: $0) }
-                    }
-                }
-            }
+        NavigationSplitView {
+            SettingsSidebar(model: model)
+                .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 280)
+        } detail: {
+            SettingsPaneView(pane: model.pane, model: model, agents: agents, actions: actions)
+                .navigationTitle(model.pane.title)
         }
-        .formStyle(.grouped)
-        .searchable(text: $model.query, placement: .toolbar, prompt: "Search settings")
-        .frame(minWidth: 520, idealWidth: 560, minHeight: 480, idealHeight: 640)
-        .onAppear { model.reload() }
+        .searchable(text: $model.query, placement: .sidebar, prompt: "Search settings")
+        .tint(Palette.accent)
+        .frame(minWidth: 720, idealWidth: 800, minHeight: 480, idealHeight: 620)
     }
 }
 
-private struct SettingRow: View {
-    let setting: SettingDescriptor
-    let error: String?
-    let set: (String) -> Bool
+/// What the panes can ask of the app, so the views stay free of AppKit side effects in tests.
+public struct SettingsActions {
+    public var reveal: @MainActor (URL) -> Void
+    public var copy: @MainActor (String) -> Void
+    /// L'Esclop's data folder (pipelines, backups, logs), for the Advanced pane.
+    public var supportFolder: URL?
 
-    @State private var text = ""
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            control
-            if let error {
-                Text(error).font(.caption).foregroundStyle(.red)
-            }
-        }
-        .help(setting.summary)
-        .onAppear { text = SettingsViewModel.text(for: setting.value) }
-        .onChange(of: setting.value) { text = SettingsViewModel.text(for: setting.value) }
-    }
-
-    @ViewBuilder private var control: some View {
-        switch setting.type {
-        case .bool:
-            Toggle(isOn: Binding(get: { setting.value?.boolValue ?? false }, set: { _ = set($0 ? "true" : "false") })) {
-                label
-            }
-        case .choice:
-            Picker(selection: Binding(get: { setting.value?.stringValue ?? "" }, set: { _ = set($0) })) {
-                ForEach(setting.choices ?? [], id: \.self) { Text(Self.words($0)).tag($0) }
-            } label: {
-                label
-            }
-        case .int, .double, .string:
-            LabeledContent {
-                TextField(setting.title, text: $text)
-                    .labelsHidden()
-                    .multilineTextAlignment(setting.type == .string ? .leading : .trailing)
-                    .monospacedDigit()
-                    .frame(maxWidth: setting.type == .string ? 240 : 90)
-                    .onSubmit { _ = set(text) }
-            } label: {
-                label
-            }
-        }
-    }
-
-    private var label: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(setting.title)
-            Text(setting.summary).font(.caption).foregroundStyle(.secondary)
-        }
-    }
-
-    /// "bottomRight" reads "Bottom right".
-    static func words(_ raw: String) -> String {
-        var out = ""
-        for character in raw {
-            if character.isUppercase { out += " " + character.lowercased() } else { out.append(character) }
-        }
-        return out.prefix(1).uppercased() + out.dropFirst()
+    public init(
+        reveal: @escaping @MainActor (URL) -> Void = { _ in }, copy: @escaping @MainActor (String) -> Void = { _ in },
+        supportFolder: URL? = nil
+    ) {
+        self.reveal = reveal
+        self.copy = copy
+        self.supportFolder = supportFolder
     }
 }
 
-/// The rules made with "Always apply" in the options popover, each with a delete button.
-struct ClipboardRulesSection: View {
-    let model: SettingsViewModel
+struct SettingsSidebar: View {
+    @Bindable var model: SettingsViewModel
+    @State private var hit: String?
 
     var body: some View {
-        Section(Strings.text("Clipboard rules")) {
-            if model.clipboardRules.isEmpty {
-                Text(Strings.text("No clipboard rules yet. Tick “Always apply” in a file’s options to make one."))
-                    .foregroundStyle(.secondary)
+        list.onChange(of: model.query) { hit = nil }
+    }
+
+    @ViewBuilder private var list: some View {
+        if model.query.trimmingCharacters(in: .whitespaces).isEmpty {
+            List(selection: $model.pane) {
+                ForEach(SettingsPane.allCases) { pane in
+                    Label(pane.title, systemImage: pane.symbol).tag(pane)
+                }
             }
-            ForEach(model.clipboardRules) { rule in
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(rule.subject())
-                        Text(rule.choice.summary(input: rule.inputFormat)).font(.callout).foregroundStyle(.secondary)
+        } else {
+            let hits = model.hits
+            if hits.isEmpty {
+                ContentUnavailableView.search(text: model.query)
+            } else {
+                List(selection: $hit) {
+                    ForEach(SettingsPane.allCases.filter { pane in hits.contains { $0.pane == pane } }) { pane in
+                        Section(pane.title) {
+                            ForEach(hits.filter { $0.pane == pane }) { found in
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(found.title)
+                                        .lineLimit(2)
+                                    Text(found.summary)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(2)
+                                }
+                                .padding(.vertical, 2)
+                                .tag(found.id)
+                            }
+                        }
                     }
-                    Spacer()
-                    Button(role: .destructive) {
-                        model.delete(rule)
-                    } label: {
-                        Image(systemName: "trash")
-                    }
-                    .buttonStyle(.borderless)
-                    .help(Strings.text("Delete"))
-                    .accessibilityLabel(Strings.format("Delete the rule for %@", rule.subject()))
+                }
+                .onChange(of: hit) {
+                    if let id = hit, let found = hits.first(where: { $0.id == id }) { model.open(found) }
                 }
             }
         }

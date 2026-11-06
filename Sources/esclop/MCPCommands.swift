@@ -70,7 +70,7 @@ struct MCPCommand: AsyncParsableCommand {
                 do {
                     if case .manual = agent.style, selection.all { continue }
                     results.append(try installer.install(agent, command: server))
-                    if !global.json { print("\(global.terminal.green("✓")) \(agent.name): \(installer.configURL(agent).map { PathInput.abbreviate($0) } ?? "")") }
+                    if !global.json { print("\(global.terminal.green("✓")) \(agent.name): \(installer.configURL(agent).map(installer.shown) ?? "")") }
                 } catch {
                     failed = true
                     var status = installer.status(agent, expected: server)

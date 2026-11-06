@@ -38,12 +38,14 @@ jobs:
       - name: Private paths
         run: python3 Scripts/privacy-check.py
 
-  scripts:
-    name: scripts and workflows
+  swift:
+    name: swift build and test
     runs-on: macos-15
-    timeout-minutes: 10
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The script and workflow checks share this macOS runner: they need clang, lipo and otool,
+      # and each job of its own waits for a runner when macOS capacity is short.
       # A pinned release instead of `brew install`, which spent most of this job's minutes.
       - name: actionlint
         run: |
@@ -57,13 +59,6 @@ jobs:
         run: Scripts/licence-gate-test.sh
       - name: Release notes render from CHANGELOG.md
         run: Scripts/release-notes.sh --unreleased 0.0.0 > /dev/null
-
-  swift:
-    name: swift build and test
-    runs-on: macos-15
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: swift --version
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:

@@ -358,7 +358,7 @@ public enum EsclopSettings {
     )
     public static let clipboardRules = Setting<[String]>(
         "clipboardRules", default: [], title: "Clipboard rules",
-        description: "Choices made with \"Always apply\" in the options popover, one JSON object per origin and input format. Edited in Settings › Clipboard rules.",
+        description: "Choices saved with \"Always apply\" in a file's options. Each one applies to the next copies of one origin and format, such as PNG screenshots; stored as one JSON object per rule.",
         section: .clipboard
     )
     public static let autoCopyToClipboard = Setting<Bool>(

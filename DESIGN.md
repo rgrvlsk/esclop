@@ -112,7 +112,12 @@ Symbols; checkmarks are symbols, not text glyphs.
   12 pt picture, 22 pt popover. Controls use capsules or the system's control radius.
 - Drop zone: a single rounded glass shape at the cursor or screen edge, label "Drop to
   optimise"; holding Command changes it to "Drop to optimise harder".
-- Settings: sidebar sections, forms with native controls, search at the top.
+- Settings: sidebar panes with the search at the top of the sidebar, grouped forms with native
+  controls (switches, menus, sliders with their figure, fields with a stepper and unit). Each
+  row has its title and a one-line explanation; a reset arrow appears beside the title while
+  the value differs from the default. A typed value is checked as it is typed, and a refused one
+  keeps the field and says why under the row in red. A deep link scrolls to its row and marks
+  it with an accent wash that fades after 2.5 s (no scroll animation with Reduce Motion).
 
 ## Motion
 | Event | Motion |
