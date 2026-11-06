@@ -6,12 +6,11 @@ on:
   push:
     branches: [main]
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+# No concurrency group: every push gets a run that finishes. Cancelled runs send the same
+# notification as failed ones, and runners cost nothing on a public repository.
 
 permissions:
   contents: read
@@ -76,7 +75,14 @@ jobs:
       # Suites that need ffmpeg, gs, gifsicle or esclop-engine skip here; the gate job reruns
       # them with the real tools. The suite takes under a minute; a hang fails after 5 minutes
       # with the unfinished tests and their stacks (Scripts/test.sh), not at the job timeout.
-      - run: Scripts/test.sh
+      # Render suites hold the main actor for seconds per image on a runner without a GPU, so
+      # they run on their own instead of beside the app's main-actor suites.
+      - run: Scripts/test.sh --skip RenderTests
+        timeout-minutes: 10
+        env:
+          ESCLOP_TEST_TIMEOUT: "300"
+      - name: Render tests
+        run: Scripts/test.sh --filter RenderTests
         timeout-minutes: 10
         env:
           ESCLOP_TEST_TIMEOUT: "300"
@@ -107,7 +113,12 @@ jobs:
           swift --version
           swift --version 2>&1 | grep -Eq 'Swift version (6\.([2-9]|[1-9][0-9])|[7-9])' || { echo "The macOS 26 SDK (Swift 6.2+) is needed for Liquid Glass." >&2; exit 1; }
       - run: swift build --build-tests
-      - run: Scripts/test.sh --filter EsclopAppTests
+      - run: Scripts/test.sh --filter EsclopAppTests --skip RenderTests
+        timeout-minutes: 10
+        env:
+          ESCLOP_TEST_TIMEOUT: "300"
+      - name: Render tests
+        run: Scripts/test.sh --filter RenderTests
         timeout-minutes: 10
         env:
           ESCLOP_TEST_TIMEOUT: "300"
@@ -141,8 +152,9 @@ jobs:
           path: .build
           key: swift-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved') }}-${{ github.sha }}
           restore-keys: swift-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved') }}-
+      # The render suites already ran in the swift job; they need no bundled tools.
       - name: swift test with the bundled tools
-        run: Scripts/test.sh
+        run: Scripts/test.sh --skip RenderTests
         timeout-minutes: 10
         env:
           ESCLOP_TEST_TIMEOUT: "300"
