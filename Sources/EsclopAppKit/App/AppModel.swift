@@ -18,6 +18,15 @@ public final class AppModel {
     public private(set) var cards: [ResultCard] = [] {
         didSet { onCardsChange?() }
     }
+    /// The files of the latest job too large for floating results, shown in the batch window.
+    public private(set) var batch: Batch?
+    /// Shows the batch window when a batch starts.
+    @ObservationIgnored var onBatch: ((Batch) -> Void)?
+
+    /// Opens the batch window on the latest batch again (the menu).
+    public func showBatch() {
+        if let batch { onBatch?(batch) }
+    }
 
     /// Newest first: this session's results, after the last ones from the shared log.
     public private(set) var recent: [OptimisationResult] = []
@@ -119,17 +128,26 @@ public final class AppModel {
 
     // MARK: Running jobs
 
-    /// Runs a job, one card per file when it asks for result UI. `events` reports each file as
-    /// it finishes (the IPC reply stream). Cancelling the calling task stops every file.
+    /// Runs a job, one card per file when it asks for result UI, or one row per file in the batch
+    /// window when it brings `batchWindowFrom` files or more. `events` reports each file as it
+    /// finishes (the IPC reply stream). Cancelling the calling task stops every file.
     @discardableResult
     public func run(
         _ job: OptimisationJob, displayName: String? = nil, context: CardContext? = nil, reusing existing: ResultCard? = nil,
+        batch: Batch? = nil,
         events: @escaping @Sendable (JobEvent) -> Void = { _ in },
         onResult: ((OptimisationResult) -> Void)? = nil
     ) async -> JobReport {
         let executor = executor(for: job.request.origin)
+        let batch = batch ?? (existing == nil && job.request.showResultUI && job.request.sources.count >= batchThreshold
+            ? openBatch(origin: job.request.origin) : nil)
         var tasks: [(URL, Task<Result<OptimisationResult, EsclopError>, Never>)] = []
         for source in job.request.sources {
+            if let batch {
+                let row = batch.row(for: source, bytes: Self.size(of: source))
+                tasks.append((source, startRow(row, in: batch, job: job, executor: executor, events: events, onResult: onResult)))
+                continue
+            }
             let card: ResultCard?
             if let existing, cards.contains(where: { $0.id == existing.id }) {
                 restart(existing, context: context)
@@ -164,6 +182,56 @@ public final class AppModel {
         }
     }
 
+    // MARK: Batches
+
+    /// Files from this many on go to the batch window.
+    public var batchThreshold: Int { max(2, EsclopSettings.batchWindowFrom.value(in: settings)) }
+
+    /// The batch new files join: the running one, else a new one shown in the batch window.
+    func openBatch(origin: RequestOrigin) -> Batch {
+        if let batch, batch.isRunning { return batch }
+        let fresh = Batch(origin: origin, startedAt: now())
+        batch = fresh
+        onBatch?(fresh)
+        return fresh
+    }
+
+    /// Runs one file of a batch; its row can stop it and run it again.
+    private func startRow(
+        _ row: BatchRow, in batch: Batch, job: OptimisationJob, executor: JobExecutor,
+        events: @escaping @Sendable (JobEvent) -> Void, onResult: ((OptimisationResult) -> Void)?
+    ) -> Task<Result<OptimisationResult, EsclopError>, Never> {
+        let source = row.source
+        var single = job
+        single.request.sources = [source]
+        let task = Task { await self.process(source, job: single, executor: executor, card: nil, row: row, batch: batch, events: events, onResult: onResult) }
+        row.cancel = { task.cancel() }
+        row.retry = { [weak self, weak row, weak batch] in
+            guard let self, let row, let batch, row.isFinished else { return }
+            row.state = .waiting
+            var again = single
+            again.request.id = UUID()
+            _ = self.startRow(row, in: batch, job: again, executor: executor, events: { _ in }, onResult: onResult)
+        }
+        return task
+    }
+
+    /// Puts one batch file's original back, without a floating result.
+    public func restore(_ row: BatchRow) async {
+        guard let result = row.result, result.backup != nil else { return }
+        do {
+            _ = try service.restoreBackup(of: result, deleteBackup: false)
+            restoredIDs.insert(result.id)
+            row.state = .restored(result)
+        } catch {
+            row.state = .failed(CardPresentation.message(for: error))
+        }
+    }
+
+    public func restoreAll(_ batch: Batch) async {
+        for row in batch.restorable { await restore(row) }
+    }
+
     /// The executor for a request's origin: agents get the pipeline permissions the person set.
     func executor(for origin: RequestOrigin) -> JobExecutor {
         let context = service.context
@@ -176,22 +244,35 @@ public final class AppModel {
     }
 
     private func process(
-        _ source: URL, job: OptimisationJob, executor: JobExecutor, card: ResultCard?,
+        _ source: URL, job: OptimisationJob, executor: JobExecutor, card: ResultCard?, row: BatchRow? = nil, batch: Batch? = nil,
         events: @escaping @Sendable (JobEvent) -> Void, onResult: ((OptimisationResult) -> Void)?
     ) async -> Result<OptimisationResult, EsclopError> {
         activeFiles += 1
         defer { activeFiles -= 1 }
-        await gate.acquire()
+        if let batch {
+            // A file queued at the gate when the batch is paused gives its turn back and waits.
+            while true {
+                await batch.waitWhilePaused()
+                await gate.acquire()
+                if !batch.paused || Task.isCancelled { break }
+                await gate.release()
+            }
+        } else {
+            await gate.acquire()
+        }
         card?.startedAt = now()
+        if let row, !Task.isCancelled { row.state = .working(0) }
         let outcome: Result<OptimisationResult, EsclopError>
         if Task.isCancelled {
             outcome = .failure(.cancelled)
         } else {
             let cardID = card?.id
             do {
-                let result = try await executor.process(source, job: job) { [weak self] progress in
-                    guard let cardID else { return }
-                    Task { @MainActor in self?.progress(progress.fraction, cardID: cardID) }
+                let result = try await executor.process(source, job: job) { [weak self, weak row] progress in
+                    Task { @MainActor in
+                        if let cardID { self?.progress(progress.fraction, cardID: cardID) }
+                        if let row, case let .working(current) = row.state, progress.fraction > current { row.state = .working(progress.fraction) }
+                    }
                 }
                 outcome = .success(result)
             } catch {
@@ -209,17 +290,22 @@ public final class AppModel {
                 loadThumbnail(card, url: result.output)
                 if let backup = result.backup { loadThumbnail(card, url: backup, original: true) }
             }
-            announce(CardPresentation.announcement(for: result))
+            row?.state = .done(result)
+            // A batch is announced once, when it ends, not file by file.
+            if row == nil { announce(CardPresentation.announcement(for: result)) }
             onResult?(result)
         case let .failure(error):
             events(.failure(FileFailure(source: source, error: error)))
             if error == .alreadySmaller {
                 card?.phase = .unchanged(bytes: Self.size(of: source))
+                row?.state = .unchanged
             } else {
                 card?.phase = .failed(CardPresentation.message(for: error))
+                row?.state = error == .cancelled ? .cancelled : .failed(CardPresentation.message(for: error))
             }
         }
         if let card { settle(card) }
+        if let batch, !batch.isRunning { announce(BatchPresentation(batch: batch).announcement) }
         return outcome
     }
 

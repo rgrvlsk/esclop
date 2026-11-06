@@ -57,6 +57,10 @@ extension AppModel {
 
     func optimise(_ urls: [URL], origin: RequestOrigin, aggressive: Bool = false, copy: CopyMoment?) {
         let copyBack = origin == .clipboard && EsclopSettings.autoCopyToClipboard.value(in: settings)
+        // Too many for floating results: one batch window for all of them.
+        let batch = urls.count >= batchThreshold ? openBatch(origin: origin) : nil
+        // Every file shows in the window at once, waiting, before its job starts.
+        for url in urls { batch?.add(url, bytes: Self.size(of: url)) }
         for url in urls {
             let base = factory.job(for: url, origin: origin, aggressive: aggressive)
             Task {
@@ -67,9 +71,11 @@ extension AppModel {
                     if found.rule != nil { found.choice.apply(to: &job.request) }
                     context = found
                 }
-                await run(job, context: context, onResult: { result in
+                await run(job, context: context, batch: batch, onResult: { result in
                     guard copyBack else { return }
-                    Clipboard.write(files: [result.output], to: self.pasteboard)
+                    // A batch puts every finished file back, not only the last one.
+                    let files = batch.map { $0.rows.compactMap { $0.result?.output } } ?? [result.output]
+                    Clipboard.write(files: files, to: self.pasteboard)
                 })
             }
         }
@@ -138,6 +144,28 @@ extension AppModel {
                 Clipboard.write(files: [result.output], to: self.pasteboard)
             })
         }
+    }
+
+    // MARK: Menu
+
+    /// "Optimise Files…": files or folders chosen in an open panel. Many go to the batch window.
+    public func chooseFiles() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = true
+        panel.prompt = Strings.text("Optimise")
+        panel.message = Strings.text("Choose images, videos, PDFs, audio or folders to optimise.")
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK else { return }
+        optimiseChosen(panel.urls)
+    }
+
+    /// Files and folders (searched recursively) to optimise as if dropped.
+    public func optimiseChosen(_ urls: [URL]) {
+        let files = PathInput.expand(urls, recursive: true).filter { MediaKind.of($0) != nil }
+        guard !files.isEmpty else { return notice(Strings.text("Nothing to optimise"), Strings.text("Choose images, videos, PDFs or audio files.")) }
+        optimise(files, origin: .app)
     }
 
     // MARK: Drop zone

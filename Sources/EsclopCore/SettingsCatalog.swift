@@ -77,6 +77,11 @@ public enum EsclopSettings {
         "autoHideClipboardResultAfter", default: 10, title: "Hide clipboard results after",
         description: "Seconds the card for a copied image stays on screen.", section: .interface, minimum: 1, maximum: 3600
     )
+    public static let batchWindowFrom = Setting<Int>(
+        "batchWindowFrom", default: 4, title: "Batch window from",
+        description: "Optimising this many files or more at once lists them in the batch window, with their progress and the total saving, instead of a floating result each.",
+        section: .interface, minimum: 2, maximum: 1000
+    )
     public static let hoverButtons = Setting<[String]>(
         "hoverButtons", default: ["undo", "convert", "downscale", "crop"], title: "Hover buttons",
         description: "The round buttons above a floating result, in order: undo, convert, downscale, crop. \"…\" is always last.",
@@ -435,7 +440,7 @@ public enum EsclopSettings {
     public static let all: [AnySetting] = [
         stripMetadata.erased, preserveDates.erased, keepHDR.erased,
         floatingResultsCorner.erased, followCursorScreen.erased, autoHideFloatingResults.erased,
-        autoHideFloatingResultsAfter.erased, autoHideClipboardResultAfter.erased, hoverButtons.erased, enableDragAndDrop.erased,
+        autoHideFloatingResultsAfter.erased, autoHideClipboardResultAfter.erased, batchWindowFrom.erased, hoverButtons.erased, enableDragAndDrop.erased,
         imageCompression.erased, imageAggressiveCompression.erased,
         useAggressiveOptimisationJPEG.erased, useAggressiveOptimisationPNG.erased, useAggressiveOptimisationGIF.erased,
         adaptiveImageSize.erased, formatsToConvertToJPEG.erased, formatsToConvertToPNG.erased,
