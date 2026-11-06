@@ -140,5 +140,9 @@ Scripts/build-tools.sh". The Catalan localisation uses the strings shown in the 
 ("Optimitzat", "Desfés", "Aplica-ho sempre a les captures de pantalla PNG").
 
 ## Icon
-A wooden clog (an *esclop* in Catalan) seen from above, flat, two tones of `clog` wood on a
-macOS squircle in `accent`. It is not Clop's mark and must not resemble it.
+The approved app icon is a carved Dutch wooden clog in three-quarter view on an `accent`
+macOS squircle. Preserve the wood artwork in `assets/icon-wood.png`; `assets/icon.svg` composes
+it with the background. The monochrome mark is `assets/mark.svg`. The menu bar uses the
+rounded optical variant in `assets/menubar.svg`, a 28 × 18 pt template image with a transparent
+foot cavity. It keeps the high vamp and raised toe without wood texture. Regenerate the PNG,
+ICNS and menu bar PDF with `make icons`. The branding is original and independent of Clop.
