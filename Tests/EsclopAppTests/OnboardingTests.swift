@@ -71,25 +71,42 @@ import Testing
         #expect(viewModel.set(EsclopSettings.optimisePDFClipboard.key, to: .bool(true)))
         #expect(EsclopSettings.optimisePDFClipboard.value(in: settings.store))
     }
+}
+
+/// Each step in a real window. By default each step draws once, alternating light and dark, to
+/// keep the suite short; ESCLOP_RENDER_ALL=1 draws every step in both for a pull request.
+@MainActor
+@Suite(.serialized) struct OnboardingRenderTests {
+    let settings = TestSettings()
 
     /// The shipped icon from `assets/`, as the bundle carries it.
     static let appIcon = NSImage(contentsOf: URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         .appendingPathComponent("assets/AppIcon.png"))
 
-    @Test(arguments: [ColorScheme.light, .dark])
-    func renders(scheme: ColorScheme) async throws {
+    func render(_ step: OnboardingModel.Step, scheme: ColorScheme) async throws {
         let viewModel = SettingsViewModel(provider: RegistrySettingsProvider(store: settings.store), extraRows: SettingsPaneView.extraRows)
         let fixture = AgentsFixture()
         fixture.populate()
         let agents = AgentsModel(installer: fixture.installer, command: AgentsFixture.command)
         await agents.refresh()
+        let model = OnboardingModel(defaults: settings.store.defaults)
+        model.go(to: step)
+        let view = OnboardingView(onboarding: model, settings: viewModel, agents: agents, actions: SettingsActions(), icon: Self.appIcon) {}
+        let size = try await SettingsRenderTests.renderWindow(view, size: CGSize(width: 640, height: 560), name: "onboarding-\(step.rawValue + 1)-\(step.title.lowercased())", scheme: scheme)
+        #expect(size.width == 640)
+    }
+
+    @Test func everyStep() async throws {
         for step in OnboardingModel.Step.allCases {
-            let model = OnboardingModel(defaults: settings.store.defaults)
-            model.go(to: step)
-            let view = OnboardingView(onboarding: model, settings: viewModel, agents: agents, actions: SettingsActions(), icon: Self.appIcon) {}
-            let size = try await SettingsRenderTests.renderWindow(view, size: CGSize(width: 640, height: 560), name: "onboarding-\(step.rawValue + 1)-\(step.title.lowercased())", scheme: scheme)
-            #expect(size.width == 640)
+            try await render(step, scheme: step.rawValue.isMultiple(of: 2) ? .light : .dark)
+        }
+    }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["ESCLOP_RENDER_ALL"] == "1"), arguments: [ColorScheme.light, .dark])
+    func everyStepInBothAppearances(scheme: ColorScheme) async throws {
+        for step in OnboardingModel.Step.allCases {
+            try await render(step, scheme: scheme)
         }
     }
 }
