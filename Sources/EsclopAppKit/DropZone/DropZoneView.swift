@@ -19,7 +19,7 @@ public struct DropZoneView: View {
             Image(systemName: state.harder ? "arrow.down.to.line.compact" : "arrow.down.to.line")
                 .font(.title2.weight(.medium))
                 .foregroundStyle(tint)
-                .frame(width: Metrics.thumbnail, height: Metrics.thumbnail)
+                .frame(width: Metrics.dropZoneIcon, height: Metrics.dropZoneIcon)
                 .background(tint.opacity(state.hovering ? 0.18 : 0.1), in: inner)
             VStack(alignment: .leading, spacing: 2) {
                 Text(state.title)
@@ -38,7 +38,7 @@ public struct DropZoneView: View {
                 .background(inner.fill(tint.opacity(state.hovering ? 0.08 : 0)))
         }
         .padding(8)
-        .frame(width: Metrics.cardWidth)
+        .frame(width: Metrics.dropZoneWidth)
         .panelSurface()
         .animation(Motion.hover, value: state.hovering)
         .animation(Motion.hover, value: state.harder)
