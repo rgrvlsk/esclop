@@ -10,16 +10,18 @@ in a floating card and restore the original. CLI and MCP workflows already run w
 - Pipeline parser, executor, file store and built-in presets.
 - Pinned tool builds, licence checks, CI and CLI release packaging.
 - Menu-bar app: clipboard watcher, floating result cards, drop zone, hotkeys, backups menu,
-  a minimal settings window, and the IPC server that runs CLI and MCP jobs with cards.
+  the IPC server that runs CLI and MCP jobs with cards.
+- Settings window: a sidebar of panes generated from the registry, search across every
+  setting, `esclop://settings/<key>` deep links, validation and reset per setting.
 
 ## Next
 
-- Full settings window with search and deep links; onboarding.
+- Agents pane with one-click MCP install; onboarding.
 - Watched folders (screenshots and recordings) and pipeline triggers in the app.
 
 ## Later
 
-- Settings search, deep links, a pipeline editor, MCP setup and onboarding.
+- A pipeline editor.
 - Batch and crop windows, plus before-and-after comparison.
 - Watched folders, preset zones, Finder actions, uploads and shelf integrations.
 - App release validation, notarisation, Sparkle updates and a Homebrew cask.

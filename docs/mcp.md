@@ -121,8 +121,10 @@ GUI integration. App start/stop tools do not provide the planned optimisation UI
 ## Permissions
 
 Every request from the MCP server carries origin `mcp`. Set permissions through the CLI,
-for example `esclop settings set allowOverwriteOriginals true`. Each switch defaults to off
-and cannot be changed through MCP. A graphical settings pane is planned.
+for example `esclop settings set allowOverwriteOriginals true`, or in the app's Settings →
+Agents and MCP (`esclop://settings/agents`). Each switch defaults to off and cannot be changed
+through MCP. Refusals name the switch and its link, such as
+`esclop://settings/agents/allowRunScripts`, so the agent can pass it on to the person.
 
 | Setting | Off (default) | On |
 |---|---|---|

@@ -143,6 +143,16 @@ import Testing
         #expect(try await makeService(temp, origin: .cli).setSetting("allowRunScripts", to: "true") == .bool(true))
     }
 
+    @Test func resetGoesThroughTheSameGate() async throws {
+        let temp = TempDir()
+        let cli = makeService(temp, origin: .cli)
+        _ = try await cli.setSetting("allowRunScripts", to: "true")
+        #expect(throws: EsclopError.self) { _ = try makeService(temp, origin: .mcp, allow: [.allowSettingsChanges]).resetSetting("allowRunScripts") }
+        #expect(try cli.resetSetting("allowRunScripts") == .bool(false))
+        #expect(try await cli.setting("allowRunScripts").value == .bool(false))
+        #expect(throws: EsclopError.self) { _ = try cli.resetSetting("noSuchSetting") }
+    }
+
     @Test func restoreBringsTheOriginalBack() async throws {
         let temp = TempDir()
         let original = temp.file("photo.jpg", bytes: 100)

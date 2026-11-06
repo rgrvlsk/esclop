@@ -12,15 +12,11 @@ struct EsclopMenuBarApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuContent(model: delegate.services.model)
+            MenuContent(model: delegate.services.model, settings: delegate.services.settingsWindow)
         } label: {
             MenuBarLabel(model: delegate.services.model)
         }
         .menuBarExtraStyle(.menu)
-
-        Settings {
-            SettingsView(model: delegate.services.settingsModel)
-        }
     }
 }
 
@@ -35,6 +31,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Another copy already serves the CLI and the clipboard: one is enough.
             NSApp.terminate(nil)
         }
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        services.open(urls)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
