@@ -22,6 +22,8 @@ final class FloatingPanel: NSPanel {
         // A click makes it key (without activating the app), so Esc, ⌘Z and ⌘C reach the card.
         becomesKeyOnlyIfNeeded = false
         isMovableByWindowBackground = false
+        // Movement, not only entering and leaving, so a still pointer can be told from a pass.
+        acceptsMouseMovedEvents = true
         animationBehavior = .none
         contentView = content
     }
@@ -33,21 +35,64 @@ final class FloatingPanel: NSPanel {
 @MainActor
 final class FloatingPanelController {
     private let model: AppModel
-    private let hosting: NSHostingView<FloatingStackView>
+    private let hosting: NSHostingView<PanelRoot>
     private let panel: FloatingPanel
     private var screen: NSScreen?
+    private var swipeMonitor: Any?
+    private var swipe: CGFloat = 0
 
     init(model: AppModel) {
         self.model = model
-        hosting = NSHostingView(rootView: FloatingStackView(model: model))
+        hosting = NSHostingView(rootView: PanelRoot(model: model))
         hosting.sizingOptions = []
         panel = FloatingPanel(content: hosting)
         panel.title = "L'Esclop results"
-        hosting.rootView = FloatingStackView(model: model) { [weak self] size in self?.size = size }
+        hosting.rootView = PanelRoot(model: model) { [weak self] size in self?.contentSize = size }
+        swipeMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+            guard let self, event.window === self.panel else { return event }
+            return self.swiped(event) ? nil : event
+        }
     }
 
-    private var size: CGSize = .zero {
-        didSet { if size != oldValue { layout() } }
+    /// What the stack needs right now.
+    private var contentSize: CGSize = .zero {
+        didSet { if contentSize != oldValue { resize() } }
+    }
+
+    /// What the panel has: grows at once, shrinks only after the animation, so a result that
+    /// grows into its detail or shrinks back is never clipped mid-way.
+    private var size: CGSize = .zero
+    private var shrink: Task<Void, Never>?
+
+    private func resize() {
+        let grown = CGSize(width: max(size.width, contentSize.width), height: max(size.height, contentSize.height))
+        if grown != size {
+            size = grown
+            layout()
+        }
+        shrink?.cancel()
+        guard contentSize != size else { return }
+        shrink = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled, let self else { return }
+            self.size = self.contentSize
+            self.layout()
+        }
+    }
+
+    /// A two-finger swipe toward the screen edge dismisses the result under the pointer, like the
+    /// system screenshot thumbnail.
+    private func swiped(_ event: NSEvent) -> Bool {
+        guard event.hasPreciseScrollingDeltas else { return false }
+        if event.phase == .began { swipe = 0 }
+        // Finger movement, whatever the scroll direction setting.
+        swipe += event.isDirectionInvertedFromDevice ? event.scrollingDeltaX : -event.scrollingDeltaX
+        guard event.phase == .ended || event.phase == .cancelled else { return abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY) }
+        let towardEdge = model.corner.isRight ? swipe > 60 : swipe < -60
+        swipe = 0
+        guard towardEdge, let card = model.visibleCards.last(where: { $0.machine.hovering }) else { return false }
+        model.dismiss(card)
+        return true
     }
 
     /// The frame the stack takes on `screen`, anchored to `corner`.
@@ -81,7 +126,7 @@ final class FloatingPanelController {
         if !panel.isVisible || screen == nil {
             screen = Self.targetScreen(followCursor: model.followCursorScreen)
         }
-        if size == .zero { size = hosting.fittingSize }
+        if contentSize == .zero { contentSize = hosting.fittingSize }
         layout()
         if !panel.isVisible { panel.orderFrontRegardless() }
     }
@@ -92,5 +137,20 @@ final class FloatingPanelController {
     private func layout() {
         guard let screen, size.width > 0, size.height > 0 else { return }
         panel.setFrame(Self.frame(for: size, corner: model.corner, in: screen.visibleFrame), display: true)
+    }
+}
+
+/// The stack, pinned to the panel's corner while the panel is larger than it.
+struct PanelRoot: View {
+    let model: AppModel
+    var onSize: (CGSize) -> Void = { _ in }
+
+    var body: some View {
+        let corner = model.corner
+        FloatingStackView(model: model, onSize: onSize)
+            .frame(
+                maxWidth: .infinity, maxHeight: .infinity,
+                alignment: corner.isTop ? (corner.isRight ? .topTrailing : .topLeading) : (corner.isRight ? .bottomTrailing : .bottomLeading)
+            )
     }
 }

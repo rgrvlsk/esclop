@@ -33,17 +33,24 @@ public final class ResultCard: Identifiable {
     public var phase: Phase
     /// Shown instead of the file name, for files the person never named ("Copied image").
     public var displayName: String?
+    /// The picture of the current file, at its own aspect ratio.
     public var thumbnail: NSImage?
-    public var isHovered = false {
-        didSet { if oldValue != isHovered { onHoverChange?(isHovered) } }
-    }
-
+    /// The original's picture, for the before and after comparison in the detail.
+    public var originalThumbnail: NSImage?
+    /// Level, hover, activity and auto-hide (DESIGN.md › Floating result).
+    public var machine: FloatingResultMachine
+    /// How long the job should take; over two seconds it gets the activity capsule.
+    public var expectedDuration: TimeInterval
+    /// When the work started, for the time left.
+    public var startedAt = Date()
     /// The deflate plays once per card, the first time the result is drawn.
     public var hasPlayedArrival = false
-    var hideTask: Task<Void, Never>?
-    var hideDeadline: Date?
+    /// Where the pointer was when the dwell started counting.
+    var dwellAnchor: CGPoint?
+    /// Runs the job again after an error.
+    var retry: (() -> Void)?
     var cancelWork: (() -> Void)?
-    var onHoverChange: ((Bool) -> Void)?
+    var timer: Task<Void, Never>?
 
     public init(
         jobID: UUID, source: URL, origin: RequestOrigin, aggressive: Bool = false,
@@ -55,6 +62,19 @@ public final class ResultCard: Identifiable {
         self.aggressive = aggressive
         self.bytesBefore = bytesBefore
         self.phase = phase
+        let expected = JobEstimate.expectedSeconds(kind: MediaKind.of(source), bytes: bytesBefore, aggressive: aggressive)
+        expectedDuration = expected
+        // A card that starts finished (a recent result shown again) never gets the activity capsule.
+        var isWorking = false
+        if case .working = phase { isWorking = true }
+        var machine = FloatingResultMachine(expectedDuration: isWorking ? expected : 0)
+        switch phase {
+        case .working: break
+        case .failed: machine.failed(at: Date(), hideAfter: nil)
+        case .notice: machine.notice(at: Date(), hideAfter: 3)
+        default: machine.finished(at: Date(), hideAfter: nil)
+        }
+        self.machine = machine
     }
 
     public var result: OptimisationResult? {
