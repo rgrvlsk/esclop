@@ -28,6 +28,10 @@ Record user-visible changes under `## [Unreleased]` in `CHANGELOG.md`.
    files, never personal media.
 5. `swift build` and `swift test` pass before a PR. UI changes include screenshots in light
    and dark appearance with any personal data cropped out.
+6. Tests never assert speed. A timeout catches a hang (`eventually` waits up to 60 s) and a
+   wall-clock bound keeps a wide margin, because CI runners are slow and shared. A suite that
+   renders views (`ImageRenderer`) is named `…RenderTests`: it holds the main actor for seconds
+   on a runner without a GPU, so CI runs those suites in a step of their own.
 6. Module dependencies only point downward (see `docs/ARCHITECTURE.md`). Changes to
    `Sources/EsclopCore/Contracts.swift` are additive unless maintainers agree on a migration.
 7. Commit messages: imperative subject under 72 characters, body says why.

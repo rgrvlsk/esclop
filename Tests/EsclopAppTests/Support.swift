@@ -127,9 +127,10 @@ func pngData(width: Int = 64, height: Int = 64) -> Data {
     return rep.representation(using: .png, properties: [:])!
 }
 
-/// Waits until `condition` holds or a second passes.
+/// Waits until `condition` holds. The timeout only catches a hang: on a busy CI runner other
+/// main-actor suites can hold the main actor for many seconds, so it is never a speed check.
 @MainActor
-func eventually(_ timeout: Duration = .seconds(2), _ condition: () -> Bool) async -> Bool {
+func eventually(_ timeout: Duration = .seconds(60), _ condition: () -> Bool) async -> Bool {
     let clock = ContinuousClock()
     let deadline = clock.now + timeout
     while !condition() {
