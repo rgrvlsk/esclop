@@ -9,6 +9,7 @@
 // templates are relative to the source's folder.
 
 import CoreFoundation
+import CoreGraphics
 import Foundation
 
 public extension OutputLocation {
@@ -91,6 +92,10 @@ public extension CropSize {
     /// keep as much of the image as fits, `longEdge` scales the longer side, a single width or
     /// height keeps the aspect, both crop to fill.
     func targetSize(fromWidth width: Int, height: Int) -> (width: Int, height: Int) {
+        if let region = region(inWidth: width, height: height) {
+            let scaling = CropSize(width: self.width, height: self.height, longEdge: longEdge)
+            return scaling.targetSize(fromWidth: Int(region.width), height: Int(region.height))
+        }
         let w = Double(width)
         let h = Double(height)
         if let ratio = aspectRatioValue {
@@ -131,8 +136,21 @@ public extension CropSize {
         }
     }
 
+    /// The free crop clamped inside a `width` x `height` image; nil without one or when it
+    /// leaves nothing.
+    func region(inWidth width: Int, height: Int) -> CGRect? {
+        guard let rect else { return nil }
+        let clamped = CGRect(x: rect.x, y: rect.y, width: rect.width, height: rect.height)
+            .intersection(CGRect(x: 0, y: 0, width: width, height: height))
+        guard !clamped.isNull, clamped.width >= 1, clamped.height >= 1 else { return nil }
+        return clamped.integral
+    }
+
     /// Whether the result changes the aspect ratio (a real crop) rather than only scaling.
     func cropsAspect(fromWidth width: Int, height: Int) -> Bool {
+        if let region = region(inWidth: width, height: height) {
+            return region.size != CGSize(width: width, height: height)
+        }
         let target = targetSize(fromWidth: width, height: height)
         let before = Double(width) / Double(height)
         let after = Double(target.width) / Double(target.height)

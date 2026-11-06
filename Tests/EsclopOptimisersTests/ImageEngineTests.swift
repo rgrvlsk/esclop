@@ -164,6 +164,27 @@ import UniformTypeIdentifiers
         #expect(Inspect.size(long.output)! == (200, 150))
     }
 
+    @Test func freeCropKeepsTheRegionAndScalesIt() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let jpeg = world.file("free.jpg")
+        try Fixture.jpeg(jpeg, width: 400, height: 300)
+        let region = CropRect(x: 50, y: 40, width: 200, height: 100)
+
+        let kept = try await world.engine.crop(jpeg, to: CropSize(rect: region), request: world.request(jpeg, location: .sameFolder), progress: { _ in })
+        #expect(Inspect.size(kept.output)! == (200, 100))
+
+        // A size in pixels scales the region, keeping its shape when only one side is given.
+        let scaled = try await world.engine.crop(jpeg, to: CropSize(width: 100, rect: region), request: world.request(jpeg, location: .sameFolder), progress: { _ in })
+        #expect(Inspect.size(scaled.output)! == (100, 50))
+
+        // A region running off the picture keeps only what is inside.
+        let edge = CropSize(rect: CropRect(x: 300, y: 200, width: 400, height: 400))
+        #expect(edge.targetSize(fromWidth: 400, height: 300) == (100, 100))
+        #expect(edge.cropsAspect(fromWidth: 400, height: 300))
+        #expect(!CropSize(rect: CropRect(x: 0, y: 0, width: 400, height: 300)).cropsAspect(fromWidth: 400, height: 300))
+    }
+
     @Test func orientedPhotosCropInDisplaySpace() async throws {
         let world = try await TestWorld()
         defer { Task { await world.finish() } }

@@ -97,7 +97,8 @@ struct ImageEngine: Sendable {
             let target = size.targetSize(fromWidth: width, height: height)
             if size.cropsAspect(fromWidth: width, height: height) {
                 let aspect = Double(target.width) / Double(target.height)
-                crop = ImageIOCodec.cropRect(for: source, width: width, height: height, aspect: aspect, smart: size.smart)
+                crop = size.region(inWidth: width, height: height)
+                    ?? ImageIOCodec.cropRect(for: source, width: width, height: height, aspect: aspect, smart: size.smart)
             }
             width = target.width
             height = target.height
