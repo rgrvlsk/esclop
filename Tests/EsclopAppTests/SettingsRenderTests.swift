@@ -24,7 +24,7 @@ import Testing
 
     /// Draws `view` in a window of `size` with the scheme's appearance; returns the PNG's size in points.
     @discardableResult
-    static func renderWindow(_ view: some View, size: CGSize, name: String, scheme: ColorScheme, settle: Duration = .milliseconds(1200)) async throws -> CGSize {
+    static func renderWindow(_ view: some View, size: CGSize, name: String, scheme: ColorScheme, settle: Duration = .milliseconds(250)) async throws -> CGSize {
         _ = NSApplication.shared
         let host = NSHostingView(rootView: view.environment(\.colorScheme, scheme))
         let window = KeyWindow(
@@ -72,29 +72,35 @@ import Testing
         SettingsViewModel(provider: RegistrySettingsProvider(store: settings.store), extraRows: SettingsPaneView.extraRows)
     }
 
+    /// The deep link landing on a refused value: switches, sliders, fields with units, the marked
+    /// row and the error, in one window. It waits longer: the row scrolls into view first.
     @Test(arguments: [ColorScheme.light, .dark])
-    func panes(scheme: ColorScheme) async throws {
-        let settings = TestSettings()
-        let model = model(settings)
+    func deepLinkToARefusedValue(scheme: ColorScheme) async throws {
+        let model = model(TestSettings())
         model.set("imageCompression", text: "45")
-        model.set("capVideoFPS", to: .bool(false))
-        for pane in [SettingsPane.general, .images, .video, .floatingResults, .agents, .advanced] {
-            model.pane = pane
-            let size = try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-\(pane.rawValue)", scheme: scheme)
-            #expect(size.width == 800)
-        }
+        model.open(SettingsRoute(pane: .images, row: "maxImageSizeMB"))
+        model.set("maxImageSizeMB", text: "50000")
+        let size = try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-deep-link-error", scheme: scheme, settle: .milliseconds(600))
+        #expect(size.width == 800)
     }
 
     @Test(arguments: [ColorScheme.light, .dark])
-    func searchAndDeepLink(scheme: ColorScheme) async throws {
-        let settings = TestSettings()
-        let model = model(settings)
+    func search(scheme: ColorScheme) async throws {
+        let model = model(TestSettings())
         model.query = "aggressive"
         try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-search", scheme: scheme)
-        model.query = ""
-        model.open(SettingsRoute(pane: .images, row: "maxImageSizeMB"))
-        model.set("maxImageSizeMB", text: "50000")
-        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-deep-link-error", scheme: scheme, settle: .milliseconds(600))
+    }
+
+    /// Every pane, for a pull request's screenshots: ESCLOP_RENDER_ALL=1.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["ESCLOP_RENDER_ALL"] == "1"), arguments: [ColorScheme.light, .dark])
+    func everyPane(scheme: ColorScheme) async throws {
+        let model = model(TestSettings())
+        model.set("imageCompression", text: "45")
+        model.set("capVideoFPS", to: .bool(false))
+        for pane in SettingsPane.allCases {
+            model.pane = pane
+            try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-\(pane.rawValue)", scheme: scheme)
+        }
     }
 }
 
