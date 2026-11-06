@@ -141,7 +141,7 @@ Scripts/build-tools.sh". The Catalan localisation uses the strings shown in the 
 
 ## Icon
 The approved app icon is a carved Dutch wooden clog in three-quarter view on an `accent`
-macOS squircle. Preserve the wood artwork in `assets/icon-wood.png`; `assets/icon.svg` composes
+macOS squircle, sized to Apple's icon grid: 824 px wide on the 1024 px canvas. Preserve the wood artwork in `assets/icon-wood.png`; `assets/icon.svg` composes
 it with the background. The monochrome mark is `assets/mark.svg`. The menu bar uses the
 rounded optical variant in `assets/menubar.svg`, a 28 × 18 pt template image with a transparent
 foot cavity. It keeps the high vamp and raised toe without wood texture. Regenerate the PNG,
