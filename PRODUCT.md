@@ -23,7 +23,7 @@ Copy or drop a file, see a floating result, then drag, resize, convert or undo i
 In-place operations keep a backup of the original.
 
 The GUI will include result cards, drop and preset zones, settings with search and deep
-links, a pipeline editor, MCP setup, batch and crop windows, and onboarding.
+links, MCP setup, a pipeline editor, batch and crop windows, and onboarding.
 
 ## Platform
 

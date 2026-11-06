@@ -17,8 +17,13 @@ Watched folders and the batch and crop windows remain planned.
   and writes the same settings as `esclop settings` and follows changes made from the command
   line while it is open. Replaces the minimal settings window. Agent refusals now carry the
   link to the switch that would allow the request, for example
-  `esclop://settings/agents/allowRunScripts`.
+  `esclop://settings/agents/allowRunScripts`, and name it as the Settings window does.
 - `esclop settings reset <key>` puts one setting back to its default.
+- Settings → Agents and MCP: lists the agents on this Mac (the ones `esclop mcp install`
+  supports) with whether each runs L'Esclop, connects, updates and disconnects them in one
+  click after showing the exact change to their config file as a diff, keeps a backup, refuses
+  to write a file that changed after the preview, tests the server live (initialize,
+  tools/list, `esclop_status`) and offers JSON, TOML and `claude mcp add` snippets.
 - App icon and menu bar glyph: the carved wooden clog on the green squircle, and a rounded
   template clog for the menu bar that dims while paused. `make icons` regenerates them.
 - Menu-bar app: optimises copied images (and copied videos, PDFs and audio when enabled), shows
@@ -54,3 +59,8 @@ Watched folders and the batch and crop windows remain planned.
   crates (`engine/THIRD_PARTY-engine.md`) and the bundled tools (`THIRD_PARTY.md`).
 - Release engineering: continuous integration, a licence gate over every bundled Mach-O file,
   release packaging with the complete corresponding source, and this changelog.
+
+### Fixed
+- `esclop mcp status` and the install messages printed the command line unquoted when its path
+  has an apostrophe (the app lives in `L'Esclop.app`), so the line could not be pasted into a
+  shell.

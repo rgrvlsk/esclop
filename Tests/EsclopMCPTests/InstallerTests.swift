@@ -128,6 +128,85 @@ import Testing
         return try JSONCDocument(temp.read(relative(agent.configPaths[0]))).value(at: agent.container + ["esclop"])
     }
 
+    @Test func previewIsExactlyWhatIsWritten() throws {
+        let temp = TempDir()
+        let installer = installer(temp)
+        let agent = try #require(AgentCatalog.agent("cursor"))
+        let config = temp.url.appendingPathComponent(".cursor/mcp.json")
+        try FileManager.default.createDirectory(at: config.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let original = "{\n  \"mcpServers\": {\n    \"other\": { \"command\": \"x\" }\n  }\n}\n"
+        try original.write(to: config, atomically: true, encoding: .utf8)
+        let change = try installer.planInstall(agent, command: Self.command)
+        #expect(try String(contentsOf: config, encoding: .utf8) == original, "planning writes nothing")
+        #expect(change.before == original)
+        #expect(change.shownPath == "~/.cursor/mcp.json")
+        let diff = change.diff()
+        #expect(diff.contains { $0.kind == .added && $0.text.contains("\"esclop\"") })
+        #expect(change.after.contains("\"other\": { \"command\": \"x\" }"), "other servers stay")
+        try installer.apply(change)
+        #expect(try String(contentsOf: config, encoding: .utf8) == change.after)
+        let backup = try #require(change.backup)
+        #expect(try String(contentsOf: backup, encoding: .utf8) == original, "the previous version is kept")
+    }
+
+    @Test func aFileChangedAfterThePreviewIsLeftAlone() throws {
+        let temp = TempDir()
+        let installer = installer(temp)
+        let agent = try #require(AgentCatalog.agent("gemini"))
+        let change = try installer.planInstall(agent, command: Self.command)
+        #expect(!change.fileExists)
+        let config = temp.url.appendingPathComponent(".gemini/settings.json")
+        try FileManager.default.createDirectory(at: config.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try "{\"theme\": \"dark\"}\n".write(to: config, atomically: true, encoding: .utf8)
+        #expect(throws: ConfigLayoutError.self) { try installer.apply(change) }
+        #expect(try String(contentsOf: config, encoding: .utf8) == "{\"theme\": \"dark\"}\n")
+    }
+
+    @Test(arguments: editable.map(\.id))
+    func writesOnlyTheConfigAndItsBackup(_ id: String) throws {
+        let temp = TempDir()
+        let installer = installer(temp)
+        let agent = try #require(AgentCatalog.agent(id))
+        try installer.install(agent, command: Self.command)
+        try installer.install(agent, command: ServerCommand(command: "/usr/local/bin/esclop"))
+        try installer.uninstall(agent)
+        let config = try #require(installer.configURL(agent)).standardizedFileURL.path
+        let written = try FileManager.default.subpathsOfDirectory(atPath: temp.url.path)
+            .map { temp.url.appendingPathComponent($0) }
+            .filter { !$0.hasDirectoryPath && (try? $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true }
+            .map(\.standardizedFileURL.path)
+        for path in written {
+            #expect(path == config || path.hasPrefix(installer.backupFolder.standardizedFileURL.path + "/"), "\(id) wrote \(path)")
+        }
+    }
+
+    @Test func uninstallPlanIsNilWhenAbsent() throws {
+        let temp = TempDir()
+        let agent = try #require(AgentCatalog.agent("claude-code"))
+        #expect(try installer(temp).planUninstall(agent) == nil)
+    }
+
+    @Test func diffShowsOnlyTheSpliceWithContext() {
+        let before = (1 ... 40).map { "line \($0)" }.joined(separator: "\n") + "\n"
+        var lines = (1 ... 40).map { "line \($0)" }
+        lines.insert("new", at: 20)
+        let change = ConfigChange(
+            agentID: "x", agentName: "X", action: .install, file: URL(fileURLWithPath: "/tmp/x"), shownPath: "~/x",
+            fileExists: true, before: before, after: lines.joined(separator: "\n") + "\n", command: nil, backup: nil, shownBackup: nil
+        )
+        let diff = change.diff(context: 2)
+        #expect(diff.map(\.kind) == [.skipped, .same, .same, .added, .same, .same, .skipped])
+        #expect(diff.first?.skipped == 18)
+        #expect(diff.last?.skipped == 18)
+        #expect(diff[3].text == "new" && diff[3].number == 21)
+    }
+
+    @Test func shellLinesSurviveApostrophesAndSpaces() {
+        #expect(ServerCommand(command: "/usr/local/bin/esclop").shellLine == "/usr/local/bin/esclop mcp serve")
+        #expect(ServerCommand(command: "/Applications/L'Esclop.app/Contents/MacOS/esclop").shellLine == "'/Applications/L'\\''Esclop.app/Contents/MacOS/esclop' mcp serve")
+        #expect(ServerCommand(command: "/Volumes/My Disk/esclop").shellLine == "'/Volumes/My Disk/esclop' mcp serve")
+    }
+
     @Test func entryShapes() throws {
         #expect(try installedEntry("claude-code") == ["command": .string(Self.command.command), "args": ["mcp", "serve"]])
         #expect(try installedEntry("copilot") == ["type": "local", "command": .string(Self.command.command), "args": ["mcp", "serve"], "tools": ["*"]])

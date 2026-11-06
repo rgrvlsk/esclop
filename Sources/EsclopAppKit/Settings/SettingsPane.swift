@@ -76,6 +76,16 @@ public enum SettingsPane: String, CaseIterable, Identifiable, Hashable, Sendable
         text.lowercased().filter { $0.isLetter || $0.isNumber }
     }
 
+    /// The note under a registry section, when it needs one.
+    public func footer(for section: SettingsSection) -> String? {
+        switch section {
+        case .agents:
+            return "The MCP server checks every request from an agent against these switches, and the app checks it again. They start off, and agents cannot turn them on. The esclop command line acts for you and is not limited by them."
+        default:
+            return nil
+        }
+    }
+
     /// The heading a registry section gets inside its pane; nil when the pane has only that one.
     public func heading(for section: SettingsSection) -> String? {
         switch section {
