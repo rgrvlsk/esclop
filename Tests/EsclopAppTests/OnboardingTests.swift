@@ -71,25 +71,32 @@ import Testing
         #expect(viewModel.set(EsclopSettings.optimisePDFClipboard.key, to: .bool(true)))
         #expect(EsclopSettings.optimisePDFClipboard.value(in: settings.store))
     }
+}
 
-    /// The shipped icon from `assets/`, as the bundle carries it.
-    static let appIcon = NSImage(contentsOf: URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        .appendingPathComponent("assets/AppIcon.png"))
+extension WindowRenders {
+    @MainActor
+    @Suite struct OnboardingRenderTests {
+        let settings = TestSettings()
 
-    @Test(arguments: [ColorScheme.light, .dark])
-    func renders(scheme: ColorScheme) async throws {
-        let viewModel = SettingsViewModel(provider: RegistrySettingsProvider(store: settings.store), extraRows: SettingsPaneView.extraRows)
-        let fixture = AgentsFixture()
-        fixture.populate()
-        let agents = AgentsModel(installer: fixture.installer, command: AgentsFixture.command)
-        await agents.refresh()
-        for step in OnboardingModel.Step.allCases {
-            let model = OnboardingModel(defaults: settings.store.defaults)
-            model.go(to: step)
-            let view = OnboardingView(onboarding: model, settings: viewModel, agents: agents, actions: SettingsActions(), icon: Self.appIcon) {}
-            let size = try await SettingsRenderTests.renderWindow(view, size: CGSize(width: 640, height: 560), name: "onboarding-\(step.rawValue + 1)-\(step.title.lowercased())", scheme: scheme)
-            #expect(size.width == 640)
+        /// The shipped icon from `assets/`, as the bundle carries it.
+        static let appIcon = NSImage(contentsOf: URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("assets/AppIcon.png"))
+
+        @Test(arguments: [ColorScheme.light, .dark])
+        func renders(scheme: ColorScheme) async throws {
+            let viewModel = SettingsViewModel(provider: RegistrySettingsProvider(store: settings.store), extraRows: SettingsPaneView.extraRows)
+            let fixture = AgentsFixture()
+            fixture.populate()
+            let agents = AgentsModel(installer: fixture.installer, command: AgentsFixture.command)
+            await agents.refresh()
+            for step in OnboardingModel.Step.allCases {
+                let model = OnboardingModel(defaults: settings.store.defaults)
+                model.go(to: step)
+                let view = OnboardingView(onboarding: model, settings: viewModel, agents: agents, actions: SettingsActions(), icon: Self.appIcon) {}
+                let size = try await WindowRenders.SettingsRenderTests.renderWindow(view, size: CGSize(width: 640, height: 560), name: "onboarding-\(step.rawValue + 1)-\(step.title.lowercased())", scheme: scheme)
+                #expect(size.width == 640)
+            }
         }
     }
 }
