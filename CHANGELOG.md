@@ -28,6 +28,11 @@ Watched folders and the batch and crop windows remain planned.
   macOS will ask and why (clipboard access with its current status, files in Desktop,
   Documents and Downloads, open at login), connecting an agent, and where the app lives. Every
   step can be skipped; the menu's "Welcome to L'Esclop…" opens it again.
+- Floating result redesigned for Liquid Glass (DESIGN.md): a ~200 pt thumbnail with a capsule
+  that counts down to "612 kB · −75 %", round hover buttons (Undo, Convert, Downscale, Crop,
+  "…"), a 320 pt detail with a before/after divider opened by the capsule or a still pointer,
+  an activity capsule with the time left for jobs over two seconds, errors in the capsule with
+  retry, the newest three stacked, two-finger swipe to dismiss. VoiceOver announces each result.
 - App icon and menu bar glyph: the carved wooden clog on the green squircle, and a rounded
   template clog for the menu bar that dims while paused. `make icons` regenerates them.
 - Menu-bar app: optimises copied images (and copied videos, PDFs and audio when enabled), shows
