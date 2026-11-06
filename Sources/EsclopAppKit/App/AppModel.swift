@@ -39,6 +39,13 @@ public final class AppModel {
     /// Replaces the auto-hide delays from the settings (tests).
     @ObservationIgnored public var hideDelayOverride: Duration?
     @ObservationIgnored public var loadsThumbnails = true
+    /// The clock the floating results run on (tests move it by hand).
+    @ObservationIgnored public var now: () -> Date = Date.init
+    /// Where the pointer is. A panel in an inactive app hears the pointer enter and leave but not
+    /// every move, so the dwell checks this before it opens the detail. Tests move it by hand.
+    @ObservationIgnored public var pointerLocation: () -> CGPoint = { NSEvent.mouseLocation }
+    /// Announces results to VoiceOver; tests record them instead.
+    @ObservationIgnored public var announce: (String) -> Void = AppModel.postAnnouncement
 
     public init(
         settings: SettingsStore, service: EsclopService, pasteboard: NSPasteboard = .general,
@@ -55,6 +62,11 @@ public final class AppModel {
     }
 
     static let recentLimit = 30
+    /// The floating results on screen at once; older ones live on in Recent Results.
+    static let visibleLimit = 3
+
+    /// The newest three results, oldest first (the newest sits at the bottom).
+    public var visibleCards: [ResultCard] { Array(cards.suffix(Self.visibleLimit)) }
 
     /// The service the app runs jobs with: in-process, never routed back to itself.
     public static func makeService(settings: SettingsStore, locations: EsclopLocations = .current()) -> EsclopService {
@@ -116,6 +128,14 @@ public final class AppModel {
             let card = job.request.showResultUI ? addCard(for: source, job: job, displayName: displayName) : nil
             let task = Task { await self.process(source, job: job, executor: executor, card: card, events: events, onResult: onResult) }
             card?.cancelWork = { task.cancel() }
+            card?.retry = { [weak self, weak card] in
+                guard let self else { return }
+                if let card { self.dismiss(card) }
+                var again = job
+                again.request.id = UUID()
+                again.request.sources = [source]
+                Task { await self.run(again, displayName: displayName, onResult: onResult) }
+            }
             tasks.append((source, task))
         }
         let running = tasks.map(\.1)
@@ -151,6 +171,7 @@ public final class AppModel {
         activeFiles += 1
         defer { activeFiles -= 1 }
         await gate.acquire()
+        card?.startedAt = now()
         let outcome: Result<OptimisationResult, EsclopError>
         if Task.isCancelled {
             outcome = .failure(.cancelled)
@@ -173,7 +194,11 @@ public final class AppModel {
             events(.result(result))
             record(result)
             card?.phase = .done(result)
-            if let card { loadThumbnail(card, url: result.output) }
+            if let card {
+                loadThumbnail(card, url: result.output)
+                if let backup = result.backup { loadThumbnail(card, url: backup, original: true) }
+            }
+            announce(CardPresentation.announcement(for: result))
             onResult?(result)
         case let .failure(error):
             events(.failure(FileFailure(source: source, error: error)))
@@ -183,7 +208,7 @@ public final class AppModel {
                 card?.phase = .failed(CardPresentation.message(for: error))
             }
         }
-        if let card { scheduleHide(card) }
+        if let card { settle(card) }
         return outcome
     }
 
@@ -211,20 +236,17 @@ public final class AppModel {
         card.displayName = displayName
         add(card)
         loadThumbnail(card, url: source)
+        if MediaKind.of(source) == .video { refineEstimate(card) }
         return card
     }
 
     func add(_ card: ResultCard) {
-        card.onHoverChange = { [weak self, weak card] hovering in
-            guard let self, let card, !hovering, let deadline = card.hideDeadline, deadline <= Date() else { return }
-            // The time ran out while the pointer was on the card: go shortly after it leaves.
-            self.scheduleHide(card, after: .seconds(2))
-        }
         cards.append(card)
+        reschedule(card)
     }
 
     public func dismiss(_ card: ResultCard) {
-        card.hideTask?.cancel()
+        card.timer?.cancel()
         if card.isWorking { card.cancelWork?() }
         cards.removeAll { $0.id == card.id }
     }
@@ -237,20 +259,118 @@ public final class AppModel {
     public func notice(_ title: String, _ detail: String) {
         cards.filter { if case .notice = $0.phase { return true } else { return false } }.forEach(dismiss)
         let card = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/"), origin: .app, bytesBefore: 0, phase: .notice(title: title, detail: detail))
+        card.machine.notice(at: now(), hideAfter: hideDelayOverride.map(Self.seconds) ?? 3)
         add(card)
-        scheduleHide(card, after: hideDelayOverride ?? .seconds(3))
     }
 
-    func scheduleHide(_ card: ResultCard, after delay: Duration? = nil) {
-        if case .notice = card.phase, delay == nil { return }
-        let delay = delay ?? hideDelay(for: card)
-        guard let delay else { return }
-        card.hideTask?.cancel()
-        card.hideDeadline = Date().addingTimeInterval(TimeInterval(delay.components.seconds) + Double(delay.components.attoseconds) / 1e18)
-        card.hideTask = Task { [weak self, weak card] in
-            try? await Task.sleep(for: delay)
-            guard !Task.isCancelled, let self, let card, !card.isHovered else { return }
-            self.dismiss(card)
+    // MARK: Floating result state
+
+    /// What the person does to a floating result.
+    public enum Interaction: Equatable, Sendable {
+        case pointerEntered, pointerMoved, pointerExited, pointerEnteredButtons
+        case capsuleClicked
+        case openDetail, closeDetail
+        case focus(Bool), dragging(Bool), menu(Bool)
+    }
+
+    public func interact(_ card: ResultCard, _ interaction: Interaction) {
+        let time = now()
+        var effect: FloatingResultMachine.Effect?
+        switch interaction {
+        case .pointerEntered:
+            card.machine.pointerEntered(at: time)
+            card.dwellAnchor = pointerLocation()
+        case .pointerMoved:
+            card.machine.pointerMoved(at: time)
+            card.dwellAnchor = pointerLocation()
+        case .pointerExited: card.machine.pointerExited(at: time)
+        case .pointerEnteredButtons: card.machine.pointerEnteredButtons(at: time)
+        case .capsuleClicked: effect = card.machine.capsuleClicked(at: time)
+        case .openDetail: card.machine.openDetail(at: time)
+        case .closeDetail: card.machine.closeDetail(at: time)
+        case let .focus(value): card.machine.setFocused(value, at: time)
+        case let .dragging(value):
+            card.machine.setDragging(value, at: time)
+            if value { watchDragEnd(card) }
+        case let .menu(value): card.machine.setMenuOpen(value, at: time)
+        }
+        apply(effect, to: card)
+        afterChange(card)
+    }
+
+    /// The result arrived, failed or changed: its auto-hide starts now.
+    func settle(_ card: ResultCard) {
+        let time = now()
+        let delay = hideDelay(for: card).map(Self.seconds)
+        switch card.phase {
+        case .working: return
+        case .failed: card.machine.failed(at: time, hideAfter: delay)
+        case .notice: card.machine.notice(at: time, hideAfter: delay ?? 3)
+        case .done, .unchanged:
+            if card.machine.stage == .working { card.machine.finished(at: time, hideAfter: delay) } else {
+                card.machine.refreshed(at: time, hideAfter: delay)
+            }
+        case .restored: card.machine.refreshed(at: time, hideAfter: delay)
+        }
+        afterChange(card)
+    }
+
+    /// Applies the deadlines that passed; the timer calls it, and tests do with their own clock.
+    public func advance(_ card: ResultCard) {
+        let time = now()
+        if let deadline = card.machine.dwellDeadline, deadline <= time, let anchor = card.dwellAnchor {
+            // The pointer moved since the dwell started: it was a pass, so start counting again.
+            let point = pointerLocation()
+            if hypot(point.x - anchor.x, point.y - anchor.y) > 2 {
+                card.machine.pointerMoved(at: time)
+                card.dwellAnchor = point
+            }
+        }
+        let effect = card.machine.advance(to: time)
+        apply(effect, to: card)
+        guard cards.contains(where: { $0.id == card.id }) else { return }
+        afterChange(card)
+    }
+
+    private func apply(_ effect: FloatingResultMachine.Effect?, to card: ResultCard) {
+        switch effect {
+        case .dismiss: dismiss(card)
+        case .retry: card.retry?()
+        case nil: break
+        }
+    }
+
+    private func afterChange(_ card: ResultCard) {
+        // Never two details open at once.
+        if card.machine.level == .detail {
+            for other in cards where other.id != card.id && other.machine.level == .detail {
+                other.machine.closeDetail(at: now())
+                reschedule(other)
+            }
+        }
+        reschedule(card)
+    }
+
+    /// Sleeps until the card's next deadline, then advances it.
+    private func reschedule(_ card: ResultCard) {
+        card.timer?.cancel()
+        guard cards.contains(where: { $0.id == card.id }), let deadline = card.machine.nextDeadline else { return }
+        let wait = max(0, deadline.timeIntervalSince(now()))
+        card.timer = Task { [weak self, weak card] in
+            try? await Task.sleep(for: .milliseconds(Int((wait * 1000).rounded(.up)) + 1))
+            guard !Task.isCancelled, let self, let card else { return }
+            self.advance(card)
+        }
+    }
+
+    /// A drag session runs outside the app's event loop; poll the mouse button to see it end.
+    private func watchDragEnd(_ card: ResultCard) {
+        Task { [weak self, weak card] in
+            repeat {
+                try? await Task.sleep(for: .milliseconds(200))
+            } while NSEvent.pressedMouseButtons & 1 != 0 && !Task.isCancelled
+            guard let self, let card, card.machine.dragging else { return }
+            self.interact(card, .dragging(false))
         }
     }
 
@@ -263,11 +383,35 @@ public final class AppModel {
         return .seconds(max(1, seconds))
     }
 
-    private func loadThumbnail(_ card: ResultCard, url: URL) {
+    nonisolated static func seconds(_ duration: Duration) -> TimeInterval {
+        TimeInterval(duration.components.seconds) + Double(duration.components.attoseconds) / 1e18
+    }
+
+    nonisolated static func postAnnouncement(_ text: String) {
+        Task { @MainActor in
+            NSAccessibility.post(
+                element: NSApp as Any, notification: .announcementRequested,
+                userInfo: [.announcement: text, .priority: NSAccessibilityPriorityLevel.high.rawValue]
+            )
+        }
+    }
+
+    /// Replaces a video's first guess from its bytes with one from its frames.
+    private func refineEstimate(_ card: ResultCard) {
+        Task { [weak card] in
+            guard let card, let seconds = await JobEstimate.videoSeconds(of: card.source, aggressive: card.aggressive) else { return }
+            card.expectedDuration = seconds
+            card.machine.estimateChanged(seconds)
+        }
+    }
+
+    /// Loads the picture at its own aspect ratio, big enough for the 320 pt detail.
+    func loadThumbnail(_ card: ResultCard, url: URL, original: Bool = false) {
         guard loadsThumbnails else { return }
         Task { [weak card] in
-            guard let image = await Thumbnails.load(url) else { return }
-            card?.thumbnail = NSImage(cgImage: image, size: NSSize(width: Metrics.thumbnail, height: Metrics.thumbnail))
+            guard let image = await Thumbnails.load(url, side: Metrics.detailWidth) else { return }
+            let picture = NSImage(cgImage: image, size: NSSize(width: CGFloat(image.width) / 2, height: CGFloat(image.height) / 2))
+            if original { card?.originalThumbnail = picture } else { card?.thumbnail = picture }
         }
     }
 
@@ -275,15 +419,57 @@ public final class AppModel {
 
     public func perform(_ action: CardPresentation.Action, on card: ResultCard) {
         switch action {
-        case .restore:
+        case .undo:
             guard let result = card.result else { return }
             Task { await restore(result) }
+        case let .convert(format):
+            reprocess(card) { $0.format = format }
+        case .downscale:
+            reprocess(card) { $0.downscale = 0.5 }
+        case .crop, .more:
+            // The options popover (crop lives in its Size tab).
+            interact(card, .menu(true))
+        case .openDetail:
+            interact(card, .openDetail)
+        case .closeDetail:
+            interact(card, .closeDetail)
+        case .retry:
+            card.retry?()
         case .reveal:
             reveal([card.shownFile])
         case .copy:
             Clipboard.write(files: [card.shownFile], to: pasteboard)
         case .dismiss:
             dismiss(card)
+        }
+    }
+
+    /// Runs a file again with one change (convert, downscale), always from the original so
+    /// quality is not lost twice. The new result takes the card's place.
+    func reprocess(_ card: ResultCard, adjust: @escaping (inout OptimisationRequest) -> Void) {
+        let origin = card.origin, aggressive = card.aggressive, displayName = card.displayName
+        let wasClipboardImage = card.source.path.hasPrefix(Paths.temporary.path)
+        Task {
+            var source = card.source
+            switch card.phase {
+            case let .done(result):
+                source = result.source
+                if result.backup != nil { await restore(result) }
+            case let .restored(result):
+                source = result.source
+            case .working, .failed, .notice:
+                return
+            case .unchanged:
+                break
+            }
+            dismiss(card)
+            var job = factory.job(for: source, origin: origin, aggressive: aggressive, location: wasClipboardImage ? .inPlace : nil)
+            adjust(&job.request)
+            let copyBack = origin == .clipboard && EsclopSettings.autoCopyToClipboard.value(in: settings)
+            await run(job, displayName: displayName, onResult: { result in
+                guard copyBack else { return }
+                Clipboard.write(files: [result.output], to: self.pasteboard)
+            })
         }
     }
 
@@ -295,12 +481,13 @@ public final class AppModel {
             restoredIDs.insert(result.id)
             if let card {
                 card.phase = .restored(result)
-                scheduleHide(card)
+                loadThumbnail(card, url: result.source)
+                settle(card)
             } else {
                 let card = ResultCard(jobID: result.id, source: result.source, origin: .app, bytesBefore: result.bytesBefore, phase: .restored(result))
                 add(card)
                 loadThumbnail(card, url: result.source)
-                scheduleHide(card)
+                settle(card)
             }
             if pasteboardHolds(result.output) {
                 // The optimised copy was on the clipboard: the original replaces it there too.
@@ -325,7 +512,8 @@ public final class AppModel {
         card.hasPlayedArrival = true
         add(card)
         loadThumbnail(card, url: result.output)
-        scheduleHide(card)
+        if let backup = result.backup { loadThumbnail(card, url: backup, original: true) }
+        settle(card)
     }
 
     nonisolated static func size(of url: URL) -> Int {

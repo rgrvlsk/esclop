@@ -29,6 +29,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let services = AppServices()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Screenshots of both appearances without changing the system's (`open --env`).
+        switch ProcessInfo.processInfo.environment["ESCLOP_APPEARANCE"] {
+        case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
+        case "light": NSApp.appearance = NSAppearance(named: .aqua)
+        default: break
+        }
         do {
             try services.start()
         } catch {

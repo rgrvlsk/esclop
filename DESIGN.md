@@ -1,6 +1,6 @@
 # Design brief
 
-This brief describes the planned GUI. The current app is a minimal menu-bar stub.
+This brief describes the GUI.
 Results should be easy to read without interrupting work. The app should look like a
 first-class macOS 27 citizen: Liquid Glass materials, native controls, SF Pro and SF Symbols.
 
