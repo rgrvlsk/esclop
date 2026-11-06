@@ -7,10 +7,18 @@ into the body of its GitHub release.
 
 ## [Unreleased]
 
-The menu-bar app is a minimal stub. Clipboard monitoring, floating results and the full GUI
-remain planned.
+The full settings window, watched folders and the batch and crop windows remain planned.
 
 ### Added
+- Menu-bar app: optimises copied images (and copied videos, PDFs and audio when enabled), shows
+  a floating card per file whose bar deflates to the new size, offers Restore, Show in Finder
+  and Copy, and a drop zone while files are dragged (Command optimises harder). Hotkeys
+  ⌃⇧P (pause cycle), ⌃⇧C (optimise clipboard) and ⌃⇧A (harder); a backups menu to restore
+  originals; a minimal settings window. When it runs, the CLI and MCP server send their jobs
+  to it and they show cards too.
+- Settings for floating results and the drop zone: `floatingResultsCorner`,
+  `followCursorScreen`, `autoHideFloatingResults`, `autoHideFloatingResultsAfter`,
+  `autoHideClipboardResultAfter`, `enableDragAndDrop` (section `interface`).
 - `esclop` command line: `optimise`, `convert`, `downscale`, `crop`, `fit`, `strip`,
   `pdf crop|uncrop|pages`, `pipeline list|show|run|write|delete`, `settings get|set|schema`,
   `status`, `logs`. It runs without the app.

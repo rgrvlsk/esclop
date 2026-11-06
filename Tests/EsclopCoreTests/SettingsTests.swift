@@ -115,9 +115,9 @@ func scratchStore() -> SettingsStore {
 
     @Test func otherModulesCanRegisterSettings() throws {
         let registry = SettingsRegistry(EsclopSettings.all)
-        let corner = Setting<String>("floatingResultsCorner", default: "bottomRight", title: "Corner", description: "Where results appear.", section: .general)
-        registry.register(corner)
-        #expect(registry.setting("floatingResultsCorner") != nil)
+        let extra = Setting<String>("exampleModuleSetting", default: "on", title: "Example", description: "Registered by another module.", section: .general)
+        registry.register(extra)
+        #expect(registry.setting("exampleModuleSetting") != nil)
         #expect(registry.all.count == EsclopSettings.all.count + 1)
     }
 }

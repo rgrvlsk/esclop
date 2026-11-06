@@ -27,7 +27,9 @@ system screenshot thumbnail. It has three levels; the person moves between them 
    turns into the result, and retracts after 2 s.
 
 Hover shows a row of 28 pt round glass buttons above the thumbnail: Undo, Convert, Downscale,
-Crop and "…". The set is configurable. Errors keep the original and say so in the capsule;
+Crop and "…". The set is configurable. The buttons float above the thumbnail, so the
+object never changes size under the pointer. The thumbnail drags out as the file (the original
+after a restore). Errors keep the original and say so in the capsule;
 clicking it retries. Several results in a row: show the newest three with 8 pt gaps, newest at
 the bottom, older ones go to the menu-bar history; never stack expanded details. Dismissal
 pauses while the object is hovered, focused, dragged or open.

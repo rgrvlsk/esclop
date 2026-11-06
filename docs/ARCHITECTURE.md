@@ -1,12 +1,13 @@
 # Architecture
 
 esclop is one SwiftPM package with two executables and five libraries. Modules only depend
-downward. `EsclopCore/Contracts.swift` defines shared types. The app executable is currently
-a minimal menu-bar stub; the diagram shows its intended integration.
+downward. `EsclopCore/Contracts.swift` defines shared types. The menu bar app is
+`EsclopApp` (the entry point) over `EsclopAppKit` (everything else, so tests reach it).
 
 ```
-EsclopApp (menu bar app)        esclop (CLI, `esclop mcp serve`)
+EsclopApp → EsclopAppKit         esclop (CLI, `esclop mcp serve`)
     │                                 │
+    ├── EsclopMCP (EsclopService) ◄───┤      shared service layer
     ├── EsclopIPC ◄───────────────────┤      app <-> CLI message ports
     ├── EsclopPipelines ◄─────────────┤      pipeline model, DSL, executor
     │        │                        ├── EsclopMCP   tools, resources, installers
@@ -71,7 +72,7 @@ universal with `lipo` and placed in `Contents/Resources/bin`.
 - Message-port protocol between CLI/MCP and the running app. Request, progress, response and
   stop ports. Payloads are the Core request/result types.
 - The CLI and MCP run the engines in-process when no IPC server is available. Routing to an
-  app server is implemented in the library but is not connected to the current GUI stub.
+  app server is implemented in the library; the menu bar app starts it at launch.
 - Ports `dev.esclop.app.request|stop|settings|control`, a reply port per client for progress and
   responses. `AppServer` + `AppRequestHandler` is the app's side; `JobExecutor` runs jobs
   in-process; `AgentPolicy` is the permission gate both sides apply. Details in `docs/mcp.md`.
@@ -97,15 +98,35 @@ swift-argument-parser. Subcommands: `optimise`, `convert`, `downscale`, `crop`, 
 `strip`, `pdf crop|uncrop|pages`, `pipeline list|show|run|write|delete`, `settings
 get|set|schema`, `status`, `logs`, `mcp serve|install|uninstall|status`.
 
-### EsclopApp
-The current implementation contains only a menu-bar stub. Planned components use SwiftUI
-and AppKit for floating panels, pasteboard access and global hotkeys:
-- `AppState`: the single observable store; results, requests in flight, settings.
-- Watchers: clipboard (polling NSPasteboard changeCount), screenshots and recordings folder,
-  watched folders (FSEvents), drop zone (NSPanel that appears on drag).
-- Floating results: NSPanel per screen corner hosting SwiftUI result cards.
-- Settings, pipeline editor, MCP pane, batch window, crop window, onboarding.
-- IPC server side.
+### EsclopApp and EsclopAppKit
+`EsclopApp` holds only the `@main` scene (menu bar extra and Settings window). `EsclopAppKit`
+holds the rest, in folders by feature:
+- `App/AppModel`: the single `@Observable` store on the main actor: cards on screen, recent
+  results, pause state. Every job runs through `run(_:)`, one card per file, at most
+  `WorkGate.limit` files at once, with `JobExecutor` doing the work over `EsclopService`
+  (in-process, `useApp: false`). Results are appended to the shared recent-results log, so
+  `esclop_recent_results` and restore see them. `AppServices` starts everything at launch.
+- `Jobs`: `RequestFactory` maps the "Optimised … go" settings to `OutputLocation` and applies
+  the automatic limits (min/max size per kind, the `dev.esclop.optimised` xattr).
+- `Clipboard`: `ClipboardWatcher` polls `NSPasteboard.changeCount` every 0.5 s on a serial
+  queue (all pasteboard reads stay there); `ClipboardPolicy` decides from plain values: skip own
+  writes and nspasteboard.org transient types, ignored apps, pause, and per-kind settings.
+  Copied pixels are saved to a temporary file, optimised in place (the backup is the original)
+  and put back on the clipboard.
+- `Results`: `ResultCard` (model), `CardPresentation` (text, bar end, actions, as tested
+  values), `ResultCardView` with the deflating bar, and `FloatingPanelController`, a
+  non-activating `NSPanel` at the chosen corner of the screen with the pointer that sizes
+  itself to the stack. Cards auto-hide unless hovered.
+- `DropZone`: global mouse-drag monitors and the drag pasteboard (read off the main thread)
+  show a panel at the results corner; Command switches it to "optimise harder".
+- `Hotkeys`: KeyboardShortcuts names with Clop's default keys (⌃⇧P pause cycle, ⌃⇧C clipboard,
+  ⌃⇧A harder).
+- `IPC/AppIPCHandler`: the `AppRequestHandler`; applies `AgentPolicy` again, then routes jobs
+  into `AppModel.run` so CLI and MCP jobs show cards too.
+- `Menu`, `Settings`: the menu bar menu and a minimal Settings window over the registry.
+
+Planned: the full settings window with sidebar and deep links, watched folders, pipeline
+editor, MCP pane, batch and crop windows, onboarding.
 
 ## Build and packaging
 - `swift build` builds the CLI and libraries with Command Line Tools. The package includes
@@ -119,9 +140,10 @@ and AppKit for floating panels, pasteboard access and global hotkeys:
   never downloads prebuilt binaries. `cargo build --release` in `engine/` produces
   `esclop-engine`. The build scripts cache outputs by content hash.
 - `Scripts/bundle-app.sh` assembles `dist/L'Esclop.app` from the release build: Info.plist
-  (from `Scripts/templates/Info.plist.in`), `Resources/bin`, `Resources/LICENSES`, the CLI
-  inside `Contents/MacOS`, codesign (ad hoc without a Developer ID). It exits cleanly when the
-  app product is absent.
+  (from `Scripts/templates/Info.plist.in`), `Resources/bin`, `Resources/LICENSES`, SwiftPM
+  resource bundles, `AppIcon.icns` drawn from `assets/icon.svg` (`Scripts/make-icon.swift`), an
+  optional `assets/menubar-icon.*` template glyph, the CLI inside `Contents/MacOS`, codesign
+  (ad hoc without a Developer ID). It exits cleanly when the app product is absent.
 - `Scripts/licence-gate.sh DIR` finds every Mach-O file under `Binaries/`, an `.app` or a
   release directory by content and fails on any without a record: a `THIRD_PARTY.md` row
   ("Ships as" column) with version, licence, source and SHA-256 and its licence text in

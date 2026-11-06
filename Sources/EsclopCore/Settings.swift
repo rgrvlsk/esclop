@@ -11,11 +11,12 @@ import Foundation
 // MARK: - Sections
 
 public enum SettingsSection: String, CaseIterable, Codable, Sendable {
-    case general, images, video, pdf, audio, clipboard, automation, output, backups, agents
+    case general, interface, images, video, pdf, audio, clipboard, automation, output, backups, agents
 
     public var title: String {
         switch self {
         case .general: return "General"
+        case .interface: return "Interface"
         case .images: return "Images"
         case .video: return "Video"
         case .pdf: return "PDF"

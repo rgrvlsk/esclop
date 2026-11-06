@@ -9,16 +9,13 @@ in a floating card and restore the original. CLI and MCP workflows already run w
 - Swift media engines, Rust image engine, settings registry and backups.
 - Pipeline parser, executor, file store and built-in presets.
 - Pinned tool builds, licence checks, CI and CLI release packaging.
+- Menu-bar app: clipboard watcher, floating result cards, drop zone, hotkeys, backups menu,
+  a minimal settings window, and the IPC server that runs CLI and MCP jobs with cards.
 
-`Sources/EsclopApp/EsclopApp.swift` is a minimal menu-bar stub. It does not yet connect
-clipboard monitoring, result cards or the IPC server to the GUI.
+## Next
 
-## Next: usable menu-bar app
-
-- Connect the engines and IPC server to the app.
-- Add clipboard monitoring, floating result cards, a drop zone and hotkeys.
-- Make originals accessible through a backups menu.
-- Verify copying an image and dropping a file through the complete UI workflow.
+- Full settings window with search and deep links; onboarding.
+- Watched folders (screenshots and recordings) and pipeline triggers in the app.
 
 ## Later
 
