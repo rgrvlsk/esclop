@@ -12,8 +12,8 @@ The CLI, MCP server, pipelines and media engines are implemented. The menu-bar a
 copied images (and copied files when the settings say so), shows a floating result for
 each file, offers a drop zone while files are dragged, keeps originals restorable, and serves
 the CLI and MCP server when it runs. Its Settings window lists every setting by pane, with
-search and `esclop://settings/<key>` links. The pipeline editor and batch and crop windows are
-planned.
+search and `esclop://settings/<key>` links, connects AI agents in one click, and a first-run
+tour introduces it. The pipeline editor and batch and crop windows are planned.
 See the [roadmap](docs/PLAN.md) and [architecture](docs/ARCHITECTURE.md).
 
 ## Build

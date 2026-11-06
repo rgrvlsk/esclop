@@ -16,13 +16,13 @@ in a floating card and restore the original. CLI and MCP workflows already run w
   setting, `esclop://settings/<key>` deep links, validation and reset per setting.
 - Agents and MCP pane: agent detection, connect and disconnect with a preview of the config
   change, the permission switches, snippets and a live server test.
+- First-run onboarding, skippable and reopened from the menu.
 - The options popover from "…" (Optimise, Size with the crop editor, Share; Sound for audio)
   with size estimates, origin suggestions, clipboard rules and the Catalan localisation.
 
 ## Next
 
 - The batch window: many files at once, with progress, aggregate saving, cancel and restore-all.
-- Onboarding.
 - Watched folders (screenshots and recordings) and pipeline triggers in the app.
 
 ## Later

@@ -299,8 +299,17 @@ public struct AgentInstaller: Sendable {
         guard let agent = AgentCatalog.agent(change.agentID) ?? AgentCatalog.all.first(where: { $0.id == change.agentID }) else {
             throw ConfigLayoutError("Unknown agent \(change.agentID)")
         }
+        // Defence in depth: a change is applied only to the file the installer itself would edit
+        // for this agent, and its backup only goes to that agent's backup, whoever built it.
+        guard let config = configURL(agent)?.resolvingSymlinksInPath(),
+              config.standardizedFileURL.path == change.file.standardizedFileURL.path else {
+            throw ConfigLayoutError("\(change.file.path) is not \(agent.name)'s config file; nothing was written")
+        }
+        if let backup = change.backup, backup.standardizedFileURL.path != backupURL(agent, config).standardizedFileURL.path {
+            throw ConfigLayoutError("\(backup.path) is not where \(agent.name)'s config is backed up; nothing was written")
+        }
         let fm = FileManager.default
-        let target = change.file
+        let target = config
         let exists = fm.fileExists(atPath: target.path)
         let current = exists ? try String(contentsOf: target, encoding: .utf8) : ""
         guard exists == change.fileExists, current == change.before else {
