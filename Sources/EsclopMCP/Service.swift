@@ -296,11 +296,19 @@ public struct EsclopService: Sendable {
     /// source path.
     public func restoreBackup(for path: URL, deleteBackup: Bool) async throws -> RestoreOutcome {
         try policy.checkRestore(deleteBackup: deleteBackup)
-        let target = path.standardizedFileURL.path
+        // Symlinks resolved on both sides: /tmp and /private/tmp are the same folder.
+        func canonical(_ url: URL) -> String { url.standardizedFileURL.resolvingSymlinksInPath().path }
+        let target = canonical(path)
         let candidates = await recentResults(limit: 500)
-        guard let result = candidates.first(where: { $0.output.standardizedFileURL.path == target || $0.source.standardizedFileURL.path == target }) else {
+        guard let result = candidates.first(where: { canonical($0.output) == target || canonical($0.source) == target }) else {
             throw EsclopError.invalidArgument("No recent result for \(path.path). esclop_recent_results lists what can be restored")
         }
+        return try restoreBackup(of: result, deleteBackup: deleteBackup)
+    }
+
+    /// Puts back the original of a result already in hand (the app's own windows).
+    public func restoreBackup(of result: OptimisationResult, deleteBackup: Bool) throws -> RestoreOutcome {
+        try policy.checkRestore(deleteBackup: deleteBackup)
         guard let backup = result.backup, FileManager.default.fileExists(atPath: backup.path) else {
             throw EsclopError.fileNotFound("No backup is kept for \(result.source.path); it was not changed in place")
         }
