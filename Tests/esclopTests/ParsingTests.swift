@@ -128,6 +128,8 @@ func rejects(_ arguments: [String]) -> Bool {
         let set: Settings.Set = try parse(["settings", "set", "allowRunScripts", "true"])
         #expect(set.key == "allowRunScripts" && set.value == "true")
         #expect(rejects(["settings", "set", "allowRunScripts"]))
+        #expect(try parse(["settings", "reset", "imageCompression"], as: Settings.Reset.self).key == "imageCompression")
+        #expect(rejects(["settings", "reset"]))
         _ = try parse(["status", "--json"], as: Status.self)
         let logs: Logs = try parse(["logs", "--last", "1h", "--lines", "50"])
         #expect(logs.last == "1h" && logs.lines == 50)

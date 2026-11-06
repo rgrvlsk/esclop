@@ -258,7 +258,7 @@ enum ResultWriter {
     }
 
     static let agentOverwriteMessage =
-        "agents may not overwrite originals. Choose another output location, or allow it in Settings › Agents"
+        "agents may not overwrite originals. Choose another output location, or allow it in Settings → Agents and MCP (esclop://settings/agents/allowOverwriteOriginals)"
 
     static func markNote() -> String {
         let date = ISO8601DateFormatter().string(from: Date())
