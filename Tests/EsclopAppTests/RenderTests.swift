@@ -95,6 +95,29 @@ import Testing
     }
 
     @Test(arguments: [ColorScheme.light, .dark])
+    func menuBarGlyph(scheme: ColorScheme) throws {
+        let glyph = try #require(MenuBarLabel.customGlyph, "MenuBarIcon.pdf ships in the module's resources")
+        #expect(glyph.isTemplate, "macOS tints it for the menu bar")
+        #expect(glyph.size.height == 18)
+        let bar = scheme == .dark ? Color(white: 0.17) : Color(white: 0.93)
+        let running = MenuBarLabel(model: Harness().model)
+        let pausedModel = Harness().model
+        pausedModel.pauseChanged(true)
+        let paused = MenuBarLabel(model: pausedModel)
+        try renderBar(HStack(spacing: 22) { running; paused }, background: bar, name: "menu-bar-glyph", scheme: scheme)
+    }
+
+    /// A strip like the menu bar: 24 pt high, the glyph at its real size, rendered at 2x.
+    func renderBar(_ view: some View, background: Color, name: String, scheme: ColorScheme) throws {
+        let renderer = ImageRenderer(content: view.padding(.horizontal, 12).frame(height: 24).background(background).environment(\.colorScheme, scheme))
+        renderer.scale = 2
+        let image = try #require(renderer.cgImage)
+        try FileManager.default.createDirectory(at: Self.folder, withIntermediateDirectories: true)
+        let data = try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
+        try data.write(to: Self.folder.appendingPathComponent("\(name)-\(scheme == .dark ? "dark" : "light").png"))
+    }
+
+    @Test(arguments: [ColorScheme.light, .dark])
     func stackOfCards(scheme: ColorScheme) throws {
         let harness = Harness()
         harness.model.add(card(.done(saved())))
