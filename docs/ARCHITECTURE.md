@@ -140,7 +140,12 @@ holds the rest, in folders by feature:
   planned `ConfigChange` shown as a diff before it is applied, and the `MCPProbe` test. The
   command agents run is the `esclop` next to the app's executable (inside the bundle).
 
-Planned: watched folders, pipeline editor, batch and crop windows, onboarding.
+- `Onboarding`: `OnboardingModel` (steps, the `finishedOnboarding` flag in the app's defaults,
+  clipboard access from `NSPasteboard.accessBehavior`, open at login through `SMAppService`),
+  `OnboardingView` (its pages reuse `SettingRow` and the Agents pane's section) and
+  `OnboardingWindowController`, which `AppServices.start()` asks to show on the first launch.
+
+Planned: watched folders, pipeline editor, batch and crop windows.
 
 ## Build and packaging
 - `swift build` builds the CLI and libraries with Command Line Tools. The package includes

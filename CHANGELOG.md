@@ -24,6 +24,10 @@ Watched folders and the batch and crop windows remain planned.
   click after showing the exact change to their config file as a diff, keeps a backup, refuses
   to write a file that changed after the preview, tests the server live (initialize,
   tools/list, `esclop_status`) and offers JSON, TOML and `claude mcp add` snippets.
+- First-run tour: welcome, what is optimised on its own (the same switches as Settings), what
+  macOS will ask and why (clipboard access with its current status, files in Desktop,
+  Documents and Downloads, open at login), connecting an agent, and where the app lives. Every
+  step can be skipped; the menu's "Welcome to L'Esclop…" opens it again.
 - App icon and menu bar glyph: the carved wooden clog on the green squircle, and a rounded
   template clog for the menu bar that dims while paused. `make icons` regenerates them.
 - Menu-bar app: optimises copied images (and copied videos, PDFs and audio when enabled), shows
