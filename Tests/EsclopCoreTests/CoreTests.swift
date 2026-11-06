@@ -221,8 +221,16 @@ func scratchFolder(_ name: String = #function) throws -> URL {
         #expect(received == ["one", "two"])
         child.stop(grace: 0.1)
     }
-}
 
+    @Test func setsEsclopBin() async throws {
+        let folder = try scratchFolder()
+        let locator = ToolLocator(searchDirectories: [folder])
+        let result = try await ProcessRunner.run(
+            executable: URL(fileURLWithPath: "/bin/sh"), arguments: ["-c", "printf %s \"$ESCLOP_BIN\""], locator: locator
+        )
+        #expect(result.stdoutString == folder.path)
+    }
+}
 
 /// Stress judges for ProcessRunner. They saturate the CPUs for several seconds, which makes
 /// the wall-clock assertions of other suites in the same test process flaky on a 5-CPU CI
@@ -265,15 +273,6 @@ struct ProcessRunnerStressTests {
                 try await group.waitForAll()
             }
         }
-    }
-
-    @Test func setsEsclopBin() async throws {
-        let folder = try scratchFolder()
-        let locator = ToolLocator(searchDirectories: [folder])
-        let result = try await ProcessRunner.run(
-            executable: URL(fileURLWithPath: "/bin/sh"), arguments: ["-c", "printf %s \"$ESCLOP_BIN\""], locator: locator
-        )
-        #expect(result.stdoutString == folder.path)
     }
 
     /// A long-lived child's last words on stderr (a crash message) must be in `stderrTail` by
