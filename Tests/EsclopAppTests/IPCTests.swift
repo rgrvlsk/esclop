@@ -73,7 +73,7 @@ import Testing
         let settings = TestSettings()
         let model = SettingsViewModel(provider: RegistrySettingsProvider(store: settings.store))
         #expect(model.groups.map(\.section) == SettingsSection.allCases)
-        #expect(model.groups.flatMap(\.settings).count == SettingsRegistry.shared.all.count)
+        #expect(model.groups.flatMap(\.settings).count == SettingsRegistry.shared.all.count - SettingsViewModel.customised.count)
         model.query = "drop zone"
         #expect(model.groups.flatMap(\.settings).map(\.key).contains("enableDragAndDrop"))
         #expect(model.groups.first?.section == .interface)

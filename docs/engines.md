@@ -224,6 +224,7 @@ Swift code reads typed values: `EsclopSettings.stripMetadata.value` (or `.value(
 | `optimiseAudioClipboard` | Bool | `false` | clipboard | Optimise copied audio |
 | `optimiseImagePathClipboard` | Bool | `false` | clipboard | Optimise copied image paths |
 | `clipboardIgnoredAppBundleIds` | [String] | `[]` | clipboard | Ignored apps |
+| `clipboardRules` | [String] | `[]` | clipboard | Clipboard rules |
 | `autoCopyToClipboard` | Bool | `true` | clipboard | Copy results to the clipboard |
 | `pauseAutomaticOptimisations` | Bool | `false` | automation | Pause automatic optimisation |
 | `enableAutomaticImageOptimisations` | Bool | `true` | automation | Watch folders for images |

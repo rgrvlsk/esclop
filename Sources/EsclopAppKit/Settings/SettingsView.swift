@@ -22,6 +22,7 @@ public struct SettingsView: View {
                     KeyboardShortcuts.Recorder(hotkey.title, name: hotkey.name)
                 }
             }
+            ClipboardRulesSection(model: model)
             ForEach(model.groups) { group in
                 Section(group.section.title) {
                     ForEach(group.settings, id: \.key) { setting in
@@ -96,5 +97,36 @@ private struct SettingRow: View {
             if character.isUppercase { out += " " + character.lowercased() } else { out.append(character) }
         }
         return out.prefix(1).uppercased() + out.dropFirst()
+    }
+}
+
+/// The rules made with "Always apply" in the options popover, each with a delete button.
+struct ClipboardRulesSection: View {
+    let model: SettingsViewModel
+
+    var body: some View {
+        Section(Strings.text("Clipboard rules")) {
+            if model.clipboardRules.isEmpty {
+                Text(Strings.text("No clipboard rules yet. Tick “Always apply” in a file’s options to make one."))
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(model.clipboardRules) { rule in
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(rule.subject())
+                        Text(rule.choice.summary(input: rule.inputFormat)).font(.callout).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button(role: .destructive) {
+                        model.delete(rule)
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .buttonStyle(.borderless)
+                    .help(Strings.text("Delete"))
+                    .accessibilityLabel(Strings.format("Delete the rule for %@", rule.subject()))
+                }
+            }
+        }
     }
 }

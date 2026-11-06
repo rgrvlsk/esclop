@@ -21,7 +21,8 @@ struct FloatingStackView: View {
                 FloatingResultView(
                     card: card, corner: corner,
                     perform: { model.perform($0, on: card) },
-                    interact: { model.interact(card, $0) }
+                    interact: { model.interact(card, $0) },
+                    options: { OptionsModel(card: card, app: model) }
                 )
                 .zIndex(card.machine.showsHoverButtons || card.machine.level == .detail ? 1 : 0)
                 .transition(

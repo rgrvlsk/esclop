@@ -45,6 +45,17 @@ public final class ResultCard: Identifiable {
     public var startedAt = Date()
     /// The deflate plays once per card, the first time the result is drawn.
     public var hasPlayedArrival = false
+    /// Where the file came from and the format it arrived in (DESIGN.md › Origin rules).
+    public var fileOrigin: FileOrigin?
+    public var inputType: String?
+    /// How the current result was made: the default, a suggestion, a rule or a popover choice.
+    public var choice: OptimiseChoice = .standard
+    /// The clipboard rule that chose `choice`, shown as a glyph on the capsule.
+    public var appliedRule: ClipboardRule?
+    /// The hover buttons the person kept (`hoverButtons`); "…" always shows.
+    public var hoverButtons = ["undo", "convert", "downscale", "crop"]
+    /// Which tab the options popover opens on (Crop opens Size).
+    public var optionsTab: OptionsTab = .optimise
     /// Where the pointer was when the dwell started counting.
     var dwellAnchor: CGPoint?
     /// Runs the job again after an error.

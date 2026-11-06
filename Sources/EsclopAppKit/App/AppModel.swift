@@ -46,6 +46,10 @@ public final class AppModel {
     @ObservationIgnored public var pointerLocation: () -> CGPoint = { NSEvent.mouseLocation }
     /// Announces results to VoiceOver; tests record them instead.
     @ObservationIgnored public var announce: (String) -> Void = AppModel.postAnnouncement
+    /// The app in front when a copy happens: one of the origin signals. Tests set it.
+    @ObservationIgnored public var frontmostApp: () -> String? = { NSWorkspace.shared.frontmostApplication?.bundleIdentifier }
+    /// Size estimates for the options popover, cached per file.
+    @ObservationIgnored public lazy var estimator = SizeEstimator(executor: executor(for: .app))
 
     public init(
         settings: SettingsStore, service: EsclopService, pasteboard: NSPasteboard = .general,
@@ -84,6 +88,7 @@ public final class AppModel {
     // MARK: Settings the views read
 
     public var corner: ScreenCorner { EsclopSettings.floatingResultsCorner.value(in: settings) }
+    public var rules: ClipboardRules { ClipboardRules(settings: settings) }
     public var followCursorScreen: Bool { EsclopSettings.followCursorScreen.value(in: settings) }
 
     public func setPaused(_ value: Bool) {
@@ -118,14 +123,20 @@ public final class AppModel {
     /// it finishes (the IPC reply stream). Cancelling the calling task stops every file.
     @discardableResult
     public func run(
-        _ job: OptimisationJob, displayName: String? = nil,
+        _ job: OptimisationJob, displayName: String? = nil, context: CardContext? = nil, reusing existing: ResultCard? = nil,
         events: @escaping @Sendable (JobEvent) -> Void = { _ in },
         onResult: ((OptimisationResult) -> Void)? = nil
     ) async -> JobReport {
         let executor = executor(for: job.request.origin)
         var tasks: [(URL, Task<Result<OptimisationResult, EsclopError>, Never>)] = []
         for source in job.request.sources {
-            let card = job.request.showResultUI ? addCard(for: source, job: job, displayName: displayName) : nil
+            let card: ResultCard?
+            if let existing, cards.contains(where: { $0.id == existing.id }) {
+                restart(existing, context: context)
+                card = existing
+            } else {
+                card = job.request.showResultUI ? addCard(for: source, job: job, displayName: displayName, context: context) : nil
+            }
             let task = Task { await self.process(source, job: job, executor: executor, card: card, events: events, onResult: onResult) }
             card?.cancelWork = { task.cancel() }
             card?.retry = { [weak self, weak card] in
@@ -134,7 +145,7 @@ public final class AppModel {
                 var again = job
                 again.request.id = UUID()
                 again.request.sources = [source]
-                Task { await self.run(again, displayName: displayName, onResult: onResult) }
+                Task { await self.run(again, displayName: displayName, context: context, onResult: onResult) }
             }
             tasks.append((source, task))
         }
@@ -228,19 +239,40 @@ public final class AppModel {
     // MARK: Cards
 
     @discardableResult
-    func addCard(for source: URL, job: OptimisationJob, displayName: String? = nil) -> ResultCard {
+    func addCard(for source: URL, job: OptimisationJob, displayName: String? = nil, context: CardContext? = nil) -> ResultCard {
         let card = ResultCard(
             jobID: job.id, source: source, origin: job.request.origin,
             aggressive: job.request.quality.tier == .aggressive, bytesBefore: Self.size(of: source)
         )
         card.displayName = displayName
+        if let context {
+            card.fileOrigin = context.origin
+            card.inputType = context.inputType
+            card.choice = context.choice
+            card.appliedRule = context.rule
+        } else if job.request.quality.tier == .aggressive {
+            card.choice.compression = .aggressive
+        }
         add(card)
         loadThumbnail(card, url: source)
         if MediaKind.of(source) == .video { refineEstimate(card) }
         return card
     }
 
+    /// A card runs again in place: back to working with its new choice.
+    private func restart(_ card: ResultCard, context: CardContext?) {
+        card.phase = .working(fraction: 0)
+        card.hasPlayedArrival = false
+        if let context {
+            card.choice = context.choice
+            card.appliedRule = context.rule
+        }
+        card.machine.restarted(expectedDuration: card.expectedDuration)
+        afterChange(card)
+    }
+
     func add(_ card: ResultCard) {
+        card.hoverButtons = EsclopSettings.hoverButtons.value(in: settings)
         cards.append(card)
         reschedule(card)
     }
@@ -423,11 +455,16 @@ public final class AppModel {
             guard let result = card.result else { return }
             Task { await restore(result) }
         case let .convert(format):
-            reprocess(card) { $0.format = format }
+            var choice = card.choice
+            choice.format = format
+            reprocess(card, choice: choice)
         case .downscale:
-            reprocess(card) { $0.downscale = 0.5 }
-        case .crop, .more:
-            // The options popover (crop lives in its Size tab).
+            reprocess(card) { $0.request.downscale = 0.5 }
+        case .crop:
+            card.optionsTab = .size
+            interact(card, .menu(true))
+        case .more:
+            card.optionsTab = .optimise
             interact(card, .menu(true))
         case .openDetail:
             interact(card, .openDetail)
@@ -444,11 +481,16 @@ public final class AppModel {
         }
     }
 
-    /// Runs a file again with one change (convert, downscale), always from the original so
-    /// quality is not lost twice. The new result takes the card's place.
-    func reprocess(_ card: ResultCard, adjust: @escaping (inout OptimisationRequest) -> Void) {
-        let origin = card.origin, aggressive = card.aggressive, displayName = card.displayName
+    /// Runs a file again with another choice or one change (convert, downscale, fit, crop),
+    /// always from the original so quality is not lost twice. The card stays and shows the new
+    /// result, so an open options popover keeps its anchor; a rule stays shown only while its
+    /// choice is the one used.
+    func reprocess(_ card: ResultCard, choice: OptimiseChoice? = nil, adjust: @escaping (inout OptimisationJob) -> Void = { _ in }) {
+        let origin = card.origin, displayName = card.displayName
         let wasClipboardImage = card.source.path.hasPrefix(Paths.temporary.path)
+        let choice = choice ?? card.choice
+        let rule = card.appliedRule?.choice == choice ? card.appliedRule : nil
+        let context = CardContext(origin: card.fileOrigin ?? .unknown, inputType: card.inputType, choice: choice, rule: rule)
         Task {
             var source = card.source
             switch card.phase {
@@ -462,11 +504,11 @@ public final class AppModel {
             case .unchanged:
                 break
             }
-            dismiss(card)
-            var job = factory.job(for: source, origin: origin, aggressive: aggressive, location: wasClipboardImage ? .inPlace : nil)
-            adjust(&job.request)
+            var job = factory.job(for: source, origin: origin, location: wasClipboardImage ? .inPlace : nil)
+            choice.apply(to: &job.request)
+            adjust(&job)
             let copyBack = origin == .clipboard && EsclopSettings.autoCopyToClipboard.value(in: settings)
-            await run(job, displayName: displayName, onResult: { result in
+            await run(job, displayName: displayName, context: context, reusing: card, onResult: { result in
                 guard copyBack else { return }
                 Clipboard.write(files: [result.output], to: self.pasteboard)
             })
@@ -500,7 +542,7 @@ public final class AppModel {
         }
     }
 
-    private func pasteboardHolds(_ url: URL) -> Bool {
+    func pasteboardHolds(_ url: URL) -> Bool {
         guard Clipboard.isOwnWrite(pasteboard), case let .files(urls) = Clipboard.read(pasteboard) else { return false }
         return urls.contains { $0.standardizedFileURL.path == url.standardizedFileURL.path }
     }

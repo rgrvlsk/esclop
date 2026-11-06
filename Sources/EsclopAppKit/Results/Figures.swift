@@ -10,7 +10,7 @@ import Foundation
 public enum Figures {
     static let space = "\u{00A0}"
 
-    public static func bytes(_ count: Int, locale: Locale = .current) -> String {
+    public static func bytes(_ count: Int, locale: Locale = Strings.locale) -> String {
         let value = Double(max(0, count))
         let units: [(String, Double)] = [("GB", 1e9), ("MB", 1e6), ("kB", 1e3)]
         for (unit, size) in units where value >= size * 0.9995 {
@@ -20,20 +20,20 @@ public enum Figures {
     }
 
     /// "−75 %", "−0.4 %", "+12 %": the change from `before` to `after`.
-    public static func percent(before: Int, after: Int, locale: Locale = .current) -> String {
+    public static func percent(before: Int, after: Int, locale: Locale = Strings.locale) -> String {
         guard before > 0 else { return "0" + space + "%" }
         let value = abs(Double(before - after)) / Double(before) * 100
         return (after <= before ? "−" : "+") + number(value, locale: locale) + space + "%"
     }
 
     /// The fraction animated from 0 to 1 while the capsule counts down.
-    public static func percent(before: Int, after: Int, progress: Double, locale: Locale = .current) -> String {
+    public static func percent(before: Int, after: Int, progress: Double, locale: Locale = Strings.locale) -> String {
         let shown = Double(before) - Double(before - after) * progress
         return percent(before: before, after: Int(shown.rounded()), locale: locale)
     }
 
     /// "2.4 MB → 612 kB"
-    public static func change(before: Int, after: Int, locale: Locale = .current) -> String {
+    public static func change(before: Int, after: Int, locale: Locale = Strings.locale) -> String {
         bytes(before, locale: locale) + " → " + bytes(after, locale: locale)
     }
 
@@ -49,7 +49,14 @@ public enum Figures {
     /// "12 s left", "3 min left"
     public static func timeLeft(_ seconds: TimeInterval) -> String {
         let value = Int(seconds.rounded(.up))
-        return value < 60 ? "\(value)\(space)s left" : "\(Int((Double(value) / 60).rounded(.up)))\(space)min left"
+        return value < 60
+            ? Strings.format("%d s left", value).replacingOccurrences(of: " s", with: space + "s")
+            : Strings.format("%d min left", Int((Double(value) / 60).rounded(.up))).replacingOccurrences(of: " min", with: space + "min")
+    }
+
+    /// "−16 LUFS"
+    public static func lufs(_ value: Double, locale: Locale = Strings.locale) -> String {
+        (value < 0 ? "−" : "") + number(abs(value), locale: locale) + space + "LUFS"
     }
 
     /// One decimal below 10, whole numbers above: 2.4, 612, 37.
