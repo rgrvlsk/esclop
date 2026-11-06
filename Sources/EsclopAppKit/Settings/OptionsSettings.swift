@@ -15,7 +15,7 @@ struct ClipboardRuleList: View {
     let label: AnyView
 
     /// The stored JSON objects, decoded; entries that do not decode are kept but not shown.
-    static func decode(_ value: JSONValue?) -> [ClipboardRule] {
+    nonisolated static func decode(_ value: JSONValue?) -> [ClipboardRule] {
         (value?.arrayValue ?? []).compactMap(\.stringValue).compactMap { text in
             try? JSONDecoder().decode(ClipboardRule.self, from: Data(text.utf8))
         }

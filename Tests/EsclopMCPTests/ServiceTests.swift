@@ -167,6 +167,19 @@ import Testing
         await #expect(throws: EsclopError.self) { _ = try await makeService(temp, origin: .mcp).restoreBackup(for: original, deleteBackup: false) }
     }
 
+    /// /tmp and /private/tmp are one folder: a restore finds the result by either path.
+    @Test func restoreFindsTheResultThroughASymlink() async throws {
+        let temp = TempDir()
+        let original = temp.file("real/photo.jpg", bytes: 100)
+        let backup = temp.file("backups/photo.jpg", bytes: 5000)
+        let link = temp.url.appendingPathComponent("link")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: original.deletingLastPathComponent())
+        let service = makeService(temp, origin: .cli)
+        service.results.append([OptimisationResult(source: original, output: original, backup: backup, kind: .image, bytesBefore: 5000, bytesAfter: 100, startedAt: Date(), finishedAt: Date())])
+        _ = try await service.restoreBackup(for: link.appendingPathComponent("photo.jpg"), deleteBackup: false)
+        #expect(try Data(contentsOf: original).count == 5000)
+    }
+
     @Test func statusReportsPermissionsAndRoute() async {
         let temp = TempDir()
         let status = await makeService(temp, origin: .mcp, allow: [.allowDeleteBackups]).status()
