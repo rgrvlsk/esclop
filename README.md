@@ -9,7 +9,7 @@ with [attribution](docs/ATTRIBUTION.md). It is not affiliated with Clop's author
 ## Status
 
 The CLI, MCP server, pipelines and media engines are implemented. The menu-bar app optimises
-copied images (and copied files when the settings say so), shows a floating result card for
+copied images (and copied files when the settings say so), shows a floating result for
 each file, offers a drop zone while files are dragged, keeps originals restorable, and serves
 the CLI and MCP server when it runs. The full settings window, pipeline editor and batch and
 crop windows are planned.

@@ -4,7 +4,7 @@
 
 L'Esclop is free software for making images, videos, PDFs and audio smaller on macOS.
 The CLI, MCP server, pipelines and media engines are implemented. The menu-bar app watches the
-clipboard, shows floating result cards and a drop zone, and runs the CLI's and MCP server's jobs
+clipboard, shows floating results and a drop zone, and runs the CLI's and MCP server's jobs
 when it is open; the full settings window and the other GUI windows are planned.
 
 The name is Catalan for a wooden clog. Technical identifiers use lower-case `esclop`:

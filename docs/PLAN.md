@@ -9,18 +9,20 @@ in a floating card and restore the original. CLI and MCP workflows already run w
 - Swift media engines, Rust image engine, settings registry and backups.
 - Pipeline parser, executor, file store and built-in presets.
 - Pinned tool builds, licence checks, CI and CLI release packaging.
-- Menu-bar app: clipboard watcher, floating result cards, drop zone, hotkeys, backups menu,
-  a minimal settings window, and the IPC server that runs CLI and MCP jobs with cards.
+- Menu-bar app: clipboard watcher, the Liquid Glass floating result (thumbnail, detail with
+  before/after comparison, activity capsule for long jobs), drop zone, hotkeys, backups menu,
+  a minimal settings window, and the IPC server that runs CLI and MCP jobs with results.
 
 ## Next
 
+- The options popover from "…" (Optimise, Size, Share), origin suggestions and clipboard rules.
 - Full settings window with search and deep links; onboarding.
 - Watched folders (screenshots and recordings) and pipeline triggers in the app.
 
 ## Later
 
 - Settings search, deep links, a pipeline editor, MCP setup and onboarding.
-- Batch and crop windows, plus before-and-after comparison.
+- Batch and crop windows.
 - Watched folders, preset zones, Finder actions, uploads and shelf integrations.
 - App release validation, notarisation, Sparkle updates and a Homebrew cask.
 - Shortcuts actions through AppIntents.

@@ -15,34 +15,76 @@ import Testing
         )
     }
 
-    @Test func percentUsesATrueMinusAndOneDecimalBelowTen() {
-        #expect(CardPresentation.percent(result(before: 1_200_000, after: 340_000)) == "−72%")
-        #expect(CardPresentation.percent(result(before: 1000, after: 996)) == "−0.4%")
-        #expect(CardPresentation.percent(result(before: 1000, after: 1120)) == "+12%")
-        #expect(CardPresentation.percent(result(before: 1000, after: 1000)) == "−0%")
-        #expect(CardPresentation.percent(result(before: 0, after: 0)) == "0%")
+    let en = Locale(identifier: "en_US")
+    let ca = Locale(identifier: "ca_ES")
+    let nbsp = "\u{00A0}"
+
+    @Test func figuresAreWrittenTheWayTheDesignShowsThem() {
+        #expect(Figures.bytes(612_000, locale: en) == "612\(nbsp)kB")
+        #expect(Figures.bytes(2_400_000, locale: en) == "2.4\(nbsp)MB")
+        #expect(Figures.bytes(2_400_000, locale: ca) == "2,4\(nbsp)MB", "the locale's decimal separator")
+        #expect(Figures.bytes(37_000_000, locale: en) == "37\(nbsp)MB")
+        #expect(Figures.bytes(999_700, locale: en) == "1\(nbsp)MB")
+        #expect(Figures.bytes(512, locale: en) == "512\(nbsp)B")
+        #expect(Figures.percent(before: 2_400_000, after: 620_000, locale: en) == "−74\(nbsp)%")
+        #expect(Figures.percent(before: 1000, after: 996, locale: en) == "−0.4\(nbsp)%")
+        #expect(Figures.percent(before: 1000, after: 1120, locale: en) == "+12\(nbsp)%")
+        #expect(Figures.percent(before: 0, after: 0, locale: en) == "0\(nbsp)%")
+        #expect(Figures.percent(before: 2_400_000, after: 600_000, progress: 0.5, locale: en) == "−38\(nbsp)%", "the count-down halfway")
+        #expect(Figures.change(before: 2_400_000, after: 612_000, locale: en) == "2.4\(nbsp)MB → 612\(nbsp)kB")
+        #expect(Figures.duration(37) == "0:37")
+        #expect(Figures.duration(3725) == "1:02:05")
+        #expect(Figures.timeLeft(11.2) == "12\(nbsp)s left")
+        #expect(Figures.timeLeft(130) == "3\(nbsp)min left")
     }
 
-    @Test func savedCardShowsTheFigureTheSizesAndWhereTheBarEnds() {
-        let card = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/tmp/shot.png"), origin: .clipboard, bytesBefore: 1_200_000)
-        card.phase = .done(result(before: 1_200_000, after: 300_000))
-        let info = card.presentation
-        #expect(info.headline == "−75%")
-        #expect(info.headlineIsFigure)
+    @Test func aResultShowsTheSavingInTheCapsuleAndTheDetail() {
+        let card = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/tmp/shot.png"), origin: .clipboard, bytesBefore: 2_400_000)
+        var output = result(before: 2_400_000, after: 600_000)
+        output.width = 2940
+        output.height = 1912
+        card.phase = .done(output)
+        let info = CardPresentation(card: card, locale: en)
+        #expect(info.capsule == .result(before: 2_400_000, after: 600_000))
         #expect(info.tone == .saving)
-        #expect(info.detail == "1.2 MB → 300 KB")
+        #expect(info.tools == [.undo, .convert(.webp), .downscale, .crop, .more])
+        #expect(info.detailTitle == "Optimised")
+        #expect(info.change == "2.4\(nbsp)MB → 600\(nbsp)kB")
+        #expect(info.percent == "−75\(nbsp)%")
         #expect(info.barEnd == 0.25)
-        #expect(info.actions == [.restore, .reveal, .copy, .dismiss])
-        #expect(info.accessibilityLabel == "shot.png, 75% smaller, 1.2 MB to 300 KB")
+        #expect(info.formats == "PNG → PNG")
+        #expect(info.dimensions == "2940 × 1912")
+        #expect(info.detailActions == [.undo, .convert(.webp), .downscale, .crop])
+        #expect(info.actions.first == .openDetail)
+        #expect(info.actions.suffix(3) == [.reveal, .copy, .dismiss])
+        #expect(info.accessibilityLabel == "shot.png, Optimised, 600\(nbsp)kB, 75\(nbsp)% smaller")
+        #expect(CardPresentation.announcement(for: output, locale: en) == "Optimised, 600\(nbsp)kB, 75\(nbsp)% smaller")
     }
 
-    @Test func noBackupMeansNoRestoreAndAggressiveIsWarm() {
+    @Test func noBackupMeansNoUndoAndAggressiveIsWarm() {
         let card = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/tmp/shot.png"), origin: .dropZone, aggressive: true, bytesBefore: 1000)
-        #expect(card.presentation.headline == "Optimising harder")
+        #expect(card.presentation.capsule == .working("Optimising harder…"))
         #expect(card.presentation.tone == .warm)
         card.phase = .done(result(before: 1000, after: 500, backup: false))
-        #expect(!card.presentation.actions.contains(.restore))
+        #expect(!card.presentation.tools.contains(.undo))
         #expect(card.presentation.tone == .warm)
+    }
+
+    @Test func convertingPicksOneFormatPerKind() {
+        func target(_ name: String) -> OutputFormat? {
+            let url = URL(fileURLWithPath: "/tmp/\(name)")
+            return CardPresentation.convertTarget(for: url, kind: MediaKind.of(url))
+        }
+        #expect(target("a.png") == .webp)
+        #expect(target("a.heic") == .webp)
+        #expect(target("a.webp") == .png)
+        #expect(target("a.mov") == .mp4)
+        #expect(target("a.mp4") == nil)
+        #expect(target("a.wav") == .aac)
+        #expect(target("a.pdf") == nil)
+        let pdf = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/tmp/a.pdf"), origin: .app, bytesBefore: 10)
+        pdf.phase = .unchanged(bytes: 10)
+        #expect(pdf.presentation.tools == [.more], "no convert, downscale or crop for a PDF")
     }
 
     @Test func onlyAFinishedCardCanBeDraggedOutAndItGivesTheFileItShows() {
@@ -70,16 +112,20 @@ import Testing
         let card = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/tmp/none.png"), origin: .app, bytesBefore: 412_000)
         card.phase = .working(fraction: 0.4)
         #expect(card.presentation.progress == 0.4)
-        #expect(card.presentation.barEnd == 1)
+        #expect(card.presentation.isWorking)
+        #expect(card.presentation.tools.isEmpty)
         card.phase = .working(fraction: -1)
         #expect(card.presentation.progress == nil)
         card.phase = .unchanged(bytes: 412_000)
-        #expect(card.presentation.headline == "Already optimised")
-        #expect(card.presentation.detail == "Kept the original, 412 KB")
+        #expect(CardPresentation(card: card, locale: en).capsule == .status(symbol: "checkmark", text: "Already optimised · 412\(nbsp)kB"))
+        #expect(card.presentation.detailTitle == "Already optimised")
+        card.phase = .restored(result(before: 412_000, after: 100_000))
+        #expect(CardPresentation(card: card, locale: en).capsule == .status(symbol: "arrow.uturn.backward", text: "Original restored · 412\(nbsp)kB"))
+        #expect(!card.presentation.tools.contains(.undo), "nothing left to undo")
         card.phase = .failed("ffmpeg is missing.")
         #expect(card.presentation.tone == .error)
-        #expect(card.presentation.barEnd == nil)
-        #expect(card.presentation.actions == [.dismiss], "the file is not there, so no Show in Finder")
+        #expect(card.presentation.capsule == .error(title: "Couldn't optimise", message: "ffmpeg is missing."))
+        #expect(card.presentation.actions == [.dismiss], "the file is not there, so no retry or Show in Finder")
         card.displayName = "Copied image"
         #expect(card.presentation.fileName == "Copied image")
     }
@@ -88,6 +134,11 @@ import Testing
         #expect(CardPresentation.message(for: EsclopError.toolMissing("ffmpeg")) == "ffmpeg is missing. Reinstall L'Esclop or run Scripts/build-tools.sh.")
         #expect(CardPresentation.message(for: EsclopError.toolFailed(tool: "gs", exitCode: 1, stderr: "x\nBad PDF")) == "gs stopped with code 1: Bad PDF")
         #expect(CardPresentation.message(for: CancellationError()) == "Stopped before it finished.")
+        #expect(
+            CardPresentation.message(for: EsclopError.toolFailed(tool: "ffprobe", exitCode: 1, stderr: "moov atom not found\n/tmp/x/broken.mov: Invalid data found when processing input"))
+                == "ffprobe stopped with code 1: Invalid data found when processing input",
+            "no file paths in what the person reads"
+        )
     }
 
     @Test func dropZoneWording() {

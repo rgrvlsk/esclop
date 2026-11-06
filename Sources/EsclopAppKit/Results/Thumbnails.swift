@@ -6,7 +6,7 @@ import AppKit
 import QuickLookThumbnailing
 
 enum Thumbnails {
-    static func load(_ url: URL, side: CGFloat = Metrics.thumbnail, scale: CGFloat = 2) async -> CGImage? {
+    static func load(_ url: URL, side: CGFloat = Metrics.detailWidth, scale: CGFloat = 2) async -> CGImage? {
         let request = QLThumbnailGenerator.Request(
             fileAt: url, size: CGSize(width: side, height: side), scale: scale, representationTypes: .thumbnail
         )
