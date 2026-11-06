@@ -129,6 +129,12 @@ holds the rest, in folders by feature:
   material before, opaque under Reduce Transparency. `FloatingPanelController` is a
   non-activating `NSPanel` at the chosen corner of the screen with the pointer; it grows at
   once and shrinks after animations, and a two-finger swipe toward the edge dismisses.
+- `Batch`: jobs with `batchWindowFrom` files or more (four by default) get a `Batch` instead of
+  floating results: one `BatchRow` per file, filled by the same `AppModel.run` and work gate.
+  Rows are added when the batch opens, so the window lists every file at once; a paused batch
+  holds files before the gate and sends back a file that reached it meanwhile. `Batch` holds
+  the aggregate figures, `BatchPresentation` the copy, `BatchView` and `BatchWindowController`
+  the window, which comes forward without taking focus.
 - `Options`: the options popover (DESIGN.md › Options popover). `OptionsModel` holds one
   popover's state; `OptimiseChoice` is a choice as a value that writes the fields of an
   `OptimisationRequest`, so a suggestion, a popover change and a clipboard rule all run the

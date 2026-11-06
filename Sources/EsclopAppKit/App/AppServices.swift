@@ -18,6 +18,7 @@ public final class AppServices {
     public let onboarding: OnboardingWindowController
     let panels: FloatingPanelController
     let dropZone: DropZoneController
+    let batchWindow: BatchWindowController
     let watcher: ClipboardWatcher
     let server: AppServer
     private let log = Logger(subsystem: Paths.bundleIdentifier, category: "app")
@@ -59,6 +60,9 @@ public final class AppServices {
         onboarding = OnboardingWindowController(model: OnboardingModel(defaults: settings.defaults), settings: settingsWindow)
         server = AppServer(handler: AppIPCHandler(model: model))
         model.onCardsChange = { [weak panels] in panels?.update() }
+        let batchWindow = BatchWindowController(model: model)
+        self.batchWindow = batchWindow
+        model.onBatch = { [weak batchWindow] batch in batchWindow?.show(batch) }
     }
 
     /// Starts everything. Throws when another L'Esclop already serves the CLI.

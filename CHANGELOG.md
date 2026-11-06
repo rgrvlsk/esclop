@@ -7,9 +7,15 @@ into the body of its GitHub release.
 
 ## [Unreleased]
 
-Watched folders and the batch window remain planned.
+Watched folders remain planned.
 
 ### Added
+- Batch window: a job with four files or more (`batchWindowFrom`) lists them in one window
+  instead of a floating result each, from the drop zone, "Optimise Files…" in the menu (files
+  or folders), several copied files, and the CLI or MCP. The header shows the aggregate saving
+  with the deflate bar and the counts; rows show each file's progress, sizes, bar and saving.
+  Pause, Stop, Restore All and Show in Finder act on the batch; restore, try again, stop, copy
+  and Show in Finder on a row.
 - Settings window: a sidebar of panes (General, Images, Video, PDF, Audio, Clipboard, Floating
   results, Agents and MCP, Advanced) built from the settings registry, search across every
   setting and hotkey, `esclop://settings/<key>` links that open the pane and mark the row,
