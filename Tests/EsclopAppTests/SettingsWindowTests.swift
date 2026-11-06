@@ -232,7 +232,7 @@ import Testing
         defaults.arguments = ["write", suite, "gifFPS", "-int", "12"]
         try defaults.run()
         defaults.waitUntilExit()
-        #expect(await eventually(.seconds(5)) { model.value("gifFPS") == .int(12) })
+        #expect(await eventually { model.value("gifFPS") == .int(12) })
     }
 
     @Test func shellQuoting() {
