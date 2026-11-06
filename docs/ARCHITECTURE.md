@@ -105,7 +105,7 @@ get|set|reset|schema`, `status`, `logs`, `mcp serve|install|uninstall|status`.
 ### EsclopApp and EsclopAppKit
 `EsclopApp` holds only the `@main` scene (menu bar extra and Settings window). `EsclopAppKit`
 holds the rest, in folders by feature:
-- `App/AppModel`: the single `@Observable` store on the main actor: cards on screen, recent
+- `App/AppModel`: the single `@Observable` store on the main actor: results on screen, recent
   results, pause state. Every job runs through `run(_:)`, one card per file, at most
   `WorkGate.limit` files at once, with `JobExecutor` doing the work over `EsclopService`
   (in-process, `useApp: false`). Results are appended to the shared recent-results log, so
@@ -117,16 +117,24 @@ holds the rest, in folders by feature:
   writes and nspasteboard.org transient types, ignored apps, pause, and per-kind settings.
   Copied pixels are saved to a temporary file, optimised in place (the backup is the original)
   and put back on the clipboard.
-- `Results`: `ResultCard` (model), `CardPresentation` (text, bar end, actions, as tested
-  values), `ResultCardView` with the deflating bar, and `FloatingPanelController`, a
-  non-activating `NSPanel` at the chosen corner of the screen with the pointer that sizes
-  itself to the stack. Cards auto-hide unless hovered.
+- `Results`: the floating result (DESIGN.md). `ResultCard` is one result's model;
+  `FloatingResultMachine` is its state as a value (thumbnail or detail level, hover buttons,
+  the activity capsule, the 600 ms dwell, auto-hide paused while hovered, focused, dragged or
+  open), driven by a clock passed in, so tests run it on a fixed one. `CardPresentation` holds
+  the copy and figures (`Figures`: "612 kB · −75 %"), `JobEstimate` the expected duration
+  (bytes, or frames for video via AVFoundation) behind the two-second activity rule.
+  `FloatingResultView` draws the glass thumbnail, capsule, hover buttons and activity capsule,
+  `DetailCard` the 320 pt card with the before/after comparison. Glass is Liquid Glass on
+  macOS 26 (one `GlassEffectContainer` per result, shared glass IDs so levels morph), the HUD
+  material before, opaque under Reduce Transparency. `FloatingPanelController` is a
+  non-activating `NSPanel` at the chosen corner of the screen with the pointer; it grows at
+  once and shrinks after animations, and a two-finger swipe toward the edge dismisses.
 - `DropZone`: global mouse-drag monitors and the drag pasteboard (read off the main thread)
   show a panel at the results corner; Command switches it to "optimise harder".
 - `Hotkeys`: KeyboardShortcuts names with Clop's default keys (⌃⇧P pause cycle, ⌃⇧C clipboard,
   ⌃⇧A harder).
 - `IPC/AppIPCHandler`: the `AppRequestHandler`; applies `AgentPolicy` again, then routes jobs
-  into `AppModel.run` so CLI and MCP jobs show cards too.
+  into `AppModel.run` so CLI and MCP jobs show floating results too.
 - `Menu`: the menu bar menu.
 - `Settings`: the Settings window. `SettingsPane` maps registry sections to sidebar panes, so a
   new registry setting appears in its pane without view code; `SettingPresentation` picks each

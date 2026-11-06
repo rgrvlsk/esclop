@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The card's one memorable moment (DESIGN.md): the original size as a full-width bar that
-// contracts to the new proportion while the byte figure counts down.
+// The detail's deflate bar (DESIGN.md): the original size as a full-width bar that contracts to
+// the new proportion when the detail opens.
 
-import EsclopIPC
 import SwiftUI
 
 struct DeflateBar: View {
@@ -32,19 +31,5 @@ struct DeflateBar: View {
         }
         .frame(height: 6)
         .accessibilityHidden(true)
-    }
-}
-
-/// A byte count that interpolates while it animates, so the figure counts down with the bar.
-struct CountingBytes: View, Animatable {
-    var bytes: Double
-
-    nonisolated var animatableData: Double {
-        get { bytes }
-        set { bytes = newValue }
-    }
-
-    var body: some View {
-        Text(ByteSize.format(Int(bytes.rounded())))
     }
 }
