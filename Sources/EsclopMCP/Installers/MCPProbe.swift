@@ -58,6 +58,9 @@ public enum MCPProbe {
         process.standardInput = input
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
+        // A server that exits early must not take the caller down: writing to its closed stdin
+        // raises SIGPIPE, which kills a process by default. This pipe reports EPIPE instead.
+        _ = fcntl(input.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1)
         let started = ContinuousClock.now
         try process.run()
         defer {
