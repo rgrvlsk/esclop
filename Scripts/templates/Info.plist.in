@@ -10,6 +10,8 @@
 	<string>L'Esclop</string>
 	<key>CFBundleExecutable</key>
 	<string>@EXECUTABLE@</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>dev.esclop.app</string>
 	<key>CFBundleInfoDictionaryVersion</key>

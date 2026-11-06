@@ -19,16 +19,20 @@ let buildApp = developerDir.contains(".app/") || environment["ESCLOP_WITH_APP"] 
 let appProducts: [Product] = buildApp ? [.executable(name: "EsclopApp", targets: ["EsclopApp"])] : []
 let appDependencies: [Package.Dependency] = buildApp
     ? [.package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "2.2.0")] : []
+let appSwiftSettings: [SwiftSetting] = [.enableExperimentalFeature("StrictConcurrency")]
 let appTargets: [Target] = buildApp ? [
-    // Menu bar app: clipboard watcher, floating results, drop zone, settings, batch, crop.
-    .executableTarget(
-        name: "EsclopApp",
+    // Menu bar app: clipboard watcher, floating results, drop zone, hotkeys, IPC server side.
+    // Everything but the entry point lives in EsclopAppKit so tests and renders can reach it.
+    .target(
+        name: "EsclopAppKit",
         dependencies: [
-            "EsclopCore", "EsclopIPC", "EsclopPipelines", "EsclopOptimisers",
+            "EsclopCore", "EsclopIPC", "EsclopPipelines", "EsclopOptimisers", "EsclopMCP",
             .product(name: "KeyboardShortcuts", package: "KeyboardShortcuts"),
         ],
-        resources: [.process("Resources")]
+        swiftSettings: appSwiftSettings
     ),
+    .executableTarget(name: "EsclopApp", dependencies: ["EsclopAppKit"], swiftSettings: appSwiftSettings),
+    .testTarget(name: "EsclopAppTests", dependencies: ["EsclopAppKit"], swiftSettings: appSwiftSettings),
 ] : []
 
 let package = Package(

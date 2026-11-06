@@ -26,6 +26,14 @@ public enum AudioCoverArt: String, CaseIterable, Codable, Sendable, SettingValue
 
 extension VideoEncoder: SettingValue {}
 
+/// The screen corner where floating results stack.
+public enum ScreenCorner: String, CaseIterable, Codable, Sendable, SettingValue {
+    case bottomRight, bottomLeft, topRight, topLeft
+
+    public var isTop: Bool { self == .topRight || self == .topLeft }
+    public var isRight: Bool { self == .bottomRight || self == .topRight }
+}
+
 // MARK: - Catalog
 
 public enum EsclopSettings {
@@ -45,6 +53,33 @@ public enum EsclopSettings {
         "keepHDR", default: true, title: "Keep HDR",
         description: "Keep HDR gain maps and HDR video when the output format can carry them. Off converts to SDR.",
         section: .general
+    )
+
+    // MARK: Interface
+
+    public static let floatingResultsCorner = Setting<ScreenCorner>(
+        "floatingResultsCorner", default: .bottomRight, title: "Results corner",
+        description: "The screen corner where result cards and the drop zone appear.", section: .interface
+    )
+    public static let followCursorScreen = Setting<Bool>(
+        "followCursorScreen", default: true, title: "Show results on the screen with the pointer",
+        description: "Off shows them on the main screen.", section: .interface
+    )
+    public static let autoHideFloatingResults = Setting<Bool>(
+        "autoHideFloatingResults", default: true, title: "Hide results automatically",
+        description: "Dismiss result cards after a while unless the pointer is over them.", section: .interface
+    )
+    public static let autoHideFloatingResultsAfter = Setting<Int>(
+        "autoHideFloatingResultsAfter", default: 30, title: "Hide results after",
+        description: "Seconds a result card stays on screen.", section: .interface, minimum: 1, maximum: 3600
+    )
+    public static let autoHideClipboardResultAfter = Setting<Int>(
+        "autoHideClipboardResultAfter", default: 10, title: "Hide clipboard results after",
+        description: "Seconds the card for a copied image stays on screen.", section: .interface, minimum: 1, maximum: 3600
+    )
+    public static let enableDragAndDrop = Setting<Bool>(
+        "enableDragAndDrop", default: true, title: "Show the drop zone",
+        description: "Show a drop zone while dragging files, to optimise whatever is dropped on it.", section: .interface
     )
 
     // MARK: Images
@@ -389,6 +424,8 @@ public enum EsclopSettings {
 
     public static let all: [AnySetting] = [
         stripMetadata.erased, preserveDates.erased, keepHDR.erased,
+        floatingResultsCorner.erased, followCursorScreen.erased, autoHideFloatingResults.erased,
+        autoHideFloatingResultsAfter.erased, autoHideClipboardResultAfter.erased, enableDragAndDrop.erased,
         imageCompression.erased, imageAggressiveCompression.erased,
         useAggressiveOptimisationJPEG.erased, useAggressiveOptimisationPNG.erased, useAggressiveOptimisationGIF.erased,
         adaptiveImageSize.erased, formatsToConvertToJPEG.erased, formatsToConvertToPNG.erased,
