@@ -63,8 +63,8 @@ public struct MenuContent: View {
             .keyboardShortcut("q")
     }
 
-    /// "photo.png  −72%  1.2 MB → 340 KB"
+    /// "photo.png  −72 %  1.2 MB → 340 kB"
     static func line(for result: OptimisationResult) -> String {
-        "\(result.output.lastPathComponent)  \(CardPresentation.percent(result))  \(ByteSize.format(result.bytesBefore)) → \(ByteSize.format(result.bytesAfter))"
+        "\(result.output.lastPathComponent)  \(Figures.percent(before: result.bytesBefore, after: result.bytesAfter))  \(Figures.change(before: result.bytesBefore, after: result.bytesAfter))"
     }
 }
