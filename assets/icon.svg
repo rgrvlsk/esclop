@@ -1,5 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="L’Esclop">
   <title>L’Esclop</title>
-  <path d="M320 64 H704 C876 64 960 148 960 320 V704 C960 876 876 960 704 960 H320 C148 960 64 876 64 704 V320 C64 148 148 64 320 64 Z" fill="#1E7F6A"/>
-  <image href="icon-wood.png" x="112" y="220" width="800" height="533.333333" preserveAspectRatio="xMidYMid meet"/>
+  <!-- Apple's macOS icon grid: the squircle is 824 px wide, centred on the 1024 px canvas (100 px margins). -->
+  <g transform="translate(512 512) scale(0.919642857) translate(-512 -512)">
+    <path d="M320 64 H704 C876 64 960 148 960 320 V704 C960 876 876 960 704 960 H320 C148 960 64 876 64 704 V320 C64 148 148 64 320 64 Z" fill="#1E7F6A"/>
+    <image href="icon-wood.png" x="112" y="220" width="800" height="533.333333" preserveAspectRatio="xMidYMid meet"/>
+  </g>
 </svg>
