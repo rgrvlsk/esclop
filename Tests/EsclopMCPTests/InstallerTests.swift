@@ -162,6 +162,33 @@ import Testing
         #expect(try String(contentsOf: config, encoding: .utf8) == "{\"theme\": \"dark\"}\n")
     }
 
+    @Test func aChangeAimedAtAnotherFileWritesNothing() throws {
+        let temp = TempDir()
+        let installer = installer(temp)
+        let agent = try #require(AgentCatalog.agent("cursor"))
+        let planned = try installer.planInstall(agent, command: Self.command)
+        let elsewhere = temp.url.appendingPathComponent("Documents/notes.json")
+        var redirected = planned
+        redirected.file = elsewhere
+        redirected.shownPath = "~/Documents/notes.json"
+        #expect(throws: ConfigLayoutError.self) { try installer.apply(redirected) }
+        #expect(!FileManager.default.fileExists(atPath: elsewhere.path))
+        #expect(!FileManager.default.fileExists(atPath: planned.file.path), "the real config is not written either")
+
+        // An existing config, with its backup pointed somewhere else.
+        try FileManager.default.createDirectory(at: planned.file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try "{}\n".write(to: planned.file, atomically: true, encoding: .utf8)
+        var misplaced = try installer.planInstall(agent, command: Self.command)
+        let strayBackup = temp.url.appendingPathComponent("Desktop/cursor.json")
+        misplaced.backup = strayBackup
+        #expect(throws: ConfigLayoutError.self) { try installer.apply(misplaced) }
+        #expect(!FileManager.default.fileExists(atPath: strayBackup.path))
+        #expect(try String(contentsOf: planned.file, encoding: .utf8) == "{}\n")
+        // The unaltered plan still applies.
+        try installer.apply(try installer.planInstall(agent, command: Self.command))
+        #expect(installer.status(agent, expected: Self.command).state == .installed)
+    }
+
     @Test(arguments: editable.map(\.id))
     func writesOnlyTheConfigAndItsBackup(_ id: String) throws {
         let temp = TempDir()
