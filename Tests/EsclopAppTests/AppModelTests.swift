@@ -175,11 +175,17 @@ import Testing
     }
 
     @Test func clickingAnErrorRetriesTheFile() async throws {
-        let harness = Harness(failure: .toolMissing("ffmpeg"))
+        // The delay holds the engine between logging the request and failing, the window a busy
+        // CI runner opens by chance.
+        let harness = Harness(failure: .toolMissing("ffmpeg"), delay: .milliseconds(300))
         _ = await harness.model.run(harness.job(harness.temp.file("a.mov")))
         let card = try #require(harness.model.cards.first)
         harness.model.interact(card, .capsuleClicked)
-        #expect(await eventually(.seconds(10)) { harness.requests.requests.count == 2 && harness.model.cards.first?.id != card.id })
+        // The engine logs the request before it throws; the card turns to an error only after
+        // the job has settled, so wait for that, not for the request.
+        #expect(await eventually(.seconds(10)) {
+            harness.requests.requests.count == 2 && harness.model.cards.first.map { $0.id != card.id && !$0.isWorking } == true
+        })
         #expect(harness.model.cards.count == 1)
         #expect(harness.model.cards.first?.presentation.tone == .error, "the fake engine still fails")
     }
