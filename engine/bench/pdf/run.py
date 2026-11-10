@@ -263,7 +263,7 @@ def main():
         if a.only:
             files = [f for f in files if any(s in str(f) for s in a.only.split(","))]
         names = {f: str(f.relative_to(a.corpus))[: -len(".pdf")] for f in files}
-        todo = [f for f in files if not (a.resume and names[f] in results)]
+        todo = [f for f in files if not (a.resume and results.get(names[f], {}).get("info", {}).get("valid") not in (None, "runner-error"))]
         lock = threading.Lock()
 
         def one(src):
@@ -271,6 +271,7 @@ def main():
                 entry = process(src, names[src], a)
             except Exception as e:  # a runner bug must not end the run: listed, not scored
                 entry = {"info": {"valid": "runner-error", "error": repr(e)[:300]}}
+                print(names[src], "runner error:", repr(e)[:300], file=sys.stderr, flush=True)
             with lock:
                 results[names[src]] = entry
                 bad = {k: v["fails"] for k, v in entry.items() if k != "info" and v.get("fails")}
