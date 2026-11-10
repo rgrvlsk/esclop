@@ -25,12 +25,12 @@ public final class CompareWindowController {
         present()
     }
 
-    /// Opens an `esclop://compare/<id>` link. False when the link is not one; an unknown id
-    /// shows a notice instead of an empty window.
+    /// Opens an `esclop://compare/<id>` link. False when the link is not one. An unknown id shows
+    /// a notice instead of an empty window, or, when the window is open, says so in the window.
     @discardableResult
     public func open(_ url: URL) -> Bool {
         guard let id = Self.route(url) else { return false }
-        if model.open(id: id) {
+        if model.open(id: id) || isVisible {
             present()
         } else {
             model.app.notice(Strings.text("Nothing to compare"), Strings.text("That result is no longer in the recent results."))
@@ -47,7 +47,7 @@ public final class CompareWindowController {
     private func present() {
         let window = window ?? makeWindow()
         self.window = window
-        window.title = Strings.format("Compare %@", model.result?.output.lastPathComponent ?? "")
+        window.title = model.result.map { Strings.format("Compare %@", $0.output.lastPathComponent) } ?? Strings.text("Compare")
         NSApp.activate()
         window.makeKeyAndOrderFront(nil)
     }

@@ -205,6 +205,15 @@ holds the rest, in folders by feature:
   clipboard access from `NSPasteboard.accessBehavior`, open at login through `SMAppService`),
   `OnboardingView` (its pages reuse `SettingRow` and the Agents pane's section) and
   `OnboardingWindowController`, which `AppServices.start()` asks to show on the first launch.
+- `Intents`: Shortcuts actions. `FileIntents` and `SettingIntents` are the App Intents;
+  `IntentChoices` holds their typed choices (`ConvertFormat`, and queries over the saved
+  pipelines and the settings registry). Every action goes through `ShortcutActions`, which waits
+  for `AppServices` to set the model, runs file jobs through `AppModel` and settings through the
+  same `SettingsProvider` as the CLI. `Scripts/appintents-metadata.sh` type-checks the files that
+  import AppIntents against the release build's modules to get the compiler's constant values
+  (only some Swift Build versions write them in a SwiftPM build), runs Xcode's
+  `appintentsmetadataprocessor` on them into `Contents/Resources/Metadata.appintents` and writes `ca.lproj/Localizable.strings` from the
+  catalog for the strings Shortcuts reads from the main bundle.
 
 Planned: a crop window.
 

@@ -24,6 +24,14 @@ into the body of its GitHub release.
   include Finder's right-click menu. Nothing opens: the files go through the usual floating
   results, or the batch window from `batchWindowFrom` files. Made with macOS Services, as Clop
   does; the titles are in English and Catalan.
+- Shortcuts actions (App Intents): Optimise Files (optionally harder), Convert Files (to any
+  format the engines write), Downscale Files (a factor between 1 % and 100 %), Crop Files
+  (width and height, or one of them with the aspect kept), Run a Pipeline (the saved
+  pipelines), Get a Setting and Change a Setting (every setting in the registry, checked as
+  `esclop settings set` checks it) and Pause or Resume. File actions return the new files and
+  run as the app's usual jobs, with floating results. Titles and summaries in English and
+  Catalan. The actions' metadata is generated without an Xcode project by
+  `Scripts/appintents-metadata.sh`, which `bundle-app.sh` runs.
 
 ## [0.1.0] - 2026-11-10
 

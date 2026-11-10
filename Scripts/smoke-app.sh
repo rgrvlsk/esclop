@@ -64,4 +64,12 @@ if ! "$cli" optimise "$TMP/sample.png" > "$TMP/cli.log" 2>&1; then
   exit 1
 fi
 kill -0 "$pid" 2>/dev/null || { echo "smoke-app: the app died while optimising" >&2; tail -20 "$TMP/app.log" >&2; pid=""; exit 1; }
-echo "smoke-app: up for 15 s, seen by the command line, PNG $before -> $(stat -f %z "$TMP/sample.png") bytes"
+# Shortcuts reads the actions from the App Intents metadata the bundle carries.
+metadata="$copy/Contents/Resources/Metadata.appintents/extract.actionsdata"
+actions="$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["actions"]))' "$metadata" 2>/dev/null || echo 0)"
+if [ "$actions" -lt 8 ] || [ ! -f "$copy/Contents/Resources/ca.lproj/Localizable.strings" ]; then
+  echo "smoke-app: the bundle carries $actions Shortcuts actions (8 expected) or lacks their Catalan" >&2
+  exit 1
+fi
+echo "smoke-app: up for 15 s, seen by the command line, PNG $before -> $(stat -f %z "$TMP/sample.png") bytes, $actions Shortcuts actions"
+

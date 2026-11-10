@@ -119,6 +119,8 @@ public final class AppServices {
         // Finder's Quick Actions come to this object; refreshing makes a new install's show at once.
         NSApp.servicesProvider = finderServices
         NSUpdateDynamicServices()
+        // Shortcuts actions run in this process and use this model.
+        ShortcutActions.model = model
         Hotkeys.register(model)
 
         onboarding.showIfFirstRun()
