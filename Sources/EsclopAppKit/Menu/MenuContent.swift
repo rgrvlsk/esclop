@@ -27,40 +27,40 @@ public struct MenuContent: View {
 
         Divider()
 
-        Button("Optimise Files…") { model.chooseFiles() }
+        Button(Strings.text("Optimise Files…")) { model.chooseFiles() }
             .keyboardShortcut("o")
         if model.batch != nil {
-            Button("Show Batch Window") { model.showBatch() }
+            Button(Strings.text("Show Batch Window")) { model.showBatch() }
         }
-        Button("Optimise Clipboard") { model.optimiseClipboardNow(aggressive: false) }
+        Button(Strings.text("Optimise Clipboard")) { model.optimiseClipboardNow(aggressive: false) }
             .globalKeyboardShortcut(.optimiseClipboard)
-        Button("Optimise Clipboard Harder") { model.optimiseClipboardNow(aggressive: true) }
+        Button(Strings.text("Optimise Clipboard Harder")) { model.optimiseClipboardNow(aggressive: true) }
             .globalKeyboardShortcut(.optimiseClipboardHarder)
-        Toggle("Pause Automatic Optimisation", isOn: Binding(get: { model.paused }, set: { model.setPaused($0) }))
+        Toggle(Strings.text("Pause Automatic Optimisation"), isOn: Binding(get: { model.paused }, set: { model.setPaused($0) }))
             .globalKeyboardShortcut(.togglePause)
 
         Divider()
 
-        Menu("Recent Results") {
+        Menu(Strings.text("Recent Results")) {
             if model.recent.isEmpty {
-                Text("Nothing optimised yet")
+                Text(Strings.text("Nothing optimised yet"))
             }
             ForEach(model.recent.prefix(12), id: \.id) { result in
                 Button(Self.line(for: result)) { model.show(result) }
             }
         }
-        Menu("Restore Original") {
+        Menu(Strings.text("Restore Original")) {
             let restorable = model.restorable
             if restorable.isEmpty {
-                Text("No originals kept")
+                Text(Strings.text("No originals kept"))
             }
             ForEach(restorable.prefix(12), id: \.id) { result in
-                Button("\(result.source.lastPathComponent)  \(ByteSize.format(result.bytesBefore))") {
+                Button("\(result.source.lastPathComponent)  \(Figures.bytes(result.bytesBefore))") {
                     Task { await model.restore(result) }
                 }
             }
             Divider()
-            Button("Show Backups in Finder") {
+            Button(Strings.text("Show Backups in Finder")) {
                 model.reveal([model.service.context.locations.backups])
             }
         }
@@ -68,12 +68,12 @@ public struct MenuContent: View {
         Divider()
 
         if let onboarding {
-            Button("Welcome to L'Esclop…") { onboarding.show() }
+            Button(Strings.text("Welcome to L'Esclop…")) { onboarding.show() }
         }
         Button(Strings.text("Pipelines…")) { model.onOpenPipelines?(nil) }
-        Button("Settings…") { settings.show() }
+        Button(Strings.text("Settings…")) { settings.show() }
         .keyboardShortcut(",")
-        Button("Quit L'Esclop") { NSApp.terminate(nil) }
+        Button(Strings.text("Quit L'Esclop")) { NSApp.terminate(nil) }
             .keyboardShortcut("q")
     }
 

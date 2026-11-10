@@ -19,10 +19,15 @@ public final class DropZoneState {
         self.harder = harder
     }
 
-    public var title: String { harder ? "Drop to optimise harder" : "Drop to optimise" }
+    public var title: String { harder ? Strings.text("Drop to optimise harder") : Strings.text("Drop to optimise") }
 
     public var detail: String {
-        let files = fileCount == 1 ? "1 file" : "\(fileCount) files"
-        return harder ? "\(files) with the aggressive settings" : "\(files). Hold ⌘ for harder"
+        switch (fileCount == 1, harder) {
+        case (true, true): return Strings.text("1 file with the aggressive settings")
+        case (true, false): return Strings.text("1 file. Hold ⌘ for harder")
+        case (false, true): return Strings.format("%d files with the aggressive settings", fileCount)
+        case (false, false): return Strings.format("%d files. Hold ⌘ for harder", fileCount)
+        }
     }
+
 }

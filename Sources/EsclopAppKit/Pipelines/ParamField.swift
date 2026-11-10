@@ -63,6 +63,6 @@ struct ParamField: View {
                 }
             }
         }
-        .help(param.doc)
+        .help(PipelineVocabulary.paramHelp(step: step, param: param))
     }
 }

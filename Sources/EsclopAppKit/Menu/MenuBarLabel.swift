@@ -30,6 +30,7 @@ public struct MenuBarLabel: View {
                 Image(systemName: model.paused ? "pause.circle" : "arrow.down.right.and.arrow.up.left")
             }
         }
-        .accessibilityLabel(model.paused ? "L'Esclop, paused" : "L'Esclop")
+        .accessibilityLabel(model.paused ? Strings.text("L'Esclop, paused") : "L'Esclop")
+
     }
 }

@@ -294,7 +294,8 @@ public struct CardPresentation: Equatable, Sendable {
             return Strings.format("%@ is no longer there.", URL(fileURLWithPath: path).lastPathComponent)
         case let .toolFailed(tool, code, stderr):
             let line = readable(stderr.split(separator: "\n").last.map(String.init) ?? "")
-            return "\(tool) stopped with code \(code)\(line.isEmpty ? "" : ": \(line)")"
+            return line.isEmpty ? Strings.format("%@ stopped with code %d", tool, Int(code)) : Strings.format("%@ stopped with code %d: %@", tool, Int(code), line)
+
         case .cancelled:
             return Strings.text("Stopped before it finished.")
         case let .unreadable(kind):

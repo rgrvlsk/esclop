@@ -13,10 +13,8 @@ struct PipelineFilterSection: View {
 
     var body: some View {
         Section {
-            Toggle(isOn: $model.hasFilter) {
-                Text(Strings.text("Only some files"))
-                Text(Strings.text("Files that do not match are left alone."))
-            }
+            TitledToggle(title: Strings.text("Only some files"), subtitle: Strings.text("Files that do not match are left alone."), isOn: $model.hasFilter)
+
             // A value, not `Binding($model.draft.filter)`: that binding force-unwraps, and the
             // rows below are still read in the update where the filter goes away.
             if let filter = model.draft.filter {

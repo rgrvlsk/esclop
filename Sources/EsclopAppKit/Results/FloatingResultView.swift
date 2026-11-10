@@ -580,7 +580,7 @@ struct DragOut: ViewModifier {
                     began()
                     return NSItemProvider(contentsOf: file) ?? NSItemProvider(object: file as NSURL)
                 }
-                .help("Drag the file into another app")
+                .help(Strings.text("Drag the file into another app"))
         } else {
             content
         }

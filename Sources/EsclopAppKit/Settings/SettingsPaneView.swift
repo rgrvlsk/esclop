@@ -68,15 +68,14 @@ struct SettingsPaneView: View {
         }
     }
 
-    static let intro: [SettingsPane: String] = [
-        .agents: "AI agents such as Claude, Codex and Cursor use L'Esclop through its MCP server: they can optimise, convert and crop files, and write pipelines. Connect an agent here, then restart it.",
-        .advanced: "Watching folders for new screenshots and recordings is configured here; the app does not watch folders yet.",
-    ]
+    static var intro: [SettingsPane: String] {
+        [.agents: Strings.text("AI agents such as Claude, Codex and Cursor use L'Esclop through its MCP server: they can optimise, convert and crop files, and write pipelines. Connect an agent here, then restart it.")]
+    }
 
     @ViewBuilder private var extras: some View {
         switch pane {
         case .general:
-            Section("Keyboard shortcuts") {
+            Section(Strings.text("Keyboard shortcuts")) {
                 ForEach(Hotkeys.all, id: \.name.rawValue) { hotkey in
                     KeyboardShortcuts.Recorder(hotkey.title, name: hotkey.name)
                         .id(Hotkeys.rowID(hotkey.name))
@@ -84,13 +83,13 @@ struct SettingsPaneView: View {
                 }
             }
         case .advanced:
-            Section("Maintenance") {
+            Section(Strings.text("Maintenance")) {
                 LabeledContent {
-                    Button("Copy") { actions.copy("esclop settings schema") }
+                    Button(Strings.text("Copy")) { actions.copy("esclop settings schema") }
                 } label: {
                     SettingLabel(
-                        title: "The same settings in Terminal",
-                        summary: "esclop settings schema lists them, esclop settings set and reset change them. The window follows."
+                        title: Strings.text("The same settings in Terminal"),
+                        summary: Strings.text("esclop settings schema lists them, esclop settings set and reset change them. The window follows.")
                     )
                 }
                 if let openPipelines = actions.openPipelines {
@@ -102,22 +101,22 @@ struct SettingsPaneView: View {
                 }
                 if let folder = actions.supportFolder {
                     LabeledContent {
-                        Button("Show in Finder") { actions.reveal(folder) }
+                        Button(Strings.text("Show in Finder")) { actions.reveal(folder) }
                     } label: {
-                        SettingLabel(title: "L'Esclop's folder", summary: "Pipelines, backups of originals, recent results and logs.")
+                        SettingLabel(title: Strings.text("L'Esclop's folder"), summary: Strings.text("Pipelines, backups of originals, recent results and logs."))
                     }
                 }
                 LabeledContent {
-                    Button("Reset All…", role: .destructive) { confirmingReset = true }
+                    Button(Strings.text("Reset All…"), role: .destructive) { confirmingReset = true }
                 } label: {
-                    SettingLabel(title: "Reset every setting", summary: "Puts every setting back to its default, including the agent permissions. Hotkeys stay.")
+                    SettingLabel(title: Strings.text("Reset every setting"), summary: Strings.text("Puts every setting back to its default, including the agent permissions. Hotkeys stay."))
                 }
                 .id(Self.resetAllRow)
                 .highlighted(model.highlighted == Self.resetAllRow)
-                .confirmationDialog("Reset every setting to its default?", isPresented: $confirmingReset) {
-                    Button("Reset All Settings", role: .destructive) { model.resetAll() }
+                .confirmationDialog(Strings.text("Reset every setting to its default?"), isPresented: $confirmingReset) {
+                    Button(Strings.text("Reset All Settings"), role: .destructive) { model.resetAll() }
                 } message: {
-                    Text("Agent permissions are switched off again. This cannot be undone.")
+                    Text(Strings.text("Agent permissions are switched off again. This cannot be undone."))
                 }
             }
         case .agents:
@@ -133,22 +132,23 @@ struct SettingsPaneView: View {
     static var extraRows: [SettingsViewModel.ExtraRow] {
         Hotkeys.all.map { hotkey in
             SettingsViewModel.ExtraRow(
-                id: Hotkeys.rowID(hotkey.name), title: hotkey.title, summary: "Keyboard shortcut",
-                pane: .general, keywords: ["hotkey", "shortcut", "keyboard"]
+                id: Hotkeys.rowID(hotkey.name), title: hotkey.title, summary: Strings.text("Keyboard shortcut"),
+                pane: .general, keywords: ["hotkey", "shortcut", "keyboard", "keyboard shortcut"]
             )
         } + AgentCatalog.all.map { agent in
             SettingsViewModel.ExtraRow(
-                id: AgentRow.rowID(agent), title: "Connect \(agent.name)", summary: "Add L'Esclop's MCP server to \(agent.name).",
-                pane: .agents, keywords: ["mcp", "install", "agent", "ai", agent.id]
+                id: AgentRow.rowID(agent), title: Strings.format("Connect %@", agent.name), summary: Strings.format("Add L'Esclop's MCP server to %@.", agent.name),
+                pane: .agents, keywords: ["mcp", "install", "agent", "ai", "connect", agent.id]
             )
         } + [
             SettingsViewModel.ExtraRow(
-                id: AgentsTestSection.rowID, title: "Test the MCP server", summary: "Start esclop mcp serve and ask for its tools.",
-                pane: .agents, keywords: ["mcp", "smoke", "handshake", "check"]
+                id: AgentsTestSection.rowID, title: Strings.text("Test the MCP server"), summary: Strings.text("Start esclop mcp serve and ask for its tools."),
+                pane: .agents, keywords: ["mcp", "smoke", "handshake", "check", "test the mcp server"]
             ),
             SettingsViewModel.ExtraRow(
-                id: resetAllRow, title: "Reset every setting", summary: "Puts every setting back to its default.",
-                pane: .advanced, keywords: ["defaults", "restore", "factory"]
+                id: resetAllRow, title: Strings.text("Reset every setting"), summary: Strings.text("Puts every setting back to its default."),
+                pane: .advanced, keywords: ["defaults", "restore", "factory", "reset every setting"]
+
             ),
         ]
     }

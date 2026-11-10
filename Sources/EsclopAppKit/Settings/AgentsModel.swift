@@ -100,7 +100,7 @@ public final class AgentsModel {
                 pending = change
                 outcomes[agent.id] = nil
             } else {
-                outcomes[agent.id] = .done("L'Esclop was not in \(agent.name)'s config.")
+                outcomes[agent.id] = .done(Strings.format("L'Esclop was not in the config of %@.", agent.name))
             }
         } catch {
             outcomes[agent.id] = .failed(Self.words(error))
@@ -115,9 +115,9 @@ public final class AgentsModel {
             try installer.apply(change)
             switch change.action {
             case .install:
-                outcomes[change.agentID] = .done("Connected. Restart \(change.agentName), or start a new session, to load L'Esclop.")
+                outcomes[change.agentID] = .done(Strings.format("Connected. Restart %@, or start a new session, to load L'Esclop.", change.agentName))
             case .uninstall:
-                outcomes[change.agentID] = .done("Disconnected. \(change.agentName) stops offering L'Esclop after a restart.")
+                outcomes[change.agentID] = .done(Strings.format("Disconnected. %@ stops offering L'Esclop after a restart.", change.agentName))
             }
         } catch {
             outcomes[change.agentID] = .failed(Self.words(error))
@@ -155,14 +155,14 @@ public final class AgentsModel {
 
     public var snippets: [Snippet] {
         guard let command else { return [] }
-        var list = [Snippet(id: "command", title: "Command", text: command.shellLine)]
+        var list = [Snippet(id: "command", title: Strings.text("Command"), text: command.shellLine)]
         if let agent = AgentCatalog.agent("claude-desktop"), let json = installer.snippet(for: agent, command: command) {
-            list.append(Snippet(id: "json", title: "JSON, for most agents (mcpServers)", text: json))
+            list.append(Snippet(id: "json", title: Strings.text("JSON, for most agents (mcpServers)"), text: json))
         }
         if let agent = AgentCatalog.agent("codex"), let toml = installer.snippet(for: agent, command: command) {
-            list.append(Snippet(id: "toml", title: "TOML, for Codex", text: toml))
+            list.append(Snippet(id: "toml", title: Strings.text("TOML, for Codex"), text: toml))
         }
-        list.append(Snippet(id: "claude", title: "Claude Code, in a terminal", text: "claude mcp add --scope user esclop -- \(command.shellLine)"))
+        list.append(Snippet(id: "claude", title: Strings.text("Claude Code, in a terminal"), text: "claude mcp add --scope user esclop -- \(command.shellLine)"))
         return list
     }
 
@@ -171,7 +171,22 @@ public final class AgentsModel {
         command.map(installer.manualSnippet)
     }
 
-    static let noCommand = "The esclop command line was not found next to L'Esclop or in the usual bin folders. Reinstall L'Esclop, or build it with swift build --product esclop."
+    static var noCommand: String { Strings.text("The esclop command line was not found next to L'Esclop or in the usual bin folders. Reinstall L'Esclop, or build it with swift build --product esclop.") }
+
+    /// The test result in the app's language, from the report's figures (the CLI prints the
+    /// library's English `summary`).
+    static func summary(of report: MCPProbeReport) -> String {
+        let ms = Int((Double(report.elapsed.components.seconds) * 1000 + Double(report.elapsed.components.attoseconds) / 1e15).rounded())
+        switch report.route {
+        case "app"?:
+            return Strings.format("%@ %@ answered in %d ms: protocol %@, %d tools, jobs run in the app.", report.serverName, report.serverVersion, ms, report.protocolVersion, report.toolCount)
+        case let other?:
+            return Strings.format("%@ %@ answered in %d ms: protocol %@, %d tools, jobs run %@.", report.serverName, report.serverVersion, ms, report.protocolVersion, report.toolCount, other)
+        case nil:
+            return Strings.format("%@ %@ answered in %d ms: protocol %@, %d tools.", report.serverName, report.serverVersion, ms, report.protocolVersion, report.toolCount)
+        }
+    }
+
 
     static func words(_ error: any Error) -> String {
         if let error = error as? EsclopError { return error.description }
