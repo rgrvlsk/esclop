@@ -146,14 +146,21 @@ public struct CardPresentation: Equatable, Sendable {
             accessibilityLabel = f("%@, optimising, %@", name, Figures.bytes(card.bytesBefore, locale: locale))
         case let .done(result):
             fileName = card.displayName ?? result.output.lastPathComponent
-            capsule = .result(before: result.bytesBefore, after: result.bytesAfter)
+            if Figures.isNoSaving(before: result.bytesBefore, after: result.bytesAfter) {
+                // Never "✓ 379 kB · −0 %": a result with no saving reads as already optimised.
+                capsule = .status(symbol: "checkmark", text: f("Already optimised · %@", Figures.bytes(result.bytesAfter, locale: locale)))
+                tone = .neutral
+            } else {
+                capsule = .result(before: result.bytesBefore, after: result.bytesAfter)
+            }
             if result.bytesAfter > result.bytesBefore { tone = .neutral }
             let undo: [Action] = result.backup != nil ? [.undo] : []
             let resultEditing = Self.editingActions(for: result.output, kind: result.kind)
             tools = Self.hoverTools(resultEditing, undo: !undo.isEmpty, shown: card.hoverButtons)
-            detailTitle = t("Optimised")
+            let noSaving = Figures.isNoSaving(before: result.bytesBefore, after: result.bytesAfter)
+            detailTitle = noSaving ? t("Already optimised") : t("Optimised")
             change = Figures.change(before: result.bytesBefore, after: result.bytesAfter, locale: locale)
-            percent = Figures.percent(before: result.bytesBefore, after: result.bytesAfter, locale: locale)
+            percent = noSaving ? nil : Figures.percent(before: result.bytesBefore, after: result.bytesAfter, locale: locale)
             barEnd = result.bytesBefore > 0 ? min(1, max(0, Double(result.bytesAfter) / Double(result.bytesBefore))) : 1
             formats = "\(Self.formatName(of: result.source)) → \(Self.formatName(of: result.output))"
             dimensions = Self.dimensions(result)
@@ -238,6 +245,9 @@ public struct CardPresentation: Equatable, Sendable {
     /// "Optimised, 612 kB, 75 % smaller": said once when a result arrives.
     public static func announcement(for result: OptimisationResult, locale: Locale = Strings.locale) -> String {
         let size = Figures.bytes(result.bytesAfter, locale: locale)
+        if Figures.isNoSaving(before: result.bytesBefore, after: result.bytesAfter) {
+            return String(format: Strings.text("Already optimised · %@", locale: locale), locale: locale, size)
+        }
         let percent = Figures.percent(before: result.bytesBefore, after: result.bytesAfter, locale: locale).dropFirst()
         let key = result.bytesAfter <= result.bytesBefore ? "Optimised, %@, %@ smaller" : "Optimised, %@, %@ larger"
         return String(format: Strings.text(key, locale: locale), locale: locale, size, String(percent))
@@ -287,6 +297,8 @@ public struct CardPresentation: Equatable, Sendable {
             return "\(tool) stopped with code \(code)\(line.isEmpty ? "" : ": \(line)")"
         case .cancelled:
             return Strings.text("Stopped before it finished.")
+        case let .unreadable(kind):
+            return Strings.text(EsclopError.unreadableMessage(kind))
         case let .notPermitted(why):
             return why
         case let other:

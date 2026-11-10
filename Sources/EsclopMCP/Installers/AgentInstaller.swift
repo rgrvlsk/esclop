@@ -40,7 +40,14 @@ public struct ServerCommand: Codable, Hashable, Sendable {
 
     public static func shellQuoted(_ word: String) -> String {
         let safe = !word.isEmpty && word.allSatisfy { $0.isLetter || $0.isNumber || "-_./:=@%+,".contains($0) }
-        return safe ? word : "'" + word.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        return safe ? word : quoted(word)
+    }
+
+    /// Double quotes when nothing inside is special to them (a path with "L'Esclop.app" and
+    /// spaces reads as written), else single quotes with each apostrophe escaped.
+    public static func quoted(_ word: String) -> String {
+        if !word.contains(where: { "\"$`\\!".contains($0) }) { return "\"" + word + "\"" }
+        return "'" + word.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
     /// The `esclop` command line next to the running executable: inside the app bundle

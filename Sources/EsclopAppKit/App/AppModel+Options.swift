@@ -116,7 +116,7 @@ extension AppModel {
         card.phase = .done(renamed)
         card.displayName = nil
         record(renamed)
-        if heldIt { Clipboard.write(files: [target], to: pasteboard) }
+        if heldIt { writeClipboard(files: [target]) }
         return true
     }
 

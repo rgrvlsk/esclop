@@ -26,6 +26,12 @@ public enum Figures {
         return (after <= before ? "−" : "+") + number(value, locale: locale) + space + "%"
     }
 
+    /// True when the change would read "−0 %": too small to call a saving.
+    public static func isNoSaving(before: Int, after: Int) -> Bool {
+        guard before > 0 else { return true }
+        return after <= before && Double(before - after) / Double(before) * 100 < 0.05
+    }
+
     /// The fraction animated from 0 to 1 while the capsule counts down.
     public static func percent(before: Int, after: Int, progress: Double, locale: Locale = Strings.locale) -> String {
         let shown = Double(before) - Double(before - after) * progress

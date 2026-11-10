@@ -144,9 +144,12 @@ import Testing
         case "menu": machine.setMenuOpen(false, at: at(60.2))
         default: machine.closeDetail(at: at(60.2))
         }
-        #expect(machine.hideDeadline == at(62.2), "the time ran out meanwhile: it goes two seconds later")
-        #expect(machine.advance(to: at(62.1)) == nil)
-        #expect(machine.advance(to: at(62.2)) == .dismiss)
+        // A detail closed by hand gets the whole delay again (UI check, F8); the rest go two
+        // seconds later, since the time ran out meanwhile.
+        let left: TimeInterval = reason == "detail" ? 10 : 2
+        #expect(machine.hideDeadline == at(60.2 + left))
+        #expect(machine.advance(to: at(60.1 + left)) == nil)
+        #expect(machine.advance(to: at(60.2 + left)) == .dismiss)
     }
 
     @Test func aPauseThatEndsInTimeKeepsTheOriginalDeadline() {

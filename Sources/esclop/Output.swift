@@ -92,6 +92,7 @@ enum Output {
         case .notPermitted: return 77
         case .invalidArgument, .invalidPipeline, .unsupportedFile: return 64
         case .cancelled: return 130
+        case .unreadable: return 65
         default: return 1
         }
     }

@@ -95,9 +95,11 @@ public struct OnboardingView: View {
                 }
                 Button("Done") { onboarding.finish() }
                     .keyboardShortcut(.defaultAction)
+                    .primaryButton()
             } else {
                 Button(onboarding.isFirst ? "Get Started" : "Continue") { withAnimation(animation) { onboarding.next() } }
                     .keyboardShortcut(.defaultAction)
+                    .primaryButton()
             }
         }
         .padding(.horizontal, 20)

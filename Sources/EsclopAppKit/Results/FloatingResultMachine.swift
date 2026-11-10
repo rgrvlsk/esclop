@@ -59,6 +59,8 @@ public struct FloatingResultMachine: Equatable, Sendable {
     public private(set) var dwellDeadline: Date?
     public private(set) var leaveDeadline: Date?
     public private(set) var hideDeadline: Date?
+    /// The result's own hide delay, given again when the person closes its detail.
+    private var hideAfter: TimeInterval?
 
     public init(expectedDuration: TimeInterval) {
         activity = expectedDuration > Self.activityThreshold ? .running : .hidden
@@ -108,6 +110,7 @@ public struct FloatingResultMachine: Equatable, Sendable {
     public mutating func finished(at now: Date, hideAfter: TimeInterval?) {
         stage = .finished
         if activity == .running { activity = .finished(until: now + Self.activityLinger) }
+        self.hideAfter = hideAfter
         hideDeadline = hideAfter.map { now + max($0, activityDeadline.map { $0.timeIntervalSince(now) } ?? 0) }
         if hovering { armDwell(now) }
     }
@@ -117,12 +120,14 @@ public struct FloatingResultMachine: Equatable, Sendable {
         level = .thumbnail
         activity = .hidden
         dwellDeadline = nil
+        self.hideAfter = hideAfter
         hideDeadline = hideAfter.map { now + $0 }
     }
 
     public mutating func notice(at now: Date, hideAfter: TimeInterval) {
         stage = .notice
         activity = .hidden
+        self.hideAfter = hideAfter
         hideDeadline = now + hideAfter
     }
 
@@ -130,6 +135,7 @@ public struct FloatingResultMachine: Equatable, Sendable {
     public mutating func refreshed(at now: Date, hideAfter: TimeInterval?) {
         level = .thumbnail
         dwellDeadline = nil
+        self.hideAfter = hideAfter
         hideDeadline = hideAfter.map { now + $0 }
     }
 
@@ -197,10 +203,15 @@ public struct FloatingResultMachine: Equatable, Sendable {
         dwellDeadline = nil
     }
 
+    /// Back to the thumbnail. Closed by hand, the result gets its whole hide delay again: its
+    /// time may have run out while the detail was open, and it would vanish moments later.
     public mutating func closeDetail(at now: Date) {
         guard level == .detail else { return }
         level = .thumbnail
         dwellDeadline = nil
+        if let hideAfter, let deadline = hideDeadline {
+            hideDeadline = max(deadline, now + hideAfter)
+        }
         resumeHide(now)
     }
 

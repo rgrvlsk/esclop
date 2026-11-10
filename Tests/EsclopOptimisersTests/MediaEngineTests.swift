@@ -23,6 +23,17 @@ import UniformTypeIdentifiers
         #expect(result.backup != nil)
     }
 
+    /// A damaged video says so plainly: no ffprobe output, no path (UI check, F3).
+    @Test func aDamagedVideoIsUnreadable() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let broken = world.file("broken.mov")
+        try Data("not a movie".utf8).write(to: broken)
+        await #expect(throws: EsclopError.unreadable(kind: .video)) {
+            _ = try await world.engine.optimise(broken, request: world.request(broken), progress: { _ in })
+        }
+    }
+
     @Test func convertsBetweenContainersAndCodecs() async throws {
         let world = try await TestWorld()
         defer { Task { await world.finish() } }

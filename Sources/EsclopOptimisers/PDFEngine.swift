@@ -15,7 +15,7 @@ struct PDFEngine: Sendable {
 
     private func document(_ source: URL) throws -> PDFDocument {
         guard let document = PDFDocument(url: source), document.pageCount > 0 else {
-            throw EsclopError.unsupportedFile("\(source.lastPathComponent) is not a readable PDF")
+            throw EsclopError.unreadable(kind: .pdf)
         }
         if document.isEncrypted, document.isLocked {
             throw EsclopError.notPermitted("\(source.lastPathComponent) is password protected")
