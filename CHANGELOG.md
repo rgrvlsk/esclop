@@ -7,6 +7,14 @@ into the body of its GitHub release.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.1.0] - 2026-11-10
+
+The first public beta: the menu bar app, the `esclop` command line and the MCP server for AI
+agents, in one download for Apple Silicon and Intel (macOS 14 or later). The app is signed ad
+hoc and not notarised yet.
+
 ### Added
 - Compare window: judge an optimisation before keeping it. Opens from a floating result's
   detail, the options popover, a batch row, the menu's Compare submenu and
@@ -40,14 +48,6 @@ into the body of its GitHub release.
   published, at an address that never changes; no Apple Developer account is needed, and the
   updated app opens without macOS asking again. `Scripts/update-e2e.sh` proves on CI that an
   installed app updates itself.
-
-## [0.1.0] - 2026-11-10
-
-The first public beta: the menu bar app, the `esclop` command line and the MCP server for AI
-agents, in one download for Apple Silicon and Intel (macOS 14 or later). The app is signed ad
-hoc and not notarised yet.
-
-### Added
 - Catalan: the whole app speaks Catalan when macOS does (or with `ESCLOP_LANGUAGE=ca`): the
   menu, the floating results and their options, the batch window, the Settings window with
   every setting and its search, the Agents and MCP pane, the first-run tour, the pipeline
