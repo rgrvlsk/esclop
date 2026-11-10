@@ -21,6 +21,8 @@ public enum Palette {
     public static let warm = Color(nsColor: dynamic(light: 0xB8741C, dark: 0xE0A040))
     /// A folder L'Esclop cannot watch: 3:1 or more on a Settings row, marked or not (4.1:1 light, 4.6:1 dark).
     public static let caution = Color(nsColor: dynamic(light: 0x9A5B0E, dark: 0xE0A040))
+    /// Error text on a Settings or editor row: 5.3:1 light, 5.0:1 dark (system red is 3.4:1 in light).
+    public static let error = Color(nsColor: dynamic(light: 0xC4281C, dark: 0xFF6961))
 
     static func dynamic(light: UInt32, dark: UInt32) -> NSColor {
         NSColor(name: nil) { appearance in

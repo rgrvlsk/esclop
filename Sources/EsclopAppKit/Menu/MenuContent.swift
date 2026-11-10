@@ -70,6 +70,7 @@ public struct MenuContent: View {
         if let onboarding {
             Button("Welcome to L'Esclop…") { onboarding.show() }
         }
+        Button(Strings.text("Pipelines…")) { model.onOpenPipelines?(nil) }
         Button("Settings…") { settings.show() }
         .keyboardShortcut(",")
         Button("Quit L'Esclop") { NSApp.terminate(nil) }

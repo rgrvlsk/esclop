@@ -93,6 +93,13 @@ struct SettingsPaneView: View {
                         summary: "esclop settings schema lists them, esclop settings set and reset change them. The window follows."
                     )
                 }
+                if let openPipelines = actions.openPipelines {
+                    LabeledContent {
+                        Button(Strings.text("Open the Pipeline Editor…")) { openPipelines() }
+                    } label: {
+                        SettingLabel(title: Strings.text("Pipelines"), summary: Strings.text("Make and change pipelines: their steps, what runs them and a filter, with Try it."))
+                    }
+                }
                 if let folder = actions.supportFolder {
                     LabeledContent {
                         Button("Show in Finder") { actions.reveal(folder) }
