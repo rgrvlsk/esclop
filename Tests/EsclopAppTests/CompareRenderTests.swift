@@ -13,7 +13,8 @@ import Testing
 
 @MainActor
 @Suite(.serialized) struct CompareRenderTests {
-    static let size = CGSize(width: 1040, height: 760)
+    // Fits a CI runner's smaller screen (a window wider than the screen is clamped).
+    static let size = CGSize(width: 960, height: 700)
 
     func model(_ harness: Harness, mode: CompareModel.Mode, result: OptimisationResult? = nil) async -> CompareModel {
         let compare = CompareModel(app: harness.model)
