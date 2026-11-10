@@ -182,6 +182,21 @@ func ssim(_ a: Raster, _ b: Raster) -> Double {
     return acc.reduce(0) { $0 + $1 / n } / 3
 }
 
+/// Pixels where some channel differs by more than 32: SSIM rounded to 4 decimals hides a few
+/// lost glyphs on a page, this count does not.
+func diffPixels(_ a: Raster, _ b: Raster) -> Int {
+    guard a.w == b.w, a.h == b.h else { return a.w * a.h }
+    var n = 0
+    a.px.withUnsafeBufferPointer { pa in
+        b.px.withUnsafeBufferPointer { pb in
+            for i in stride(from: 0, to: a.w * a.h * 4, by: 4) {
+                if abs(Int(pa[i]) - Int(pb[i])) > 32 || abs(Int(pa[i + 1]) - Int(pb[i + 1])) > 32 || abs(Int(pa[i + 2]) - Int(pb[i + 2])) > 32 { n += 1 }
+            }
+        }
+    }
+    return n
+}
+
 /// Caps the raster bytes in flight across pages: a page waits until its rasters fit, except
 /// when nothing else is in flight, so one oversized page still runs alone.
 final class Budget {
@@ -288,6 +303,8 @@ func compareMany(_ a: URL, _ outs: [URL]) -> [String: Any] {
     let usable = docs.map { d in d.map { $0.numberOfPages == n && n > 0 && (!$0.isEncrypted || $0.isUnlocked) } ?? false }
     let buffer = UnsafeMutableBufferPointer<Double>.allocate(capacity: max(1, n * outs.count))
     buffer.initialize(repeating: 0)
+    let diffs = UnsafeMutableBufferPointer<Int>.allocate(capacity: max(1, n * outs.count))
+    diffs.initialize(repeating: -1)
     if let da, n > 0, !da.isEncrypted || da.isUnlocked {
         DispatchQueue.concurrentPerform(iterations: n) { i in
             autoreleasepool {
@@ -297,7 +314,11 @@ func compareMany(_ a: URL, _ outs: [URL]) -> [String: Any] {
                     let ra = render(pa, dpi: dpi)
                     for (k, d) in docs.enumerated() where usable[k] {
                         autoreleasepool {
-                            if let pb = d?.page(at: i + 1) { buffer[k * n + i] = ssim(ra, render(pb, dpi: dpi)) }
+                            if let pb = d?.page(at: i + 1) {
+                                let rb = render(pb, dpi: dpi)
+                                buffer[k * n + i] = ssim(ra, rb)
+                                diffs[k * n + i] = diffPixels(ra, rb)
+                            }
                         }
                     }
                 }
@@ -306,9 +327,11 @@ func compareMany(_ a: URL, _ outs: [URL]) -> [String: Any] {
     }
     result["outputs"] = outs.enumerated().map { k, url -> [String: Any] in
         let values = usable[k] ? Array(buffer[k * n ..< (k + 1) * n]).map { ($0 * 10000).rounded() / 10000 } : []
-        return ["output": info(url), "ssim": values]
+        let d = usable[k] ? Array(diffs[k * n ..< (k + 1) * n]) : []
+        return ["output": info(url), "ssim": values, "diffpx": d]
     }
     buffer.deallocate()
+    diffs.deallocate()
     return result
 }
 
