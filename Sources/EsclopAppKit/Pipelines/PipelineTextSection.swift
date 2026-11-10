@@ -18,7 +18,7 @@ struct PipelineTextSection: View {
                 .accessibilityLabel(Strings.text("Pipeline text"))
             ForEach(Array(model.textDiagnostics.enumerated()), id: \.offset) { _, issue in
                 Label {
-                    Text(StepIssues.markdown(Strings.format("Line %d: %@", issue.line, issue.message))).fixedSize(horizontal: false, vertical: true)
+                    Text(StepIssues.markdown(Strings.format("Line %d: %@", issue.line, PipelineVocabulary.message(issue)))).fixedSize(horizontal: false, vertical: true)
                 } icon: {
                     Image(systemName: issue.severity == .error ? "exclamationmark.circle.fill" : "exclamationmark.triangle.fill")
                 }

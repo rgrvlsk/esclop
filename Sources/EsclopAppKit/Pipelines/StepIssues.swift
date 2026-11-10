@@ -10,7 +10,7 @@ struct StepIssues: View {
     var body: some View {
         ForEach(Array(issues.enumerated()), id: \.offset) { _, issue in
             Label {
-                Text(Self.markdown(issue.message)).fixedSize(horizontal: false, vertical: true)
+                Text(Self.markdown(PipelineVocabulary.message(issue))).fixedSize(horizontal: false, vertical: true)
             } icon: {
                 Image(systemName: issue.severity == .error ? "exclamationmark.circle.fill" : "exclamationmark.triangle.fill")
             }

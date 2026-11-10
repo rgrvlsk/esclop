@@ -551,6 +551,16 @@
         }
       }
     },
+    "A folder trigger needs the folder: `folder(\"~/Downloads\")`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un activador de carpeta necessita la carpeta: `folder(\"~/Downloads\")`."
+          }
+        }
+      }
+    },
     "A kind with its own steps runs those; any other kind runs the “Any file” steps.": {
       "localizations": {
         "ca": {
@@ -577,6 +587,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Un pipeline també s’executa quan el tries: des de la pestanya Comparteix d’un resultat, amb Executa en fitxers… o al Terminal amb esclop pipeline run."
+          }
+        }
+      }
+    },
+    "A pipeline cannot start with `->`. Remove it.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un pipeline no pot començar amb `->`. Treu-lo."
           }
         }
       }
@@ -727,6 +747,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Afegeix almenys un pas."
+          }
+        }
+      }
+    },
+    "Add the closing `)` to `%@`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afegeix el `)` de tancament a `%@`."
           }
         }
       }
@@ -2081,6 +2111,16 @@
         }
       }
     },
+    "Empty argument. Remove the extra comma.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Argument buit. Treu la coma de més."
+          }
+        }
+      }
+    },
     "Encoder": {
       "localizations": {
         "ca": {
@@ -2147,6 +2187,66 @@
           "stringUnit": {
             "state": "translated",
             "value": "Desplegat"
+          }
+        }
+      }
+    },
+    "Expected `,` or `)` after the value of `%@`. Separate arguments with commas.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’esperava `,` o `)` després del valor de `%@`. Separa els arguments amb comes."
+          }
+        }
+      }
+    },
+    "Expected `,` or `)` after the value of `the argument`. Separate arguments with commas.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’esperava `,` o `)` després del valor de l’argument. Separa els arguments amb comes."
+          }
+        }
+      }
+    },
+    "Expected a list of steps without sections or front matter.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’esperava una llista de passos sense seccions ni capçalera."
+          }
+        }
+      }
+    },
+    "Expected a step after `->`, found a section header.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’esperava un pas després de `->` i hi ha una capçalera de secció."
+          }
+        }
+      }
+    },
+    "Expected an argument like `key: value`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’esperava un argument com `key: value`."
+          }
+        }
+      }
+    },
+    "Expected one step, found %@.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’esperava un pas i n’hi ha %@."
           }
         }
       }
@@ -2427,6 +2527,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "De %@ a %@"
+          }
+        }
+      }
+    },
+    "Front matter lines look like `key: value`, e.g. `description: Convert to WebP`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les línies de la capçalera tenen la forma `key: value`, per exemple `description: Convert to WebP`."
           }
         }
       }
@@ -2997,6 +3107,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fa més petites les imatges, els vídeos, els PDF i l’àudio que copies i deixes anar, allà on són."
+          }
+        }
+      }
+    },
+    "Missing `->` between steps. Write `step1 -> step2`, or put each step on its own line.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Falta `->` entre passos. Escriu `step1 -> step2` o posa cada pas en una línia."
           }
         }
       }
@@ -4091,6 +4211,16 @@
         }
       }
     },
+    "Put steps on the line after the section header `[%@]`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posa els passos a la línia següent de la capçalera de secció `[%@]`."
+          }
+        }
+      }
+    },
     "Puts every setting back to its default, including the agent permissions. Hotkeys stay.": {
       "localizations": {
         "ca": {
@@ -4147,6 +4277,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Surt de L’Esclop"
+          }
+        }
+      }
+    },
+    "Quote paths and templates: `%@: %@`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posa els camins i les plantilles entre cometes: `%@: %@`."
           }
         }
       }
@@ -4707,6 +4847,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cerca a la configuració"
+          }
+        }
+      }
+    },
+    "Section `[%@]` appears twice; its steps are joined in order.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La secció `[%@]` hi és dues vegades; els seus passos s’ajunten en ordre."
+          }
+        }
+      }
+    },
+    "Section headers look like `[image]`. Add the closing `]`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les capçaleres de secció tenen la forma `[image]`. Afegeix el `]` de tancament."
           }
         }
       }
@@ -5311,12 +5471,42 @@
         }
       }
     },
+    "The file is not UTF-8 text.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El fitxer no és text UTF-8."
+          }
+        }
+      }
+    },
     "The filter must be an “if” step.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "El filtre ha de ser un pas «if»."
+          }
+        }
+      }
+    },
+    "The front matter opened here is never closed. Add a line with `---` after it.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La capçalera que s’obre aquí no es tanca mai. Afegeix-hi una línia amb `---` després."
+          }
+        }
+      }
+    },
+    "The pipeline ends with `->`. Add a step after it or remove the arrow.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El pipeline acaba amb `->`. Afegeix-hi un pas al darrere o treu la fletxa."
           }
         }
       }
@@ -5471,12 +5661,32 @@
         }
       }
     },
+    "This script uses Clop's variables. In esclop they are `$ESCLOP_BIN` and `$ESCLOP_INPUT_FILE`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquest script fa servir les variables de Clop. A esclop són `$ESCLOP_BIN` i `$ESCLOP_INPUT_FILE`."
+          }
+        }
+      }
+    },
     "This step could not be read.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "No s’ha pogut llegir aquest pas."
+          }
+        }
+      }
+    },
+    "This text is never closed. Add a matching %@ at the end.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquest text no es tanca mai. Afegeix-hi un %@ al final."
           }
         }
       }
@@ -5551,6 +5761,16 @@
         }
       }
     },
+    "Two `->` in a row. Remove one.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dos `->` seguits. Treu-ne un."
+          }
+        }
+      }
+    },
     "Unchanged": {
       "localizations": {
         "ca": {
@@ -5581,6 +5801,56 @@
         }
       }
     },
+    "Unexpected `%@`. A step starts with its name, e.g. `optimise` or `convert(to: webp)`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’esperava `%@`. Un pas comença amb el seu nom, per exemple `optimise` o `convert(to: webp)`."
+          }
+        }
+      }
+    },
+    "Unexpected `)`: there is no `(` to close.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’esperava `)`: no hi ha cap `(` per tancar."
+          }
+        }
+      }
+    },
+    "Unknown front matter key `%@`. Did you mean `%@`?": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clau de capçalera desconeguda: `%@`. Volies dir `%@`?"
+          }
+        }
+      }
+    },
+    "Unknown front matter key `%@`. Known keys: %@.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clau de capçalera desconeguda: `%@`. Les claus conegudes són: %@."
+          }
+        }
+      }
+    },
+    "Unknown location `%@`. Did you mean `%@`? Quote it if it is a file name.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ubicació desconeguda: `%@`. Volies dir `%@`? Posa-la entre cometes si és un nom de fitxer."
+          }
+        }
+      }
+    },
     "Unknown origin": {
       "localizations": {
         "ca": {
@@ -5591,12 +5861,82 @@
         }
       }
     },
+    "Unknown section `[%@]`. Sections are `[any]`, `[image]`, `[video]`, `[pdf]` and `[audio]`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Secció desconeguda: `[%@]`. Les seccions són `[any]`, `[image]`, `[video]`, `[pdf]` i `[audio]`."
+          }
+        }
+      }
+    },
+    "Unknown section `[%@]`. Sections are `[any]`, `[image]`, `[video]`, `[pdf]` and `[audio]`. Did you mean `[%@]`?": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Secció desconeguda: `[%@]`. Les seccions són `[any]`, `[image]`, `[video]`, `[pdf]` i `[audio]`. Volies dir `[%@]`?"
+          }
+        }
+      }
+    },
     "Unknown setting": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Opció desconeguda"
+          }
+        }
+      }
+    },
+    "Unknown step `%@`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas desconegut: `%@`."
+          }
+        }
+      }
+    },
+    "Unknown step `%@`. Did you mean `%@`?": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas desconegut: `%@`. Volies dir `%@`?"
+          }
+        }
+      }
+    },
+    "Unknown step `%@`. See the list of steps in docs/pipelines.md.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas desconegut: `%@`. Mira la llista de passos a docs/pipelines.md."
+          }
+        }
+      }
+    },
+    "Unknown trigger `%@`. Did you mean `%@`?": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activador desconegut: `%@`. Volies dir `%@`?"
+          }
+        }
+      }
+    },
+    "Unknown trigger `%@`. Triggers: %@.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activador desconegut: `%@`. Els activadors són: %@."
           }
         }
       }
@@ -5911,6 +6251,426 @@
         }
       }
     },
+    "`%@(` is never closed. Add `)` after its arguments.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@(` no es tanca mai. Afegeix `)` després dels arguments."
+          }
+        }
+      }
+    },
+    "`%@` has no argument `%@`. Did you mean `%@`?": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@` no té cap argument `%@`. Volies dir `%@`?"
+          }
+        }
+      }
+    },
+    "`%@` has no argument `%@`. It takes %@.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@` no té cap argument `%@`. Admet %@."
+          }
+        }
+      }
+    },
+    "`%@` has no value. Write `%@: <value>`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@` no té valor. Escriu `%@: <value>`."
+          }
+        }
+      }
+    },
+    "`%@` is empty.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@` és buit."
+          }
+        }
+      }
+    },
+    "`%@` is given twice. Keep one.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@` hi és dues vegades. Deixa’n un."
+          }
+        }
+      }
+    },
+    "`%@` is not a valid `%@`. Did you mean `%@`? Use %@.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@` no és un valor vàlid per a `%@`. Volies dir `%@`? Fes servir %@."
+          }
+        }
+      }
+    },
+    "`%@` is not a valid `%@`. Use %@.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@` no és un valor vàlid per a `%@`. Fes servir %@."
+          }
+        }
+      }
+    },
+    "`%@` is set twice; the last one counts.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@` es defineix dues vegades; compta l’última."
+          }
+        }
+      }
+    },
+    "`%@` must be %@, not `%@`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@` ha de ser %@, no `%@`."
+          }
+        }
+      }
+    },
+    "`%@` must be %@; `%@` is too large.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@` ha de ser %@; `%@` és massa gran."
+          }
+        }
+      }
+    },
+    "`%@` must be %@; `%@` is too small.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@` ha de ser %@; `%@` és massa petit."
+          }
+        }
+      }
+    },
+    "`%@` must be %@; got `%@`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@` ha de ser %@; hi ha `%@`."
+          }
+        }
+      }
+    },
+    "`%@` must be `true` or `false`, not `%@`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@` ha de ser `true` o `false`, no `%@`."
+          }
+        }
+      }
+    },
+    "`%@` must be `true` or `false`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@` ha de ser `true` o `false`."
+          }
+        }
+      }
+    },
+    "`%@` needs `%@` (%@). For example: `%@`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@` necessita `%@` (%@). Per exemple: `%@`."
+          }
+        }
+      }
+    },
+    "`%@` needs a condition. For example: `%@(types: png)` or `%@(regex: \"^IMG_\")`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@` necessita una condició. Per exemple: `%@(types: png)` o `%@(regex: \"^IMG_\")`."
+          }
+        }
+      }
+    },
+    "`%@` needs argument names.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@` necessita noms d’argument."
+          }
+        }
+      }
+    },
+    "`%@` needs argument names. Write `%@: %@`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@` necessita noms d’argument. Escriu `%@: %@`."
+          }
+        }
+      }
+    },
+    "`%@` takes a fraction, not a percentage. Write `%@`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@` admet una fracció, no un percentatge. Escriu `%@`."
+          }
+        }
+      }
+    },
+    "`%@` takes no argument. Write `%@`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@` no admet cap argument. Escriu `%@`."
+          }
+        }
+      }
+    },
+    "`%@` takes no arguments. Write `%@`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@` no admet arguments. Escriu `%@`."
+          }
+        }
+      }
+    },
+    "`adaptive`, `auto` or a number from 5 (best quality) to 100 (smallest file)": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`adaptive`, `auto` o un nombre de 5 (millor qualitat) a 100 (fitxer més petit)"
+          }
+        }
+      }
+    },
+    "`crop` needs a size: `width`, `height`, `longEdge` or `aspectRatio`. For example: `crop(longEdge: 1600)` or `crop(aspectRatio: 16:9)`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`crop` necessita una mida: `width`, `height`, `longEdge` o `aspectRatio`. Per exemple: `crop(longEdge: 1600)` o `crop(aspectRatio: 16:9)`."
+          }
+        }
+      }
+    },
+    "`factor` must be above 0 and at most 1: esclop only scales down. `0.5` is half size.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`factor` ha de ser més gran que 0 i com a màxim 1: esclop només redueix. `0.5` és la meitat de la mida."
+          }
+        }
+      }
+    },
+    "`inPlace`, `sameFolder`, `temporaryFolder` or a quoted path template": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`inPlace`, `sameFolder`, `temporaryFolder` o una plantilla de camí entre cometes"
+          }
+        }
+      }
+    },
+    "`location` is empty. Use %@.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`location` és buit. Fes servir %@."
+          }
+        }
+      }
+    },
+    "`runScript` has both `path` and `code`; only `code` runs. Remove one.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`runScript` té `path` i `code` alhora; només s’executa `code`. Treu-ne un."
+          }
+        }
+      }
+    },
+    "`runScript` needs `path` or `code`. For example: `runScript(code: \"sips -Z 800 $1\")`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`runScript` necessita `path` o `code`. Per exemple: `runScript(code: \"sips -Z 800 $1\")`."
+          }
+        }
+      }
+    },
+    "`true` or `false`": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`true` o `false`"
+          }
+        }
+      }
+    },
+    "a duration such as `15m`, `1h`, `3d` or `never`": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "una durada com `15m`, `1h`, `3d` o `never`"
+          }
+        }
+      }
+    },
+    "a number": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "un nombre"
+          }
+        }
+      }
+    },
+    "a number above %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "un nombre més gran que %@"
+          }
+        }
+      }
+    },
+    "a number above %@ up to %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "un nombre més gran que %@ i fins a %@"
+          }
+        }
+      }
+    },
+    "a number from %@ to %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "un nombre de %@ a %@"
+          }
+        }
+      }
+    },
+    "a number of at least %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "un nombre com a mínim de %@"
+          }
+        }
+      }
+    },
+    "a ratio such as `16:9`, `4:3` or `1.91:1`": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "una proporció com `16:9`, `4:3` o `1.91:1`"
+          }
+        }
+      }
+    },
+    "a size such as `500KB`, `10MB` or `2MiB`": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "una mida com `500KB`, `10MB` o `2MiB`"
+          }
+        }
+      }
+    },
+    "a size such as `640x480`": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "una mida com `640x480`"
+          }
+        }
+      }
+    },
+    "a whole number": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "un nombre enter"
+          }
+        }
+      }
+    },
+    "a whole number from %@ to %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "un nombre enter de %@ a %@"
+          }
+        }
+      }
+    },
+    "a whole number of at least %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "un nombre enter com a mínim de %@"
+          }
+        }
+      }
+    },
     "days": {
       "localizations": {
         "ca": {
@@ -6027,6 +6787,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "activat"
+          }
+        }
+      }
+    },
+    "one of %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "un d’aquests: %@"
+          }
+        }
+      }
+    },
+    "quoted text": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "text entre cometes"
           }
         }
       }
@@ -7707,6 +8487,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Codificador de vídeo"
+          }
+        }
+      }
+    },
+    "space-separated types such as `jpeg png webp` or `image`": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tipus separats per espais, com `jpeg png webp` o `image`"
           }
         }
       }
