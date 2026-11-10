@@ -12,7 +12,7 @@ import SwiftUI
 
 extension EnvironmentValues {
     /// Where macOS saves screenshots and screen recordings, `~` abbreviated. Renders set a fixed one.
-    @Entry var screenshotLocation: String = StringListEditor.abbreviated(URL(fileURLWithPath: OriginSignals.screenshotFolder()))
+    @Entry var screenshotLocation: String = PathInput.abbreviate(OriginSignals.screenshotFolder())
 }
 
 struct FolderListEditor: View {
