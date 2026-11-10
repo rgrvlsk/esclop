@@ -29,7 +29,7 @@ pipeline editor creates and runs pipelines without a text file, and a first-run 
 introduces the app. The CLI and the MCP server run their jobs through the app when it is open.
 
 Planned: a compare window, preset zones, Finder actions, Shortcuts actions, uploads and
-automatic updates. Catalan covers part of the interface; the rest is in English for now.
+automatic updates. The app is in English and Catalan.
 See the [roadmap](docs/PLAN.md) and [architecture](docs/ARCHITECTURE.md).
 
 ## Build
