@@ -19,6 +19,11 @@ public final class AppServices {
     let panels: FloatingPanelController
     let dropZone: DropZoneController
     let batchWindow: BatchWindowController
+    public let folders: WatchedFolders
+    private var folderSettings: DefaultsObserver?
+    private var pipelineFiles: FolderWatcher?
+    /// A disk with watched folders mounted or went away.
+    private var volumeObservers: [NSObjectProtocol] = []
     let watcher: ClipboardWatcher
     let server: AppServer
     /// Pictures of the app's windows on request; only with ESCLOP_SNAPSHOT_DIR set.
@@ -65,6 +70,18 @@ public final class AppServices {
         let batchWindow = BatchWindowController(model: model)
         self.batchWindow = batchWindow
         model.onBatch = { [weak batchWindow] batch in batchWindow?.show(batch) }
+        let store = model.service.context.pipelines
+        let folders = WatchedFolders(model: model, pipelines: { (try? store.list()) ?? [] })
+        self.folders = folders
+        model.onPauseChange = { [weak folders] in folders?.refresh() }
+        // Folder lists changed here or by `esclop settings set` in another process.
+        folderSettings = DefaultsObserver(defaults: settings.defaults, keys: WatchedFolders.settingKeys) { [weak folders] _ in
+            Task { @MainActor in folders?.refresh() }
+        }
+        // A pipeline saved, attached to a folder or deleted (here, by the CLI or by an agent).
+        pipelineFiles = FolderWatcher(everyChange: true) { [weak folders] _ in
+            Task { @MainActor in folders?.refresh() }
+        }
     }
 
     /// Starts everything. Throws when another L'Esclop already serves the CLI.
@@ -72,6 +89,15 @@ public final class AppServices {
         try server.start()
         watcher.start()
         dropZone.start()
+        folders.refresh()
+        try? FileManager.default.createDirectory(at: model.service.context.pipelines.directory, withIntermediateDirectories: true)
+        pipelineFiles?.start([model.service.context.pipelines.directory])
+        let workspace = NSWorkspace.shared.notificationCenter
+        volumeObservers = [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification].map { name in
+            workspace.addObserver(forName: name, object: nil, queue: .main) { [weak folders] _ in
+                MainActor.assumeIsolated { folders?.refresh() }
+            }
+        }
         Hotkeys.register(model)
         onboarding.showIfFirstRun()
         snapshots?.start()
@@ -89,6 +115,10 @@ public final class AppServices {
         server.stop()
         watcher.stop()
         dropZone.stop()
+        folders.stop()
+        pipelineFiles?.stop()
+        volumeObservers.forEach(NSWorkspace.shared.notificationCenter.removeObserver)
+        volumeObservers = []
         snapshots?.stop()
     }
 }

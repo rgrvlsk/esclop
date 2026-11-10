@@ -21,6 +21,9 @@ public struct MenuContent: View {
 
     public var body: some View {
         Text(model.status)
+        if let folders = Self.foldersLine(count: model.watchedFolderCount, paused: model.paused) {
+            Text(folders)
+        }
 
         Divider()
 
@@ -76,5 +79,11 @@ public struct MenuContent: View {
     /// "photo.png  −72 %  1.2 MB → 340 kB"
     static func line(for result: OptimisationResult) -> String {
         "\(result.output.lastPathComponent)  \(Figures.percent(before: result.bytesBefore, after: result.bytesAfter))  \(Figures.change(before: result.bytesBefore, after: result.bytesAfter))"
+    }
+
+    /// "Watching 2 folders", or nothing while paused or with no folder to watch.
+    static func foldersLine(count: Int, paused: Bool) -> String? {
+        guard !paused, count > 0 else { return nil }
+        return count == 1 ? Strings.text("Watching 1 folder") : Strings.format("Watching %d folders", count)
     }
 }

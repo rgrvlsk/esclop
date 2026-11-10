@@ -321,6 +321,26 @@
         }
       }
     },
+    "Add Folder…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afegeix una carpeta…"
+          }
+        }
+      }
+    },
+    "Add a folder to %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afegeix una carpeta a %@"
+          }
+        }
+      }
+    },
     "Add to %@": {
       "localizations": {
         "ca": {
@@ -871,6 +891,16 @@
         }
       }
     },
+    "Folder %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carpeta %@"
+          }
+        }
+      }
+    },
     "Format": {
       "localizations": {
         "ca": {
@@ -1021,6 +1051,56 @@
         }
       }
     },
+    "More than %d new PDFs at once": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Més de %d PDF nous alhora"
+          }
+        }
+      }
+    },
+    "More than %d new audio files at once": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Més de %d fitxers d’àudio nous alhora"
+          }
+        }
+      }
+    },
+    "More than %d new images at once": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Més de %d imatges noves alhora"
+          }
+        }
+      }
+    },
+    "More than %d new videos at once": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Més de %d vídeos nous alhora"
+          }
+        }
+      }
+    },
+    "More than one new video at once": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Més d’un vídeo nou alhora"
+          }
+        }
+      }
+    },
     "Next %@ animated GIFs will become %@": {
       "localizations": {
         "ca": {
@@ -1131,6 +1211,16 @@
         }
       }
     },
+    "No folders": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cap carpeta"
+          }
+        }
+      }
+    },
     "No pipelines yet. Save one in Settings or with `esclop pipeline`.": {
       "localizations": {
         "ca": {
@@ -1177,6 +1267,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No hi ha res per optimitzar"
+          }
+        }
+      }
+    },
+    "Open Privacy Settings": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obre la configuració de privacitat"
           }
         }
       }
@@ -1571,6 +1671,16 @@
         }
       }
     },
+    "Screenshots are saved in %@, which is not watched.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les captures de pantalla es desen a %@, que no es vigila."
+          }
+        }
+      }
+    },
     "Share": {
       "localizations": {
         "ca": {
@@ -1587,6 +1697,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Comparteix…"
+          }
+        }
+      }
+    },
+    "Show %@ in Finder": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra %@ al Finder"
           }
         }
       }
@@ -1661,6 +1781,26 @@
         }
       }
     },
+    "Stop Watching": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deixa de vigilar"
+          }
+        }
+      }
+    },
+    "Stop watching %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deixa de vigilar %@"
+          }
+        }
+      }
+    },
     "Stopped before it finished.": {
       "localizations": {
         "ca": {
@@ -1731,6 +1871,16 @@
         }
       }
     },
+    "They appeared together in %@, so L’Esclop left them alone.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Han aparegut alhora a %@, així que L’Esclop no els ha tocat."
+          }
+        }
+      }
+    },
     "This file isn’t a PDF L’Esclop can read. It may be damaged.": {
       "localizations": {
         "ca": {
@@ -1767,6 +1917,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aquest fitxer no és un àudio que L’Esclop pugui llegir. Pot ser que estigui malmès."
+          }
+        }
+      }
+    },
+    "This folder no longer exists, or its disk is not connected. It is skipped until it is back.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquesta carpeta ja no existeix o el seu disc no està connectat. No es vigila fins que torni a ser-hi."
           }
         }
       }
@@ -1861,6 +2021,56 @@
         }
       }
     },
+    "Watch": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vigila"
+          }
+        }
+      }
+    },
+    "Watch %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vigila %@"
+          }
+        }
+      }
+    },
+    "Watch It": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vigila-la"
+          }
+        }
+      }
+    },
+    "Watching %d folders": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vigilant %d carpetes"
+          }
+        }
+      }
+    },
+    "Watching 1 folder": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vigilant 1 carpeta"
+          }
+        }
+      }
+    },
     "Width": {
       "localizations": {
         "ca": {
@@ -1897,6 +2107,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "conserva la transparència"
+          }
+        }
+      }
+    },
+    "macOS does not let L’Esclop read this folder. Allow it in System Settings › Privacy & Security › Files and Folders.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS no deixa que L’Esclop llegeixi aquesta carpeta. Permet-ho a Configuració del Sistema › Privacitat i seguretat › Fitxers i carpetes."
           }
         }
       }
