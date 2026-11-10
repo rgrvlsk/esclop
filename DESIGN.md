@@ -29,10 +29,13 @@ system screenshot thumbnail. It has three levels; the person moves between them 
 Hover shows a row of 28 pt round glass buttons above the thumbnail: Undo, Convert, Downscale,
 Crop and "…". The set is configurable. The buttons float above the thumbnail, so the
 object never changes size under the pointer. The thumbnail drags out as the file (the original
-after a restore). Errors keep the original and say so in the capsule;
-clicking it retries. Several results in a row: show the newest three with 8 pt gaps, newest at
-the bottom, older ones go to the menu-bar history; never stack expanded details. Dismissal
-pauses while the object is hovered, focused, dragged or open.
+after a restore). Errors keep the original and say so in a capsule under the thumbnail, in
+plain words ("This file isn't a video L'Esclop can read. It may be damaged."); clicking it
+retries. Several results in a row: show the newest three with 12 pt between one capsule and
+the next thumbnail, newest at the bottom, older ones go to the menu-bar history; never stack
+expanded details. A result's row of buttons never covers the result above: at the bottom
+corners the results above move up while it shows, at the top corners the room is always there.
+Dismissal pauses while the object is hovered, focused, dragged or open.
 
 ## Options popover
 Opens from the "…" button of the floating result, anchored to it with a popover arrow, and acts

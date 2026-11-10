@@ -31,6 +31,16 @@
         }
       }
     },
+    "%@ file": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fitxer %@"
+          }
+        }
+      }
+    },
     "%@ graphics with transparency": {
       "localizations": {
         "ca": {
@@ -621,6 +631,16 @@
         }
       }
     },
+    "Copied file": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fitxer copiat"
+          }
+        }
+      }
+    },
     "Copied image": {
       "localizations": {
         "ca": {
@@ -797,6 +817,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Document exportat"
+          }
+        }
+      }
+    },
+    "File": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fitxer"
           }
         }
       }
@@ -1657,6 +1687,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Suggeriment"
+          }
+        }
+      }
+    },
+    "This file isn’t a PDF L’Esclop can read. It may be damaged.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquest fitxer no és un PDF que L’Esclop pugui llegir. Pot ser que estigui malmès."
+          }
+        }
+      }
+    },
+    "This file isn’t a video L’Esclop can read. It may be damaged.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquest fitxer no és un vídeo que L’Esclop pugui llegir. Pot ser que estigui malmès."
+          }
+        }
+      }
+    },
+    "This file isn’t an image L’Esclop can read. It may be damaged.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquest fitxer no és una imatge que L’Esclop pugui llegir. Pot ser que estigui malmès."
+          }
+        }
+      }
+    },
+    "This file isn’t audio L’Esclop can read. It may be damaged.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquest fitxer no és un àudio que L’Esclop pugui llegir. Pot ser que estigui malmès."
           }
         }
       }

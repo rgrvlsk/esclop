@@ -77,7 +77,8 @@ and `types` (extensions) for folders. Results come back as a short text summary 
 after, saving, output path) followed by the same data as JSON, also in `structuredContent`:
 `results[]` with `source`, `output`, `backup`, `bytesBefore`, `bytesAfter`, `savedPercent`,
 `width`, `height`, and `failures[]` with `source`, `error` and a `code` (`fileNotFound`,
-`unsupportedFile`, `alreadySmaller`, `toolMissing`, `notPermitted`, `invalidArgument`,
+`unsupportedFile`, `unreadable` (a damaged or mislabelled file), `alreadySmaller`, `toolMissing`,
+`notPermitted`, `invalidArgument`,
 `invalidPipeline`, ...). A file that fails does not stop the others; `isError` is set only when
 every file failed or the call was refused.
 

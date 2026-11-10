@@ -71,7 +71,8 @@ public enum ToolCatalog {
                 GIF, WebP, AVIF, HEIC, MP4, MOV, PDF, MP3, ...). Use it for "make this smaller", "compress", or before \
                 sending or committing media. Optional downscale, speed change, audio removal and metadata stripping \
                 happen in the same pass. \(placement) \(runsVia) \(returns) Fails per file with fileNotFound, \
-                unsupportedFile, alreadySmaller (nothing to gain) or toolMissing; refuses the call with notPermitted \
+                unsupportedFile, unreadable (a damaged or mislabelled file), alreadySmaller (nothing to gain) or \
+                toolMissing; refuses the call with notPermitted \
                 when it would overwrite originals without permission.
                 """,
                 inputSchema: fileSchema([

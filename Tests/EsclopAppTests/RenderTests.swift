@@ -144,7 +144,7 @@ import Testing
             ("result-harder", card(.done(saved(after: 360_000)), aggressive: true)),
             ("result-already-optimised", card(.unchanged(bytes: 41_200))),
             ("result-restored", card(.restored(saved()))),
-            ("result-error", card(.failed("ffmpeg is missing. Reinstall L'Esclop or run Scripts/build-tools.sh."), source: Self.video)),
+            ("result-error", card(.failed(CardPresentation.message(for: EsclopError.unreadable(kind: .video))), source: Self.video)),
         ]
         for (name, card) in thumbnails {
             let size = try render(object(card), name: name, scheme: scheme)
@@ -196,5 +196,19 @@ import Testing
         harness.model.add(card(.done(saved(after: 300_000))))
         #expect(harness.model.visibleCards.count == 3)
         try render(FloatingStackView(model: harness.model), name: "stack", scheme: scheme)
+    }
+
+    /// The newest result shows its buttons: they must not cover the capsule of the one above
+    /// (UI check, F2), and no capsule may touch the next thumbnail (F7).
+    @Test(arguments: [ColorScheme.light, .dark])
+    func stackWithHoverButtons(scheme: ColorScheme) throws {
+        let harness = Harness()
+        harness.model.add(card(.done(saved(after: 1_100_000))))
+        harness.model.add(card(.done(saved(after: 257_000))))
+        let hovered = card(.done(saved()))
+        harness.model.add(hovered)
+        hovered.machine.pointerEnteredButtons(at: Date())
+        #expect(hovered.machine.showsHoverButtons)
+        try render(FloatingStackView(model: harness.model), name: "stack-hover", scheme: scheme)
     }
 }

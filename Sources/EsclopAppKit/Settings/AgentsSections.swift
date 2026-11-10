@@ -32,7 +32,25 @@ struct AgentsConnectSection: View {
                 AgentRow(row: row, agents: agents, model: model, actions: actions)
             }
             if !agents.notFound.isEmpty {
-                DisclosureGroup("Not found on this Mac (\(agents.notFound.count))", isExpanded: $showsOthers) {
+                // A button, not a DisclosureGroup: in a grouped form the disclosure did not answer
+                // VoiceOver's press, and "Expand" was not one of its actions.
+                Button {
+                    withAnimation(.easeOut(duration: 0.18)) { showsOthers.toggle() }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .rotationEffect(.degrees(showsOthers ? 90 : 0))
+                            .foregroundStyle(.secondary)
+                        Text("Not found on this Mac (\(agents.notFound.count))")
+                        Spacer()
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityValue(showsOthers ? "Expanded" : "Collapsed")
+                .accessibilityAction(named: showsOthers ? "Collapse" : "Expand") { showsOthers.toggle() }
+                if showsOthers {
                     ForEach(agents.notFound) { row in
                         AgentRow(row: row, agents: agents, model: model, actions: actions)
                     }
@@ -44,6 +62,9 @@ struct AgentsConnectSection: View {
             Text("Connecting adds an esclop entry to the agent's own config file and nothing else. You see the change before it is written, and the previous version is kept in L'Esclop's folder.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+                // Grouped forms put footers on the trailing side; these read with the rows above.
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .task { if !agents.loaded { await agents.refresh() } }
         .sheet(item: Binding(get: { agents.pending.map(PendingChange.init) }, set: { if $0 == nil { agents.cancel() } })) { pending in
@@ -174,13 +195,14 @@ struct ConfigChangeSheet: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             DiffView(lines: change.diff())
-                .frame(minHeight: 120, maxHeight: 300)
             HStack {
                 Spacer()
                 Button("Cancel", role: .cancel, action: onCancel)
                     .keyboardShortcut(.cancelAction)
                 Button(change.action == .install ? "Connect" : "Disconnect", action: onConfirm)
                     .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent)
+                    .tint(change.action == .install ? Palette.accent : .red)
             }
         }
         .padding(20)
@@ -204,22 +226,34 @@ struct DiffView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        ScrollView([.vertical, .horizontal]) {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                    row(line)
-                }
+        // The whole splice in view: lines wrap instead of scrolling sideways, and a short change
+        // is shown whole; only a long one scrolls.
+        Group {
+            if lines.count <= Self.shownWhole {
+                content
+            } else {
+                ScrollView(.vertical) { content }.frame(height: 420)
             }
-            .padding(.vertical, 6)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .defaultScrollAnchor(.topLeading)
         .font(.system(.callout, design: .monospaced))
         .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(.separator))
         .textSelection(.enabled)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Change to the config: \(lines.filter { $0.kind == .added }.count) lines added, \(lines.filter { $0.kind == .removed }.count) removed")
+    }
+
+    /// Changes up to this many lines show without scrolling.
+    static let shownWhole = 24
+
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                row(line)
+            }
+        }
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder private func row(_ line: DiffLine) -> some View {
@@ -238,7 +272,8 @@ struct DiffView: View {
                     .foregroundStyle(tint(line.kind) ?? .secondary)
                     .accessibilityHidden(true)
                 Text(line.text.isEmpty ? " " : line.text)
-                    .fixedSize()
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 1)
@@ -328,9 +363,11 @@ struct AgentsManualSection: View {
         } header: {
             Text("Set up by hand")
         } footer: {
-            Text("Agents start the server with this command and talk to it over standard input and output. docs/mcp.md lists where each agent keeps its config.")
+            Text("Agents start the server with this command and talk to it over standard input and output. Each agent keeps it in its own settings file; Connect above writes it for you.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }

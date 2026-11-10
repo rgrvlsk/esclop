@@ -154,7 +154,7 @@ struct AgentsFixture {
     @Test func snippetsUseTheCommand() {
         let agents = AgentsModel(installer: AgentsFixture().installer, command: AgentsFixture.command)
         let byID = Dictionary(uniqueKeysWithValues: agents.snippets.map { ($0.id, $0.text) })
-        #expect(byID["command"] == "'/Applications/L'\\''Esclop.app/Contents/MacOS/esclop' mcp serve")
+        #expect(byID["command"] == "\"/Applications/L'Esclop.app/Contents/MacOS/esclop\" mcp serve")
         #expect(byID["json"]?.contains("\"mcpServers\"") == true)
         #expect((try? JSONSerialization.jsonObject(with: Data((byID["json"] ?? "").utf8))) != nil, "the JSON snippet parses")
         #expect(byID["toml"]?.hasPrefix("[mcp_servers.esclop]") == true)

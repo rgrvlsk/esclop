@@ -90,6 +90,22 @@ Watched folders remain planned.
   release packaging with the complete corresponding source, and this changelog.
 
 ### Fixed
+- Floating results and the options popover, from a live UI check:
+  - the popover header shows the result's size after a crop or a downscale;
+  - a result's row of buttons no longer covers the result above, and results no longer touch;
+  - a damaged or unreadable file says so plainly ("This file isn't a video L'Esclop can read.
+    It may be damaged.") in the card, the batch window, the CLI and MCP (`unreadable`, exit
+    code 65); the tool's own output goes to the log;
+  - "Optimise Clipboard" on a result L'Esclop just wrote shows that result again instead of
+    making a second one, and the app recognises its own clipboard writes by their bytes too;
+  - a result with no saving reads "Already optimised", never "−0 %";
+  - copied images are "Copied image" in the popover, and an unknown origin is named;
+  - default buttons use the app's accent; the Share row's labels line up;
+  - closing a detail gives the result its whole hide delay again.
+- Settings: descriptions written for people (the values the CLI takes stay in the schema's
+  `x-details`), left-aligned footers in Agents and MCP, a "Not found on this Mac" list that
+  VoiceOver can open, a change preview that shows the whole change, and copied commands in
+  double quotes when that is all they need.
 - `esclop mcp status` and the install messages printed the command line unquoted when its path
   has an apostrophe (the app lives in `L'Esclop.app`), so the line could not be pasted into a
   shell.
