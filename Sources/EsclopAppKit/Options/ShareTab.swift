@@ -25,7 +25,11 @@ struct ShareTab: View {
             }
             .padding(.vertical, 6)
             Divider()
+            if let result = card.result {
+                DrillRow(symbol: "rectangle.lefthalf.inset.filled", title: Strings.text("Compare with the original…"), chevron: false) { app.onCompare?(result) }
+            }
             DrillRow(symbol: "arrow.up.forward.app", title: Strings.text("Open with")) { model.drill = .openWith }
+
             DrillRow(symbol: "square.2.layers.3d", title: Strings.text("Run a Shortcut")) { model.drill = .shortcut }
             DrillRow(symbol: "wand.and.rays", title: Strings.text("Run a pipeline")) { model.drill = .pipeline }
             ForEach(AppModel.installed(AppModel.shelfApps), id: \.self) { url in

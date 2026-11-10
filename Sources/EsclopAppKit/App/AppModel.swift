@@ -122,7 +122,10 @@ public final class AppModel {
     public internal(set) var watchedFolderCount = 0
     /// The watched folders follow the pause.
     @ObservationIgnored var onPauseChange: (() -> Void)?
+    /// Opens the compare window on a result.
+    @ObservationIgnored public var onCompare: ((OptimisationResult) -> Void)?
     /// Opens the pipeline editor, on a pipeline when one is named.
+
     @ObservationIgnored public var onOpenPipelines: ((String?) -> Void)?
 
     public var status: String {
@@ -588,6 +591,8 @@ public final class AppModel {
         case .more:
             card.optionsTab = .optimise
             openOptions(card)
+        case .compare:
+            if let result = card.result { onCompare?(result) }
         case .openDetail:
             interact(card, .openDetail)
         case .closeDetail:
@@ -678,8 +683,17 @@ public final class AppModel {
         return urls.contains { $0.standardizedFileURL.path == url.standardizedFileURL.path }
     }
 
+    /// The floating result for `result`, shown again when it had gone (the compare window runs
+    /// "try another" through it, as the popover does).
+    func cardShowing(_ result: OptimisationResult) -> ResultCard {
+        if let card = cards.first(where: { $0.result?.id == result.id }) { return card }
+        show(result)
+        return cards.first { $0.result?.id == result.id }!
+    }
+
     /// Shows a recent result's card again.
     public func show(_ result: OptimisationResult) {
+
         if cards.contains(where: { $0.result?.id == result.id }) { return }
         let card = ResultCard(jobID: result.id, source: result.source, origin: .app, bytesBefore: result.bytesBefore, phase: .done(result))
         card.hasPlayedArrival = true
