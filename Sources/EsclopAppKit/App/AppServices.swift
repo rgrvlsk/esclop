@@ -109,7 +109,10 @@ public final class AppServices {
                 MainActor.assumeIsolated { folders?.refresh() }
             }
         }
+        // Shortcuts actions run in this process and use this model.
+        ShortcutActions.model = model
         Hotkeys.register(model)
+
         onboarding.showIfFirstRun()
         snapshots?.start()
         log.info("L'Esclop \(EsclopVersion.string, privacy: .public) is running")
