@@ -48,10 +48,9 @@ jobs:
       DRY_RUN: ${{ github.event_name != 'push' }}
       HAS_CERT: ${{ secrets.MACOS_CERTIFICATE != '' && secrets.MACOS_CERTIFICATE_PASSWORD != '' }}
       HAS_NOTARY: ${{ secrets.APPLE_ID != '' && secrets.APPLE_TEAM_ID != '' && secrets.APPLE_APP_PASSWORD != '' }}
-      # Enable once the menu bar app is ready for distribution.
-      # Until then the .app is assembled as a smoke test of Scripts/bundle-app.sh but no DMG is
-      # made or attached.
-      SHIP_APP: "false"
+      # The menu bar app ships as a DMG. "false" assembles the .app as a smoke test of
+      # Scripts/bundle-app.sh only: no DMG is made or attached.
+      SHIP_APP: "true"
       ESCLOP_SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}
       ESCLOP_BUILD_NUMBER: ${{ github.run_number }}
     steps:
@@ -130,16 +129,22 @@ jobs:
           fi
 
       - name: App and DMG
-        # App bundling is a smoke check until SHIP_APP is enabled.
+        # With SHIP_APP false, app bundling is only a smoke check.
         continue-on-error: ${{ env.SHIP_APP != 'true' }}
         run: |
           Scripts/bundle-app.sh
           if [ "$SHIP_APP" != true ]; then
-            echo "::notice::App/DMG skipped: SHIP_APP is false until the app is ready. The .app above was a smoke test and is not attached."
+            echo "::notice::App/DMG skipped: SHIP_APP is false. The .app above was a smoke test and is not attached."
             exit 0
           fi
           app="dist/L'Esclop.app"
           [ -d "$app" ] || { echo "::error::Scripts/bundle-app.sh produced no app"; exit 1; }
+          # The same rule as the CLI archive: nothing shipped names the machine that built it.
+          for f in "$app"/Contents/MacOS/* "$app"/Contents/Resources/bin/*; do
+            if LC_ALL=C grep -aEq '/(Users|home)/[[:alnum:]_.-]+' "$f"; then
+              echo "::error::${f##*/} in the app contains a home directory path"; exit 1
+            fi
+          done
           version="$(plutil -extract CFBundleShortVersionString raw -o - "$app/Contents/Info.plist")"
           dmg="dist/LEsclop-$version.dmg"
           hdiutil create -volname "L'Esclop" -srcfolder "$app" -fs APFS -format ULFO -ov "$dmg"
