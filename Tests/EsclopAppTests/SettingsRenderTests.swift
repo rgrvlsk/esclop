@@ -42,7 +42,7 @@ import Testing
         host.layoutSubtreeIfNeeded()
         let bounds = host.bounds
         // A runner without a window server session gives no image: the layout still ran.
-        guard let image = capture(window) else {
+        guard let image = WindowSnapshots.image(of: window) else {
             window.orderOut(nil)
             window.close()
             return bounds.size
@@ -54,18 +54,6 @@ import Testing
         let data = try #require(rep.representation(using: .png, properties: [:]))
         try data.write(to: folder.appendingPathComponent("\(name)-\(scheme == .dark ? "dark" : "light").png"))
         return bounds.size
-    }
-
-    /// The window as the window server composites it, sidebar glass included. A process may
-    /// always capture its own windows, so this needs no screen recording permission.
-    /// `CGWindowListCreateImage` is marked unavailable in the macOS 15 SDK for new code but still
-    /// ships; ScreenCaptureKit would need that permission.
-    static func capture(_ window: NSWindow) -> CGImage? {
-        typealias Create = @convention(c) (CGRect, UInt32, UInt32, UInt32) -> Unmanaged<CGImage>?
-        guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGWindowListCreateImage") else { return nil }
-        let create = unsafeBitCast(symbol, to: Create.self)
-        // .optionIncludingWindow, .boundsIgnoreFraming | .bestResolution
-        return create(.null, 1 << 3, UInt32(window.windowNumber), (1 << 0) | (1 << 3))?.takeRetainedValue()
     }
 
     func model(_ settings: TestSettings) -> SettingsViewModel {

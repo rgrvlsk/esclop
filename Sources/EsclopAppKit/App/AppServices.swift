@@ -21,6 +21,8 @@ public final class AppServices {
     let batchWindow: BatchWindowController
     let watcher: ClipboardWatcher
     let server: AppServer
+    /// Pictures of the app's windows on request; only with ESCLOP_SNAPSHOT_DIR set.
+    let snapshots = WindowSnapshots()
     private let log = Logger(subsystem: Paths.bundleIdentifier, category: "app")
 
     public init(settings: SettingsStore = .shared) {
@@ -72,6 +74,7 @@ public final class AppServices {
         dropZone.start()
         Hotkeys.register(model)
         onboarding.showIfFirstRun()
+        snapshots?.start()
         log.info("L'Esclop \(EsclopVersion.string, privacy: .public) is running")
     }
 
@@ -86,5 +89,6 @@ public final class AppServices {
         server.stop()
         watcher.stop()
         dropZone.stop()
+        snapshots?.stop()
     }
 }
