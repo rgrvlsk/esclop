@@ -8,6 +8,17 @@ into the body of its GitHub release.
 ## [Unreleased]
 
 ### Added
+- Pipeline editor: a window (menu → Pipelines…, Settings → Advanced, a result's Share tab,
+  `esclop://pipelines` and `esclop://pipelines/<name>`) to create, edit, duplicate, delete and
+  run pipelines without a text file. Saved pipelines and the built-in templates (read-only,
+  with Duplicate) are listed on the left. On the right: the steps for each kind of file, with a
+  control for each argument and the parser's message on the step it belongs to; a filter
+  ("Only some files") checked live against a file you choose; what runs the pipeline on its own
+  (clipboard, drop zone, preset zone, Finder, command line, agents, watched folders); a text
+  view of the same pipeline, kept in step with the form, that marks the lines with errors; and
+  Try it, which runs the pipeline on a copy of a file and shows each step and the saving. What
+  it saves is what `PipelineSerializer` writes. Script steps are shown as code, with a note
+  that agents only run such a pipeline when "Agents may run scripts" is on.
 - Watched folders: new images, videos, PDFs and audio files in the folders listed in Settings
   (the Desktop for screenshots and recordings by default) are optimised as they appear, with a
   floating result, or in the batch window when enough arrive. As in Clop, hidden, temporary and

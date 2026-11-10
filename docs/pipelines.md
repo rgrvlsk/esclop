@@ -10,6 +10,10 @@ The language follows Clop's step names and syntax. Supported operations depend o
 engine and host; see [Coming from Clop](#coming-from-clop) for differences.
 esclop adds a file format around it (front matter, sections per kind of file, comments).
 
+In the app, the pipeline editor (menu → Pipelines…, or `esclop://pipelines`) makes and changes
+pipelines without the text: it saves the same files, written the way `esclop pipeline show`
+prints them.
+
 This page is the reference for people and for agents. The same catalog is available in code as
 `PipelineLanguage.steps`, and `PipelineLanguage.referenceMarkdown()` prints a compact version.
 

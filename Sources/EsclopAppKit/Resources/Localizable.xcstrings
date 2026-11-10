@@ -21,6 +21,16 @@
         }
       }
     },
+    "%@ copy": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ còpia"
+          }
+        }
+      }
+    },
     "%@ exported documents": {
       "localizations": {
         "ca": {
@@ -121,12 +131,42 @@
         }
       }
     },
+    "%@, %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, %@"
+          }
+        }
+      }
+    },
+    "%@, %d %% smaller": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, un %d %% més petit"
+          }
+        }
+      }
+    },
     "%@, already optimised, kept the original": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "%@, ja optimitzat, s’ha conservat l’original"
+          }
+        }
+      }
+    },
+    "%@, built-in template": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, plantilla integrada"
           }
         }
       }
@@ -311,6 +351,66 @@
         }
       }
     },
+    "A built-in template. Duplicate it to make your own version.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una plantilla integrada. Duplica-la per fer-ne la teva versió."
+          }
+        }
+      }
+    },
+    "A kind with its own steps runs those; any other kind runs the “Any file” steps.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un tipus amb passos propis fa els seus; qualsevol altre tipus fa els passos de «Qualsevol fitxer»."
+          }
+        }
+      }
+    },
+    "A name cannot contain “/”, “:” or new lines, or start with “.”.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un nom no pot contenir «/», «:» ni salts de línia, ni començar amb «.»."
+          }
+        }
+      }
+    },
+    "A pipeline also runs when you choose it: from a result’s Share tab, with Run on Files…, or in Terminal with esclop pipeline run.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un pipeline també s’executa quan el tries: des de la pestanya Comparteix d’un resultat, amb Executa en fitxers… o al Terminal amb esclop pipeline run."
+          }
+        }
+      }
+    },
+    "A preset zone while dragging": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una zona predefinida mentre arrossegues"
+          }
+        }
+      }
+    },
+    "AI agents": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agents d’IA"
+          }
+        }
+      }
+    },
     "Adaptive": {
       "localizations": {
         "ca": {
@@ -331,12 +431,62 @@
         }
       }
     },
+    "Add Step": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afegeix un pas"
+          }
+        }
+      }
+    },
     "Add a folder to %@": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Afegeix una carpeta a %@"
+          }
+        }
+      }
+    },
+    "Add a step for %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afegeix un pas per a %@"
+          }
+        }
+      }
+    },
+    "Add an Option": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afegeix una opció"
+          }
+        }
+      }
+    },
+    "Add an option to %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afegeix una opció a %@"
+          }
+        }
+      }
+    },
+    "Add at least one step.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afegeix almenys un pas."
           }
         }
       }
@@ -491,6 +641,26 @@
         }
       }
     },
+    "Any file": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qualsevol fitxer"
+          }
+        }
+      }
+    },
+    "App": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App"
+          }
+        }
+      }
+    },
     "Applied": {
       "localizations": {
         "ca": {
@@ -507,6 +677,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aplica"
+          }
+        }
+      }
+    },
+    "Aspect ratio": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proporció"
+          }
+        }
+      }
+    },
+    "At least this resolution": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Com a mínim aquesta resolució"
+          }
+        }
+      }
+    },
+    "At least this size": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Com a mínim aquesta mida"
           }
         }
       }
@@ -561,12 +761,112 @@
         }
       }
     },
+    "Bitrate (kbps)": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taxa de bits (kbps)"
+          }
+        }
+      }
+    },
     "Cancel": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Cancel·la"
+          }
+        }
+      }
+    },
+    "Cap the frame rate": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limita els fotogrames per segon"
+          }
+        }
+      }
+    },
+    "Change format when smaller": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Canvia de format si és més petit"
+          }
+        }
+      }
+    },
+    "Change the file": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Canvia el fitxer"
+          }
+        }
+      }
+    },
+    "Change the speed": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Canvia la velocitat"
+          }
+        }
+      }
+    },
+    "Check": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprova"
+          }
+        }
+      }
+    },
+    "Choose a File…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tria un fitxer…"
+          }
+        }
+      }
+    },
+    "Choose a file to check the filter with": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tria un fitxer per comprovar el filtre"
+          }
+        }
+      }
+    },
+    "Choose a file to see whether the filter lets it through.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tria un fitxer per veure si el filtre el deixa passar."
+          }
+        }
+      }
+    },
+    "Choose a file to try the pipeline on": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tria un fitxer per provar-hi el pipeline"
           }
         }
       }
@@ -591,6 +891,16 @@
         }
       }
     },
+    "Choose one on the left or make a new one.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tria’n un a l’esquerra o fes-ne un de nou."
+          }
+        }
+      }
+    },
     "Clipboard rules": {
       "localizations": {
         "ca": {
@@ -607,6 +917,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Plegat"
+          }
+        }
+      }
+    },
+    "Compress the file before the steps run, unless the first step re-encodes it anyway.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprimeix el fitxer abans dels passos, tret que el primer pas ja el torni a codificar."
           }
         }
       }
@@ -671,6 +991,26 @@
         }
       }
     },
+    "Copied files and images": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fitxers i imatges copiats"
+          }
+        }
+      }
+    },
+    "Copied from the app": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiat des de l’app"
+          }
+        }
+      }
+    },
     "Copied image": {
       "localizations": {
         "ca": {
@@ -691,12 +1031,32 @@
         }
       }
     },
+    "Copy a link for sending": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia un enllaç per enviar"
+          }
+        }
+      }
+    },
     "Copy the file": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Copia el fitxer"
+          }
+        }
+      }
+    },
+    "Copy to the clipboard": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia al porta-retalls"
           }
         }
       }
@@ -761,6 +1121,26 @@
         }
       }
     },
+    "DPI above": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DPI per sobre de"
+          }
+        }
+      }
+    },
+    "DPI below": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DPI per sota de"
+          }
+        }
+      }
+    },
     "Default": {
       "localizations": {
         "ca": {
@@ -791,12 +1171,52 @@
         }
       }
     },
+    "Delete “%@”?": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vols eliminar «%@»?"
+          }
+        }
+      }
+    },
+    "Description": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descripció"
+          }
+        }
+      }
+    },
+    "Discard Changes": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descarta els canvis"
+          }
+        }
+      }
+    },
     "Dismiss": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Descarta"
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fet"
           }
         }
       }
@@ -821,12 +1241,72 @@
         }
       }
     },
+    "Drop a file here, or choose one. The pipeline runs on a copy; your file stays as it is.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deixa anar un fitxer aquí o tria’n un. El pipeline s’executa en una còpia; el teu fitxer queda com està."
+          }
+        }
+      }
+    },
+    "Duplicate": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplica"
+          }
+        }
+      }
+    },
+    "Duplicate %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplica %@"
+          }
+        }
+      }
+    },
+    "Edit Pipelines…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edita els pipelines…"
+          }
+        }
+      }
+    },
+    "Encoder": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codificador"
+          }
+        }
+      }
+    },
     "Estimating": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Calculant"
+          }
+        }
+      }
+    },
+    "Even out the loudness": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Iguala el volum"
           }
         }
       }
@@ -851,6 +1331,26 @@
         }
       }
     },
+    "Factor": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Factor"
+          }
+        }
+      }
+    },
+    "Failed": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ha fallat"
+          }
+        }
+      }
+    },
     "File": {
       "localizations": {
         "ca": {
@@ -867,6 +1367,66 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nom del fitxer"
+          }
+        }
+      }
+    },
+    "File types": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tipus de fitxer"
+          }
+        }
+      }
+    },
+    "Files dropped on the drop zone": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fitxers deixats a la zona de deixar anar"
+          }
+        }
+      }
+    },
+    "Files that do not match are left alone.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els fitxers que no hi coincideixen no es toquen."
+          }
+        }
+      }
+    },
+    "Filter": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filtre"
+          }
+        }
+      }
+    },
+    "Filters": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filtres"
+          }
+        }
+      }
+    },
+    "Finder’s right-click menu": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El menú del clic dret del Finder"
           }
         }
       }
@@ -891,12 +1451,62 @@
         }
       }
     },
+    "Fit under a size": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajusta per sota d’una mida"
+          }
+        }
+      }
+    },
+    "Fix the marked lines first.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Primer corregeix les línies marcades."
+          }
+        }
+      }
+    },
+    "Fix the marked lines to go back to the form or to save.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Corregeix les línies marcades per tornar al formulari o per desar."
+          }
+        }
+      }
+    },
+    "Fix the marked steps first.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Primer corregeix els passos marcats."
+          }
+        }
+      }
+    },
     "Folder %@": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Carpeta %@"
+          }
+        }
+      }
+    },
+    "Form": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Formulari"
           }
         }
       }
@@ -921,6 +1531,26 @@
         }
       }
     },
+    "Frames": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotogrames"
+          }
+        }
+      }
+    },
+    "Frames per second": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotogrames per segon"
+          }
+        }
+      }
+    },
     "Free": {
       "localizations": {
         "ca": {
@@ -931,12 +1561,42 @@
         }
       }
     },
+    "Give one kind of file its own steps": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dona passos propis a un tipus de fitxer"
+          }
+        }
+      }
+    },
+    "Give the pipeline a name.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posa un nom al pipeline."
+          }
+        }
+      }
+    },
     "Graphic with transparency": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Gràfic amb transparència"
+          }
+        }
+      }
+    },
+    "Has errors": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Té errors"
           }
         }
       }
@@ -1001,6 +1661,36 @@
         }
       }
     },
+    "Image resolution (DPI)": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resolució de les imatges (DPI)"
+          }
+        }
+      }
+    },
+    "Images": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imatges"
+          }
+        }
+      }
+    },
+    "Its script steps run code on your Mac with your permissions. AI agents may only run this pipeline when “Agents may run scripts” is on.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els seus passos d’script executen codi al Mac amb els teus permisos. Els agents d’IA només poden executar aquest pipeline si «Agents may run scripts» està activat."
+          }
+        }
+      }
+    },
     "Keep visible": {
       "localizations": {
         "ca": {
@@ -1021,6 +1711,66 @@
         }
       }
     },
+    "Larger than (bytes)": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Més gran que (bytes)"
+          }
+        }
+      }
+    },
+    "Leave it out: the step uses its default": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Treu-la: el pas fa servir el valor per defecte"
+          }
+        }
+      }
+    },
+    "Line %d: %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Línia %d: %@"
+          }
+        }
+      }
+    },
+    "Link expires after": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’enllaç caduca al cap de"
+          }
+        }
+      }
+    },
+    "Long edge (px)": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Costat llarg (px)"
+          }
+        }
+      }
+    },
+    "Longer than (seconds)": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Més llarg que (segons)"
+          }
+        }
+      }
+    },
     "Lossless": {
       "localizations": {
         "ca": {
@@ -1031,12 +1781,42 @@
         }
       }
     },
+    "Loudness (LUFS)": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volum (LUFS)"
+          }
+        }
+      }
+    },
+    "Lower the bitrate": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abaixa la taxa de bits"
+          }
+        }
+      }
+    },
     "L’Esclop cannot optimise this kind of file (%@).": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "L’Esclop no pot optimitzar aquest tipus de fitxer (%@)."
+          }
+        }
+      }
+    },
+    "Make and change pipelines: their steps, what runs them and a filter, with Try it.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fes i canvia pipelines: els passos, què els executa i un filtre, amb Prova-ho."
           }
         }
       }
@@ -1097,6 +1877,146 @@
           "stringUnit": {
             "state": "translated",
             "value": "Més d’un vídeo nou alhora"
+          }
+        }
+      }
+    },
+    "Move %@ down": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mou %@ avall"
+          }
+        }
+      }
+    },
+    "Move %@ up": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mou %@ amunt"
+          }
+        }
+      }
+    },
+    "Move Down": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mou avall"
+          }
+        }
+      }
+    },
+    "Move Up": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mou amunt"
+          }
+        }
+      }
+    },
+    "Move and rename": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mou i canvia el nom"
+          }
+        }
+      }
+    },
+    "Move the file": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mou el fitxer"
+          }
+        }
+      }
+    },
+    "Move to the Trash": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mou a la paperera"
+          }
+        }
+      }
+    },
+    "Name": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nom"
+          }
+        }
+      }
+    },
+    "Name contains": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El nom conté"
+          }
+        }
+      }
+    },
+    "Name is": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El nom és"
+          }
+        }
+      }
+    },
+    "Name matches (regular expression)": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El nom coincideix (expressió regular)"
+          }
+        }
+      }
+    },
+    "Narrower than (px)": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Més estret que (px)"
+          }
+        }
+      }
+    },
+    "New Pipeline": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pipeline nou"
+          }
+        }
+      }
+    },
+    "New files in a folder": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fitxers nous en una carpeta"
           }
         }
       }
@@ -1221,6 +2141,26 @@
         }
       }
     },
+    "No pipeline selected": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cap pipeline seleccionat"
+          }
+        }
+      }
+    },
+    "No pipelines yet. Make one in the pipeline editor or with `esclop pipeline`.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encara no hi ha cap pipeline. Fes-ne un a l’editor de pipelines o amb `esclop pipeline`."
+          }
+        }
+      }
+    },
     "No pipelines yet. Save one in Settings or with `esclop pipeline`.": {
       "localizations": {
         "ca": {
@@ -1237,6 +2177,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Encara no hi ha cap drecera. Crea’n una a l’app Dreceres."
+          }
+        }
+      }
+    },
+    "No steps yet. Add one below.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encara no hi ha cap pas. Afegeix-ne un a sota."
+          }
+        }
+      }
+    },
+    "None yet": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encara cap"
           }
         }
       }
@@ -1261,6 +2221,26 @@
         }
       }
     },
+    "Not set": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sense definir"
+          }
+        }
+      }
+    },
+    "Nothing appears on screen when it runs on its own.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No apareix res a la pantalla quan s’executa sol."
+          }
+        }
+      }
+    },
     "Nothing to optimise": {
       "localizations": {
         "ca": {
@@ -1271,12 +2251,62 @@
         }
       }
     },
+    "Only if": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Només si"
+          }
+        }
+      }
+    },
+    "Only some files": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Només alguns fitxers"
+          }
+        }
+      }
+    },
+    "Opacity": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opacitat"
+          }
+        }
+      }
+    },
+    "Open Agents and MCP Settings": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obre la configuració d’Agents i MCP"
+          }
+        }
+      }
+    },
     "Open Privacy Settings": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Obre la configuració de privacitat"
+          }
+        }
+      }
+    },
+    "Open the Pipeline Editor…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obre l’editor de pipelines…"
           }
         }
       }
@@ -1307,6 +2337,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Optimitza"
+          }
+        }
+      }
+    },
+    "Optimise first": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optimitza primer"
           }
         }
       }
@@ -1431,12 +2471,42 @@
         }
       }
     },
+    "PDF": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PDF"
+          }
+        }
+      }
+    },
     "PDF optimised": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "PDF optimitzat"
+          }
+        }
+      }
+    },
+    "Pages as images": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pàgines com a imatges"
+          }
+        }
+      }
+    },
+    "Path": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Camí"
           }
         }
       }
@@ -1471,12 +2541,62 @@
         }
       }
     },
+    "Pipeline text": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text del pipeline"
+          }
+        }
+      }
+    },
+    "Pipelines": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pipelines"
+          }
+        }
+      }
+    },
+    "Pipelines…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pipelines…"
+          }
+        }
+      }
+    },
     "Playback speed": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Velocitat de reproducció"
+          }
+        }
+      }
+    },
+    "Position": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posició"
+          }
+        }
+      }
+    },
+    "Put on a shelf": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posa en un prestatge"
           }
         }
       }
@@ -1521,6 +2641,56 @@
         }
       }
     },
+    "Relative to": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Relatiu a"
+          }
+        }
+      }
+    },
+    "Remove %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Treu %@"
+          }
+        }
+      }
+    },
+    "Remove Option": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Treu l’opció"
+          }
+        }
+      }
+    },
+    "Remove Step": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Treu el pas"
+          }
+        }
+      }
+    },
+    "Remove These Steps": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Treu aquests passos"
+          }
+        }
+      }
+    },
     "Remove audio": {
       "localizations": {
         "ca": {
@@ -1537,6 +2707,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Treu de la llista"
+          }
+        }
+      }
+    },
+    "Remove the sound": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Treu el so"
+          }
+        }
+      }
+    },
+    "Remove the steps for %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Treu els passos per a %@"
+          }
+        }
+      }
+    },
+    "Rename": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Canvia el nom"
           }
         }
       }
@@ -1601,6 +2801,16 @@
         }
       }
     },
+    "Revert": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desfés els canvis"
+          }
+        }
+      }
+    },
     "Rule": {
       "localizations": {
         "ca": {
@@ -1617,6 +2827,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Regla: %@ → %@"
+          }
+        }
+      }
+    },
+    "Run": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Executa"
           }
         }
       }
@@ -1641,12 +2861,112 @@
         }
       }
     },
+    "Run a script": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Executa un script"
+          }
+        }
+      }
+    },
+    "Run on Files…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Executa en fitxers…"
+          }
+        }
+      }
+    },
+    "Run the saved pipeline on files you choose": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Executa el pipeline desat en els fitxers que triïs"
+          }
+        }
+      }
+    },
+    "Run without a floating result": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Executa sense resultat flotant"
+          }
+        }
+      }
+    },
+    "Runs code on your Mac. Read it before you run the pipeline.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Executa codi al Mac. Llegeix-lo abans d’executar el pipeline."
+          }
+        }
+      }
+    },
+    "Runs on its own for": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’executa sol per a"
+          }
+        }
+      }
+    },
+    "Save": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desa"
+          }
+        }
+      }
+    },
     "Save as…": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Desa com a…"
+          }
+        }
+      }
+    },
+    "Save the changes to “%@”?": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vols desar els canvis de «%@»?"
+          }
+        }
+      }
+    },
+    "Save to": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desa a"
+          }
+        }
+      }
+    },
+    "Scale": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escala"
           }
         }
       }
@@ -1681,6 +3001,16 @@
         }
       }
     },
+    "Script": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Script"
+          }
+        }
+      }
+    },
     "Share": {
       "localizations": {
         "ca": {
@@ -1691,12 +3021,42 @@
         }
       }
     },
+    "Share and run": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comparteix i executa"
+          }
+        }
+      }
+    },
     "Share…": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Comparteix…"
+          }
+        }
+      }
+    },
+    "Shorter than (px)": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Més baix que (px)"
+          }
+        }
+      }
+    },
+    "Shorter than (seconds)": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Més curt que (segons)"
           }
         }
       }
@@ -1731,6 +3091,36 @@
         }
       }
     },
+    "Show the pipeline as a form or as text": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra el pipeline com a formulari o com a text"
+          }
+        }
+      }
+    },
+    "Show the result so far": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra el resultat fins ara"
+          }
+        }
+      }
+    },
+    "Show the tried copy in Finder": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra la còpia provada al Finder"
+          }
+        }
+      }
+    },
     "Size": {
       "localizations": {
         "ca": {
@@ -1751,6 +3141,46 @@
         }
       }
     },
+    "Skip if": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Salta si"
+          }
+        }
+      }
+    },
+    "Skipped": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saltat"
+          }
+        }
+      }
+    },
+    "Smaller than (bytes)": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Més petit que (bytes)"
+          }
+        }
+      }
+    },
+    "Smart crop": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retall intel·ligent"
+          }
+        }
+      }
+    },
     "Sound": {
       "localizations": {
         "ca": {
@@ -1767,6 +3197,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "espai"
+          }
+        }
+      }
+    },
+    "Step %d of %d: %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas %d de %d: %@"
+          }
+        }
+      }
+    },
+    "Steps": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passos"
+          }
+        }
+      }
+    },
+    "Steps for": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passos per a"
+          }
+        }
+      }
+    },
+    "Steps for a Kind": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passos per a un tipus"
           }
         }
       }
@@ -1807,6 +3277,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "S’ha aturat abans d’acabar."
+          }
+        }
+      }
+    },
+    "Stopped by the filter": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aturat pel filtre"
           }
         }
       }
@@ -1871,6 +3351,116 @@
         }
       }
     },
+    "Suggestions for %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggeriments per a %@"
+          }
+        }
+      }
+    },
+    "Taller than (px)": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Més alt que (px)"
+          }
+        }
+      }
+    },
+    "Templates": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plantilles"
+          }
+        }
+      }
+    },
+    "Text": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text"
+          }
+        }
+      }
+    },
+    "The command line": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La línia d’ordres"
+          }
+        }
+      }
+    },
+    "The filter must be an “if” step.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El filtre ha de ser un pas «if»."
+          }
+        }
+      }
+    },
+    "The pipeline file goes to the Trash, so you can put it back from there.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El fitxer del pipeline va a la paperera i el pots recuperar d’allà."
+          }
+        }
+      }
+    },
+    "The same pipeline as the form. Saving writes it in this layout; comments are not kept.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El mateix pipeline que el formulari. En desar-lo s’escriu amb aquest format; els comentaris no es conserven."
+          }
+        }
+      }
+    },
+    "There is already a pipeline named “%@”.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ja hi ha un pipeline que es diu «%@»."
+          }
+        }
+      }
+    },
+    "There is no pipeline named “%@”.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hi ha cap pipeline que es digui «%@»."
+          }
+        }
+      }
+    },
+    "These steps run for every kind of file, in order.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquests passos s’executen per a qualsevol tipus de fitxer, en ordre."
+          }
+        }
+      }
+    },
     "They appeared together in %@, so L’Esclop left them alone.": {
       "localizations": {
         "ca": {
@@ -1921,6 +3511,16 @@
         }
       }
     },
+    "This folder cannot be watched now.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ara no es pot vigilar aquesta carpeta."
+          }
+        }
+      }
+    },
     "This folder no longer exists, or its disk is not connected. It is skipped until it is back.": {
       "localizations": {
         "ca": {
@@ -1931,12 +3531,72 @@
         }
       }
     },
+    "This pipeline has no steps for “%@”.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquest pipeline no té passos per a «%@»."
+          }
+        }
+      }
+    },
+    "This pipeline runs scripts": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquest pipeline executa scripts"
+          }
+        }
+      }
+    },
+    "To": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A"
+          }
+        }
+      }
+    },
+    "Try It": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prova-ho"
+          }
+        }
+      }
+    },
     "Try again": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Torna-ho a provar"
+          }
+        }
+      }
+    },
+    "Trying it on “%@”…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Provant-lo amb «%@»…"
+          }
+        }
+      }
+    },
+    "Unchanged": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sense canvis"
           }
         }
       }
@@ -1971,6 +3631,16 @@
         }
       }
     },
+    "Upload": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Penja"
+          }
+        }
+      }
+    },
     "Upload with %@": {
       "localizations": {
         "ca": {
@@ -1991,12 +3661,32 @@
         }
       }
     },
+    "Video and audio": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vídeo i àudio"
+          }
+        }
+      }
+    },
     "Video optimised": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Vídeo optimitzat"
+          }
+        }
+      }
+    },
+    "View": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visualització"
           }
         }
       }
@@ -2051,6 +3741,16 @@
         }
       }
     },
+    "Watch a Folder…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vigila una carpeta…"
+          }
+        }
+      }
+    },
     "Watching %d folders": {
       "localizations": {
         "ca": {
@@ -2071,12 +3771,62 @@
         }
       }
     },
+    "Watermark": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marca d’aigua"
+          }
+        }
+      }
+    },
+    "Watermark image": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imatge de la marca d’aigua"
+          }
+        }
+      }
+    },
+    "What it is for": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Per a què serveix"
+          }
+        }
+      }
+    },
+    "Wider than (px)": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Més ample que (px)"
+          }
+        }
+      }
+    },
     "Width": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Amplada"
+          }
+        }
+      }
+    },
+    "Your pipelines": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els teus pipelines"
           }
         }
       }
@@ -2147,6 +3897,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "sense metadades"
+          }
+        }
+      }
+    },
+    "“%@” did not get through.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» no ha arribat al final."
+          }
+        }
+      }
+    },
+    "“%@” does not match the filter: nothing ran.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» no coincideix amb el filtre: no s’ha executat res."
+          }
+        }
+      }
+    },
+    "“%@” does not match: it is left alone.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» no hi coincideix: no es toca."
+          }
+        }
+      }
+    },
+    "“%@” matches: the pipeline runs on it.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» hi coincideix: el pipeline s’hi executa."
           }
         }
       }

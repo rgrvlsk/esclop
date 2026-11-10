@@ -23,13 +23,14 @@ in a floating card and restore the original. CLI and MCP workflows already run w
 - Watched folders (screenshots and recordings by default) and pipeline folder triggers in the
   app, with a folder list editor in each kind's Settings pane.
 
+- The pipeline editor: steps, triggers, filter, a text view and Try it.
+
 ## Next
 
-- A pipeline editor.
+- A crop window for files that are not on screen as a floating result.
 
 ## Later
 
-- A crop window for files that are not on screen as a floating result.
 - Preset zones, Finder actions, uploads and shelf integrations.
 - App release validation, notarisation, Sparkle updates and a Homebrew cask.
 - Shortcuts actions through AppIntents.
