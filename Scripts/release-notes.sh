@@ -6,10 +6,13 @@
 #
 #   Scripts/release-notes.sh VERSION               the "## [VERSION]" section; fails when missing
 #   Scripts/release-notes.sh --unreleased VERSION  the "## [Unreleased]" section (dry runs)
+#   Scripts/release-notes.sh --changelog VERSION   only the CHANGELOG.md section (the appcast's notes)
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SECTION=""
+ONLY_CHANGELOG=0
 if [ "${1:-}" = --unreleased ]; then SECTION=Unreleased; shift; fi
+if [ "${1:-}" = --changelog ]; then ONLY_CHANGELOG=1; shift; fi
 VERSION=${1:?usage: Scripts/release-notes.sh [--unreleased] VERSION}
 SECTION=${SECTION:-$VERSION}
 
@@ -21,6 +24,10 @@ body="$(awk -v s="$SECTION" '
 if [ -z "$body" ]; then
   echo "release-notes: CHANGELOG.md has no \"## [$SECTION]\" section, or it is empty" >&2
   exit 1
+fi
+if [ "$ONLY_CHANGELOG" = 1 ]; then
+  printf '%s\n' "$body"
+  exit 0
 fi
 
 # Without notarisation credentials the app is signed ad hoc, and macOS will not open it at once.

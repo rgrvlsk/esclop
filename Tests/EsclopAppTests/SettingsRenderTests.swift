@@ -109,6 +109,15 @@ import Testing
         #expect(size.width == 800)
     }
 
+    /// General › Updates, reached by its link (the section sits at the end of the pane).
+    @Test(arguments: [ColorScheme.light, .dark])
+    func updates(scheme: ColorScheme) async throws {
+        let model = model(TestSettings())
+        model.open(SettingsRoute(pane: .general, row: "installUpdatesAutomatically"))
+        let size = try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-updates", scheme: scheme, settle: .milliseconds(600))
+        #expect(size.width > 0)
+    }
+
     @Test(arguments: [ColorScheme.light, .dark])
     func search(scheme: ColorScheme) async throws {
         let model = model(TestSettings())

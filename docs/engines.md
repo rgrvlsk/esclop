@@ -243,6 +243,8 @@ Swift code reads typed values: `EsclopSettings.stripMetadata.value` (or `.value(
 | `allowDeleteBackups` | Bool | `false` | agents | Agents may delete backups |
 | `allowRunScripts` | Bool | `false` | agents | Agents may run scripts |
 | `allowSettingsChanges` | Bool | `false` | agents | Agents may change settings |
+| `checkForUpdatesAutomatically` | Bool | `true` | updates | Check for updates automatically |
+| `installUpdatesAutomatically` | Bool | `false` | updates | Download and install updates automatically |
 
 ## Tools
 

@@ -214,6 +214,10 @@ holds the rest, in folders by feature:
   (only some Swift Build versions write them in a SwiftPM build), runs Xcode's
   `appintentsmetadataprocessor` on them into `Contents/Resources/Metadata.appintents` and writes `ca.lproj/Localizable.strings` from the
   catalog for the strings Shortcuts reads from the main bundle.
+- `Updates`: `Updater` runs Sparkle (`SPUStandardUpdaterController`) when the bundle carries
+  `SUPublicEDKey`, keeps Sparkle's automatic check and install switches and the two registry
+  settings in step both ways, honours `ESCLOP_UPDATE_FEED` at launch, and brings Sparkle's window
+  forward in a menu bar app. Feed, keys and signing: docs/release.md › Updates.
 
 Planned: a crop window.
 
@@ -232,8 +236,12 @@ Planned: a crop window.
   (from `Scripts/templates/Info.plist.in`), `Resources/bin`, `Resources/LICENSES`, SwiftPM
   resource bundles (EsclopAppKit's carries the menu bar glyph `MenuBarIcon.pdf`), the committed
   `assets/AppIcon.icns` (`make icons` regenerates it, see `assets/README.md`), the CLI inside
-  `Contents/MacOS`, codesign
+  `Contents/MacOS`, `Sparkle.framework` in `Contents/Frameworks` (the build directory's rpaths
+  removed), codesign inside out
   (ad hoc without a Developer ID). It exits cleanly when the app product is absent.
+- `Scripts/appcast.sh DMG URL OUT` writes and signs the update feed; `Scripts/sparkle-tools.sh`
+  fetches Sparkle's `sign_update` at the pinned version; `Scripts/update-e2e.sh` updates a
+  bundled app from a local feed.
 - `Scripts/licence-gate.sh DIR` finds every Mach-O file under `Binaries/`, an `.app` or a
   release directory by content and fails on any without a record: a `THIRD_PARTY.md` row
   ("Ships as" column) with version, licence, source and SHA-256 and its licence text in

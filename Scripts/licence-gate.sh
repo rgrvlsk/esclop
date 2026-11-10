@@ -16,7 +16,10 @@
 #     versions in engine/Cargo.lock, plus a "static in `esclop-engine`" row (version, allowed
 #     SPDX licence, https source, SHA-256) for each C library built outside cargo and linked in
 #     (libaom), whose licence text must be in LICENSES/ like a tool's;
-#   - L'Esclop's own executables (the CLI and the app): GPL-3.0-or-later, this repository.
+#   - L'Esclop's own executables (the CLI and the app): GPL-3.0-or-later, this repository;
+#   - a framework in an app's Contents/Frameworks (Sparkle.framework, with its helpers and XPC
+#     services): a Package.resolved pin of the same name, whose licence is checked like the
+#     statically linked Swift packages' (LICENSES/swift-packages.md, with --dist).
 # Any other Mach-O fails the gate, as does a linked library outside /usr/lib and /System
 # (an unrecorded dylib is unrecorded third-party code).
 #
@@ -197,6 +200,24 @@ if [ -f "$DIR/Contents/Info.plist" ]; then
   APP_EXEC="$(plutil -extract CFBundleExecutable raw -o - "$DIR/Contents/Info.plist" 2>/dev/null || true)"
 fi
 
+# Frameworks the app carries, each from the Swift package pin of the same name (Sparkle):
+# "Name<TAB>pin<TAB>version" lines. Links to @rpath/Name.framework/ are then not foreign.
+: > "$TMP/frameworks.tsv"
+for fw in "$DIR"/Contents/Frameworks/*.framework; do
+  [ -d "$fw" ] || continue
+  fname="$(basename "$fw" .framework)"
+  pin="$(echo "$fname" | tr '[:upper:]' '[:lower:]')"
+  i=0; pver=""
+  while id="$(plutil -extract "pins.$i.identity" raw -o - "$RESOLVED" 2>/dev/null)"; do
+    [ "$id" = "$pin" ] && { pver="$(plutil -extract "pins.$i.state.version" raw -o - "$RESOLVED" 2>/dev/null ||
+      plutil -extract "pins.$i.state.revision" raw -o - "$RESOLVED")"; break; }
+    i=$((i + 1))
+  done
+  if [ -n "$pver" ]; then printf '%s\t%s\t%s\n' "$fname" "$pin" "$pver" >> "$TMP/frameworks.tsv"
+  else fail "Contents/Frameworks/$fname.framework comes from no Package.resolved pin"; fi
+done
+known_frameworks="$(cut -f1 "$TMP/frameworks.tsv" | sed 's/.*/@rpath\/&\\.framework\//' | paste -sd'|' -)"
+
 TOTAL=0
 seen_tools=""
 printf '%-16s %-14s %-10s %-20s %s\n' FILE ARCHS VERSION LICENCE RECORD
@@ -213,12 +234,23 @@ while IFS= read -r f; do
   # Linked libraries outside the system are code with no record. @rpath/@executable_path
   # entries that resolve to the system's Swift runtime are allowed.
   # Every slice of a universal file is checked (Scripts/foreign-dylibs.sh).
-  "$ROOT/Scripts/foreign-dylibs.sh" "$f" | grep -v -E '	@rpath/libswift[A-Za-z_]*\.dylib$' > "$TMP/foreign" || true
+  "$ROOT/Scripts/foreign-dylibs.sh" "$f" | grep -v -E '	@rpath/libswift[A-Za-z_]*\.dylib$' |
+    { if [ -n "$known_frameworks" ]; then grep -v -E "	($known_frameworks)"; else cat; fi; } > "$TMP/foreign" || true
   [ ! -s "$TMP/foreign" ] ||
     fail "$rel links libraries outside the system: $(awk -F'\t' '{print $2 " (" $1 ")"}' "$TMP/foreign" | sort -u | tr '\n' ' ')"
 
   r="$(awk -F'\t' -v e="$name" '$1 == e {print $2; exit}' "$TMP/exe.tsv")"
-  if [ -n "$r" ]; then
+  fw=""
+  case "$rel" in Contents/Frameworks/*.framework/*) fw="${rel#Contents/Frameworks/}"; fw="${fw%%.framework/*}";; esac
+  if [ -n "$fw" ]; then
+    pin=""; pver=""
+    IFS=$'\t' read -r _ pin pver <<< "$(awk -F'\t' -v n="$fw" '$1 == n' "$TMP/frameworks.tsv")" || true
+    if [ -n "${pin:-}" ]; then
+      printf '%-16s %-14s %-10s %-20s %s\n' "$name" "$archs" "$pver" "(swift-packages.md)" "Swift package $pin"
+    else
+      fail "$rel: in a framework with no Package.resolved pin"
+    fi
+  elif [ -n "$r" ]; then
     IFS=$'\t' read -r comp ships ver lic url sha <<< "$(row "$r")"
     printf '%-16s %-14s %-10s %-20s %s\n' "$name" "$archs" "$ver" "$lic" "THIRD_PARTY.md: $comp"
     seen_tools="$seen_tools $name"

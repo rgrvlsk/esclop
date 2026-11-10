@@ -28,6 +28,8 @@ in a floating card and restore the original. CLI and MCP workflows already run w
 - Finder Quick Actions through Services: optimise, optimise harder, convert to WebP, run a pipeline.
 - Shortcuts actions through App Intents: optimise, convert, downscale, crop, run a pipeline,
   get and change a setting, pause or resume.
+- Automatic updates with Sparkle: signed DMGs, a signed appcast on the `appcast` branch, two
+  settings and "Check for Updates…".
 
 ## Next
 
@@ -36,7 +38,7 @@ in a floating card and restore the original. CLI and MCP workflows already run w
 ## Later
 
 - Preset zones, uploads and shelf integrations.
-- App release validation, notarisation, Sparkle updates and a Homebrew cask.
+- App release validation, notarisation, a beta update channel and a Homebrew cask.
 
 ## Quality targets
 
