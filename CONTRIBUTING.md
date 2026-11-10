@@ -14,6 +14,13 @@ Scripts/package-release.sh --dry-run   # make release-dry-run: every release art
 ```
 Record user-visible changes under `## [Unreleased]` in `CHANGELOG.md`.
 
+To look at the running app without the screen recording permission, start it with
+`ESCLOP_SNAPSHOT_DIR` set (`open -n --env ESCLOP_SNAPSHOT_DIR=/tmp/shots "dist/L'Esclop.app"`)
+and post the distributed notification `dev.esclop.snapshot` with a label as its object: the app
+writes each of its visible windows to `<label>-<n>-<kind>.png` and their frames to `<label>.json`
+(`Sources/EsclopAppKit/Debug/WindowSnapshots.swift`). `ESCLOP_APPEARANCE=dark` and
+`ESCLOP_LANGUAGE=ca` switch the appearance and the language for the app alone.
+
 ## Rules for every change
 1. GPL-3.0-or-later. New source files include an SPDX header in the language's comment syntax,
    for example `// SPDX-License-Identifier: GPL-3.0-or-later` in Swift.
