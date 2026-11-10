@@ -86,35 +86,114 @@ JUDGE_TIMEOUT = 900
 REPEAT = 1
 
 
-def judge(*args, timeout=JUDGE_TIMEOUT):
+# Memory and disk guards. The judge once took a 16 GB Mac down (four of them at 11 GB each):
+# every child now runs under a resident-memory cap, at most one judge runs at a time, files a
+# child writes are capped, and the run stops when free disk runs low.
+JUDGE_MEM_MB = 1536
+TOOL_MEM_MB = 2048
+FILE_LIMIT = 2 << 30
+MIN_FREE_DISK = 10 << 30
+JUDGE_SLOTS = threading.Semaphore(1)
+PEAKS = {"judge": 0, "tool": 0}
+PEAKS_LOCK = threading.Lock()
+
+
+class Child:
+    def __init__(self, returncode, stdout, stderr, rss, killed):
+        self.returncode, self.stdout, self.stderr, self.rss, self.killed = returncode, stdout, stderr, rss, killed
+
+
+def _limits():
+    import resource
+    resource.setrlimit(resource.RLIMIT_FSIZE, (FILE_LIMIT, FILE_LIMIT))
+    resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+
+
+def _group_rss(pgid):
+    """Resident KB of every process in the group."""
     try:
-        out = subprocess.run([str(JUDGE), *map(str, args)], capture_output=True, text=True, errors="replace", timeout=timeout)
+        ps = subprocess.run(["ps", "-A", "-o", "pgid=,rss="], capture_output=True, text=True, timeout=5).stdout
     except subprocess.TimeoutExpired:
+        return 0
+    return sum(int(r) for g, r in (line.split() for line in ps.splitlines() if line.strip()) if int(g) == pgid)
+
+
+def child(cmd, timeout, mem_mb, kind):
+    """Runs `cmd` in its own process group under `timeout` seconds and `mem_mb` resident MB.
+    Returns a Child, or None on timeout. `killed` is "memory" when the cap stopped it."""
+    import re
+    p = subprocess.Popen(["/usr/bin/time", "-l", *map(str, cmd)], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                         start_new_session=True, preexec_fn=_limits)
+    result = {}
+    reader = threading.Thread(target=lambda: result.update(zip(("out", "err"), p.communicate())))
+    reader.start()
+    deadline, killed, peak_kb = time.monotonic() + timeout, None, 0
+    while reader.is_alive():
+        reader.join(0.25)
+        if not reader.is_alive():
+            break
+        kb = _group_rss(p.pid)
+        peak_kb = max(peak_kb, kb)
+        if kb > mem_mb << 10:
+            killed = "memory"
+        elif time.monotonic() > deadline:
+            killed = "timeout"
+        if killed:
+            try:
+                os.killpg(p.pid, 9)
+            except ProcessLookupError:
+                pass
+            reader.join()
+    out = result.get("out", b"").decode("utf-8", "replace")
+    err = result.get("err", b"").decode("utf-8", "replace")
+    m = re.search(r"(\d+)\s+maximum resident set size", err)
+    rss = max(int(m.group(1)) if m else 0, peak_kb << 10)
+    with PEAKS_LOCK:
+        PEAKS[kind] = max(PEAKS[kind], rss)
+    if killed == "timeout":
+        return None
+    code = p.returncode
+    if "terminated abnormally" in err:  # time(1) exits 128 + the signal
+        code = -(code - 128) if code > 128 else -9
+    if killed == "memory":
+        code = -9
+    err = err[: err.rfind("real")] if "maximum resident set size" in err else err
+    return Child(code, out, err, rss, killed)
+
+
+def judge(*args, timeout=JUDGE_TIMEOUT):
+    with JUDGE_SLOTS:
+        out = child([JUDGE, *args], timeout, JUDGE_MEM_MB, "judge")
+    if out is None:
         return {"opens": False, "judge_timeout": True}
-    return json.loads(out.stdout) if out.returncode == 0 and out.stdout.strip() else {"opens": False, "judge_error": out.returncode}
+    if out.killed:
+        return {"opens": False, "judge_error": "memory", "rss_mb": out.rss >> 20}
+    if out.returncode != 0 or not out.stdout.strip():
+        return {"opens": False, "judge_error": out.returncode}
+    d = json.loads(out.stdout)
+    d["judge_rss_mb"] = out.rss >> 20
+    return d
 
 
 def timed(cmd):
-    """Runs `cmd` REPEAT times under TIMEOUT: (last CompletedProcess or None on timeout, median seconds)."""
+    """Runs `cmd` REPEAT times under TIMEOUT: (last Child or None on timeout, median seconds)."""
     times, p = [], None
     for _ in range(REPEAT):
         t = time.perf_counter()
-        try:
-            p = subprocess.run(cmd, capture_output=True, text=True, errors="replace", timeout=TIMEOUT)
-        except subprocess.TimeoutExpired:
+        p = child(cmd, TIMEOUT, TOOL_MEM_MB, "tool")
+        if p is None:
             return None, float(TIMEOUT)
         times.append(time.perf_counter() - t)
+        if p.killed:
+            break
     return p, statistics.median(times)
 
 
 def gs_opens(src):
     """Whether Ghostscript reads the file at all (its first page renders to the null device)."""
-    try:
-        p = subprocess.run(["gs", "-q", "-dSAFER", "-dBATCH", "-dNOPAUSE", "-sDEVICE=nullpage", "-dFirstPage=1", "-dLastPage=1", str(src)],
-                           capture_output=True, timeout=60)
-        return p.returncode == 0
-    except subprocess.TimeoutExpired:
-        return False
+    p = child(["gs", "-q", "-dSAFER", "-dBATCH", "-dNOPAUSE", "-sDEVICE=nullpage", "-dFirstPage=1", "-dLastPage=1", src],
+              60, TOOL_MEM_MB, "tool")
+    return p is not None and p.returncode == 0
 
 
 def dpi_for(info, aggressive):
@@ -129,11 +208,13 @@ def run_gs(src, out, info, aggressive):
     p, secs = timed(gs_args(src, out, dpi))
     if p is None:
         return {"status": "timeout", "seconds": secs}
+    if p.killed == "memory":
+        return {"status": "memory", "seconds": secs, "rss_mb": p.rss >> 20}
     if p.returncode < 0:
         return {"status": "crash", "seconds": secs, "error": f"signal {-p.returncode}"}
     if p.returncode != 0 or not out.exists():
         return {"status": "failed", "seconds": secs, "error": p.stderr[-300:]}
-    return {"status": "ok", "seconds": secs, "dpi": dpi}
+    return {"status": "ok", "seconds": secs, "dpi": dpi, "rss_mb": p.rss >> 20}
 
 
 def run_engine(src, out, info, aggressive):
@@ -145,6 +226,8 @@ def run_engine(src, out, info, aggressive):
     p, secs = timed([str(ENGINE), "pdf.optimise", "--json", req])
     if p is None:
         return {"status": "timeout", "seconds": secs}
+    if p.killed == "memory":
+        return {"status": "memory", "seconds": secs, "rss_mb": p.rss >> 20}
     if p.returncode < 0:
         return {"status": "crash", "seconds": secs, "error": f"signal {-p.returncode}"}
     try:
@@ -155,7 +238,7 @@ def run_engine(src, out, info, aggressive):
         code = reply["error"]["code"]
         status = {"already_smaller": "kept", "unsupported": "refused", "decode": "refused", "internal": "internal"}.get(code, "failed")
         return {"status": status, "seconds": secs, "error": f"{code}: {reply['error']['message']}"[:300]}
-    return {"status": "ok", "seconds": secs, "dpi": dpi}
+    return {"status": "ok", "seconds": secs, "dpi": dpi, "rss_mb": p.rss >> 20}
 
 
 PATHS = {"gs": run_gs, "engine": run_engine}
@@ -168,7 +251,7 @@ def evaluate(src, out, rec, info, compared, aggressive):
     rec["bytes_before"] = before
     rec["bytes"] = before
     fails = []
-    if rec["status"] in ("timeout", "crash", "internal"):
+    if rec["status"] in ("timeout", "crash", "internal", "memory"):
         fails.append(rec["status"])
     if rec["status"] == "ok":
         rec["raw_bytes"] = out.stat().st_size
@@ -212,6 +295,7 @@ def process(src, name, a):
     compared = {}
     if info["valid"] == "ok" and scored and not a.timing_only:
         c = judge("compare-many", src, *[r[2] for r in scored])
+        entry["judge_rss_mb"] = c.get("judge_rss_mb", c.get("rss_mb"))
         if "outputs" in c:
             for r, o in zip(scored, c["outputs"]):
                 compared[(r[0], r[1])] = o
@@ -220,7 +304,7 @@ def process(src, name, a):
     for path, mode, out, rec in runs:
         e = evaluate(src, out, rec, info, compared.get((path, mode)), mode == "aggressive")
         if info["valid"] != "ok":
-            e["fails"] = [f for f in e["fails"] if f in ("timeout", "crash")]
+            e["fails"] = [f for f in e["fails"] if f in ("timeout", "crash", "memory")]
         entry[f"{path}/{mode}"] = e
     if not a.keep_outputs:
         shutil.rmtree(work, ignore_errors=True)
@@ -244,6 +328,10 @@ def main():
     ap.add_argument("--table", action="store_true", help="only print the table from OUT/results.json")
     a = ap.parse_args()
     REPEAT, TIMEOUT = max(1, a.repeat), a.timeout
+    # Worst case: one judge plus (jobs - 1) tools, each at its cap, under 6 GB.
+    worst = max(JUDGE_MEM_MB, TOOL_MEM_MB) + (a.jobs - 1) * TOOL_MEM_MB
+    if worst > 6144:
+        sys.exit(f"--jobs {a.jobs} could use {worst} MB at the memory caps; the limit is 6144 (use --jobs 2)")
     ENGINE = a.engine.resolve()
     a.out.mkdir(parents=True, exist_ok=True)
     JUDGE = a.out / "judge"
@@ -267,6 +355,9 @@ def main():
         lock = threading.Lock()
 
         def one(src):
+            if shutil.disk_usage(a.out).free < MIN_FREE_DISK:
+                print(names[src], "skipped: free disk under", MIN_FREE_DISK >> 30, "GB", file=sys.stderr, flush=True)
+                return
             try:
                 entry = process(src, names[src], a)
             except Exception as e:  # a runner bug must not end the run: listed, not scored
@@ -282,6 +373,7 @@ def main():
         with cf.ThreadPoolExecutor(max(1, a.jobs)) as pool:
             list(pool.map(one, todo))
         results_path.write_text(json.dumps(results, indent=1, sort_keys=True))
+    print(f"peak RSS: judge {PEAKS['judge'] >> 20} MB, tools {PEAKS['tool'] >> 20} MB", file=sys.stderr)
     print(table(results, a.paths.split(",")))
 
 

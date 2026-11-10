@@ -493,6 +493,7 @@ dependencies = [
  "oxipng",
  "ravif",
  "rayon",
+ "read-fonts",
  "rgb",
  "schemars",
  "serde",

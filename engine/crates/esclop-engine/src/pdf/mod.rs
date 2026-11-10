@@ -7,6 +7,7 @@
 //!   the compression factor's ceiling (only where that is safe, see `images`) and Flate with PNG
 //!   predictors; JPEGs at or under the ceiling are only re-coded losslessly;
 //! - every other Flate or uncompressed stream is recompressed with libdeflate's strongest level;
+//! - embedded TrueType fonts keep only the glyphs the document draws (see `fonts`);
 //! - identical streams are stored once, unreachable objects are dropped, and the rest go into
 //!   object streams with a cross-reference stream;
 //! - with `strip`, the document information dictionary, the catalog's XMP, page thumbnails and
@@ -16,6 +17,7 @@
 //! (`decode`): a rewrite of a damaged file could silently lose pages.
 
 mod deflate;
+mod fonts;
 mod images;
 mod mono;
 mod placement;
@@ -86,6 +88,11 @@ pub fn rewrite(bytes: &[u8], dpi: Option<f64>, jpeg_quality: u8, strip: bool, ct
     if strip {
         strip_metadata(&mut doc);
     }
+    // Unreachable fonts would otherwise count as used by something the font scan cannot see.
+    doc.prune_objects();
+    ctx.progress(0.03, "fonts");
+    fonts::subset_fonts(&mut doc);
+    ctx.check()?;
     let drawn = placement::image_resolutions(&doc);
     let masks = mask_ids(&doc);
 

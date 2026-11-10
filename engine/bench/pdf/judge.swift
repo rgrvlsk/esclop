@@ -6,6 +6,10 @@
 //                                fields, encrypted/locked, and the gs path's per-document DPI
 //   judge compare ORIGINAL OUT   JSON: both infos plus SSIM per page at 150 dpi (RGB, 7x7
 //                                uniform window, mean of the three channels)
+//   judge compare-many ORIG OUT…  the same against several outputs, rendering the original once
+//
+// Memory: SSIM needs O(width); the rasters in flight are capped by JUDGE_RASTER_MB (400 MB by
+// default), so pages run one per core only while they are small.
 
 import CoreGraphics
 import CryptoKit
@@ -117,37 +121,86 @@ func render(_ page: CGPDFPage, dpi: Double = 150) -> Raster {
     return Raster(w: w, h: h, px: px)
 }
 
+/// SSIM over 7x7 uniform windows, mean of the R, G and B channels. A sliding window keeps only
+/// the column sums of the seven rows it covers, so memory is O(width): full-page integral
+/// images cost ~1 GB at 25 megapixels. The sums are integers well under 2^53, exact in Double,
+/// so the result matches the integral-image version exactly.
 func ssim(_ a: Raster, _ b: Raster) -> Double {
     guard a.w == b.w, a.h == b.h else { return 0 }
-    let w = a.w, h = a.h, r = 3, c1: Double = 6.5025, c2: Double = 58.5225
-    var total = 0.0
-    var sx = [Double](repeating: 0, count: (w + 1) * (h + 1))
-    var sy = sx, sxx = sx, syy = sx, sxy = sx
-    for ch in 0 ..< 3 {
-        for y in 0 ..< h {
-            var rx = 0.0, ry = 0.0, rxx = 0.0, ryy = 0.0, rxy = 0.0
-            for x in 0 ..< w {
-                let p = Double(a.px[(y * w + x) * 4 + ch]), q = Double(b.px[(y * w + x) * 4 + ch])
-                rx += p; ry += q; rxx += p * p; ryy += q * q; rxy += p * q
-                let i = (y + 1) * (w + 1) + x + 1, u = y * (w + 1) + x + 1
-                sx[i] = sx[u] + rx; sy[i] = sy[u] + ry; sxx[i] = sxx[u] + rxx; syy[i] = syy[u] + ryy; sxy[i] = sxy[u] + rxy
+    let w = a.w, h = a.h, r = 3, side = 2 * r + 1, c1: Double = 6.5025, c2: Double = 58.5225
+    guard w > 2 * r, h > 2 * r else { return 1 }
+    let k = Double(side * side)
+    // Column sums per channel: x, y, xx, yy, xy at [(q * 3 + ch) * w + x].
+    var col = [Double](repeating: 0, count: 15 * w)
+    var acc = [Double](repeating: 0, count: 3)
+    a.px.withUnsafeBufferPointer { pa in
+        b.px.withUnsafeBufferPointer { pb in
+            col.withUnsafeMutableBufferPointer { col in
+                func addRow(_ y: Int, _ sign: Double) {
+                    for x in 0 ..< w {
+                        let o = (y * w + x) * 4
+                        for ch in 0 ..< 3 {
+                            let p = Double(pa[o + ch]), q = Double(pb[o + ch])
+                            col[(0 + ch) * w + x] += sign * p
+                            col[(3 + ch) * w + x] += sign * q
+                            col[(6 + ch) * w + x] += sign * p * p
+                            col[(9 + ch) * w + x] += sign * q * q
+                            col[(12 + ch) * w + x] += sign * p * q
+                        }
+                    }
+                }
+                for y in 0 ..< side { addRow(y, 1) }
+                for y in r ..< h - r {
+                    if y > r {
+                        addRow(y - r - 1, -1)
+                        addRow(y + r, 1)
+                    }
+                    for ch in 0 ..< 3 {
+                        var s = [0.0, 0.0, 0.0, 0.0, 0.0]
+                        for x in 0 ..< side { for q in 0 ..< 5 { s[q] += col[(q * 3 + ch) * w + x] } }
+                        var sum = 0.0
+                        for x in r ..< w - r {
+                            if x > r {
+                                for q in 0 ..< 5 { s[q] += col[(q * 3 + ch) * w + x + r] - col[(q * 3 + ch) * w + x - r - 1] }
+                            }
+                            let mx = s[0] / k, my = s[1] / k
+                            let vx = s[2] / k - mx * mx, vy = s[3] / k - my * my, cxy = s[4] / k - mx * my
+                            sum += ((2 * mx * my + c1) * (2 * cxy + c2)) / ((mx * mx + my * my + c1) * (vx + vy + c2))
+                        }
+                        acc[ch] += sum
+                    }
+                }
             }
         }
-        var acc = 0.0, n = 0
-        for y in r ..< h - r {
-            for x in r ..< w - r {
-                let y0 = y - r, y1 = y + r + 1, x0 = x - r, x1 = x + r + 1
-                func box(_ s: [Double]) -> Double { s[y1 * (w + 1) + x1] - s[y0 * (w + 1) + x1] - s[y1 * (w + 1) + x0] + s[y0 * (w + 1) + x0] }
-                let k = Double((2 * r + 1) * (2 * r + 1))
-                let mx = box(sx) / k, my = box(sy) / k
-                let vx = box(sxx) / k - mx * mx, vy = box(syy) / k - my * my, cxy = box(sxy) / k - mx * my
-                acc += ((2 * mx * my + c1) * (2 * cxy + c2)) / ((mx * mx + my * my + c1) * (vx + vy + c2))
-                n += 1
-            }
-        }
-        total += n > 0 ? acc / Double(n) : 1
     }
-    return total / 3
+    let n = Double((w - 2 * r) * (h - 2 * r))
+    return acc.reduce(0) { $0 + $1 / n } / 3
+}
+
+/// Caps the raster bytes in flight across pages: a page waits until its rasters fit, except
+/// when nothing else is in flight, so one oversized page still runs alone.
+final class Budget {
+    let limit: Int
+    var used = 0
+    let cond = NSCondition()
+    init(_ limit: Int) { self.limit = limit }
+    func run<T>(_ cost: Int, _ body: () -> T) -> T {
+        cond.lock()
+        while used > 0 && used + cost > limit { cond.wait() }
+        used += cost
+        cond.unlock()
+        defer { cond.lock(); used -= cost; cond.broadcast(); cond.unlock() }
+        return body()
+    }
+}
+
+/// Raster bytes in flight per judge process. A page holds two RGBA rasters (the original's and
+/// one output's) plus CoreGraphics' own buffers while rendering.
+let rasterBudget = Budget((Int(ProcessInfo.processInfo.environment["JUDGE_RASTER_MB"] ?? "") ?? 400) << 20)
+
+func rasterCost(_ page: CGPDFPage, dpi: Double) -> Int {
+    let box = page.getBoxRect(.cropBox)
+    return 2 * 4 * Int(Double(box.width) * dpi / 72 + 1) * Int(Double(box.height) * dpi / 72 + 1)
 }
 
 func compare(_ a: URL, _ b: URL) -> [String: Any] {
@@ -162,7 +215,8 @@ func compare(_ a: URL, _ b: URL) -> [String: Any] {
     DispatchQueue.concurrentPerform(iterations: da.numberOfPages) { i in
         autoreleasepool {
             guard let pa = da.page(at: i + 1), let pb = db.page(at: i + 1) else { return }
-            buffer[i] = ssim(render(pa), render(pb))
+            let dpi = pageDPI(pa)
+            buffer[i] = rasterBudget.run(rasterCost(pa, dpi: dpi)) { ssim(render(pa, dpi: dpi), render(pb, dpi: dpi)) }
         }
     }
     let values = Array(buffer)
@@ -185,10 +239,12 @@ func compareMany(_ a: URL, _ outs: [URL]) -> [String: Any] {
             autoreleasepool {
                 guard let pa = da.page(at: i + 1) else { return }
                 let dpi = pageDPI(pa)
-                let ra = render(pa, dpi: dpi)
-                for (k, d) in docs.enumerated() where usable[k] {
-                    autoreleasepool {
-                        if let pb = d?.page(at: i + 1) { buffer[k * n + i] = ssim(ra, render(pb, dpi: dpi)) }
+                rasterBudget.run(rasterCost(pa, dpi: dpi)) {
+                    let ra = render(pa, dpi: dpi)
+                    for (k, d) in docs.enumerated() where usable[k] {
+                        autoreleasepool {
+                            if let pb = d?.page(at: i + 1) { buffer[k * n + i] = ssim(ra, render(pb, dpi: dpi)) }
+                        }
                     }
                 }
             }
