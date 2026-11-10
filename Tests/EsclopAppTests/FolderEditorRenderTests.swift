@@ -16,8 +16,7 @@ import Testing
     /// A fixed, generic path, so the picture shows no machine's temporary folder.
     static let locked = URL(fileURLWithPath: "/tmp/esclop-render/Shared Shots", isDirectory: true)
 
-    @Test(arguments: [ColorScheme.light, .dark])
-    func folderList(scheme: ColorScheme) async throws {
+    @Test func folderList() async throws {
         try FileManager.default.createDirectory(at: Self.locked, withIntermediateDirectories: true)
         try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: Self.locked.path)
         defer {
@@ -30,14 +29,15 @@ import Testing
         let descriptor = try #require(model.descriptors.first { $0.key == "imageDirs" })
         // The row as the Images pane draws it, alone: the whole pane would need a scroll, which
         // takes a varying time to land.
-        let view = Form {
-            Section("Images") { SettingRow(descriptor: descriptor, model: model, actions: SettingsActions()) }
-        }
-        .formStyle(.grouped)
-        .tint(Palette.accent)
-        .environment(\.screenshotLocation, "~/Pictures/Screenshots")
-        let size = try await SettingsRenderTests.renderWindow(view, size: CGSize(width: 640, height: 520), name: "settings-folders", scheme: scheme, settle: .milliseconds(300))
-        #expect(size.width == 640)
+        let sizes = try await SettingsRenderTests.renderBoth({ _ in
+            Form {
+                Section("Images") { SettingRow(descriptor: descriptor, model: model, actions: SettingsActions()) }
+            }
+            .formStyle(.grouped)
+            .tint(Palette.accent)
+            .environment(\.screenshotLocation, "~/Pictures/Screenshots")
+        }, size: CGSize(width: 640, height: 520), name: "settings-folders", settle: .milliseconds(300))
+        #expect(sizes.map(\.width) == [640, 640])
         #expect(FolderStatus.check(Self.locked) == .unreadable, "the picture shows the unreadable row")
     }
 }

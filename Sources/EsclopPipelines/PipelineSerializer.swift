@@ -45,8 +45,9 @@ public enum PipelineSerializer {
         return "\(step.name)(" + args.map { "\($0.0): \($0.1)" }.joined(separator: ", ") + ")"
     }
 
-    /// Every argument the step sets, as text, in the catalog's order.
-    static func arguments(of step: PipelineStep) -> [(String, String)] {
+    /// Every argument the step sets, as text, in the catalog's order. Defaults included; text
+    /// values quoted as the file writes them.
+    public static func arguments(of step: PipelineStep) -> [(String, String)] {
         var a: [(String, String)] = []
         func add(_ name: String, _ value: String?) { if let value { a.append((name, value)) } }
         func loc(_ l: OutputLocation?) -> String? {

@@ -145,11 +145,12 @@ struct OptionsDrill: View {
             DrillPage(title: Strings.text("Run a pipeline"), back: back) {
                 let names = app.pipelineNames
                 if names.isEmpty {
-                    Text(Strings.text("No pipelines yet. Save one in Settings or with `esclop pipeline`.")).foregroundStyle(PopoverInk.secondary.color)
+                    Text(Strings.text("No pipelines yet. Make one in the pipeline editor or with `esclop pipeline`.")).foregroundStyle(PopoverInk.secondary.color)
                 }
                 ForEach(names, id: \.self) { name in
                     DrillRow(symbol: "wand.and.rays", title: name, chevron: false) { app.runPipeline(name, on: card) }
                 }
+                DrillRow(symbol: "slider.horizontal.3", title: Strings.text("Edit Pipelines…"), chevron: false) { app.onOpenPipelines?(nil) }
             }
         case .keepVisible:
             DrillPage(title: Strings.text("Keep visible"), back: back) {

@@ -15,6 +15,7 @@ public final class AppServices {
     public let model: AppModel
     public let settingsModel: SettingsViewModel
     public let settingsWindow: SettingsWindowController
+    public let pipelinesWindow: PipelineEditorWindowController
     public let onboarding: OnboardingWindowController
     let panels: FloatingPanelController
     let dropZone: DropZoneController
@@ -50,8 +51,14 @@ public final class AppServices {
                 pasteboard.setString(text, forType: .string)
                 pasteboard.setData(Data(), forType: Clipboard.optimisedType)
             },
-            supportFolder: model.service.context.locations.support
+            supportFolder: model.service.context.locations.support,
+            openPipelines: { [weak model] in model?.onOpenPipelines?(nil) }
         ))
+        let pipelinesWindow = PipelineEditorWindowController(model: PipelineEditorModel(
+            store: model.service.context.pipelines, app: model, settings: model.service.context.settings
+        ))
+        self.pipelinesWindow = pipelinesWindow
+        model.onOpenPipelines = { [weak pipelinesWindow] name in pipelinesWindow?.show(name) }
         let panels = FloatingPanelController(model: model)
         self.panels = panels
         dropZone = DropZoneController(model: model) { [weak panels] in panels?.visibleFrame }
@@ -76,11 +83,14 @@ public final class AppServices {
         model.onPauseChange = { [weak folders] in folders?.refresh() }
         // Folder lists changed here or by `esclop settings set` in another process.
         folderSettings = DefaultsObserver(defaults: settings.defaults, keys: WatchedFolders.settingKeys) { [weak folders] _ in
-            Task { @MainActor in folders?.refresh() }
+            Task { @MainActor in folders?.refresh(retryDenied: true) }
         }
         // A pipeline saved, attached to a folder or deleted (here, by the CLI or by an agent).
-        pipelineFiles = FolderWatcher(everyChange: true) { [weak folders] _ in
-            Task { @MainActor in folders?.refresh() }
+        pipelineFiles = FolderWatcher(everyChange: true) { [weak folders, weak pipelinesWindow] _ in
+            Task { @MainActor in
+                folders?.refresh()
+                pipelinesWindow?.model.reload()
+            }
         }
     }
 
@@ -90,6 +100,7 @@ public final class AppServices {
         watcher.start()
         dropZone.start()
         folders.refresh()
+        PipelineEditorModel.removeLeftovers()
         try? FileManager.default.createDirectory(at: model.service.context.pipelines.directory, withIntermediateDirectories: true)
         pipelineFiles?.start([model.service.context.pipelines.directory])
         let workspace = NSWorkspace.shared.notificationCenter
@@ -106,7 +117,7 @@ public final class AppServices {
 
     /// Handles `esclop://` links: `esclop://settings/...` opens the Settings window there.
     public func open(_ urls: [URL]) {
-        for url in urls where !settingsWindow.open(url) {
+        for url in urls where !settingsWindow.open(url) && !pipelinesWindow.open(url) {
             log.info("Ignored a link L'Esclop does not handle: \(url.absoluteString, privacy: .public)")
         }
     }

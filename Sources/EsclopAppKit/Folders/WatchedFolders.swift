@@ -21,6 +21,17 @@ public enum FolderStatus: Equatable, Sendable {
     /// macOS keeps L'Esclop out (Files and Folders privacy): the person has to allow it.
     case unreadable
 
+    /// Whether the folder is there, without reading inside it. Reading a protected folder
+    /// (Desktop, Documents, Downloads) makes macOS ask for access, so the watcher only looks at
+    /// the folder itself and leaves the question for the first new file, as Clop does.
+    public static func presence(_ folder: URL) -> FolderStatus {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: folder.path, isDirectory: &isDirectory), isDirectory.boolValue else { return .missing }
+        return .watching
+    }
+
+    /// Whether L'Esclop can read the folder: lists it, so macOS may ask for access. For the
+    /// Settings row the person is looking at.
     public static func check(_ folder: URL) -> FolderStatus {
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: folder.path, isDirectory: &isDirectory), isDirectory.boolValue else { return .missing }
@@ -47,6 +58,8 @@ public final class WatchedFolders {
     @ObservationIgnored private var burstTasks: [MediaKind: Task<Void, Never>] = [:]
     /// Files picked up and not finished yet: one event per file is enough.
     @ObservationIgnored private var inFlight = Set<String>()
+    /// Folders macOS kept L'Esclop out of.
+    @ObservationIgnored private(set) var denied = Set<URL>()
     /// How long files of one kind gather into a burst.
     @ObservationIgnored var burstWindow: Duration = .seconds(1)
     @ObservationIgnored var settle: @Sendable (URL) async -> Bool = { await FileSettle.wait(for: $0) }
@@ -59,10 +72,15 @@ public final class WatchedFolders {
     /// Folders being watched now: existing and readable.
     public var watchedCount: Int { isWatching ? statuses.values.filter { $0 == .watching }.count : 0 }
 
-    /// Reads the settings and the pipelines again and restarts the stream.
-    public func refresh() {
+    /// Reads the settings and the pipelines again and restarts the stream. A folder macOS kept
+    /// L'Esclop out of stays out (no reads, no new question) until `retryDenied`: the folder
+    /// lists changed, or the app starts again.
+    public func refresh(retryDenied: Bool = false) {
+        if retryDenied { denied.removeAll() }
         targets = WatchPlan.targets(settings: model.settings, pipelines: pipelines())
-        statuses = Dictionary(targets.map { ($0.folder, FolderStatus.check($0.folder)) }, uniquingKeysWith: { first, _ in first })
+        statuses = Dictionary(targets.map { target in
+            (target.folder, denied.contains(target.folder) ? .unreadable : FolderStatus.presence(target.folder))
+        }, uniquingKeysWith: { first, _ in first })
         let folders = targets.map(\.folder).filter { statuses[$0] == .watching }
         watcher?.stop()
         defer { model.watchedFolderCount = watchedCount }
@@ -94,14 +112,39 @@ public final class WatchedFolders {
     func received(_ files: [URL]) {
         guard isWatching, !model.paused else { return }
         for file in files where !inFlight.contains(file.path) {
+            let folder = WatchPlan.canonical(file.deletingLastPathComponent().path)
+            guard !denied.contains(folder) else { continue }
+            let size: Int
+            do {
+                size = ((try FileManager.default.attributesOfItem(atPath: file.path))[.size] as? NSNumber)?.intValue ?? 0
+            } catch {
+                if Self.isDenied(error) { deny(folder) }
+                continue
+            }
             let decision = WatchPlan.decide(
-                file, targets: targets, size: Self.size(of: file), isMarked: OptimisedMark.isMarked(file),
+                file, targets: targets, size: size, isMarked: OptimisedMark.isMarked(file),
                 justWritten: model.wasJustWritten(file), limits: { self.model.factory.sizeLimits(for: $0) }
             )
             guard let kind = decision.kind else { continue }
             inFlight.insert(file.path)
             add(file, kind: kind)
         }
+    }
+
+    /// macOS refused to let L'Esclop read in `folder`: it leaves the stream and its Settings row
+    /// says why. Nothing else happens: no notice, no new attempt.
+    func deny(_ folder: URL) {
+        guard !denied.contains(folder) else { return }
+        denied.insert(folder)
+        refresh()
+    }
+
+    nonisolated static func isDenied(_ error: Error) -> Bool {
+        let error = error as NSError
+        if error.domain == NSCocoaErrorDomain, error.code == NSFileReadNoPermissionError { return true }
+        if error.domain == NSPOSIXErrorDomain, [Int(EPERM), Int(EACCES)].contains(error.code) { return true }
+        if let underlying = error.userInfo[NSUnderlyingErrorKey] as? Error { return isDenied(underlying) }
+        return false
     }
 
     private func add(_ file: URL, kind: MediaKind) {

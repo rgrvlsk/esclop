@@ -41,6 +41,10 @@ public struct PipelineDiagnostic: Error, Hashable, Codable, Sendable, CustomStri
 public struct PipelineSyntaxError: Error, Hashable, Sendable, CustomStringConvertible, LocalizedError {
     public var diagnostics: [PipelineDiagnostic]
 
+    public init(diagnostics: [PipelineDiagnostic]) {
+        self.diagnostics = diagnostics
+    }
+
     public var errors: [PipelineDiagnostic] { diagnostics.filter { $0.severity == .error } }
     public var description: String { errors.map(\.description).joined(separator: "\n") }
     public var errorDescription: String? { description }

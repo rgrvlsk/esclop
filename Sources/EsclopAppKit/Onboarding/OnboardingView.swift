@@ -259,8 +259,8 @@ struct PermissionsPage: View {
                         Image(systemName: "folder").foregroundStyle(.secondary).accessibilityHidden(true)
                     } label: {
                         SettingLabel(
-                            title: "Files in Desktop, Documents and Downloads",
-                            summary: "macOS asks the first time L'Esclop replaces a file in one of these folders. Allow it so optimised files can go back where they were."
+                            title: Strings.text("Files in Desktop, Documents and Downloads"),
+                            summary: Strings.text("macOS will ask to let L’Esclop see your Desktop: that is where screenshots land, and L’Esclop watches it for new ones. It asks again the first time L’Esclop replaces a file in Documents or Downloads. If you say no, the Desktop is left alone; Settings › Images shows how to allow it later.")
                         )
                     }
                     Toggle(isOn: Binding(get: { onboarding.opensAtLogin }, set: { onboarding.opensAtLogin = $0 })) {
