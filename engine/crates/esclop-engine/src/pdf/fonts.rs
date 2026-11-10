@@ -517,18 +517,11 @@ fn collect(doc: &Document) -> (HashMap<ObjectId, BTreeSet<u16>>, Programs) {
             }
         }
         if u.failed {
-            if std::env::var_os("ESCLOP_FONT_TRACE").is_some() {
-                eprintln!("fonts: a content stream failed to parse on page {page:?}");
-            }
             return (HashMap::new(), u.programs);
         }
     }
     let mut skip = unscanned_programs(doc, &u);
     skip.extend(&u.keep_whole);
-    if std::env::var_os("ESCLOP_FONT_TRACE").is_some() {
-        eprintln!("fonts: used {:?}", u.used.iter().map(|(p, g)| (p.0, g.len(), skip.contains(p))).collect::<Vec<_>>());
-        eprintln!("fonts: unscanned {:?} keep_whole {:?}", unscanned_programs(doc, &u).iter().map(|p| p.0).collect::<Vec<_>>(), u.keep_whole.iter().map(|p| p.0).collect::<Vec<_>>());
-    }
     let used = u.used.into_iter().filter(|(p, _)| !skip.contains(p)).collect();
     (used, u.programs)
 }
@@ -579,11 +572,7 @@ pub fn subset_fonts(doc: &mut Document) -> usize {
     let done: Vec<(ObjectId, Vec<u8>, usize)> = jobs
         .into_par_iter()
         .filter_map(|(id, data, gids)| {
-            let out = subset(&data, &gids);
-            if std::env::var_os("ESCLOP_FONT_TRACE").is_some() {
-                eprintln!("fonts: program {} {} bytes, {} glyphs -> {:?}", id.0, data.len(), gids.len(), out.as_ref().map(Vec::len));
-            }
-            let out = out.ok()?;
+            let out = subset(&data, &gids).ok()?;
             let n = out.len();
             Some((id, deflate::zlib(&out, 9), n))
         })
