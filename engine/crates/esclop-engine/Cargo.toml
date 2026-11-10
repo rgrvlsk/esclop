@@ -19,6 +19,7 @@ avif-aom = ["dep:libavif-sys", "dep:libaom-sys"]
 avif-rav1e = ["dep:ravif"]
 
 [dependencies]
+fax = "0.2.7"
 fast_image_resize = { version = "6.1.0", features = ["rayon"] }
 crc32fast = "1.5"
 gif = "0.14.2"
@@ -29,6 +30,8 @@ image = { version = "0.25.10", default-features = false, features = ["png", "jpe
 imagequant = "4.4.1"
 imgref = "1.12.3"
 libc = "0.2.191"
+libdeflater = "1.26.1"
+lopdf = { version = "0.47.0", default-features = false }
 miniz_oxide = "0.8"
 mozjpeg-sys = "2.2.3"
 oxipng = { version = "10.2.1", default-features = false, features = ["parallel"] }

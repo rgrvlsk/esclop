@@ -19,6 +19,32 @@ use std::sync::OnceLock;
 pub enum Layout {
     Rgb,
     Gray,
+    /// Four components, CMYK as stored (no inversion), encoded as YCCK: PDF CMYK images.
+    Cmyk,
+}
+
+impl Layout {
+    pub fn components(self) -> usize {
+        match self {
+            Layout::Rgb => 3,
+            Layout::Gray => 1,
+            Layout::Cmyk => 4,
+        }
+    }
+}
+
+/// Samples decoded from a JPEG as a PDF reader sees them: YCbCr becomes RGB, YCCK becomes CMYK,
+/// and CMYK values are left as stored (a PDF's `/Decode` array, not the decoder, inverts them).
+pub struct RawSamples {
+    pub pixels: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
+    pub layout: Layout,
+}
+
+/// Decodes a baseline or progressive JPEG to 8-bit samples. Refuses images over `max_pixels`.
+pub fn decode_samples(jpeg: &[u8], max_pixels: u64) -> Result<RawSamples> {
+    guarded(|| unsafe { decode_unchecked(jpeg, max_pixels) })
 }
 
 #[derive(Debug, Clone)]
@@ -109,7 +135,7 @@ impl Mozjpeg {
         layout: Layout,
         opts: &EncodeOptions,
     ) -> Result<Vec<u8>> {
-        let comps = if layout == Layout::Rgb { 3 } else { 1 };
+        let comps = layout.components();
         if width == 0 || height == 0 || pixels.len() < (width as usize) * (height as usize) * comps {
             return Err(EngineError::internal("jpeg encode: pixel buffer does not match the size"));
         }
@@ -285,13 +311,22 @@ unsafe fn encode_unchecked(
 ) -> Result<Vec<u8>> {
     unsafe {
         let mut c = Compressor::new();
-        let comps = if layout == Layout::Rgb { 3 } else { 1 };
+        let comps = layout.components();
         c.cinfo.image_width = width;
         c.cinfo.image_height = height;
         c.cinfo.input_components = comps as c_int;
-        c.cinfo.in_color_space =
-            if layout == Layout::Rgb { J_COLOR_SPACE::JCS_RGB } else { J_COLOR_SPACE::JCS_GRAYSCALE };
+        c.cinfo.in_color_space = match layout {
+            Layout::Rgb => J_COLOR_SPACE::JCS_RGB,
+            Layout::Gray => J_COLOR_SPACE::JCS_GRAYSCALE,
+            Layout::Cmyk => J_COLOR_SPACE::JCS_CMYK,
+        };
         jpeg_set_defaults(&mut c.cinfo);
+        if layout == Layout::Cmyk {
+            // YCCK (Adobe transform 2): CMY become luma and chroma, so the chroma can be
+            // subsampled like a colour photo's; K stays at full resolution. Decoding gives back
+            // the stored CMYK values, which is what a PDF reader then applies `/Decode` to.
+            jpeg_set_colorspace(&mut c.cinfo, J_COLOR_SPACE::JCS_YCCK);
+        }
         jpeg_set_quality(&mut c.cinfo, opts.quality.clamp(1, 100) as c_int, 1);
         c.set_scans(opts.progressive, !opts.fast_scans);
         jpeg_start_compress(&mut c.cinfo, 1);
@@ -304,6 +339,43 @@ unsafe fn encode_unchecked(
         }
         jpeg_finish_compress(&mut c.cinfo);
         Ok(c.bytes())
+    }
+}
+
+unsafe fn decode_unchecked(jpeg: &[u8], max_pixels: u64) -> Result<RawSamples> {
+    unsafe {
+        let mut err = error_mgr();
+        let mut dinfo: Box<jpeg_decompress_struct> = Box::new(std::mem::zeroed());
+        dinfo.common.err = &mut *err;
+        jpeg_create_decompress(&mut *dinfo);
+        let mut d = Decompressor { dinfo, _err: err };
+        jpeg_mem_src(&mut d.dinfo, jpeg.as_ptr(), jpeg.len() as c_ulong);
+        jpeg_read_header(&mut d.dinfo, 1);
+        let (w, h) = (d.dinfo.image_width, d.dinfo.image_height);
+        if w as u64 * h as u64 > max_pixels {
+            return Err(EngineError::unsupported("JPEG image too large"));
+        }
+        let layout = match d.dinfo.num_components {
+            1 => Layout::Gray,
+            3 => Layout::Rgb,
+            4 => Layout::Cmyk,
+            n => return Err(EngineError::unsupported(format!("JPEG with {n} components"))),
+        };
+        d.dinfo.out_color_space = match layout {
+            Layout::Gray => J_COLOR_SPACE::JCS_GRAYSCALE,
+            Layout::Rgb => J_COLOR_SPACE::JCS_RGB,
+            Layout::Cmyk => J_COLOR_SPACE::JCS_CMYK,
+        };
+        jpeg_start_decompress(&mut d.dinfo);
+        let stride = w as usize * layout.components();
+        let mut pixels = vec![0u8; stride * h as usize];
+        while d.dinfo.output_scanline < d.dinfo.output_height {
+            let row = pixels[d.dinfo.output_scanline as usize * stride..].as_mut_ptr();
+            let mut rows = [row];
+            jpeg_read_scanlines(&mut d.dinfo, rows.as_mut_ptr(), 1);
+        }
+        jpeg_finish_decompress(&mut d.dinfo);
+        Ok(RawSamples { pixels, width: w, height: h, layout })
     }
 }
 

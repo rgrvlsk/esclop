@@ -1,0 +1,310 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//! `pdf.optimise`: rewrites a PDF without changing what it shows or contains. Fonts, text,
+//! annotations, forms, outlines, the structure tree and every other object stay as they are;
+//! what changes is how streams are stored:
+//!
+//! - images are downsampled to `dpi` when drawn denser, and stored as the smaller of a JPEG at
+//!   the compression factor's ceiling (only where that is safe, see `images`) and Flate with PNG
+//!   predictors; JPEGs at or under the ceiling are only re-coded losslessly;
+//! - every other Flate or uncompressed stream is recompressed with libdeflate's strongest level;
+//! - identical streams are stored once, unreachable objects are dropped, and the rest go into
+//!   object streams with a cross-reference stream;
+//! - with `strip`, the document information dictionary, the catalog's XMP, page thumbnails and
+//!   application private data (`/PieceInfo`) are removed.
+//!
+//! Encrypted input is refused (`unsupported`), and so is input lopdf cannot read completely
+//! (`decode`): a rewrite of a damaged file could silently lose pages.
+
+mod deflate;
+mod images;
+mod mono;
+mod placement;
+
+use crate::ctx::Ctx;
+use crate::error::{EngineError, Result};
+use crate::ops::{Encoded, compression, finish, open, parse_params};
+use crate::protocol::{Format, OpResult, PdfParams, Request};
+use crate::quality;
+use images::ImagePlan;
+use lopdf::{Document, LoadOptions, Object, ObjectId, SaveOptions, Stream};
+use rayon::prelude::*;
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+/// Bound on any one decoded stream, against decompression bombs.
+const MAX_STREAM: usize = 1 << 30;
+
+pub fn optimise(req: &Request, ctx: &Ctx) -> Result<OpResult> {
+    let (p, ignored) = parse_params::<PdfParams>(&req.params)?;
+    let factor = compression(p.compression)?;
+    let dpi = match p.dpi {
+        None | Some(0) => None,
+        Some(d) if (48..=300).contains(&d) => (d < 300).then_some(d as f64),
+        Some(_) => return Err(EngineError::invalid("`dpi` must be 0 or 48..=300")),
+    };
+    let (bytes, target) = open(req, &p.out)?;
+    let q = jpeg_quality(factor, dpi);
+    let (out, lossy) = rewrite(&bytes, dpi, q, p.out.strip, ctx)?;
+    let enc =
+        Encoded { bytes: out, format: Some(Format::Pdf), quality: lossy.then_some(q), lossy, ..Default::default() };
+    finish(&target, bytes.len() as u64, enc, p.out.allow_larger.unwrap_or(false), ignored, ctx)
+}
+
+/// JPEG quality for images: the compression factor's ceiling, capped where L'Esclop's
+/// Ghostscript settings capped it (`/QFactor` 0.68 above 100 dpi, 0.76 at 100, 1.0 at 72 and 1.3
+/// at 48, which are libjpeg qualities 66, 62, 50 and 38).
+pub fn jpeg_quality(factor: u8, dpi: Option<f64>) -> u8 {
+    let cap = match dpi {
+        Some(d) if d <= 48.0 => 38,
+        Some(d) if d <= 72.0 => 50,
+        Some(d) if d <= 100.0 => 62,
+        _ => 66,
+    };
+    quality::jpeg_max_quality(factor).min(cap)
+}
+
+/// The rewritten file and whether any image lost information. Without `dpi` (no downsampling)
+/// JPEG images are only re-coded losslessly, as Ghostscript passed them through.
+pub fn rewrite(bytes: &[u8], dpi: Option<f64>, jpeg_quality: u8, strip: bool, ctx: &Ctx) -> Result<(Vec<u8>, bool)> {
+    let head = &bytes[..bytes.len().min(1024)];
+    if !head.windows(5).any(|w| w == b"%PDF-") {
+        return Err(EngineError::unsupported("not a PDF"));
+    }
+    ctx.progress(0.02, "decode");
+    let options = LoadOptions { max_decompressed_size: Some(MAX_STREAM), ..Default::default() };
+    let mut doc = match Document::load_mem_with_options(bytes, options) {
+        Ok(d) => d,
+        Err(e) if is_encrypted(bytes) => return Err(EngineError::unsupported(format!("encrypted PDF: {e}"))),
+        Err(e) => return Err(EngineError::decode(format!("unreadable PDF: {e}"))),
+    };
+    if doc.trailer.has(b"Encrypt") || doc.was_encrypted() || doc.is_encrypted() {
+        return Err(EngineError::unsupported("encrypted PDFs are not rewritten"));
+    }
+    let pages = check_complete(&doc)?;
+    ctx.check()?;
+
+    if strip {
+        strip_metadata(&mut doc);
+    }
+    let drawn = placement::image_resolutions(&doc);
+    let masks = mask_ids(&doc);
+
+    // Recompress every stream in parallel from the unchanged document, then apply.
+    let ids: Vec<ObjectId> =
+        doc.objects.iter().filter(|(_, o)| matches!(o, Object::Stream(_))).map(|(id, _)| *id).collect();
+    let done = AtomicUsize::new(0);
+    let lossy = AtomicUsize::new(0);
+    let cancel = ctx.cancel_flag();
+    let total = ids.len().max(1);
+    let replaced: Vec<(ObjectId, Stream)> = ids
+        .par_iter()
+        .map(|id| -> Result<Option<(ObjectId, Stream)>> {
+            if cancel.load(Ordering::Relaxed) {
+                return Err(EngineError::cancelled());
+            }
+            let Ok(Object::Stream(s)) = doc.get_object(*id) else { return Ok(None) };
+            let new = if s.dict.get(b"Subtype").and_then(|t| t.as_name()).ok() == Some(b"Image") {
+                let plan = ImagePlan {
+                    jpeg_quality,
+                    dpi,
+                    drawn_dpi: drawn.get(id).copied(),
+                    is_mask: masks.contains(id),
+                    reencode_jpeg: true,
+                };
+                let new = images::recompress(&doc, s, &plan).unwrap_or(None);
+                if new.as_ref().is_some_and(|(n, changed)| *changed && n.content.len() < s.content.len()) {
+                    lossy.fetch_add(1, Ordering::Relaxed);
+                }
+                new.map(|(n, _)| n)
+            } else {
+                recompress_stream(s)
+            };
+            let n = done.fetch_add(1, Ordering::Relaxed) + 1;
+            if n.is_multiple_of(16) {
+                ctx.progress(0.05 + 0.85 * n as f32 / total as f32, "compress");
+            }
+            Ok(new.filter(|n| n.content.len() < s.content.len()).map(|n| (*id, n)))
+        })
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
+        .flatten()
+        .collect();
+    ctx.check()?;
+    for (id, s) in replaced {
+        doc.objects.insert(id, Object::Stream(s));
+    }
+
+    dedupe_streams(&mut doc);
+    doc.prune_objects();
+    doc.renumber_objects();
+    if doc.version.as_str() < "1.5" {
+        doc.version = "1.5".into();
+    }
+    ctx.progress(0.92, "write");
+    let mut out = Vec::new();
+    let save = SaveOptions::builder().use_object_streams(true).use_xref_streams(true).compression_level(9).build();
+    doc.save_with_options(&mut out, save).map_err(|e| EngineError::encode(format!("writing the PDF: {e}")))?;
+
+    // The result must read back with every page.
+    let back =
+        Document::load_mem(&out).map_err(|e| EngineError::internal(format!("rewritten PDF does not load: {e}")))?;
+    if back.get_pages().len() != pages {
+        return Err(EngineError::internal("rewritten PDF lost pages"));
+    }
+    Ok((out, lossy.load(Ordering::Relaxed) > 0))
+}
+
+fn is_encrypted(bytes: &[u8]) -> bool {
+    let tail = &bytes[bytes.len().saturating_sub(64 << 10)..];
+    tail.windows(8).any(|w| w == b"/Encrypt")
+}
+
+/// Every page resolves and its content decodes, and the page tree's count agrees. Returns the
+/// page count.
+fn check_complete(doc: &Document) -> Result<usize> {
+    let pages = doc.get_pages();
+    if pages.is_empty() {
+        return Err(EngineError::decode("the PDF has no readable pages"));
+    }
+    let count = doc
+        .catalog()
+        .ok()
+        .and_then(|c| c.get(b"Pages").ok())
+        .and_then(|p| p.as_reference().ok())
+        .and_then(|id| doc.get_dictionary(id).ok())
+        .and_then(|d| d.get(b"Count").ok())
+        .and_then(|c| c.as_i64().ok());
+    if count != Some(pages.len() as i64) {
+        return Err(EngineError::decode("the page tree is incomplete"));
+    }
+    for id in pages.values() {
+        let page = doc.get_dictionary(*id).map_err(|e| EngineError::decode(format!("page {id:?}: {e}")))?;
+        let refs: Vec<ObjectId> = match page.get(b"Contents") {
+            Ok(Object::Reference(r)) => match doc.get_object(*r) {
+                Ok(Object::Array(a)) => a.iter().filter_map(|o| o.as_reference().ok()).collect(),
+                _ => vec![*r],
+            },
+            Ok(Object::Array(a)) => a.iter().filter_map(|o| o.as_reference().ok()).collect(),
+            _ => vec![],
+        };
+        for r in refs {
+            let s = doc
+                .get_object(r)
+                .and_then(|o| o.as_stream())
+                .map_err(|_| EngineError::decode("a page's content is missing"))?;
+            if s.filters().is_ok() && s.decompressed_content_with_limit(MAX_STREAM).is_err() {
+                return Err(EngineError::decode("a page's content does not decode"));
+            }
+        }
+    }
+    Ok(pages.len())
+}
+
+/// Ids of images used as another image's `/SMask` or `/Mask`.
+fn mask_ids(doc: &Document) -> HashSet<ObjectId> {
+    let mut out = HashSet::new();
+    for o in doc.objects.values() {
+        if let Object::Stream(s) = o {
+            for k in [b"SMask".as_slice(), b"Mask"] {
+                if let Ok(Object::Reference(r)) = s.dict.get(k) {
+                    out.insert(*r);
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Flate or unfiltered streams other than images, recompressed. Metadata streams stay as they
+/// are (PDF/A wants XMP readable without decoding), and so do streams with predictors or other
+/// filters.
+fn recompress_stream(s: &Stream) -> Option<Stream> {
+    let d = &s.dict;
+    let ty = d.get(b"Type").and_then(|t| t.as_name()).ok();
+    if matches!(ty, Some(b"Metadata" | b"XRef" | b"ObjStm")) || d.has(b"DecodeParms") {
+        return None;
+    }
+    let filters = s.filters().unwrap_or_default();
+    if !filters.iter().all(|f| matches!(*f, b"FlateDecode" | b"Fl")) || filters.len() > 1 {
+        return None;
+    }
+    let data = s.decompressed_content_with_limit(MAX_STREAM).ok()?;
+    // libdeflate's level 12 runs at a few MB/s; large streams (fonts, big drawings) get 9.
+    let packed = deflate::zlib(&data, if data.len() > 256 << 10 { 9 } else { 12 });
+    if packed.len() >= s.content.len() {
+        return None;
+    }
+    let mut nd = d.clone();
+    nd.set("Filter", Object::Name(b"FlateDecode".to_vec()));
+    Some(Stream::new(nd, packed))
+}
+
+fn strip_metadata(doc: &mut Document) {
+    doc.trailer.remove(b"Info");
+    if let Ok(cat) = doc.catalog_mut() {
+        cat.remove(b"Metadata");
+        cat.remove(b"PieceInfo");
+    }
+    let pages: Vec<ObjectId> = doc.get_pages().values().copied().collect();
+    for id in pages {
+        if let Ok(p) = doc.get_dictionary_mut(id) {
+            p.remove(b"Thumb");
+            p.remove(b"PieceInfo");
+        }
+    }
+}
+
+/// Stores byte-identical streams (same dictionary, same data) once.
+fn dedupe_streams(doc: &mut Document) {
+    let mut first: HashMap<(u64, usize), Vec<ObjectId>> = HashMap::new();
+    let mut map: BTreeMap<ObjectId, ObjectId> = BTreeMap::new();
+    for (id, o) in &doc.objects {
+        let Object::Stream(s) = o else { continue };
+        if matches!(s.dict.get(b"Type").and_then(|t| t.as_name()).ok(), Some(b"XRef" | b"ObjStm")) {
+            continue;
+        }
+        let key = (hash(&s.content, &format!("{:?}", s.dict)), s.content.len());
+        let bucket = first.entry(key).or_default();
+        let same = bucket.iter().find(|k| match doc.objects.get(k) {
+            Some(Object::Stream(t)) => t.content == s.content && format!("{:?}", t.dict) == format!("{:?}", s.dict),
+            _ => false,
+        });
+        match same {
+            Some(k) => {
+                map.insert(*id, *k);
+            }
+            None => bucket.push(*id),
+        }
+    }
+    if map.is_empty() {
+        return;
+    }
+    fn fix(o: &mut Object, map: &BTreeMap<ObjectId, ObjectId>) {
+        match o {
+            Object::Reference(r) => {
+                if let Some(k) = map.get(r) {
+                    *r = *k;
+                }
+            }
+            Object::Array(a) => a.iter_mut().for_each(|o| fix(o, map)),
+            Object::Dictionary(d) => d.iter_mut().for_each(|(_, o)| fix(o, map)),
+            Object::Stream(s) => s.dict.iter_mut().for_each(|(_, o)| fix(o, map)),
+            _ => {}
+        }
+    }
+    for o in doc.objects.values_mut() {
+        fix(o, &map);
+    }
+    doc.trailer.iter_mut().for_each(|(_, o)| fix(o, &map));
+    for id in map.keys() {
+        doc.objects.remove(id);
+    }
+}
+
+fn hash(data: &[u8], dict: &str) -> u64 {
+    let mut h = crc32fast::Hasher::new();
+    h.update(dict.as_bytes());
+    h.update(data);
+    let a = h.finalize() as u64;
+    (a << 32) | (data.len() as u64 & 0xffff_ffff)
+}
