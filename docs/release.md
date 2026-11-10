@@ -29,6 +29,9 @@ ad hoc and not notarised, and the release notes say how to open it.
 
 Real releases require a clean working tree at the release tag. `--skip-vendor` is restricted
 to dry runs. Existing release assets can be replaced only while the release is still a draft.
+`Scripts/bundle-app.sh` builds with the Swift Build engine and refuses an app whose resource
+accessor only looks in the build directory, and `Scripts/smoke-app.sh` starts the bundled app
+from a copy with the build directory moved away; CI and the release workflow both run it.
 Packaging rejects binaries containing home-directory paths, even after stripping. SwiftPM can
 write its build directory into a binary, so the release workflow builds in
 `ESCLOP_SCRATCH_PATH` (`/private/tmp/esclop-build`), which every packaging script honours. Build

@@ -17,6 +17,11 @@ cd "$ROOT"
 # fallback path of each resource bundle accessor), so a release sets ESCLOP_SCRATCH_PATH to a
 # directory outside any home.
 SCRATCH="${ESCLOP_SCRATCH_PATH:-$ROOT/.build}"
+# Always the Swift Build engine. SwiftPM's older engine (the default before Swift 6.4) writes a
+# `Bundle.module` that looks for resource bundles beside the app bundle and in the build
+# directory only, never in Contents/Resources, so an app built with it dies at launch anywhere
+# but on the machine that built it.
+BUILD_SYSTEM="${ESCLOP_BUILD_SYSTEM:-swiftbuild}"
 
 # Each slice is copied out as soon as it is built: some SwiftPM versions give every triple the
 # same output directory, so the next build would overwrite it.
@@ -26,9 +31,16 @@ slices=()
 for arch in arm64 x86_64; do
   triple="$arch-apple-macosx14.0"
   echo "build-swift: $PRODUCT for $triple" >&2
-  swift build -c release --scratch-path "$SCRATCH" --product "$PRODUCT" --triple "$triple" >&2
-  cp "$(swift build -c release --scratch-path "$SCRATCH" --triple "$triple" --show-bin-path)/$PRODUCT" "$TMP/$arch"
-  [ "$(lipo -archs "$TMP/$arch")" = "$arch" ] || { echo "build-swift: the $triple build is not $arch" >&2; exit 1; }
+  swift build -c release --build-system "$BUILD_SYSTEM" --scratch-path "$SCRATCH" --product "$PRODUCT" --triple "$triple" >&2
+  cp "$(swift build -c release --build-system "$BUILD_SYSTEM" --scratch-path "$SCRATCH" --triple "$triple" --show-bin-path)/$PRODUCT" "$TMP/$arch"
+  built="$(lipo -archs "$TMP/$arch")"
+  if [ "$built" != "$arch" ]; then
+    # Some engine versions answer a triple with a universal binary: keep the slice asked for.
+    case " $built " in
+      *" $arch "*) lipo "$TMP/$arch" -thin "$arch" -output "$TMP/$arch.thin" && mv "$TMP/$arch.thin" "$TMP/$arch" ;;
+      *) echo "build-swift: the $triple build is not $arch but: $built" >&2; exit 1 ;;
+    esac
+  fi
   slices+=("$TMP/$arch")
 done
 mkdir -p "$(dirname "$OUT")"
