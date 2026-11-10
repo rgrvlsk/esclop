@@ -50,6 +50,87 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>Free software under the GNU GPL, version 3 or later.</string>
+	<!-- Finder's Quick Actions (Services): titles in Resources/<lang>.lproj/ServicesMenu.strings. -->
+	<key>NSServices</key>
+	<array>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>Optimise with L’Esclop</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>optimiseFiles</string>
+			<key>NSPortName</key>
+			<string>L'Esclop</string>
+			<key>NSRequiredContext</key>
+			<dict/>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.image</string>
+				<string>public.movie</string>
+				<string>public.audio</string>
+				<string>com.adobe.pdf</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>Optimise Harder with L’Esclop</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>optimiseFilesHarder</string>
+			<key>NSPortName</key>
+			<string>L'Esclop</string>
+			<key>NSRequiredContext</key>
+			<dict/>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.image</string>
+				<string>public.movie</string>
+				<string>public.audio</string>
+				<string>com.adobe.pdf</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>Convert to WebP with L’Esclop</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>convertFilesToWebP</string>
+			<key>NSPortName</key>
+			<string>L'Esclop</string>
+			<key>NSRequiredContext</key>
+			<dict/>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.image</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>Run a Pipeline with L’Esclop…</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>runPipelineOnFiles</string>
+			<key>NSPortName</key>
+			<string>L'Esclop</string>
+			<key>NSRequiredContext</key>
+			<dict/>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.image</string>
+				<string>public.movie</string>
+				<string>public.audio</string>
+				<string>com.adobe.pdf</string>
+			</array>
+		</dict>
+	</array>
 	<key>EsclopSourceURL</key>
 	<string>@SOURCE_URL@</string>
 </dict>

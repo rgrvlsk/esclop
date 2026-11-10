@@ -65,7 +65,7 @@ extension AppModel {
         optimise(urls, origin: origin, aggressive: aggressive, copy: nil)
     }
 
-    func optimise(_ urls: [URL], origin: RequestOrigin, aggressive: Bool = false, copy: CopyMoment?) {
+    func optimise(_ urls: [URL], origin: RequestOrigin, aggressive: Bool = false, copy: CopyMoment?, adjust: @escaping (inout OptimisationJob) -> Void = { _ in }) {
         let copyBack = origin == .clipboard && EsclopSettings.autoCopyToClipboard.value(in: settings)
         // Too many for floating results: one batch window for all of them.
         let batch = urls.count >= batchThreshold ? openBatch(origin: origin) : nil
@@ -75,7 +75,9 @@ extension AppModel {
             let base = factory.job(for: url, origin: origin, aggressive: aggressive)
             Task {
                 var job = base
+                adjust(&job)
                 var context: CardContext?
+
                 if origin == .clipboard {
                     let found = await clipboardContext(for: url, copy: copy ?? CopyMoment(app: nil, types: []), aggressive: aggressive)
                     if found.rule != nil { found.choice.apply(to: &job.request) }
