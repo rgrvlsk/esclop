@@ -2136,7 +2136,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Calculant"
+            "value": "S’està calculant"
           }
         }
       }
@@ -3896,7 +3896,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Optimitzant %d fitxers"
+            "value": "S’estan optimitzant %d fitxers"
           }
         }
       }
@@ -3916,7 +3916,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Optimitzant 1 fitxer"
+            "value": "S’està optimitzant 1 fitxer"
           }
         }
       }
@@ -5406,7 +5406,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Provant…"
+            "value": "S’està provant…"
           }
         }
       }
@@ -5756,7 +5756,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Provant-lo amb «%@»…"
+            "value": "S’està provant amb «%@»…"
           }
         }
       }
@@ -6086,7 +6086,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vigilant %d carpetes"
+            "value": "S’estan vigilant %d carpetes"
           }
         }
       }
@@ -6096,7 +6096,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vigilant 1 carpeta"
+            "value": "S’està vigilant 1 carpeta"
           }
         }
       }
@@ -6106,7 +6106,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vigilant el porta-retalls"
+            "value": "S’està vigilant el porta-retalls"
           }
         }
       }
@@ -6186,7 +6186,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Què passa sol"
+            "value": "Què es fa automàticament"
           }
         }
       }
@@ -6916,7 +6916,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "La compressió de l’àudio quan s’optimitza de manera agressiva, de 0 a 100."
+            "value": "Quanta compressió aplica l’optimització agressiva d’àudio, de 0 a 100."
           }
         }
       }
@@ -6936,7 +6936,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Com de fort comprimeix l’optimització d’àudio, de 0 a 100. Es tradueix en una taxa de bits per a cada còdec."
+            "value": "Quanta compressió aplica l’optimització d’àudio, de 0 a 100. Es tradueix en una taxa de bits per a cada còdec."
           }
         }
       }
@@ -7016,7 +7016,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Segons que es queda a la pantalla el resultat d’una imatge copiada."
+            "value": "Quants segons es queda a la pantalla el resultat d’una imatge copiada."
           }
         }
       }
@@ -7056,7 +7056,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Segons que un resultat es queda a la pantalla."
+            "value": "Quants segons es queda un resultat a la pantalla."
           }
         }
       }
@@ -7076,7 +7076,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dies que es conserven els originals a la carpeta de còpies de seguretat abans d’eliminar-los. 0 els conserva per sempre."
+            "value": "Quants dies es conserven els originals a la carpeta de còpies de seguretat abans d’eliminar-los. 0 els conserva per sempre."
           }
         }
       }
@@ -7616,7 +7616,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "La compressió de les imatges quan s’optimitzen de manera agressiva, de 0 a 100."
+            "value": "Quanta compressió aplica l’optimització agressiva d’imatges, de 0 a 100."
           }
         }
       }
@@ -7636,7 +7636,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Com de fort comprimeix l’optimització normal d’imatges, de 0 a 100. 30 és visualment sense pèrdua; els valors més alts fan fitxers més petits amb pèrdua visible."
+            "value": "Quanta compressió aplica l’optimització normal d’imatges, de 0 a 100. 30 és visualment sense pèrdua; els valors més alts fan fitxers més petits amb pèrdua visible."
           }
         }
       }
@@ -8416,7 +8416,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "La compressió dels vídeos quan s’optimitzen de manera agressiva, de 0 a 100."
+            "value": "Quanta compressió aplica l’optimització agressiva de vídeo, de 0 a 100."
           }
         }
       }
@@ -8436,7 +8436,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Com de fort comprimeix l’optimització normal de vídeo, de 0 a 100."
+            "value": "Quanta compressió aplica l’optimització normal de vídeo, de 0 a 100."
           }
         }
       }
@@ -9126,7 +9126,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "com de fort comprimeix, de 5 (millor qualitat) a 100 (fitxer més petit), `adaptive` per triar-ho per a cada fitxer o `auto` per seguir l’opció de l’app"
+            "value": "quanta compressió aplica, de 5 (millor qualitat) a 100 (fitxer més petit), `adaptive` per triar-ho per a cada fitxer o `auto` per seguir l’opció de l’app"
           }
         }
       }

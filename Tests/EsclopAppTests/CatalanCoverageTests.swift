@@ -90,10 +90,22 @@ import Testing
         #expect(String(format: Strings.text("Must be at most %@", locale: ca), "100") == "Ha de ser com a màxim 100")
     }
 
+    /// Descriptions do not open on a bare unit that reads as another word («Segons que…» reads
+    /// as "according to", «Dies que…» as "you say that"), and status lines use Apple's «S’està…».
+    @Test func catalanWordingAvoidsMisleadingOpenings() {
+        let summaries = Self.catalan.filter { $0.key.hasPrefix("setting.") && $0.key.hasSuffix(".summary") }
+        let misleading = summaries.filter { ["Segons que", "Dies que", "Mida que", "Com de fort"].contains(where: $0.value.hasPrefix) }
+        #expect(misleading.isEmpty, "\(misleading.keys.sorted())")
+        for status in ["Watching the clipboard", "Watching 1 folder", "Optimising 1 file", "Testing…"] {
+            #expect(Self.catalan[status]?.hasPrefix("S’està") == true, "\(status)")
+        }
+    }
+
     @Test func theMenuAndTheTourSpeakCatalan() {
-        #expect(Strings.text("Watching the clipboard", locale: ca) == "Vigilant el porta-retalls")
+        #expect(Strings.text("Watching the clipboard", locale: ca) == "S’està vigilant el porta-retalls")
         #expect(Strings.text("Settings…", locale: ca) == "Configuració…")
         #expect(Strings.text("What macOS will ask", locale: ca) == "Què et preguntarà el macOS")
+        #expect(Strings.text("What happens on its own", locale: ca) == "Què es fa automàticament")
         #expect(Strings.text("Agents and MCP", locale: ca) == "Agents i MCP")
     }
 }
