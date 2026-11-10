@@ -57,7 +57,7 @@ Scripts/stage-notices.sh "$APP/Contents/Resources/LICENSES"
 
 # SwiftPM resource bundles (Bundle.module), for the app's dependencies (KeyboardShortcuts). The
 # generated accessors look in Bundle.main.resourceURL first, which is Contents/Resources.
-bindir="$(swift build -c release --triple arm64-apple-macosx14.0 --show-bin-path)"
+bindir="$(swift build -c release --scratch-path "${ESCLOP_SCRATCH_PATH:-$ROOT/.build}" --triple arm64-apple-macosx14.0 --show-bin-path)"
 for b in "$bindir"/*.bundle; do
   [ -d "$b" ] && cp -R "$b" "$APP/Contents/Resources/"
 done

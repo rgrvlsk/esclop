@@ -89,7 +89,11 @@ public struct ToolLocator: Sendable {
     static func checkoutBinaries() -> [URL] {
         var starts: [URL] = []
         if let executable = Bundle.main.executableURL { starts.append(executable.deletingLastPathComponent()) }
-        starts.append(URL(fileURLWithPath: #filePath).deletingLastPathComponent())
+        // Debug builds only: a release binary must not carry the path of the machine that built
+        // it, nor look for tools in a checkout that is not its own.
+        #if DEBUG
+            starts.append(URL(fileURLWithPath: #filePath).deletingLastPathComponent())
+        #endif
         var found: [URL] = []
         let fm = FileManager.default
         for start in starts {

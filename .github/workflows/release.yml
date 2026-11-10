@@ -48,12 +48,13 @@ jobs:
       DRY_RUN: ${{ github.event_name != 'push' }}
       HAS_CERT: ${{ secrets.MACOS_CERTIFICATE != '' && secrets.MACOS_CERTIFICATE_PASSWORD != '' }}
       HAS_NOTARY: ${{ secrets.APPLE_ID != '' && secrets.APPLE_TEAM_ID != '' && secrets.APPLE_APP_PASSWORD != '' }}
-      # Enable once the menu bar app is ready for distribution.
-      # Until then the .app is assembled as a smoke test of Scripts/bundle-app.sh but no DMG is
-      # made or attached.
-      SHIP_APP: "false"
+      # The menu bar app ships as a DMG. "false" assembles the .app as a smoke test of
+      # Scripts/bundle-app.sh only: no DMG is made or attached.
+      SHIP_APP: "true"
       ESCLOP_SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}
       ESCLOP_BUILD_NUMBER: ${{ github.run_number }}
+      # SwiftPM writes its build directory into the binaries; keep it outside the runner's home.
+      ESCLOP_SCRATCH_PATH: /private/tmp/esclop-build
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -130,16 +131,23 @@ jobs:
           fi
 
       - name: App and DMG
-        # App bundling is a smoke check until SHIP_APP is enabled.
+        # With SHIP_APP false, app bundling is only a smoke check.
         continue-on-error: ${{ env.SHIP_APP != 'true' }}
         run: |
           Scripts/bundle-app.sh
           if [ "$SHIP_APP" != true ]; then
-            echo "::notice::App/DMG skipped: SHIP_APP is false until the app is ready. The .app above was a smoke test and is not attached."
+            echo "::notice::App/DMG skipped: SHIP_APP is false. The .app above was a smoke test and is not attached."
             exit 0
           fi
           app="dist/L'Esclop.app"
           [ -d "$app" ] || { echo "::error::Scripts/bundle-app.sh produced no app"; exit 1; }
+          # The same rule as the CLI archive: nothing shipped names the machine that built it.
+          for f in "$app"/Contents/MacOS/* "$app"/Contents/Resources/bin/*; do
+            if LC_ALL=C grep -aEq '/(Users|home)/[[:alnum:]_.-]+' "$f"; then
+              strings -a "$f" | grep -E '/(Users|home)/[[:alnum:]_.-]+' | sort -u | head -5
+              echo "::error::${f##*/} in the app contains a home directory path (listed above)"; exit 1
+            fi
+          done
           version="$(plutil -extract CFBundleShortVersionString raw -o - "$app/Contents/Info.plist")"
           dmg="dist/LEsclop-$version.dmg"
           hdiutil create -volname "L'Esclop" -srcfolder "$app" -fs APFS -format ULFO -ov "$dmg"
@@ -155,7 +163,8 @@ jobs:
       - name: Keep the artefacts on the run
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: release-${{ github.ref_name }}
+          # A branch name may hold a slash, which an artefact name may not.
+          name: release-${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
           path: |
             dist/*.tar.*
             dist/*.dmg
