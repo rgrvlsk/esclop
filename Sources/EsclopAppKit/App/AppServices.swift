@@ -16,6 +16,7 @@ public final class AppServices {
     public let settingsModel: SettingsViewModel
     public let settingsWindow: SettingsWindowController
     public let pipelinesWindow: PipelineEditorWindowController
+    public let compareWindow: CompareWindowController
     public let onboarding: OnboardingWindowController
     let panels: FloatingPanelController
     let dropZone: DropZoneController
@@ -61,6 +62,9 @@ public final class AppServices {
         ))
         self.pipelinesWindow = pipelinesWindow
         model.onOpenPipelines = { [weak pipelinesWindow] name in pipelinesWindow?.show(name) }
+        let compareWindow = CompareWindowController(model: CompareModel(app: model))
+        self.compareWindow = compareWindow
+        model.onCompare = { [weak compareWindow] result in compareWindow?.show(result) }
         let panels = FloatingPanelController(model: model)
         self.panels = panels
         dropZone = DropZoneController(model: model) { [weak panels] in panels?.visibleFrame }
@@ -124,7 +128,8 @@ public final class AppServices {
 
     /// Handles `esclop://` links: `esclop://settings/...` opens the Settings window there.
     public func open(_ urls: [URL]) {
-        for url in urls where !settingsWindow.open(url) && !pipelinesWindow.open(url) {
+        for url in urls where !settingsWindow.open(url) && !pipelinesWindow.open(url) && !compareWindow.open(url) {
+
             log.info("Ignored a link L'Esclop does not handle: \(url.absoluteString, privacy: .public)")
         }
     }

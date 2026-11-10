@@ -203,9 +203,13 @@ struct BatchRowView: View {
     }
 
     @ViewBuilder private var menu: some View {
+        if let result = row.result {
+            Button(Strings.text("Compare with the original…")) { app.onCompare?(result) }
+        }
         if row.result?.backup != nil {
             Button(Strings.text("Restore the original")) { Task { await app.restore(row) } }
         }
+
         if canRetry { Button(Strings.text("Try again")) { row.retry?() } }
         if row.isRunning { Button(Strings.text("Stop")) { row.cancel?() } }
         Button(Strings.text("Show in Finder")) { app.reveal([row.shownFile]) }

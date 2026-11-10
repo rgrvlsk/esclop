@@ -49,6 +49,16 @@ public struct MenuContent: View {
                 Button(Self.line(for: result)) { model.show(result) }
             }
         }
+        Menu(Strings.text("Compare")) {
+            let comparable = model.recent.filter { $0.backup != nil || $0.output.standardizedFileURL != $0.source.standardizedFileURL }
+            if comparable.isEmpty {
+                Text(Strings.text("Nothing to compare yet"))
+            }
+            ForEach(comparable.prefix(12), id: \.id) { result in
+                Button(Self.line(for: result)) { model.onCompare?(result) }
+            }
+        }
+
         Menu(Strings.text("Restore Original")) {
             let restorable = model.restorable
             if restorable.isEmpty {
