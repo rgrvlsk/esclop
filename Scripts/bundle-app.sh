@@ -76,6 +76,10 @@ fi
 # needs no SVG tools. The menu bar glyph travels in EsclopAppKit's resource bundle, copied above.
 cp assets/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
+# Shortcuts actions: the App Intents metadata Xcode would write, from the release build.
+Scripts/appintents-metadata.sh "$APP"
+
+
 # Sign inside out: nested executables first, then the bundle.
 if [ -n "${ESCLOP_SIGN_IDENTITY:-}" ]; then
   sign=(codesign --force --options runtime --timestamp --sign "$ESCLOP_SIGN_IDENTITY")

@@ -24,6 +24,8 @@ in a floating card and restore the original. CLI and MCP workflows already run w
   app, with a folder list editor in each kind's Settings pane.
 
 - The pipeline editor: steps, triggers, filter, a text view and Try it.
+- Shortcuts actions through App Intents: optimise, convert, downscale, crop, run a pipeline,
+  get and change a setting, pause or resume.
 
 ## Next
 
@@ -33,7 +35,6 @@ in a floating card and restore the original. CLI and MCP workflows already run w
 
 - Preset zones, Finder actions, uploads and shelf integrations.
 - App release validation, notarisation, Sparkle updates and a Homebrew cask.
-- Shortcuts actions through AppIntents.
 
 ## Quality targets
 
