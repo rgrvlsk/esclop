@@ -18,7 +18,11 @@ let buildApp = developerDir.contains(".app/") || environment["ESCLOP_WITH_APP"] 
 
 let appProducts: [Product] = buildApp ? [.executable(name: "EsclopApp", targets: ["EsclopApp"])] : []
 let appDependencies: [Package.Dependency] = buildApp
-    ? [.package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "2.2.0")] : []
+    ? [
+        .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "2.2.0"),
+        // Updates: an appcast and EdDSA-signed DMGs (docs/release.md › Updates).
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.1"),
+    ] : []
 let appSwiftSettings: [SwiftSetting] = [.enableExperimentalFeature("StrictConcurrency")]
 let appTargets: [Target] = buildApp ? [
     // Menu bar app: clipboard watcher, floating results, drop zone, hotkeys, IPC server side.
@@ -28,12 +32,17 @@ let appTargets: [Target] = buildApp ? [
         dependencies: [
             "EsclopCore", "EsclopIPC", "EsclopPipelines", "EsclopOptimisers", "EsclopMCP",
             .product(name: "KeyboardShortcuts", package: "KeyboardShortcuts"),
+            .product(name: "Sparkle", package: "Sparkle"),
         ],
         // MenuBarIcon.pdf: the menu bar glyph, generated from assets/menubar.svg (make icons).
         resources: [.process("Resources")],
         swiftSettings: appSwiftSettings
     ),
-    .executableTarget(name: "EsclopApp", dependencies: ["EsclopAppKit"], swiftSettings: appSwiftSettings),
+    .executableTarget(
+        name: "EsclopApp", dependencies: ["EsclopAppKit"], swiftSettings: appSwiftSettings,
+        // Sparkle.framework sits in Contents/Frameworks of the bundle (Scripts/bundle-app.sh).
+        linkerSettings: [.unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"])]
+    ),
     .testTarget(name: "EsclopAppTests", dependencies: ["EsclopAppKit"], swiftSettings: appSwiftSettings),
 ] : []
 

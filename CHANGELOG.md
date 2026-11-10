@@ -32,6 +32,14 @@ into the body of its GitHub release.
   run as the app's usual jobs, with floating results. Titles and summaries in English and
   Catalan. The actions' metadata is generated without an Xcode project by
   `Scripts/appintents-metadata.sh`, which `bundle-app.sh` runs.
+- Automatic updates with Sparkle 2: the app checks once a day (and at once from "Check for
+  Updates…" in the menu), shows what is new from the changelog and installs the new version.
+  Settings › General › Updates has "Check for updates automatically" (on) and "Download and
+  install updates automatically" (off), also in `esclop settings`. Updates are DMGs signed with
+  an EdDSA key, from an appcast the release workflow signs and publishes when a release is
+  published, at an address that never changes; no Apple Developer account is needed, and the
+  updated app opens without macOS asking again. `Scripts/update-e2e.sh` proves on CI that an
+  installed app updates itself.
 
 ## [0.1.0] - 2026-11-10
 

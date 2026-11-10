@@ -80,6 +80,9 @@ public struct MenuContent: View {
         if let onboarding {
             Button(Strings.text("Welcome to L'Esclop…")) { onboarding.show() }
         }
+        if let check = model.onCheckForUpdates {
+            Button(Strings.text("Check for Updates…")) { check() }
+        }
         Button(Strings.text("Pipelines…")) { model.onOpenPipelines?(nil) }
         Button(Strings.text("Settings…")) { settings.show() }
         .keyboardShortcut(",")

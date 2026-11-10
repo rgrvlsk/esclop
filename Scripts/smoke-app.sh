@@ -71,5 +71,13 @@ if [ "$actions" -lt 8 ] || [ ! -f "$copy/Contents/Resources/ca.lproj/Localizable
   echo "smoke-app: the bundle carries $actions Shortcuts actions (8 expected) or lacks their Catalan" >&2
   exit 1
 fi
-echo "smoke-app: up for 15 s, seen by the command line, PNG $before -> $(stat -f %z "$TMP/sample.png") bytes, $actions Shortcuts actions"
+# Updates: Sparkle with its helpers and XPC services, validly signed, and the feed and key.
+fw="$copy/Contents/Frameworks/Sparkle.framework/Versions/B"
+for part in "$fw/Autoupdate" "$fw/Updater.app" "$fw/XPCServices/Installer.xpc" "$fw/XPCServices/Downloader.xpc" "$copy/Contents/Frameworks/Sparkle.framework"; do
+  codesign --verify --strict "$part" 2>/dev/null || { echo "smoke-app: ${part#"$copy/"} is missing or not validly signed" >&2; exit 1; }
+done
+for key in SUFeedURL SUPublicEDKey; do
+  [ -n "$(plutil -extract "$key" raw -o - "$copy/Contents/Info.plist" 2>/dev/null)" ] || { echo "smoke-app: Info.plist has no $key" >&2; exit 1; }
+done
+echo "smoke-app: up for 15 s, seen by the command line, PNG $before -> $(stat -f %z "$TMP/sample.png") bytes, $actions Shortcuts actions, Sparkle signed"
 
