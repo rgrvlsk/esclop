@@ -26,7 +26,8 @@ import Testing
     @discardableResult
     static func renderWindow(_ view: some View, size: CGSize, name: String, scheme: ColorScheme, settle: Duration = .milliseconds(250)) async throws -> CGSize {
         _ = NSApplication.shared
-        let host = NSHostingView(rootView: view.environment(\.colorScheme, scheme))
+        // A fixed screenshot location: the machine's own stays out of the pictures.
+        let host = NSHostingView(rootView: view.environment(\.screenshotLocation, "~/Desktop").environment(\.colorScheme, scheme))
         let window = KeyWindow(
             contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView], backing: .buffered, defer: false

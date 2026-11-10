@@ -167,12 +167,24 @@ holds the rest, in folders by feature:
   planned `ConfigChange` shown as a diff before it is applied, and the `MCPProbe` test. The
   command agents run is the `esclop` next to the app's executable (inside the bundle).
 
+- `Folders`: watched folders. `WatchPlan` is a pure function of the settings and the saved
+  pipelines: the folders to watch (the four lists of the kinds switched on, plus every
+  pipeline's `folder(...)` trigger, the first pipeline by name winning a folder) and what a new
+  file gets (`optimise`, `pipeline` or a `WatchSkip` reason). `FolderWatcher` is one FSEvents
+  stream with file-level events; `FileSettle` waits until a file's size and modification date
+  stop changing. `WatchedFolders` ties them to the model: files of one kind arriving within a
+  second form a `Burst`, a burst above the kind's count is left alone with a notice, the rest
+  settle, are decided again and go to `AppModel.optimise` or `AppModel.runPipeline`. The model
+  remembers what it wrote for three seconds (`wasJustWritten`), and the optimised mark covers the
+  rest, so a result is never picked up again. `AppServices` refreshes the watcher when the
+  lists, the pause, the pipelines folder or the mounted disks change. `FolderListEditor` is the
+  Settings control for the four lists.
 - `Onboarding`: `OnboardingModel` (steps, the `finishedOnboarding` flag in the app's defaults,
   clipboard access from `NSPasteboard.accessBehavior`, open at login through `SMAppService`),
   `OnboardingView` (its pages reuse `SettingRow` and the Agents pane's section) and
   `OnboardingWindowController`, which `AppServices.start()` asks to show on the first launch.
 
-Planned: watched folders, pipeline editor, batch and crop windows.
+Planned: the pipeline editor and a crop window.
 
 ## Build and packaging
 - `swift build` builds the CLI and libraries with Command Line Tools. The package includes

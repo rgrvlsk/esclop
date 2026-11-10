@@ -20,16 +20,17 @@ in a floating card and restore the original. CLI and MCP workflows already run w
 - The options popover from "…" (Optimise, Size with the crop editor, Share; Sound for audio)
   with size estimates, origin suggestions, clipboard rules and the Catalan localisation.
 - The batch window for many files at once: progress, aggregate saving, pause, stop and restore all.
+- Watched folders (screenshots and recordings by default) and pipeline folder triggers in the
+  app, with a folder list editor in each kind's Settings pane.
 
 ## Next
 
-- Watched folders (screenshots and recordings) and pipeline triggers in the app.
+- A pipeline editor.
 
 ## Later
 
-- A pipeline editor.
 - A crop window for files that are not on screen as a floating result.
-- Watched folders, preset zones, Finder actions, uploads and shelf integrations.
+- Preset zones, Finder actions, uploads and shelf integrations.
 - App release validation, notarisation, Sparkle updates and a Homebrew cask.
 - Shortcuts actions through AppIntents.
 
