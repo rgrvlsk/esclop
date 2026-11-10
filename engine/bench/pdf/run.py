@@ -10,6 +10,10 @@ stdout. See README.md.
 """
 
 import argparse
+import concurrent.futures as cf
+import hashlib
+import shutil
+import threading
 import json
 import os
 import statistics
@@ -77,85 +81,154 @@ def gs_args(inp, out, dpi):
     return ["gs"] + base + res + opt + outa + q + pre + [str(inp)] + post
 
 
-def judge(*args):
-    out = subprocess.run([str(JUDGE), *map(str, args)], capture_output=True, text=True)
-    return json.loads(out.stdout) if out.returncode == 0 and out.stdout.strip() else {"opens": False}
-
-
+TIMEOUT = 120  # seconds per tool run; Swift gave Ghostscript 1800, a hang shows long before
+JUDGE_TIMEOUT = 900
 REPEAT = 1
 
 
+def judge(*args, timeout=JUDGE_TIMEOUT):
+    try:
+        out = subprocess.run([str(JUDGE), *map(str, args)], capture_output=True, text=True, errors="replace", timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return {"opens": False, "judge_timeout": True}
+    return json.loads(out.stdout) if out.returncode == 0 and out.stdout.strip() else {"opens": False, "judge_error": out.returncode}
+
+
 def timed(cmd):
-    """Runs `cmd` REPEAT times; the median wall time and the last result."""
-    times = []
+    """Runs `cmd` REPEAT times under TIMEOUT: (last CompletedProcess or None on timeout, median seconds)."""
+    times, p = [], None
     for _ in range(REPEAT):
         t = time.perf_counter()
-        p = subprocess.run(cmd, capture_output=True, text=True)
+        try:
+            p = subprocess.run(cmd, capture_output=True, text=True, errors="replace", timeout=TIMEOUT)
+        except subprocess.TimeoutExpired:
+            return None, float(TIMEOUT)
         times.append(time.perf_counter() - t)
     return p, statistics.median(times)
 
 
+def gs_opens(src):
+    """Whether Ghostscript reads the file at all (its first page renders to the null device)."""
+    try:
+        p = subprocess.run(["gs", "-q", "-dSAFER", "-dBATCH", "-dNOPAUSE", "-sDEVICE=nullpage", "-dFirstPage=1", "-dLastPage=1", str(src)],
+                           capture_output=True, timeout=60)
+        return p.returncode == 0
+    except subprocess.TimeoutExpired:
+        return False
+
+
+def dpi_for(info, aggressive):
+    dpi = info.get("adaptive_dpi", 300)
+    return step_down(dpi) if aggressive else dpi
+
+
 def run_gs(src, out, info, aggressive):
-    if not info.get("opens") or info.get("locked"):
+    if info.get("valid") != "ok":
         return {"status": "refused"}
-    dpi = info["adaptive_dpi"]
-    if aggressive:
-        dpi = step_down(dpi)
+    dpi = dpi_for(info, aggressive)
     p, secs = timed(gs_args(src, out, dpi))
+    if p is None:
+        return {"status": "timeout", "seconds": secs}
+    if p.returncode < 0:
+        return {"status": "crash", "seconds": secs, "error": f"signal {-p.returncode}"}
     if p.returncode != 0 or not out.exists():
         return {"status": "failed", "seconds": secs, "error": p.stderr[-300:]}
     return {"status": "ok", "seconds": secs, "dpi": dpi}
 
 
 def run_engine(src, out, info, aggressive):
-    """Same DPI choice as the gs path (the Swift side keeps it); compression 30 or 64."""
-    if not info.get("opens") or info.get("locked"):
-        return {"status": "refused"}
-    dpi = info["adaptive_dpi"]
-    if aggressive:
-        dpi = step_down(dpi)
+    """Same DPI choice as the gs path (the Swift side keeps it); compression 30 or 64. Runs on
+    every file, valid or not, to catch crashes and hangs; only valid ones are scored."""
+    dpi = dpi_for(info, aggressive)
     params = {"dpi": dpi, "compression": 64 if aggressive else 30, "strip": True}
-    req = json.dumps({"input": str(src), "output": str(out), "params": params})
+    req = json.dumps({"input": str(src.resolve()), "output": str(out.resolve()), "params": params})
     p, secs = timed([str(ENGINE), "pdf.optimise", "--json", req])
+    if p is None:
+        return {"status": "timeout", "seconds": secs}
+    if p.returncode < 0:
+        return {"status": "crash", "seconds": secs, "error": f"signal {-p.returncode}"}
     try:
         reply = json.loads(p.stdout.strip().splitlines()[-1])
     except Exception:
-        return {"status": "failed", "seconds": secs, "error": (p.stderr or p.stdout)[-300:]}
+        return {"status": "crash", "seconds": secs, "error": (p.stderr or p.stdout)[-300:]}
     if not reply.get("ok"):
         code = reply["error"]["code"]
-        status = "kept" if code == "already_smaller" else "refused" if code in ("unsupported", "decode") else "failed"
-        return {"status": status, "seconds": secs, "error": f"{code}: {reply['error']['message']}"}
+        status = {"already_smaller": "kept", "unsupported": "refused", "decode": "refused", "internal": "internal"}.get(code, "failed")
+        return {"status": status, "seconds": secs, "error": f"{code}: {reply['error']['message']}"[:300]}
     return {"status": "ok", "seconds": secs, "dpi": dpi}
 
 
 PATHS = {"gs": run_gs, "engine": run_engine}
+CHECKS = ("pages", "text_sha", "links", "outline", "fields")
 
 
-def evaluate(src, out, rec, info):
+def evaluate(src, out, rec, info, compared, aggressive):
+    """Fills sizes and, for an output that would replace the original, what it got wrong."""
     before = src.stat().st_size
     rec["bytes_before"] = before
-    if rec["status"] != "ok":
-        rec["bytes"] = before
-        return rec
-    c = judge("compare", src, out)
-    o = c.get("output", {})
-    rec["raw_bytes"] = out.stat().st_size
-    rec["opens"] = bool(o.get("opens"))
-    rec["ssim"] = c.get("ssim", [])
-    rec["min_ssim"] = min(rec["ssim"]) if rec["ssim"] else 0.0
-    checks = {}
-    for k in ("pages", "text_sha", "links", "outline", "fields"):
-        checks[k] = info.get(k) == o.get(k)
-    rec["checks"] = checks
-    # Not smaller: the app keeps the original (alreadySmaller).
-    rec["bytes"] = min(before, rec["raw_bytes"]) if rec["opens"] else before
-    if rec["raw_bytes"] >= before:
-        rec["status"] = "kept"
+    rec["bytes"] = before
+    fails = []
+    if rec["status"] in ("timeout", "crash", "internal"):
+        fails.append(rec["status"])
+    if rec["status"] == "ok":
+        rec["raw_bytes"] = out.stat().st_size
+        if rec["raw_bytes"] >= before:
+            rec["status"] = "kept"  # the app keeps the original (alreadySmaller)
+        elif compared is not None:
+            o = compared.get("output", {})
+            rec["opens"] = bool(o.get("opens"))
+            rec["ssim"] = compared.get("ssim", [])
+            rec["min_ssim"] = min(rec["ssim"]) if rec["ssim"] else 0.0
+            rec["checks"] = {k: info.get(k) == o.get(k) for k in CHECKS}
+            if not rec["opens"]:
+                fails.append("unopenable")
+            else:
+                fails += [k for k, ok in rec["checks"].items() if not ok]
+                if rec["min_ssim"] < (0.95 if aggressive else 0.98):
+                    fails.append(f"ssim {rec['min_ssim']:.3f}")
+            rec["bytes"] = rec["raw_bytes"] if rec["opens"] else before
+    rec["fails"] = fails
     return rec
 
 
+def process(src, name, a):
+    info = judge("info", src, timeout=300)
+    if info.get("opens") and not info.get("locked"):
+        info["valid"] = "ok"
+    elif info.get("locked"):
+        info["valid"] = "locked"
+    else:
+        info["valid"] = "gs-only" if gs_opens(src) else "invalid"
+    entry = {"info": info}
+    work = a.out / "work" / name.replace("/", "__")
+    work.mkdir(parents=True, exist_ok=True)
+    runs = []
+    for path in a.paths.split(","):
+        for mode in ("default", "aggressive"):
+            out = work / f"{path}-{mode}.pdf"
+            out.unlink(missing_ok=True)
+            runs.append((path, mode, out, PATHS[path](src, out, info, mode == "aggressive")))
+    scored = [r for r in runs if r[3]["status"] == "ok" and r[2].exists() and r[2].stat().st_size < src.stat().st_size]
+    compared = {}
+    if info["valid"] == "ok" and scored and not a.timing_only:
+        c = judge("compare-many", src, *[r[2] for r in scored])
+        if "outputs" in c:
+            for r, o in zip(scored, c["outputs"]):
+                compared[(r[0], r[1])] = o
+        else:
+            entry["judge_failed"] = c  # the judge, not the tool: scored as unknown, listed
+    for path, mode, out, rec in runs:
+        e = evaluate(src, out, rec, info, compared.get((path, mode)), mode == "aggressive")
+        if info["valid"] != "ok":
+            e["fails"] = [f for f in e["fails"] if f in ("timeout", "crash")]
+        entry[f"{path}/{mode}"] = e
+    if not a.keep_outputs:
+        shutil.rmtree(work, ignore_errors=True)
+    return entry
+
+
 def main():
-    global JUDGE, ENGINE, REPEAT
+    global JUDGE, ENGINE, REPEAT, TIMEOUT
     ap = argparse.ArgumentParser()
     ap.add_argument("corpus", type=Path)
     ap.add_argument("--paths", default="gs,engine")
@@ -163,42 +236,51 @@ def main():
     ap.add_argument("--out", type=Path, default=Path("pdf-bench-out"))
     ap.add_argument("--only", default="")
     ap.add_argument("--repeat", type=int, default=3, help="runs per file and setting; the median time counts")
+    ap.add_argument("--timeout", type=int, default=TIMEOUT, help="seconds per tool run")
+    ap.add_argument("--jobs", type=int, default=1, help="files in parallel (times are then under load)")
+    ap.add_argument("--timing-only", action="store_true", help="run the tools, skip the judge")
+    ap.add_argument("--keep-outputs", action="store_true")
+    ap.add_argument("--resume", action="store_true", help="skip files already in results.json")
     ap.add_argument("--table", action="store_true", help="only print the table from OUT/results.json")
     a = ap.parse_args()
-    REPEAT = max(1, a.repeat)
+    REPEAT, TIMEOUT = max(1, a.repeat), a.timeout
     ENGINE = a.engine.resolve()
     a.out.mkdir(parents=True, exist_ok=True)
     JUDGE = a.out / "judge"
-    results_path = a.out / "results.json"
+    results_path = a.out / ("timing.json" if a.timing_only else "results.json")
     results = json.loads(results_path.read_text()) if results_path.exists() else {}
     if not a.table:
         if not JUDGE.exists() or JUDGE.stat().st_mtime < (HERE / "judge.swift").stat().st_mtime:
             subprocess.run(["swiftc", "-O", str(HERE / "judge.swift"), "-o", str(JUDGE)], check=True)
         sums = HERE / "corpus.sha256"
-        if sums.exists():
-            import hashlib
-
+        if sums.exists() and (a.corpus / sums.read_text().split()[1]).exists():
             for line in sums.read_text().splitlines():
                 h, name = line.split()
                 f = a.corpus / name
                 if not f.exists() or hashlib.sha256(f.read_bytes()).hexdigest() != h:
                     print(f"warning: {name} differs from corpus.sha256", file=sys.stderr)
-        files = sorted(a.corpus.glob("*.pdf"))
+        files = sorted(a.corpus.rglob("*.pdf"))
         if a.only:
-            files = [f for f in files if any(s in f.name for s in a.only.split(","))]
-        for src in files:
-            info = judge("info", src)
-            entry = results.setdefault(src.stem, {})
-            entry["info"] = info
-            for path in a.paths.split(","):
-                for mode in ("default", "aggressive"):
-                    out = a.out / path / mode / src.name
-                    out.parent.mkdir(parents=True, exist_ok=True)
-                    out.unlink(missing_ok=True)
-                    rec = PATHS[path](src, out, info, mode == "aggressive")
-                    entry[f"{path}/{mode}"] = evaluate(src, out, rec, info)
-            print(src.stem, {k: (v.get("status"), v.get("bytes"), round(v.get("min_ssim", 0), 4)) for k, v in entry.items() if k != "info"}, file=sys.stderr, flush=True)
-            results_path.write_text(json.dumps(results, indent=1, sort_keys=True))
+            files = [f for f in files if any(s in str(f) for s in a.only.split(","))]
+        names = {f: str(f.relative_to(a.corpus))[: -len(".pdf")] for f in files}
+        todo = [f for f in files if not (a.resume and names[f] in results)]
+        lock = threading.Lock()
+
+        def one(src):
+            try:
+                entry = process(src, names[src], a)
+            except Exception as e:  # a runner bug must not end the run: listed, not scored
+                entry = {"info": {"valid": "runner-error", "error": repr(e)[:300]}}
+            with lock:
+                results[names[src]] = entry
+                bad = {k: v["fails"] for k, v in entry.items() if k != "info" and v.get("fails")}
+                print(names[src], entry["info"]["valid"], {k: (v["status"], v["bytes"]) for k, v in entry.items() if k != "info"}, bad or "", file=sys.stderr, flush=True)
+                if len(results) % 10 == 0:
+                    results_path.write_text(json.dumps(results, indent=1, sort_keys=True))
+
+        with cf.ThreadPoolExecutor(max(1, a.jobs)) as pool:
+            list(pool.map(one, todo))
+        results_path.write_text(json.dumps(results, indent=1, sort_keys=True))
     print(table(results, a.paths.split(",")))
 
 
