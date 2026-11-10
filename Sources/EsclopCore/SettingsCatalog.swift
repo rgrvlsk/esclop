@@ -386,35 +386,58 @@ public enum EsclopSettings {
     )
     public static let enableAutomaticImageOptimisations = Setting<Bool>(
         "enableAutomaticImageOptimisations", default: true, title: "Watch folders for images",
-        description: "Optimise new images in the image folders.", section: .automation
+        description: "Optimise new images in the image folders.", section: .images
     )
     public static let enableAutomaticVideoOptimisations = Setting<Bool>(
         "enableAutomaticVideoOptimisations", default: true, title: "Watch folders for videos",
-        description: "Optimise new videos in the video folders.", section: .automation
+        description: "Optimise new videos in the video folders.", section: .video
     )
     public static let enableAutomaticPDFOptimisations = Setting<Bool>(
         "enableAutomaticPDFOptimisations", default: true, title: "Watch folders for PDFs",
-        description: "Optimise new PDFs in the PDF folders.", section: .automation
+        description: "Optimise new PDFs in the PDF folders.", section: .pdf
     )
     public static let enableAutomaticAudioOptimisations = Setting<Bool>(
         "enableAutomaticAudioOptimisations", default: false, title: "Watch folders for audio",
-        description: "Optimise new audio files in the audio folders.", section: .automation
+        description: "Optimise new audio files in the audio folders.", section: .audio
     )
     public static let imageDirs = Setting<[String]>(
         "imageDirs", default: ["~/Desktop"], title: "Screenshot folders",
-        description: "Folders watched for new images, screenshots included.", section: .automation
+        description: "New images in these folders are optimised as they appear. Screenshots land on the Desktop unless you moved them.", section: .images
     )
     public static let videoDirs = Setting<[String]>(
         "videoDirs", default: ["~/Desktop"], title: "Recording folders",
-        description: "Folders watched for new videos, screen recordings included.", section: .automation
+        description: "New videos in these folders are optimised as they appear, screen recordings included.", section: .video
     )
     public static let pdfDirs = Setting<[String]>(
         "pdfDirs", default: [], title: "PDF folders",
-        description: "Folders watched for new PDFs.", section: .automation
+        description: "New PDFs in these folders are optimised as they appear.", section: .pdf
     )
     public static let audioDirs = Setting<[String]>(
         "audioDirs", default: [], title: "Audio folders",
-        description: "Folders watched for new audio files.", section: .automation
+        description: "New audio files in these folders are optimised as they appear.", section: .audio
+    )
+
+    /// How many new files of a kind may appear in the watched folders at once (within a second)
+    /// before L'Esclop leaves them all alone and says so: Clop's limits.
+    public static let maxImageFileCount = Setting<Int>(
+        "maxImageFileCount", default: 4, title: "Most new images at once",
+        description: "When more images than this appear in a watched folder together, as when a folder is copied or unzipped there, none of them is optimised.",
+        section: .images, minimum: 1, maximum: 100
+    )
+    public static let maxVideoFileCount = Setting<Int>(
+        "maxVideoFileCount", default: 1, title: "Most new videos at once",
+        description: "When more videos than this appear in a watched folder together, none of them is optimised.",
+        section: .video, minimum: 1, maximum: 100
+    )
+    public static let maxPDFFileCount = Setting<Int>(
+        "maxPDFFileCount", default: 2, title: "Most new PDFs at once",
+        description: "When more PDFs than this appear in a watched folder together, none of them is optimised.",
+        section: .pdf, minimum: 1, maximum: 100
+    )
+    public static let maxAudioFileCount = Setting<Int>(
+        "maxAudioFileCount", default: 2, title: "Most new audio files at once",
+        description: "When more audio files than this appear in a watched folder together, none of them is optimised.",
+        section: .audio, minimum: 1, maximum: 100
     )
 
     // MARK: Agents
@@ -469,6 +492,7 @@ public enum EsclopSettings {
         pauseAutomaticOptimisations.erased, enableAutomaticImageOptimisations.erased,
         enableAutomaticVideoOptimisations.erased, enableAutomaticPDFOptimisations.erased,
         enableAutomaticAudioOptimisations.erased, imageDirs.erased, videoDirs.erased, pdfDirs.erased, audioDirs.erased,
+        maxImageFileCount.erased, maxVideoFileCount.erased, maxPDFFileCount.erased, maxAudioFileCount.erased,
         allowOverwriteOriginals.erased, allowDeleteBackups.erased, allowRunScripts.erased, allowSettingsChanges.erased,
     ]
 }

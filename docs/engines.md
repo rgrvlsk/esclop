@@ -227,14 +227,18 @@ Swift code reads typed values: `EsclopSettings.stripMetadata.value` (or `.value(
 | `clipboardRules` | [String] | `[]` | clipboard | Clipboard rules |
 | `autoCopyToClipboard` | Bool | `true` | clipboard | Copy results to the clipboard |
 | `pauseAutomaticOptimisations` | Bool | `false` | automation | Pause automatic optimisation |
-| `enableAutomaticImageOptimisations` | Bool | `true` | automation | Watch folders for images |
-| `enableAutomaticVideoOptimisations` | Bool | `true` | automation | Watch folders for videos |
-| `enableAutomaticPDFOptimisations` | Bool | `true` | automation | Watch folders for PDFs |
-| `enableAutomaticAudioOptimisations` | Bool | `false` | automation | Watch folders for audio |
-| `imageDirs` | [String] | `[~/Desktop]` | automation | Screenshot folders |
-| `videoDirs` | [String] | `[~/Desktop]` | automation | Recording folders |
-| `pdfDirs` | [String] | `[]` | automation | PDF folders |
-| `audioDirs` | [String] | `[]` | automation | Audio folders |
+| `enableAutomaticImageOptimisations` | Bool | `true` | images | Watch folders for images |
+| `enableAutomaticVideoOptimisations` | Bool | `true` | video | Watch folders for videos |
+| `enableAutomaticPDFOptimisations` | Bool | `true` | pdf | Watch folders for PDFs |
+| `enableAutomaticAudioOptimisations` | Bool | `false` | audio | Watch folders for audio |
+| `imageDirs` | [String] | `[~/Desktop]` | images | Screenshot folders |
+| `videoDirs` | [String] | `[~/Desktop]` | video | Recording folders |
+| `pdfDirs` | [String] | `[]` | pdf | PDF folders |
+| `audioDirs` | [String] | `[]` | audio | Audio folders |
+| `maxImageFileCount` | Int | `4` | images | Most new images at once |
+| `maxVideoFileCount` | Int | `1` | video | Most new videos at once |
+| `maxPDFFileCount` | Int | `2` | pdf | Most new PDFs at once |
+| `maxAudioFileCount` | Int | `2` | audio | Most new audio files at once |
 | `allowOverwriteOriginals` | Bool | `false` | agents | Agents may overwrite originals |
 | `allowDeleteBackups` | Bool | `false` | agents | Agents may delete backups |
 | `allowRunScripts` | Bool | `false` | agents | Agents may run scripts |

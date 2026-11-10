@@ -7,9 +7,21 @@ into the body of its GitHub release.
 
 ## [Unreleased]
 
-Watched folders remain planned.
-
 ### Added
+- Watched folders: new images, videos, PDFs and audio files in the folders listed in Settings
+  (the Desktop for screenshots and recordings by default) are optimised as they appear, with a
+  floating result, or in the batch window when enough arrive. As in Clop, hidden, temporary and
+  partial downloads are left alone, and so are files already optimised, files L'Esclop itself
+  wrote in the last three seconds, and files outside the size limits. A file still being written
+  waits until it stops changing. When more files of one kind than its count (`maxImageFileCount`
+  4, `maxVideoFileCount` 1, `maxPDFFileCount` 2, `maxAudioFileCount` 2) appear at once, none of
+  them is touched and a notice says so. A pipeline with a `folder(...)` trigger runs instead of
+  the plain optimisation for the kinds it has steps for, also in folders no list names. Pause
+  stops the watching; the menu says how many folders are being watched.
+- Settings: each folder list has its own editor in its kind's pane: Add Folder… with the folder
+  picker, Show in Finder and Stop Watching per folder, a line under a folder that no longer
+  exists or that macOS does not let L'Esclop read (with a button to the privacy settings), and
+  the folder macOS saves screenshots to offered when it is not in the list.
 - Batch window: a job with four files or more (`batchWindowFrom`) lists them in one window
   instead of a floating result each, from the drop zone, "Optimise Files…" in the menu (files
   or folders), several copied files, and the CLI or MCP. The header shows the aggregate saving
@@ -88,6 +100,10 @@ Watched folders remain planned.
   crates (`engine/THIRD_PARTY-engine.md`) and the bundled tools (`THIRD_PARTY.md`).
 - Release engineering: continuous integration, a licence gate over every bundled Mach-O file,
   release packaging with the complete corresponding source, and this changelog.
+
+### Changed
+- The four "Watch folders for …" switches and the folder lists moved from Automation to the
+  Images, Video, PDF and Audio panes.
 
 ### Fixed
 - Floating results and the options popover, from a live UI check:
