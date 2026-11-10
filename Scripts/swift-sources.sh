@@ -14,7 +14,7 @@ i=0
 while id="$(plutil -extract "pins.$i.identity" raw -o - "$RESOLVED" 2>/dev/null)"; do
   revision="$(plutil -extract "pins.$i.state.revision" raw -o - "$RESOLVED")"
   url="$(plutil -extract "pins.$i.location" raw -o - "$RESOLVED")"
-  checkout="$ROOT/.build/checkouts/$id"
+  checkout="${ESCLOP_SCRATCH_PATH:-$ROOT/.build}/checkouts/$id"
   [ "$(git -C "$checkout" rev-parse HEAD)" = "$revision" ] || { echo "swift-sources: $id differs from Package.resolved" >&2; exit 1; }
   [ -z "$(git -C "$checkout" status --porcelain)" ] || { echo "swift-sources: $id has local changes" >&2; exit 1; }
   refs=(HEAD)

@@ -20,14 +20,18 @@
 | `SHA256SUMS` | checksums of the above |
 
 Releases must provide complete corresponding source, including SwiftPM dependencies,
-vendored Rust crates and upstream tool sources. The app and its DMG are configured in
-`release.yml` but disabled with `SHIP_APP: "false"` until the app is ready; until then `Scripts/bundle-app.sh` runs as a smoke test only.
+vendored Rust crates and upstream tool sources. The menu bar app ships as
+`LEsclop-X.Y.Z.dmg`, built by `release.yml` when `SHIP_APP` is `"true"`; with `"false"`,
+`Scripts/bundle-app.sh` runs as a smoke test only. Without the signing secrets the app is signed
+ad hoc and not notarised, and the release notes say how to open it.
 
 ## Signing and notarisation
 
 Real releases require a clean working tree at the release tag. `--skip-vendor` is restricted
 to dry runs. Existing release assets can be replaced only while the release is still a draft.
-Packaging rejects binaries containing home-directory paths, even after stripping. Build
+Packaging rejects binaries containing home-directory paths, even after stripping. SwiftPM can
+write its build directory into a binary, so the release workflow builds in
+`ESCLOP_SCRATCH_PATH` (`/private/tmp/esclop-build`), which every packaging script honours. Build
 release binaries from a neutral directory such as `/tmp/esclop-build` and check them before
 signing. Rust source locations are also remapped by `Scripts/build-engine.sh`.
 
