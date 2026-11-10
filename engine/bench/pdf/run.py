@@ -89,7 +89,7 @@ REPEAT = 1
 # Memory and disk guards. The judge once took a 16 GB Mac down (four of them at 11 GB each):
 # every child now runs under a resident-memory cap, at most one judge runs at a time, files a
 # child writes are capped, and the run stops when free disk runs low.
-JUDGE_MEM_MB = 1536
+JUDGE_MEM_MB = 1400  # killed at the next 0.25 s poll: measured overshoot 55 MB
 TOOL_MEM_MB = 2560
 FILE_LIMIT = 2 << 30
 MIN_FREE_DISK = 10 << 30
@@ -166,7 +166,7 @@ def judge(*args, timeout=JUDGE_TIMEOUT):
         out = child([JUDGE, *args], timeout, JUDGE_MEM_MB, "judge")
     if out is None:
         return {"opens": False, "judge_timeout": True}
-    if out.killed:
+    if out.killed or out.returncode == 75:  # 75: the judge stopped itself at its own memory limit
         return {"opens": False, "judge_error": "memory", "rss_mb": out.rss >> 20}
     if out.returncode != 0 or not out.stdout.strip():
         return {"opens": False, "judge_error": out.returncode}
