@@ -35,9 +35,10 @@ struct SizeTab: View {
                     Text("100\u{00A0}%")
                 }
                 .font(OptionsType.label)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(PopoverInk.secondary.color)
                 Button(Strings.text("Restore original size (100 %)")) { model.restoreFullSize() }
-                    .buttonStyle(.link)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(PopoverInk.accent.color)
                     .font(OptionsType.body)
                     .disabled(model.card.isWorking)
             }
@@ -67,7 +68,7 @@ struct FitChips: View {
                     .textFieldStyle(.roundedBorder)
                     .font(OptionsType.body)
                     .onSubmit(applyCustom)
-                Text("kB").foregroundStyle(.secondary)
+                Text("kB").foregroundStyle(PopoverInk.secondary.color)
                 Button(Strings.text("Fit"), action: applyCustom).disabled(Int(model.customFit) == nil)
             }
         }
@@ -112,7 +113,8 @@ struct CropSection: View {
                 } label: {
                     Label(Strings.text("Open the editor…"), systemImage: "crop")
                 }
-                .buttonStyle(.link)
+                .buttonStyle(.plain)
+                    .foregroundStyle(PopoverInk.accent.color)
                 .font(OptionsType.body)
                 .disabled(model.facts.width == nil)
             }
@@ -164,9 +166,9 @@ struct CropEditor: View {
 
                 HStack(spacing: 6) {
                     TextField(Strings.text("Width"), text: $widthText).frame(width: 64).onSubmit(applySize)
-                    Text("×").foregroundStyle(.secondary)
+                    Text("×").foregroundStyle(PopoverInk.secondary.color)
                     TextField(Strings.text("Height"), text: $heightText).frame(width: 64).onSubmit(applySize)
-                    Text("px").foregroundStyle(.secondary)
+                    Text("px").foregroundStyle(PopoverInk.secondary.color)
                     Spacer()
                     Button(Strings.text("Cancel")) { model.cropping = false; model.crop = nil }
                     Button(Strings.text("Crop")) { model.applyCrop() }

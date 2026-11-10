@@ -128,6 +128,43 @@ import Testing
         return try JSONCDocument(temp.read(relative(agent.configPaths[0]))).value(at: agent.container + ["esclop"])
     }
 
+    /// Disconnect undoes Connect: a file Connect created, untouched since, goes away; one the
+    /// person edited, or that existed before, keeps everything but the esclop entry (UI check, N7).
+    @Test func disconnectRemovesOnlyAFileConnectCreated() throws {
+        let temp = TempDir()
+        let installer = installer(temp)
+        let agent = try #require(AgentCatalog.agent("cursor"))
+        let config = temp.url.appendingPathComponent(".cursor/mcp.json")
+        let fm = FileManager.default
+
+        try installer.install(agent, command: Self.command)
+        #expect(fm.fileExists(atPath: config.path), "Connect created it")
+        let plan = try #require(try installer.planUninstall(agent))
+        #expect(plan.removesFile)
+        #expect(plan.diff().allSatisfy { $0.kind != .added }, "the preview shows every line going")
+        try installer.apply(plan)
+        #expect(!fm.fileExists(atPath: config.path), "no empty { \"mcpServers\": { } } left behind")
+        #expect(try String(contentsOf: try #require(plan.backup), encoding: .utf8) == plan.before, "its last version is kept")
+
+        // Created by Connect, then edited: only the esclop entry goes.
+        try installer.install(agent, command: Self.command)
+        var edited = try String(contentsOf: config, encoding: .utf8)
+        edited = edited.replacingOccurrences(of: "\"mcpServers\": {", with: "\"mcpServers\": {\n    \"other\": { \"command\": \"x\" },")
+        try edited.write(to: config, atomically: true, encoding: .utf8)
+        let partial = try #require(try installer.planUninstall(agent))
+        #expect(!partial.removesFile)
+        try installer.apply(partial)
+        let left = try String(contentsOf: config, encoding: .utf8)
+        #expect(left.contains("\"other\"") && !left.contains("\"esclop\""))
+
+        // There before Connect: the file stays.
+        try installer.install(agent, command: Self.command)
+        let again = try #require(try installer.planUninstall(agent))
+        #expect(!again.removesFile)
+        try installer.apply(again)
+        #expect(fm.fileExists(atPath: config.path))
+    }
+
     @Test func previewIsExactlyWhatIsWritten() throws {
         let temp = TempDir()
         let installer = installer(temp)

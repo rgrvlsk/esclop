@@ -18,6 +18,9 @@ public struct BatchPresentation: Equatable {
     /// Where the aggregate bar ends, as a fraction of the originals.
     public var barEnd: Double
     public var progress: Double?
+    /// Nothing is saved any more (all restored, or stopped): the bar stays a neutral track
+    /// rather than a full green bar, which reads as success.
+    public var barIsNeutral = false
     /// "10 optimised · 1 already optimised · 1 failed"
     public var counts: String
     public var announcement: String
@@ -34,12 +37,19 @@ public struct BatchPresentation: Equatable {
         } else {
             if batch.optimised == batch.total {
                 title = batch.total == 1 ? t("1 file optimised") : f("%d files optimised", batch.total)
+            } else if batch.optimised == 0, batch.restored > 0 {
+                // Say what happened, not "0 of 6 files optimised".
+                title = batch.restored == 1 ? t("1 original restored") : f("%d originals restored", batch.restored)
+            } else if batch.optimised == 0, batch.cancelled > 0 {
+                title = batch.total == 1 ? t("Stopped: 1 original kept") : f("Stopped: %d originals kept", batch.total)
             } else {
                 title = f("%d of %d files optimised", batch.optimised, batch.total)
             }
             progress = nil
         }
-        change = before > 0 ? Figures.change(before: before, after: after, locale: locale) : nil
+        let saved = before > 0 && !Figures.isNoSaving(before: before, after: after)
+        barIsNeutral = !batch.isRunning && !saved
+        change = saved ? Figures.change(before: before, after: after, locale: locale) : nil
         percent = before > 0 && !Figures.isNoSaving(before: before, after: after) ? Figures.percent(before: before, after: after, locale: locale) : nil
         barEnd = before > 0 ? min(1, max(0, Double(after) / Double(before))) : 1
         var parts: [String] = []
@@ -51,8 +61,8 @@ public struct BatchPresentation: Equatable {
         let waiting = batch.total - batch.finished
         if waiting > 0 { parts.append(f("%d to go", waiting)) }
         counts = parts.joined(separator: " · ")
-        let saved = Figures.bytes(max(0, before - after), locale: locale)
-        announcement = f("Batch finished: %d files, %@ saved", batch.total, saved)
+        let savedBytes = Figures.bytes(max(0, before - after), locale: locale)
+        announcement = f("Batch finished: %d files, %@ saved", batch.total, savedBytes)
     }
 
     /// A row's status line: "2.4 MB → 612 kB", "Waiting", "Optimising 40 %", the error.

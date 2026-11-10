@@ -221,6 +221,16 @@
         }
       }
     },
+    "%d originals restored": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d originals restaurats"
+          }
+        }
+      }
+    },
     "%d page": {
       "localizations": {
         "ca": {
@@ -287,6 +297,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "1 fitxer optimitzat"
+          }
+        }
+      }
+    },
+    "1 original restored": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 original restaurat"
           }
         }
       }
@@ -561,16 +581,6 @@
         }
       }
     },
-    "Close details": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tanca el detall"
-          }
-        }
-      }
-    },
     "Collapsed": {
       "localizations": {
         "ca": {
@@ -686,7 +696,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "No s’ha pogut comprimir"
+            "value": "No s’ha pogut optimitzar"
           }
         }
       }
@@ -907,6 +917,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Alçada"
+          }
+        }
+      }
+    },
+    "Hide details": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amaga el detall"
           }
         }
       }
@@ -1657,6 +1677,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aturat, es conserva l’original"
+          }
+        }
+      }
+    },
+    "Stopped: %d originals kept": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aturat: es conserven %d originals"
+          }
+        }
+      }
+    },
+    "Stopped: 1 original kept": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aturat: es conserva 1 original"
           }
         }
       }

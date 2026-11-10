@@ -159,5 +159,38 @@ func rejects(_ arguments: [String]) -> Bool {
         #expect(Output.exitCode(for: .invalidPipeline("x")) == 64)
         #expect(Output.exitCode(for: .cancelled) == 130)
         #expect(Output.exitCode(for: .other("x")) == 1)
+        #expect(Output.exitCode(for: .unreadable(kind: .video)) == 65)
+    }
+
+    /// Exit 65 when every file was unreadable, through the real binary: the per-file path, which
+    /// is where a damaged file actually fails (UI check, N9). A damaged PNG fails in ImageIO,
+    /// before any bundled tool, so this runs everywhere.
+    @Test func everyFileUnreadableExits65() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-exit-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let broken = folder.appendingPathComponent("broken.png")
+        let other = folder.appendingPathComponent("also broken.png")
+        try Data("not a picture".utf8).write(to: broken)
+        try Data("nor this".utf8).write(to: other)
+        func run(_ files: [URL]) throws -> (Int32, String) {
+            let process = Process()
+            process.executableURL = try esclopBinary()
+            process.arguments = ["optimise", "--in-process", "--no-color"] + files.map(\.path)
+            process.environment = ProcessInfo.processInfo.environment.merging(["ESCLOP_NO_APP": "1"]) { $1 }
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = pipe
+            try process.run()
+            process.waitUntilExit()
+            return (process.terminationStatus, String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self))
+        }
+        let (status, output) = try run([broken, other])
+        #expect(status == 65, "\(output)")
+        #expect(output.contains("This file isn’t an image L’Esclop can read. It may be damaged."))
+        #expect(!output.contains(folder.path), "no path in the message")
+        // One unreadable among other failures is a plain failure.
+        let (mixed, _) = try run([broken, folder.appendingPathComponent("missing.png")])
+        #expect(mixed == 1)
     }
 }

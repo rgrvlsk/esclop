@@ -21,7 +21,8 @@ struct DeflateBar: View {
                 if filled {
                     Capsule().fill(tint).frame(width: max(6, width * end))
                 } else {
-                    Capsule().fill(Color.primary.opacity(0.18)).frame(width: max(6, width * end))
+                    // An end of 0 leaves the bare track: nothing saved, nothing to show.
+                    if end > 0 { Capsule().fill(Color.primary.opacity(0.18)).frame(width: max(6, width * end)) }
                     if let progress {
                         Capsule().fill(tint).frame(width: max(6, width * progress))
                             .animation(.linear(duration: 0.2), value: progress)

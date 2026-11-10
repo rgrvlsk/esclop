@@ -90,12 +90,19 @@ public struct FloatingResultView: View {
         .accessibilityLabel(info.accessibilityLabel)
         .accessibilityAddTraits(.isButton)
         .accessibilityActions {
-            ForEach(info.actions, id: \.self) { action in
+            ForEach(Self.actions(info, level: card.machine.level), id: \.self) { action in
                 Button(action.accessibilityName) { perform(action) }
             }
         }
         .onAppear(perform: arrive)
         .onChange(of: card.result?.id) { arrive() }
+    }
+
+    /// The named actions for the level shown: an open detail offers "Hide details" in place of
+    /// "Show details", so VoiceOver can close it without Esc.
+    static func actions(_ info: CardPresentation, level: FloatingResultMachine.Level) -> [CardPresentation.Action] {
+        guard level == .detail else { return info.actions }
+        return info.actions.map { $0 == .openDetail ? .closeDetail : $0 }
     }
 
     private var anchor: UnitPoint {

@@ -88,6 +88,11 @@ import Testing
         #expect(await eventually { !batch.isRunning })
         #expect(batch.cancelled >= 3, "the waiting files stop too")
         #expect(batch.bytesBefore == batch.optimised * 100_000, "stopped files do not dilute the saving")
+        if batch.optimised == 0 {
+            let stoppedInfo = BatchPresentation(batch: batch, locale: Locale(identifier: "en"))
+            #expect(stoppedInfo.title == "Stopped: 4 originals kept")
+            #expect(stoppedInfo.barIsNeutral)
+        }
         let stopped = try #require(batch.rows.first { $0.state == .cancelled })
         #expect(AppModel.size(of: stopped.source) == 100_000, "the original is untouched")
         stopped.retry?()
@@ -110,6 +115,11 @@ import Testing
         let info = BatchPresentation(batch: batch, locale: Locale(identifier: "en"))
         #expect(info.percent == nil, "no −0 % figure")
         #expect(info.counts == "4 restored")
+        // Says what happened, with no "16 MB → 16 MB" and no full green bar (UI check, N2).
+        #expect(info.title == "4 originals restored")
+        #expect(info.change == nil)
+        #expect(info.barIsNeutral)
+        #expect(BatchPresentation(batch: batch, locale: Locale(identifier: "ca")).title == "4 originals restaurats")
         let row = batch.rows[0]
         batch.remove(row)
         #expect(batch.rows.count == 3)
@@ -123,6 +133,32 @@ import Testing
         #expect(harness.model.batch?.id == first.id)
         #expect(first.rows.count == 8)
         #expect(await eventually { !first.isRunning })
+    }
+
+    /// After Restore All or Stop the header says what happened, with a neutral bar (UI check, N2).
+    @Test func undoneBatchesSayWhatHappened() {
+        let result = OptimisationResult(
+            source: URL(fileURLWithPath: "/tmp/a.png"), output: URL(fileURLWithPath: "/tmp/a.png"), kind: .image,
+            bytesBefore: 2_000_000, bytesAfter: 500_000, startedAt: Date(), finishedAt: Date()
+        )
+        let restored = Batch(origin: .dropZone)
+        for _ in 0 ..< 6 { restored.add(URL(fileURLWithPath: "/tmp/a.png"), bytes: 2_000_000).state = .restored(result) }
+        let info = BatchPresentation(batch: restored, locale: Locale(identifier: "en"))
+        #expect(info.title == "6 originals restored")
+        #expect(info.change == nil && info.percent == nil)
+        #expect(info.barIsNeutral)
+
+        let stopped = Batch(origin: .dropZone)
+        for _ in 0 ..< 6 { stopped.add(URL(fileURLWithPath: "/tmp/b.png"), bytes: 1_000).state = .cancelled }
+        let stoppedInfo = BatchPresentation(batch: stopped, locale: Locale(identifier: "en"))
+        #expect(stoppedInfo.title == "Stopped: 6 originals kept")
+        #expect(stoppedInfo.barIsNeutral)
+        #expect(BatchPresentation(batch: stopped, locale: Locale(identifier: "ca")).title == "Aturat: es conserven 6 originals")
+
+        // A batch that saved something keeps its green bar.
+        let done = Batch(origin: .dropZone)
+        done.add(URL(fileURLWithPath: "/tmp/c.png"), bytes: 2_000_000).state = .done(result)
+        #expect(!BatchPresentation(batch: done, locale: Locale(identifier: "en")).barIsNeutral)
     }
 
     @Test func copyInEnglishAndCatalan() async throws {

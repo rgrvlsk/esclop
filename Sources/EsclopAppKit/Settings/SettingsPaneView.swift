@@ -46,6 +46,10 @@ struct SettingsPaneView: View {
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
+                                // Grouped forms put footers on the trailing side; these read
+                                // with the rows above.
+                                .multilineTextAlignment(.leading)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
                 }

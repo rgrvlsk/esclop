@@ -53,19 +53,19 @@ struct SuggestionCard: View {
                 Image(systemName: rule == nil ? model.origin.symbol : "wand.and.stars")
             }
             .font(OptionsType.label)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(PopoverInk.secondary.color)
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(rule == nil ? Strings.text("Suggestion") : Strings.text("Rule")).font(OptionsType.bodyStrong)
                     Text(rule.map { $0.choice.summary(input: model.inputFormat) } ?? model.suggestionText).font(OptionsType.body)
                     if rule != nil {
-                        Text(Strings.format("Suggested: %@", model.suggestionText)).font(OptionsType.label).foregroundStyle(.secondary)
+                        Text(Strings.format("Suggested: %@", model.suggestionText)).font(OptionsType.label).foregroundStyle(PopoverInk.secondary.color)
                     }
                 }
                 Spacer(minLength: 8)
                 if rule == nil {
                     if model.isSuggestionApplied {
-                        Label(Strings.text("Applied"), systemImage: "checkmark").font(OptionsType.label).foregroundStyle(Palette.accent)
+                        Label(Strings.text("Applied"), systemImage: "checkmark").font(OptionsType.label).foregroundStyle(PopoverInk.accent.color)
                     } else {
                         Button(Strings.text("Apply")) { model.apply(model.suggestion) }
                             .controlSize(.small)
@@ -92,7 +92,7 @@ struct FormatOptions: View {
             Segments(
                 options: OptimiseChoice.Compression.allCases,
                 selection: Binding(get: { choice.compression }, set: { model.choose(compression: $0) }),
-                title: { $0.title }, tint: { $0 == .aggressive ? Palette.warm : nil }
+                title: { $0.title }, tint: { $0 == .aggressive ? PopoverInk.warm.color : nil }
             )
             .disabled(model.card.isWorking)
             .accessibilityLabel(Strings.text("Compression"))
@@ -226,7 +226,7 @@ struct RuleCheckbox: View {
             if model.ruleOn, let origin = model.card.fileOrigin, let input = model.card.inputType {
                 Text(ClipboardRule(origin: origin, inputType: input, choice: model.card.appliedRule?.choice ?? model.card.choice).promise())
                     .font(OptionsType.label)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(PopoverInk.secondary.color)
                     .padding(.leading, 20)
                     .fixedSize(horizontal: false, vertical: true)
             }
