@@ -24,6 +24,11 @@ public struct MenuContent: View {
 
         Divider()
 
+        Button("Optimise Files…") { model.chooseFiles() }
+            .keyboardShortcut("o")
+        if model.batch != nil {
+            Button("Show Batch Window") { model.showBatch() }
+        }
         Button("Optimise Clipboard") { model.optimiseClipboardNow(aggressive: false) }
             .globalKeyboardShortcut(.optimiseClipboard)
         Button("Optimise Clipboard Harder") { model.optimiseClipboardNow(aggressive: true) }

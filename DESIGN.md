@@ -80,6 +80,21 @@ current file. When a rule was applied, the result capsule shows a small rule gly
 tooltip "Rule: PNG screenshots → WebP", and the popover opens with the box ticked. Rules are
 listed and edited in Settings › Automation › Clipboard rules.
 
+## Batch window
+When a job brings more files than the stack of three floating results can show (four by
+default, `batchWindowFrom`), they go to one window instead: a dropped folder, "Optimise Files…",
+many copied files, or a list from the CLI or an agent. It comes forward without taking focus.
+
+- **Header:** "Optimising 7 of 9 files", "48 MB → 12 MB" and the saving as the one large figure
+  ("−75 %", rounded, in the accent), the bar (progress while running, then the deflate bar at
+  the new proportion), the counts ("5 optimised · 1 already optimised · 1 failed") and Pause,
+  Stop, Restore All, Show in Finder.
+- **Rows:** thumbnail, name, sizes or status, the file's own deflate bar and its saving. On hover
+  the saving gives way to 28 pt round buttons (restore, try again, stop, copy, Show in Finder);
+  the same actions are in the context menu and are VoiceOver actions.
+- Pause holds the files still waiting; the ones running finish. Stop keeps every original. New
+  files join a batch that is still running. VoiceOver announces the batch once, when it ends.
+
 ## Color
 Use system Liquid Glass materials for floating surfaces, with one accent colour and one warning
 colour.
