@@ -205,6 +205,28 @@ enum CompareFixtures {
         #expect(CompareWindowController.route(URL(string: "esclop://pipelines/x")!) == nil)
     }
 
+    @Test func anUnknownLinkClearsTheComparisonOnScreen() throws {
+        let harness = Harness()
+        let result = CompareFixtures.imageResult(in: harness.temp.url)
+        harness.model.record(result)
+        let compare = CompareModel(app: harness.model)
+        let controller = CompareWindowController(model: compare)
+        defer { compare.onClose() }
+        #expect(controller.open(URL(string: "esclop://compare/\(result.id.uuidString)")!))
+        #expect(controller.isVisible)
+        #expect(compare.result?.id == result.id)
+        // Another link, to a result the app no longer knows, while the window is open.
+        #expect(controller.open(URL(string: "esclop://compare/\(UUID().uuidString)")!))
+        #expect(controller.isVisible)
+        #expect(compare.isUnknown)
+        #expect(compare.result == nil)
+        #expect(compare.sides == .gone)
+        // A known result again replaces the message.
+        #expect(controller.open(URL(string: "esclop://compare/\(result.id.uuidString)")!))
+        #expect(!compare.isUnknown)
+        #expect(compare.result?.id == result.id)
+    }
+
     @Test func aPrunedBackupStillOpensAndSaysSo() async throws {
         let harness = Harness()
         let file = harness.temp.file("a.png", bytes: 100_000)
