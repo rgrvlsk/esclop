@@ -22,6 +22,7 @@ struct EsclopCommand: AsyncParsableCommand {
           0   success
           1   one or more files failed, or the command failed
           64  usage error (bad flag or value)
+          65  every file was unreadable (damaged or mislabelled)
           66  every file was missing
           69  something needed is unavailable (the app, the engine, a tool)
           77  not permitted (an agent permission is off)

@@ -50,6 +50,9 @@ public struct OptionsPopover: View {
         }
         .frame(width: OptionsType.width)
         .font(OptionsType.body)
+        // Our own surface and inks over the glass: their contrast is known (PopoverInk).
+        .foregroundStyle(PopoverInk.primary.color)
+        .background(PopoverInk.surface.color)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: model.tab)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: model.showsFormatOptions)
         .background { shortcuts }
@@ -106,7 +109,7 @@ struct OptionsHeader: View {
                 if let image = model.card.thumbnail {
                     Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
                 } else {
-                    Image(systemName: "doc").font(.title2).foregroundStyle(.secondary)
+                    Image(systemName: "doc").font(.title2).foregroundStyle(PopoverInk.secondary.color)
                 }
             }
             .frame(width: 44, height: 44)
@@ -128,14 +131,14 @@ struct OptionsHeader: View {
                         Text(Strings.format("Already optimised · %@", Figures.bytes(result.bytesAfter)))
                     } else if let result = model.card.result {
                         Text(Figures.change(before: result.bytesBefore, after: result.bytesAfter) + " · ")
-                            + Text(Figures.percent(before: result.bytesBefore, after: result.bytesAfter)).foregroundStyle(Palette.accent).fontWeight(.semibold)
+                            + Text(Figures.percent(before: result.bytesBefore, after: result.bytesAfter)).foregroundStyle(PopoverInk.accent.color).fontWeight(.semibold)
                     } else {
                         Text(info.change)
                     }
                 }
                 .font(OptionsType.label)
                 .monospacedDigit()
-                Text(model.headerMeta).font(OptionsType.label).foregroundStyle(.secondary).monospacedDigit().lineLimit(1)
+                Text(model.headerMeta).font(OptionsType.label).foregroundStyle(PopoverInk.secondary.color).monospacedDigit().lineLimit(1)
             }
         }
         .onChange(of: editing) { _, now in if !now { model.commitName() } }

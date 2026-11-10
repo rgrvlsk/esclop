@@ -24,11 +24,18 @@ struct DetailCard: View {
                     .font(.headline)
                     .labelStyle(DetailTitleStyle(tint: tint))
                 Spacer()
+                // The way to the options from the detail: it closes and the popover opens on
+                // the thumbnail's "…".
+                Button { perform(.more) } label: {
+                    Image(systemName: "ellipsis").font(.system(size: 12, weight: .semibold)).frame(width: 24, height: 24)
+                }
+                .buttonStyle(.plain)
+                .help(Strings.text("More options"))
                 Button { perform(.closeDetail) } label: {
                     Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).frame(width: 24, height: 24)
                 }
                 .buttonStyle(.plain)
-                .help("Close details")
+                .help(Strings.text("Hide details"))
             }
             .padding(.horizontal, 2)
             .padding(.bottom, 10)

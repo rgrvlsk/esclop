@@ -550,10 +550,10 @@ public final class AppModel {
             reprocess(card) { $0.request.downscale = 0.5 }
         case .crop:
             card.optionsTab = .size
-            interact(card, .menu(true))
+            openOptions(card)
         case .more:
             card.optionsTab = .optimise
-            interact(card, .menu(true))
+            openOptions(card)
         case .openDetail:
             interact(card, .openDetail)
         case .closeDetail:
@@ -601,6 +601,13 @@ public final class AppModel {
                 self.writeClipboard(files: [result.output])
             })
         }
+    }
+
+    /// The options popover hangs from the thumbnail's "…": from an open detail (its "…" button
+    /// or the VoiceOver action), the detail closes first so the popover has its anchor.
+    func openOptions(_ card: ResultCard) {
+        if card.machine.level == .detail { interact(card, .closeDetail) }
+        interact(card, .menu(true))
     }
 
     /// Puts the original back, from a card or the backups menu.
