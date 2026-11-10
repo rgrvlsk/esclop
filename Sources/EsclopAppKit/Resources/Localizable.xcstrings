@@ -1291,12 +1291,32 @@
         }
       }
     },
+    "Change a Setting": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Canvia una opció"
+          }
+        }
+      }
+    },
     "Change format when smaller": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Canvia de format si és més petit"
+          }
+        }
+      }
+    },
+    "Change one of L’Esclop’s settings. The value is checked as the Settings window checks it.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Canvia una opció de L’Esclop. El valor es comprova com ho fa la finestra de Configuració."
           }
         }
       }
@@ -1731,12 +1751,42 @@
         }
       }
     },
+    "Convert ${files} to ${format}": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Converteix ${files} a ${format}"
+          }
+        }
+      }
+    },
+    "Convert Files": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Converteix fitxers"
+          }
+        }
+      }
+    },
     "Convert HDR to SDR": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Converteix l’HDR a SDR"
+          }
+        }
+      }
+    },
+    "Convert images, videos or audio files to another format, compressing in the same pass.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Converteix imatges, vídeos o fitxers d’àudio a un altre format i comprimeix-los en la mateixa passada."
           }
         }
       }
@@ -1951,6 +2001,26 @@
         }
       }
     },
+    "Crop ${files}": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retalla ${files}"
+          }
+        }
+      }
+    },
+    "Crop Files": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retalla fitxers"
+          }
+        }
+      }
+    },
     "Crop area": {
       "localizations": {
         "ca": {
@@ -2157,6 +2227,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Redueix"
+          }
+        }
+      }
+    },
+    "Downscale ${files} by ${factor}": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redueix ${files} per ${factor}"
+          }
+        }
+      }
+    },
+    "Downscale Files": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redueix fitxers"
           }
         }
       }
@@ -2461,6 +2551,16 @@
         }
       }
     },
+    "Files": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fitxers"
+          }
+        }
+      }
+    },
     "Files dropped on the drop zone": {
       "localizations": {
         "ca": {
@@ -2731,12 +2831,42 @@
         }
       }
     },
+    "Get ${setting}": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obtén ${setting}"
+          }
+        }
+      }
+    },
     "Get Started": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Comença"
+          }
+        }
+      }
+    },
+    "Get a Setting": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obtén una opció"
+          }
+        }
+      }
+    },
+    "Give a width, a height, a long edge or an aspect ratio.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indica una amplada, una alçada, un costat llarg o una proporció."
           }
         }
       }
@@ -2936,7 +3066,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Al Finder, a Accions ràpides › Passa per un pipeline de L’Esclop…"
+            "value": "Al Finder, a Accions ràpides › Executa un pipeline de L’Esclop…"
           }
         }
       }
@@ -3241,6 +3371,16 @@
         }
       }
     },
+    "Long edge": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Costat llarg"
+          }
+        }
+      }
+    },
     "Long edge (px)": {
       "localizations": {
         "ca": {
@@ -3317,6 +3457,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "L’Esclop no pot optimitzar aquest tipus de fitxer (%@)."
+          }
+        }
+      }
+    },
+    "L’Esclop did not finish starting. Try the action again.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’Esclop no ha acabat d’arrencar. Torna a provar l’acció."
           }
         }
       }
@@ -3751,6 +3901,16 @@
         }
       }
     },
+    "No files were given to the action.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’acció no ha rebut cap fitxer."
+          }
+        }
+      }
+    },
     "No folders": {
       "localizations": {
         "ca": {
@@ -4101,6 +4261,16 @@
         }
       }
     },
+    "Optimise ${files}": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optimitza ${files}"
+          }
+        }
+      }
+    },
     "Optimise Clipboard": {
       "localizations": {
         "ca": {
@@ -4117,6 +4287,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Optimitza més el porta-retalls"
+          }
+        }
+      }
+    },
+    "Optimise Files": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optimitza fitxers"
           }
         }
       }
@@ -4147,6 +4327,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Optimitza primer"
+          }
+        }
+      }
+    },
+    "Optimise harder": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optimitza més"
+          }
+        }
+      }
+    },
+    "Optimise images, videos, PDFs and audio files with L’Esclop’s settings, keeping a backup of each original.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optimitza imatges, vídeos, PDF i fitxers d’àudio amb la configuració de L’Esclop i conserva una còpia de seguretat de cada original."
           }
         }
       }
@@ -4411,6 +4611,36 @@
         }
       }
     },
+    "Pause automatic optimisation": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posa en pausa l’optimització automàtica"
+          }
+        }
+      }
+    },
+    "Pause automatic optimisation of copied files and watched folders, or resume it.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posa en pausa l’optimització automàtica dels fitxers copiats i les carpetes vigilades, o reprèn-la."
+          }
+        }
+      }
+    },
+    "Pause or Resume": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posa en pausa o reprèn"
+          }
+        }
+      }
+    },
     "Pause or resume": {
       "localizations": {
         "ca": {
@@ -4467,6 +4697,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tria’n un: %@"
+          }
+        }
+      }
+    },
+    "Pipeline": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pipeline"
           }
         }
       }
@@ -4721,6 +4961,16 @@
         }
       }
     },
+    "Read one of L’Esclop’s settings.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llegeix una opció de L’Esclop."
+          }
+        }
+      }
+    },
     "Read the clipboard": {
       "localizations": {
         "ca": {
@@ -4941,6 +5191,16 @@
         }
       }
     },
+    "Resize to exact pixels or crop to a shape. Give a width, a height, a long edge or an aspect ratio such as 16:9.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redimensiona a píxels exactes o retalla a una forma. Indica una amplada, una alçada, un costat llarg o una proporció com 16:9."
+          }
+        }
+      }
+    },
     "Resolution": {
       "localizations": {
         "ca": {
@@ -5021,6 +5281,16 @@
         }
       }
     },
+    "Resume automatic optimisation": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprèn l’optimització automàtica"
+          }
+        }
+      }
+    },
     "Revert": {
       "localizations": {
         "ca": {
@@ -5061,12 +5331,32 @@
         }
       }
     },
+    "Run ${pipeline} on ${files}": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passa ${files} per ${pipeline}"
+          }
+        }
+      }
+    },
     "Run Test": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Fes la prova"
+          }
+        }
+      }
+    },
+    "Run a Pipeline": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Executa un pipeline"
           }
         }
       }
@@ -5086,7 +5376,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Passa per un pipeline"
+            "value": "Executa un pipeline"
           }
         }
       }
@@ -5107,6 +5397,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Executa en fitxers…"
+          }
+        }
+      }
+    },
+    "Run one of your L’Esclop pipelines on files.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passa fitxers per un dels teus pipelines de L’Esclop."
           }
         }
       }
@@ -5231,6 +5531,16 @@
         }
       }
     },
+    "Scale images and videos down by a factor, keeping their proportions. For audio, lowers the bitrate.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redueix imatges i vídeos per un factor i en conserva les proporcions. En l’àudio, abaixa la taxa de bits."
+          }
+        }
+      }
+    },
     "Screen recording": {
       "localizations": {
         "ca": {
@@ -5301,12 +5611,32 @@
         }
       }
     },
+    "Set ${setting} to ${value}": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posa ${setting} a ${value}"
+          }
+        }
+      }
+    },
     "Set up by hand": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Configura-ho a mà"
+          }
+        }
+      }
+    },
+    "Setting": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opció"
           }
         }
       }
@@ -5981,6 +6311,16 @@
         }
       }
     },
+    "The factor is above 0 and at most 1: 0.5 is half the width and height.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El factor és més gran que 0 i com a màxim 1: 0,5 és la meitat de l’amplada i de l’alçada."
+          }
+        }
+      }
+    },
     "The file is not UTF-8 text.": {
       "localizations": {
         "ca": {
@@ -6557,6 +6897,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "VP9"
+          }
+        }
+      }
+    },
+    "Value": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Valor"
           }
         }
       }
@@ -10047,6 +10397,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "«%@» no hi coincideix: no es toca."
+          }
+        }
+      }
+    },
+    "“%@” is not an aspect ratio. Write it like 16:9 or 4:5.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» no és una proporció. Escriu-la com 16:9 o 4:5."
           }
         }
       }

@@ -132,6 +132,19 @@ public struct CompareView: View {
 
     @ViewBuilder
     private var content: some View {
+        if model.isUnknown {
+            CompareMessage(
+                symbol: "questionmark.circle",
+                title: Strings.text("Nothing to compare"),
+                detail: Strings.text("That result is no longer in the recent results.")
+            )
+        } else {
+            sidesContent
+        }
+    }
+
+    @ViewBuilder
+    private var sidesContent: some View {
         switch model.sides {
         case .ready:
             Group {
