@@ -24,6 +24,9 @@ public struct PipelineDiagnostic: Error, Hashable, Codable, Sendable, CustomStri
     public var message: String
     /// Text that would fix the problem when it replaces the span, if there is an obvious one.
     public var replacement: String?
+    /// The message as a template and its arguments, so an app can show it in its own language.
+    /// `message` is this text in English.
+    public var text: DiagnosticText?
 
     public init(_ severity: Severity = .error, line: Int, column: Int, length: Int = 1, _ message: String, replacement: String? = nil) {
         self.severity = severity
@@ -34,7 +37,66 @@ public struct PipelineDiagnostic: Error, Hashable, Codable, Sendable, CustomStri
         self.replacement = replacement
     }
 
+    public init(_ severity: Severity = .error, line: Int, column: Int, length: Int = 1, text: DiagnosticText, replacement: String? = nil) {
+        self.init(severity, line: line, column: column, length: length, text.english, replacement: replacement)
+        self.text = text
+    }
+
     public var description: String { "line \(line), column \(column): \(message)" }
+}
+
+/// A message as an English template with `%@` for each argument. An argument is text as it is
+/// (a step name, a value, a list) or a nested phrase (a type's summary) translated on its own.
+public struct DiagnosticText: Hashable, Codable, Sendable {
+    public indirect enum Argument: Hashable, Codable, Sendable {
+        case text(String)
+        case phrase(DiagnosticText)
+    }
+
+    public var template: String
+    public var arguments: [Argument]
+
+    public init(_ template: String, _ arguments: [Argument] = []) {
+        self.template = template
+        self.arguments = arguments
+    }
+
+    /// The text with each template, nested ones included, looked up first.
+    public func rendered(_ lookup: (String) -> String) -> String {
+        let values = arguments.map { argument -> String in
+            switch argument {
+            case let .text(text): return text
+            case let .phrase(phrase): return phrase.rendered(lookup)
+            }
+        }
+        var out = ""
+        var parts = lookup(template).components(separatedBy: "%@")[...]
+        out = parts.removeFirst()
+        for (index, part) in parts.enumerated() {
+            out += (index < values.count ? values[index] : "") + part
+        }
+        return out
+    }
+
+    public var english: String { rendered { $0 } }
+
+    /// Every template in this text, nested ones included.
+    public var templates: [String] {
+        [template] + arguments.flatMap { argument -> [String] in
+            if case let .phrase(phrase) = argument { return phrase.templates }
+            return []
+        }
+    }
+}
+
+/// A message template with text arguments: `T("Unknown step `%@`.", name)`.
+func T(_ template: String, _ arguments: String...) -> DiagnosticText {
+    DiagnosticText(template, arguments.map { .text($0) })
+}
+
+/// A template whose arguments may be phrases.
+func T(_ template: String, _ arguments: [DiagnosticText.Argument]) -> DiagnosticText {
+    DiagnosticText(template, arguments)
 }
 
 /// Thrown when pipeline text has errors. Warnings alone never throw.
@@ -78,7 +140,7 @@ public enum PipelineParser {
         let p = try parse(text)
         let hasFrontMatter = p.description != nil || p.hotkey != nil || p.icon != nil || !p.triggers.isEmpty || p.optimiseFirst || p.hideResult
         if hasFrontMatter || p.sections.contains(where: { $0.kind != nil }) {
-            throw PipelineSyntaxError(diagnostics: [PipelineDiagnostic(line: 1, column: 1, "Expected a list of steps without sections or front matter.")])
+            throw PipelineSyntaxError(diagnostics: [PipelineDiagnostic(line: 1, column: 1, text: T("Expected a list of steps without sections or front matter."))])
         }
         return p[nil]
     }
@@ -87,7 +149,7 @@ public enum PipelineParser {
     public static func parseStep(_ text: String) throws -> PipelineStep {
         let steps = try parseSteps(text)
         guard steps.count == 1 else {
-            throw PipelineSyntaxError(diagnostics: [PipelineDiagnostic(line: 1, column: 1, "Expected one step, found \(steps.count).")])
+            throw PipelineSyntaxError(diagnostics: [PipelineDiagnostic(line: 1, column: 1, text: T("Expected one step, found %@.", String(steps.count)))])
         }
         return steps[0]
     }
@@ -156,13 +218,14 @@ struct Parser {
         }
     }
 
-    mutating func error(_ at: SourcePosition, length: Int = 1, _ message: String, replacement: String? = nil) {
-        diagnostics.append(PipelineDiagnostic(.error, line: at.line, column: at.column, length: length, message, replacement: replacement))
+    mutating func error(_ at: SourcePosition, length: Int = 1, _ text: DiagnosticText, replacement: String? = nil) {
+        diagnostics.append(PipelineDiagnostic(.error, line: at.line, column: at.column, length: length, text: text, replacement: replacement))
     }
 
-    mutating func warning(_ at: SourcePosition, length: Int = 1, _ message: String, replacement: String? = nil) {
-        diagnostics.append(PipelineDiagnostic(.warning, line: at.line, column: at.column, length: length, message, replacement: replacement))
+    mutating func warning(_ at: SourcePosition, length: Int = 1, _ text: DiagnosticText, replacement: String? = nil) {
+        diagnostics.append(PipelineDiagnostic(.warning, line: at.line, column: at.column, length: length, text: text, replacement: replacement))
     }
+
 
     static func isSpace(_ c: Character) -> Bool { c == " " || c == "\t" || c == "\r" }
     static func isIdentifierStart(_ c: Character) -> Bool { c.isLetter || c == "_" }
@@ -236,10 +299,10 @@ struct Parser {
             }
             if c == "-", peek(1) == ">" {
                 if lastStepEnd == nil, !expectingStep, steps.isEmpty {
-                    error(pos, length: 2, "A pipeline cannot start with `->`. Remove it.", replacement: "")
+                    error(pos, length: 2, T("A pipeline cannot start with `->`. Remove it."), replacement: "")
                 }
                 if expectingStep {
-                    error(pos, length: 2, "Two `->` in a row. Remove one.", replacement: "")
+                    error(pos, length: 2, T("Two `->` in a row. Remove one."), replacement: "")
                 }
                 advance(); advance()
                 expectingStep = true
@@ -248,7 +311,7 @@ struct Parser {
             }
             if c == "[" {
                 if expectingStep {
-                    error(pos, "Expected a step after `->`, found a section header.")
+                    error(pos, T("Expected a step after `->`, found a section header."))
                     expectingStep = false
                 }
                 let start = pos
@@ -259,12 +322,12 @@ struct Parser {
                 if current == "]" {
                     advance()
                 } else {
-                    error(start, length: word.count + 2, "Section headers look like `[image]`. Add the closing `]`.")
+                    error(start, length: word.count + 2, T("Section headers look like `[image]`. Add the closing `]`."))
                     skipComment()
                 }
                 skipSpaces()
                 if let c = current, c != "\n", c != "#" {
-                    error(pos, "Put steps on the line after the section header `[\(word)]`.")
+                    error(pos, T("Put steps on the line after the section header `[%@]`.", word))
                     skipComment()
                 }
                 let newKind: MediaKind?
@@ -274,11 +337,11 @@ struct Parser {
                     newKind = k
                 } else {
                     let suggestion = Self.closest(word, in: ["any"] + MediaKind.allCases.map(\.rawValue))
-                    error(start, length: word.count + 2, "Unknown section `[\(word)]`. Sections are `[any]`, `[image]`, `[video]`, `[pdf]` and `[audio]`." + (suggestion.map { " Did you mean `[\($0)]`?" } ?? ""), replacement: suggestion.map { "[\($0)]" })
+                    error(start, length: word.count + 2, suggestion.map { T("Unknown section `[%@]`. Sections are `[any]`, `[image]`, `[video]`, `[pdf]` and `[audio]`. Did you mean `[%@]`?", word, $0) } ?? T("Unknown section `[%@]`. Sections are `[any]`, `[image]`, `[video]`, `[pdf]` and `[audio]`.", word), replacement: suggestion.map { "[\($0)]" })
                     continue
                 }
                 if seenKinds[newKind] != nil {
-                    warning(start, length: word.count + 2, "Section `[\(newKind?.rawValue ?? "any")]` appears twice; its steps are joined in order.")
+                    warning(start, length: word.count + 2, T("Section `[%@]` appears twice; its steps are joined in order.", newKind?.rawValue ?? "any"))
                 }
                 flush()
                 kind = .some(newKind)
@@ -287,7 +350,7 @@ struct Parser {
             }
             if Self.isIdentifierStart(c) {
                 if let end = lastStepEnd, !expectingStep {
-                    error(end, "Missing `->` between steps. Write `step1 -> step2`, or put each step on its own line.", replacement: " ->")
+                    error(end, T("Missing `->` between steps. Write `step1 -> step2`, or put each step on its own line."), replacement: " ->")
                 }
                 if let raw = parseRawStep(), let step = buildStep(raw) {
                     steps.append(step)
@@ -299,13 +362,13 @@ struct Parser {
             let start = pos
             let rest = readRestOfLine()
             if c == ")" {
-                error(start, "Unexpected `)`: there is no `(` to close.", replacement: "")
+                error(start, T("Unexpected `)`: there is no `(` to close."), replacement: "")
             } else {
-                error(start, length: rest.count, "Unexpected `\(c)`. A step starts with its name, e.g. `optimise` or `convert(to: webp)`.")
+                error(start, length: rest.count, T("Unexpected `%@`. A step starts with its name, e.g. `optimise` or `convert(to: webp)`.", String(c)))
             }
         }
         if expectingStep {
-            error(pos, "The pipeline ends with `->`. Add a step after it or remove the arrow.")
+            error(pos, T("The pipeline ends with `->`. Add a step after it or remove the arrow."))
         }
         flush()
         pipeline.sections = sections.filter { !$0.steps.isEmpty }
@@ -343,7 +406,7 @@ struct Parser {
             skipSpaces()
             guard !key.isEmpty, current == ":" else {
                 let rest = readRestOfLine()
-                error(lineStart, length: max(1, key.count + rest.count), "Front matter lines look like `key: value`, e.g. `description: Convert to WebP`.")
+                error(lineStart, length: max(1, key.count + rest.count), T("Front matter lines look like `key: value`, e.g. `description: Convert to WebP`."))
                 continue
             }
             advance()
@@ -351,7 +414,7 @@ struct Parser {
             let valuePos = pos
             let value = readRestOfLine().trimmingCharacters(in: .whitespaces)
             if seen.contains(key) {
-                warning(lineStart, length: key.count, "`\(key)` is set twice; the last one counts.")
+                warning(lineStart, length: key.count, T("`%@` is set twice; the last one counts.", key))
             }
             seen.insert(key)
             switch key {
@@ -360,7 +423,7 @@ struct Parser {
             case "icon": pipeline.icon = value.isEmpty ? nil : unquote(value)
             case "optimiseFirst", "hideResult":
                 guard let b = Self.bool(value) else {
-                    error(valuePos, length: value.count, "`\(key)` must be `true` or `false`.")
+                    error(valuePos, length: value.count, T("`%@` must be `true` or `false`.", key))
                     continue
                 }
                 if key == "optimiseFirst" { pipeline.optimiseFirst = b } else { pipeline.hideResult = b }
@@ -368,11 +431,11 @@ struct Parser {
                 pipeline.triggers = parseTriggers(value, at: valuePos)
             default:
                 let suggestion = Self.closest(key, in: PipelineLanguage.frontMatterKeys)
-                error(lineStart, length: key.count, "Unknown front matter key `\(key)`." + (suggestion.map { " Did you mean `\($0)`?" } ?? " Known keys: " + PipelineLanguage.frontMatterKeys.joined(separator: ", ") + "."), replacement: suggestion)
+                error(lineStart, length: key.count, suggestion.map { T("Unknown front matter key `%@`. Did you mean `%@`?", key, $0) } ?? T("Unknown front matter key `%@`. Known keys: %@.", key, PipelineLanguage.frontMatterKeys.joined(separator: ", ")), replacement: suggestion)
             }
         }
         if !closed {
-            error(open, length: 3, "The front matter opened here is never closed. Add a line with `---` after it.")
+            error(open, length: 3, T("The front matter opened here is never closed. Add a line with `---` after it."))
         }
     }
 
@@ -395,22 +458,22 @@ struct Parser {
             if let open = item.firstIndex(of: "(") {
                 name = String(item[..<open]).trimmingCharacters(in: .whitespaces)
                 guard item.hasSuffix(")") else {
-                    error(at, length: item.count, "Add the closing `)` to `\(item)`.")
+                    error(at, length: item.count, T("Add the closing `)` to `%@`.", item))
                     continue
                 }
                 argument = unquote(String(item[item.index(after: open)...].dropLast()).trimmingCharacters(in: .whitespaces))
             }
             if name == "folder", argument?.isEmpty ?? true {
-                error(at, length: item.count, "A folder trigger needs the folder: `folder(\"~/Downloads\")`.")
+                error(at, length: item.count, T("A folder trigger needs the folder: `folder(\"~/Downloads\")`."))
                 continue
             }
             guard let trigger = PipelineTrigger(name: name, argument: argument) else {
                 let suggestion = Self.closest(name, in: PipelineTrigger.allNames)
-                error(at, length: item.count, "Unknown trigger `\(name)`." + (suggestion.map { " Did you mean `\($0)`?" } ?? " Triggers: " + PipelineTrigger.allNames.joined(separator: ", ") + "."), replacement: suggestion)
+                error(at, length: item.count, suggestion.map { T("Unknown trigger `%@`. Did you mean `%@`?", name, $0) } ?? T("Unknown trigger `%@`. Triggers: %@.", name, PipelineTrigger.allNames.joined(separator: ", ")), replacement: suggestion)
                 continue
             }
             if argument != nil, name != "folder" {
-                error(at, length: item.count, "`\(name)` takes no argument. Write `\(name)`.", replacement: name)
+                error(at, length: item.count, T("`%@` takes no argument. Write `%@`.", name, name), replacement: name)
                 continue
             }
             if !triggers.contains(trigger) { triggers.append(trigger) }
@@ -436,7 +499,7 @@ struct Parser {
         while true {
             skipSpacesAndNewlines()
             guard let c = current else {
-                error(open, "`\(name)(` is never closed. Add `)` after its arguments.", replacement: nil)
+                error(open, T("`%@(` is never closed. Add `)` after its arguments.", name), replacement: nil)
                 return nil
             }
             if c == ")" {
@@ -457,10 +520,10 @@ struct Parser {
             }
             if current == ")" { continue }
             if atEnd {
-                error(open, "`\(name)(` is never closed. Add `)` after its arguments.")
+                error(open, T("`%@(` is never closed. Add `)` after its arguments.", name))
                 return nil
             }
-            error(pos, "Expected `,` or `)` after the value of `\(arg.key ?? "the argument")`. Separate arguments with commas.", replacement: ", ")
+            error(pos, arg.key.map { T("Expected `,` or `)` after the value of `%@`. Separate arguments with commas.", $0) } ?? T("Expected `,` or `)` after the value of `the argument`. Separate arguments with commas."), replacement: ", ")
             while let c = current, c != ")", c != "\n" { advance() }
             if current == ")" { advance() }
             return nil
@@ -494,7 +557,7 @@ struct Parser {
                 advance()
             }
             guard current == c else {
-                error(valuePos, length: value.count + 1, "This text is never closed. Add a matching \(c) at the end.")
+                error(valuePos, length: value.count + 1, T("This text is never closed. Add a matching %@ at the end.", String(c)))
                 return nil
             }
             advance()
@@ -516,11 +579,11 @@ struct Parser {
         let trimmed = value.trimmingCharacters(in: .whitespaces)
         if trimmed.isEmpty {
             if let key {
-                error(valuePos, "`\(key)` has no value. Write `\(key): <value>`.")
+                error(valuePos, T("`%@` has no value. Write `%@: <value>`.", key, key))
             } else if current == "," {
-                error(valuePos, "Empty argument. Remove the extra comma.", replacement: "")
+                error(valuePos, T("Empty argument. Remove the extra comma."), replacement: "")
             } else {
-                error(keyPos, "Expected an argument like `key: value`.")
+                error(keyPos, T("Expected an argument like `key: value`."))
             }
             return nil
         }
@@ -534,7 +597,7 @@ struct Parser {
         guard let spec = PipelineLanguage.spec(named: name) else {
             let suggestion = PipelineLanguage.alias(for: name) ?? Self.closest(name, in: PipelineLanguage.steps.map(\.name))
             error(raw.position, length: name.count,
-                  "Unknown step `\(name)`." + (suggestion.map { " Did you mean `\($0)`?" } ?? " See the list of steps in docs/pipelines.md."),
+                  suggestion.map { T("Unknown step `%@`. Did you mean `%@`?", name, $0) } ?? T("Unknown step `%@`. See the list of steps in docs/pipelines.md.", name),
                   replacement: suggestion)
             return nil
         }
@@ -545,8 +608,8 @@ struct Parser {
             var key = arg.key
             if key == nil {
                 guard i == 0, let positional = spec.positional else {
-                    let hint = spec.params.first.map { " Write `\($0.name): \(arg.value)`." } ?? ""
-                    error(arg.valuePosition, length: arg.valueLength, "`\(name)` needs argument names." + hint)
+                    let text = spec.params.first.map { T("`%@` needs argument names. Write `%@: %@`.", name, $0.name, arg.value) } ?? T("`%@` needs argument names.", name)
+                    error(arg.valuePosition, length: arg.valueLength, text)
                     ok = false
                     continue
                 }
@@ -555,18 +618,19 @@ struct Parser {
             guard let key else { continue }
             guard let param = spec.param(key) else {
                 if spec.params.isEmpty {
-                    error(arg.keyPosition, length: key.count, "`\(name)` takes no arguments. Write `\(name)`.")
+                    error(arg.keyPosition, length: key.count, T("`%@` takes no arguments. Write `%@`.", name, name))
                 } else {
                     let suggestion = Self.closest(key, in: spec.params.map(\.name))
                     error(arg.keyPosition, length: key.count,
-                          "`\(name)` has no argument `\(key)`." + (suggestion.map { " Did you mean `\($0)`?" } ?? " It takes " + spec.params.map { "`\($0.name)`" }.joined(separator: ", ") + "."),
+                          suggestion.map { T("`%@` has no argument `%@`. Did you mean `%@`?", name, key, $0) }
+                              ?? T("`%@` has no argument `%@`. It takes %@.", name, key, spec.params.map { "`\($0.name)`" }.joined(separator: ", ")),
                           replacement: suggestion)
                 }
                 ok = false
                 continue
             }
             if values[key] != nil {
-                error(arg.keyPosition, length: key.count, "`\(key)` is given twice. Keep one.")
+                error(arg.keyPosition, length: key.count, T("`%@` is given twice. Keep one.", key))
                 ok = false
                 continue
             }
@@ -574,26 +638,26 @@ struct Parser {
             values[key] = arg
         }
         for param in spec.requiredParams where values[param.name] == nil {
-            error(raw.position, length: name.count, "`\(name)` needs `\(param.name)` (\(param.type.summary)). For example: `\(spec.example)`.")
+            error(raw.position, length: name.count, T("`%@` needs `%@` (%@). For example: `%@`.", [.text(name), .text(param.name), .phrase(param.type.summaryText), .text(spec.example)]))
             ok = false
         }
         guard ok else { return nil }
         switch name {
         case "crop" where ["width", "height", "longEdge", "aspectRatio"].allSatisfy({ values[$0] == nil }):
-            error(raw.position, length: name.count, "`crop` needs a size: `width`, `height`, `longEdge` or `aspectRatio`. For example: `crop(longEdge: 1600)` or `crop(aspectRatio: 16:9)`.")
+            error(raw.position, length: name.count, T("`crop` needs a size: `width`, `height`, `longEdge` or `aspectRatio`. For example: `crop(longEdge: 1600)` or `crop(aspectRatio: 16:9)`."))
             return nil
         case "runScript" where values["path"] == nil && values["code"] == nil:
-            error(raw.position, length: name.count, "`runScript` needs `path` or `code`. For example: `runScript(code: \"sips -Z 800 $1\")`.")
+            error(raw.position, length: name.count, T("`runScript` needs `path` or `code`. For example: `runScript(code: \"sips -Z 800 $1\")`."))
             return nil
         case "runScript" where values["path"] != nil && values["code"] != nil:
-            warning(raw.position, length: name.count, "`runScript` has both `path` and `code`; only `code` runs. Remove one.")
+            warning(raw.position, length: name.count, T("`runScript` has both `path` and `code`; only `code` runs. Remove one."))
         case "if" where values.isEmpty, "ifNot" where values.isEmpty:
-            error(raw.position, length: name.count, "`\(name)` needs a condition. For example: `\(name)(types: png)` or `\(name)(regex: \"^IMG_\")`.")
+            error(raw.position, length: name.count, T("`%@` needs a condition. For example: `%@(types: png)` or `%@(regex: \"^IMG_\")`.", name, name, name))
             return nil
         default: break
         }
         if name == "runScript", let code = values["code"] ?? values["path"], code.value.contains("CLOP_") {
-            warning(code.valuePosition, length: code.valueLength, "This script uses Clop's variables. In esclop they are `$ESCLOP_BIN` and `$ESCLOP_INPUT_FILE`.",
+            warning(code.valuePosition, length: code.valueLength, T("This script uses Clop's variables. In esclop they are `$ESCLOP_BIN` and `$ESCLOP_INPUT_FILE`."),
                     replacement: PipelineSerializer.quote(code.value.replacingOccurrences(of: "CLOP_", with: "ESCLOP_")))
         }
         return makeStep(spec: spec, raw: raw, values: values)
@@ -602,63 +666,70 @@ struct Parser {
     /// Checks the value against its type and reports a precise error.
     mutating func validate(_ arg: RawArgument, as param: ParamSpec, step: String) -> Bool {
         let v = arg.value
-        func fail(_ message: String, replacement: String? = nil) -> Bool {
+        func fail(_ message: DiagnosticText, replacement: String? = nil) -> Bool {
             error(arg.valuePosition, length: arg.valueLength, message, replacement: replacement)
             return false
         }
+        /// "`name` must be <the type's summary>…, not `value`."
+        func mustBe(_ template: String) -> DiagnosticText {
+            T(template, [.text(param.name), .phrase(param.type.summaryText), .text(v)])
+        }
         switch param.type {
         case let .integer(min, max):
-            guard let n = Int(v) else { return fail("`\(param.name)` must be \(param.type.summary), not `\(v)`.") }
-            if let min, n < min { return fail("`\(param.name)` must be \(param.type.summary); `\(v)` is too small.") }
-            if let max, n > max { return fail("`\(param.name)` must be \(param.type.summary); `\(v)` is too large.") }
+            guard let n = Int(v) else { return fail(mustBe("`%@` must be %@, not `%@`.")) }
+            if let min, n < min { return fail(mustBe("`%@` must be %@; `%@` is too small.")) }
+            if let max, n > max { return fail(mustBe("`%@` must be %@; `%@` is too large.")) }
         case let .number(min, max, exclusive):
             guard let n = Double(v) else {
                 if v.hasSuffix("%"), let pct = Double(v.dropLast()) {
-                    return fail("`\(param.name)` takes a fraction, not a percentage. Write `\(PipelineSerializer.number(pct / 100))`.", replacement: PipelineSerializer.number(pct / 100))
+                    return fail(T("`%@` takes a fraction, not a percentage. Write `%@`.", param.name, PipelineSerializer.number(pct / 100)), replacement: PipelineSerializer.number(pct / 100))
                 }
-                return fail("`\(param.name)` must be \(param.type.summary), not `\(v)`.")
+                return fail(mustBe("`%@` must be %@, not `%@`."))
             }
-            if let min, exclusive ? n <= min : n < min { return fail("`\(param.name)` must be \(param.type.summary); got `\(v)`.") }
+            if let min, exclusive ? n <= min : n < min { return fail(mustBe("`%@` must be %@; got `%@`.")) }
             if let max, n > max {
                 if param.name == "factor", step == "downscale" {
-                    return fail("`factor` must be above 0 and at most 1: esclop only scales down. `0.5` is half size.")
+                    return fail(T("`factor` must be above 0 and at most 1: esclop only scales down. `0.5` is half size."))
                 }
-                return fail("`\(param.name)` must be \(param.type.summary); got `\(v)`.")
+                return fail(mustBe("`%@` must be %@; got `%@`."))
             }
         case .boolean:
-            guard Self.bool(v) != nil else { return fail("`\(param.name)` must be `true` or `false`, not `\(v)`.") }
+            guard Self.bool(v) != nil else { return fail(T("`%@` must be `true` or `false`, not `%@`.", param.name, v)) }
         case let .choice(values):
             if param.name == "frames", FrameBehaviour(text: v) != nil { break }
             if !values.contains(where: { $0.caseInsensitiveCompare(v) == .orderedSame }) {
                 let suggestion = Self.closest(v, in: values)
-                return fail("`\(v)` is not a valid `\(param.name)`." + (suggestion.map { " Did you mean `\($0)`?" } ?? "") + " Use \(param.type.summary).", replacement: suggestion)
+                let text = suggestion.map { T("`%@` is not a valid `%@`. Did you mean `%@`? Use %@.", [.text(v), .text(param.name), .text($0), .phrase(param.type.summaryText)]) }
+                    ?? T("`%@` is not a valid `%@`. Use %@.", [.text(v), .text(param.name), .phrase(param.type.summaryText)])
+                return fail(text, replacement: suggestion)
             }
         case .byteSize:
-            guard ByteSize.parse(v) != nil else { return fail("`\(param.name)` must be \(param.type.summary), not `\(v)`.") }
+            guard ByteSize.parse(v) != nil else { return fail(mustBe("`%@` must be %@, not `%@`.")) }
         case .duration:
-            guard Durations.parse(v) != nil else { return fail("`\(param.name)` must be \(param.type.summary), not `\(v)`.") }
+            guard Durations.parse(v) != nil else { return fail(mustBe("`%@` must be %@, not `%@`.")) }
         case .aspectRatio:
-            guard AspectRatio(v) != nil else { return fail("`\(param.name)` must be \(param.type.summary), not `\(v)`.") }
+            guard AspectRatio(v) != nil else { return fail(mustBe("`%@` must be %@, not `%@`.")) }
         case .resolution:
-            guard Resolution.parse(v) != nil else { return fail("`\(param.name)` must be \(param.type.summary), not `\(v)`.") }
+            guard Resolution.parse(v) != nil else { return fail(mustBe("`%@` must be %@, not `%@`.")) }
         case .compression:
-            guard CompressionSetting(text: v) != nil else { return fail("`compression` must be \(param.type.summary), not `\(v)`.") }
+            guard CompressionSetting(text: v) != nil else { return fail(mustBe("`%@` must be %@, not `%@`.")) }
         case .text, .typeList:
-            if v.isEmpty { return fail("`\(param.name)` is empty.") }
+            if v.isEmpty { return fail(T("`%@` is empty.", param.name)) }
         case .location:
-            if v.isEmpty { return fail("`location` is empty. Use \(param.type.summary).") }
+            if v.isEmpty { return fail(T("`location` is empty. Use %@.", [.phrase(param.type.summaryText)])) }
             if !arg.quoted, !["inPlace", "sameFolder", "temporaryFolder", "temporary"].contains(v),
                !v.contains("/"), !v.contains("%"), !v.contains("~")
             {
                 let suggestion = Self.closest(v, in: ["inPlace", "sameFolder", "temporaryFolder"])
                 if let suggestion {
-                    return fail("Unknown location `\(v)`. Did you mean `\(suggestion)`? Quote it if it is a file name.", replacement: suggestion)
+                    return fail(T("Unknown location `%@`. Did you mean `%@`? Quote it if it is a file name.", v, suggestion), replacement: suggestion)
                 }
             }
         }
         if case .text = param.type, !arg.quoted, v.contains(where: { $0 == "%" || $0 == "/" || $0 == "$" }) {
             // Clop accepts bare templates; nudge towards quotes, which survive commas and `->`.
-            warning(arg.valuePosition, length: arg.valueLength, "Quote paths and templates: `\(param.name): \(PipelineSerializer.quote(v))`.", replacement: PipelineSerializer.quote(v))
+            warning(arg.valuePosition, length: arg.valueLength, T("Quote paths and templates: `%@: %@`.", param.name, PipelineSerializer.quote(v)), replacement: PipelineSerializer.quote(v))
+
         }
         return true
     }

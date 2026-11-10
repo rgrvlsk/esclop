@@ -5,6 +5,7 @@
 
 import EsclopCore
 import EsclopPipelines
+import Foundation
 
 enum PipelineVocabulary {
     static func stepTitle(_ name: String) -> String {
@@ -52,6 +53,13 @@ enum PipelineVocabulary {
     }
 
     static func paramHelpKey(step: String, param: String) -> String { "step.\(step == "ifNot" ? "if" : step).\(param)" }
+
+    /// A parser message in the app's language: its template (and the phrases nested in it) looked
+    /// up in the catalog, the English when there is none. The CLI keeps printing `message`.
+    static func message(_ diagnostic: PipelineDiagnostic, locale: Locale = Strings.locale) -> String {
+        guard let text = diagnostic.text else { return diagnostic.message }
+        return text.rendered { Strings.text($0, locale: locale) }
+    }
 
     static func paramTitle(_ name: String) -> String {
         switch name {
