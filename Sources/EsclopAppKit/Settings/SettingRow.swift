@@ -6,6 +6,7 @@
 
 import EsclopCore
 import EsclopIPC
+import EsclopMCP
 import SwiftUI
 
 struct SettingRow: View {
@@ -104,7 +105,7 @@ struct SettingRow: View {
 
     static func shellQuoted(_ text: String) -> String {
         let safe = text.allSatisfy { $0.isLetter || $0.isNumber || "-_.,/~%".contains($0) }
-        return safe && !text.isEmpty ? text : "'" + text.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        return safe && !text.isEmpty ? text : ServerCommand.quoted(text)
     }
 }
 

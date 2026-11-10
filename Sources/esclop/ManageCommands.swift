@@ -243,6 +243,8 @@ struct Settings: AsyncParsableCommand {
                     let choices = setting.choices.map { " (\($0.joined(separator: ", ")))" } ?? ""
                     print("\(t.bold(setting.key)) = \(t.cyan((setting.value ?? setting.defaultValue).plain))  \(t.dim(setting.type.rawValue + choices))")
                     print("  \(setting.title). \(setting.summary)")
+                    // The values in the terms the command line takes them.
+                    if let details = setting.jsonSchema?["x-details"]?.stringValue { print("  \(t.dim(details))") }
                 }
                 return 0
             }

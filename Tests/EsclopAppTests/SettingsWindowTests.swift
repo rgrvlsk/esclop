@@ -239,6 +239,7 @@ import Testing
         #expect(SettingRow.shellQuoted("55") == "55")
         #expect(SettingRow.shellQuoted("%f-optimised") == "%f-optimised")
         #expect(SettingRow.shellQuoted("[\"~/My Shots\"]") == "'[\"~/My Shots\"]'")
-        #expect(SettingRow.shellQuoted("it's") == "'it'\\''s'")
+        #expect(SettingRow.shellQuoted("it's") == "\"it's\"", "an apostrophe alone reads better in double quotes")
+        #expect(SettingRow.shellQuoted("it's \"$5\"") == "'it'\\''s \"$5\"'")
     }
 }

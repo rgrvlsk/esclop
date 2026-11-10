@@ -20,6 +20,8 @@ public final class AppModel {
     }
     /// The files of the latest job too large for floating results, shown in the batch window.
     public private(set) var batch: Batch?
+    /// What L'Esclop last wrote to the clipboard, by bytes (`ClipboardFingerprint`).
+    @ObservationIgnored var ownWrites: [ClipboardFingerprint] = []
     /// Shows the batch window when a batch starts.
     @ObservationIgnored var onBatch: ((Batch) -> Void)?
 
@@ -561,7 +563,7 @@ public final class AppModel {
         case .reveal:
             reveal([card.shownFile])
         case .copy:
-            Clipboard.write(files: [card.shownFile], to: pasteboard)
+            writeClipboard(files: [card.shownFile])
         case .dismiss:
             dismiss(card)
         }
@@ -596,7 +598,7 @@ public final class AppModel {
             let copyBack = origin == .clipboard && EsclopSettings.autoCopyToClipboard.value(in: settings)
             await run(job, displayName: displayName, context: context, reusing: card, onResult: { result in
                 guard copyBack else { return }
-                Clipboard.write(files: [result.output], to: self.pasteboard)
+                self.writeClipboard(files: [result.output])
             })
         }
     }
@@ -619,7 +621,7 @@ public final class AppModel {
             }
             if pasteboardHolds(result.output) {
                 // The optimised copy was on the clipboard: the original replaces it there too.
-                Clipboard.write(files: [result.source], to: pasteboard)
+                writeClipboard(files: [result.source])
             }
         } catch {
             if let card { card.phase = .failed(CardPresentation.message(for: error)) } else {

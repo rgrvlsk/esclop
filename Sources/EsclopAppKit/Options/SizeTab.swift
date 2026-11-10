@@ -171,6 +171,7 @@ struct CropEditor: View {
                     Button(Strings.text("Cancel")) { model.cropping = false; model.crop = nil }
                     Button(Strings.text("Crop")) { model.applyCrop() }
                         .keyboardShortcut(.defaultAction)
+                        .primaryButton()
                         .disabled(crop.cropSize == nil || model.card.isWorking)
                 }
                 .textFieldStyle(.roundedBorder)

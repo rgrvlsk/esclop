@@ -31,7 +31,7 @@ struct ImageEngine: Sendable {
 
     func process(_ source: URL, plan: Plan, work: WorkFolder, progress: ProgressSink) async throws -> Produced {
         guard let info = ImageInfo.probe(source), let sourceFormat = info.format else {
-            throw EsclopError.unsupportedFile(source.lastPathComponent)
+            throw Self.unreadableOrUnsupported(source)
         }
         let target = targetFormat(for: sourceFormat, info: info, plan: plan)
         if target == .pdf {
@@ -87,6 +87,12 @@ struct ImageEngine: Sendable {
             }
         }
         return sourceFormat
+    }
+
+    /// An image L'Esclop knows by its name but cannot decode is damaged; anything else is a kind
+    /// it does not handle.
+    static func unreadableOrUnsupported(_ source: URL) -> EsclopError {
+        MediaKind.of(source) == .image ? .unreadable(kind: .image) : .unsupportedFile(source.lastPathComponent)
     }
 
     func geometry(for source: URL, info: ImageInfo, plan: Plan) throws -> Geometry {
@@ -324,7 +330,7 @@ struct ImageEngine: Sendable {
 
     private func imageToPDF(_ source: URL, info: ImageInfo, work: WorkFolder) throws -> Produced {
         guard let image = NSImage(contentsOf: source), let page = PDFPage(image: image) else {
-            throw EsclopError.unsupportedFile(source.lastPathComponent)
+            throw Self.unreadableOrUnsupported(source)
         }
         let document = PDFDocument()
         document.insert(page, at: 0)
@@ -339,7 +345,7 @@ struct ImageEngine: Sendable {
     /// picture's), then encodes in the source's format like any other optimisation.
     func watermark(_ source: URL, plan: Plan, watermark: Watermark, work: WorkFolder, progress: ProgressSink) async throws -> Produced {
         guard let info = ImageInfo.probe(source), let sourceFormat = info.format else {
-            throw EsclopError.unsupportedFile(source.lastPathComponent)
+            throw Self.unreadableOrUnsupported(source)
         }
         if info.isAnimated {
             throw EsclopError.unsupportedFile("Watermarking animated images is not supported yet")
@@ -395,7 +401,7 @@ struct ImageEngine: Sendable {
 
     func fit(_ source: URL, under target: Int, plan: Plan, work: WorkFolder, progress: ProgressSink) async throws -> Produced {
         guard let info = ImageInfo.probe(source), let sourceFormat = info.format else {
-            throw EsclopError.unsupportedFile(source.lastPathComponent)
+            throw Self.unreadableOrUnsupported(source)
         }
         let format = targetFormat(for: sourceFormat, info: info, plan: plan)
         let base = plan.factor(for: .image, format: format, env: env)
@@ -440,7 +446,7 @@ struct ImageEngine: Sendable {
 
     func stripMetadata(_ source: URL, work: WorkFolder) async throws -> Produced {
         guard let info = ImageInfo.probe(source), let format = info.format else {
-            throw EsclopError.unsupportedFile(source.lastPathComponent)
+            throw Self.unreadableOrUnsupported(source)
         }
         let output = work.file(stem: "stripped", ext: source.pathExtension.isEmpty ? format.fileExtension : source.pathExtension)
         if format == .gif {

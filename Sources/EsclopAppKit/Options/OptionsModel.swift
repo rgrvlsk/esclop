@@ -99,7 +99,7 @@ public final class OptionsModel {
         self.app = app
         tab = OptionsTab.tabs(for: MediaKind.of(card.source)).contains(card.optionsTab) ? card.optionsTab : .optimise
         quality = Double(card.choice.effectiveQuality)
-        name = card.shownFile.deletingPathExtension().lastPathComponent
+        name = Self.shownName(of: card)
         if card.optionsTab == .size { cropping = true }
     }
 
@@ -110,7 +110,7 @@ public final class OptionsModel {
     /// The format the file arrived in: its extension first (".m4a" is M4A, though its type
     /// prefers ".mp4"), else its type.
     public var inputFormat: OutputFormat? {
-        (original ?? Optional(card.source)).flatMap(OutputFormat.of) ?? card.inputType.flatMap { OutputFormat.of(type: $0) }
+        original.flatMap(OutputFormat.of) ?? OutputFormat.of(card.source) ?? card.inputType.flatMap { OutputFormat.of(type: $0) }
     }
     public var origin: FileOrigin { card.fileOrigin ?? .unknown }
     public var tabs: [OptionsTab] { OptionsTab.tabs(for: kind) }
@@ -141,7 +141,8 @@ public final class OptionsModel {
     }
 
     /// The format the file has now.
-    public var currentFormat: OutputFormat? { card.choice.format ?? inputFormat }
+    /// The format the file has now: the result's own file, else the choice, else the input.
+    public var currentFormat: OutputFormat? { card.result.flatMap { OutputFormat.of($0.output) } ?? card.choice.format ?? inputFormat }
 
     // MARK: Lifecycle
 
@@ -152,7 +153,7 @@ public final class OptionsModel {
 
     public func disappear() {
         if let original { Task { await app.estimator.cancel(original) } }
-        if name != card.shownFile.deletingPathExtension().lastPathComponent { commitName() }
+        if name != Self.shownName(of: card) { commitName() }
     }
 
     // MARK: Estimates
@@ -188,6 +189,23 @@ public final class OptionsModel {
     public var cropRequest: EstimateRequest? {
         guard let size = crop?.cropSize else { return nil }
         return EstimateRequest(choice: card.choice, crop: size)
+    }
+
+    /// "PNG · 960 × 600", "HEVC · 3840 × 2160 · 2:14", "PDF · 28 pages": what the file is now.
+    /// The size comes from the current result (after a crop or a downscale); the original's
+    /// facts are only the fallback. The crop editor and the downscale slider keep working in the
+    /// original's pixels, since every change runs again from the original.
+    public var headerMeta: String {
+        var parts = [currentFormat?.displayName].compactMap { $0 }
+        var width = facts.width, height = facts.height, duration = facts.duration
+        if let result = card.result {
+            if let w = result.width, let h = result.height { (width, height) = (w, h) }
+            if let d = result.duration { duration = d }
+        }
+        if let width, let height { parts.append("\(width) × \(height)") }
+        if let duration { parts.append(Figures.duration(duration)) }
+        if let pages = facts.pages { parts.append(Strings.format(pages == 1 ? "%d page" : "%d pages", pages)) }
+        return parts.joined(separator: " · ")
     }
 
     /// "1470 × 956" at the slider's scale.
@@ -270,8 +288,27 @@ public final class OptionsModel {
 
     public var canMakeRule: Bool { card.origin == .clipboard && card.fileOrigin != nil && card.inputType != nil }
 
+    /// Only a name the person typed renames the file.
     public func commitName() {
-        if !app.rename(card, to: name) { name = card.shownFile.deletingPathExtension().lastPathComponent }
+        guard name != Self.shownName(of: card) else { return }
+        if !app.rename(card, to: name) { name = Self.shownName(of: card) }
+    }
+
+    /// The name the header shows: the card's ("Copied image" for copied pixels, not the
+    /// temporary file's "Clipboard 2026-11-10T02.52.31Z"), else the file's.
+    static func shownName(of card: ResultCard) -> String {
+        card.displayName ?? card.shownFile.deletingPathExtension().lastPathComponent
+    }
+
+    /// "Screenshot (PNG)", "Copied image (PNG)", "PNG file": where the file came from, in words.
+    public var originLabel: String {
+        let format = inputFormat?.displayName
+        guard origin == .unknown else { return origin.title + (format.map { " (\($0))" } ?? "") }
+        if card.origin == .clipboard {
+            let noun = kind == .image ? Strings.text("Copied image") : Strings.text("Copied file")
+            return noun + (format.map { " (\($0))" } ?? "")
+        }
+        return format.map { Strings.format("%@ file", $0) } ?? Strings.text("File")
     }
 
     public func loadShortcuts() async {

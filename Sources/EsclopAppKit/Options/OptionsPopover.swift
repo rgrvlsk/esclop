@@ -124,6 +124,8 @@ struct OptionsHeader: View {
                 Group {
                     if model.card.isWorking {
                         Text(Strings.text("Optimising…"))
+                    } else if let result = model.card.result, Figures.isNoSaving(before: result.bytesBefore, after: result.bytesAfter) {
+                        Text(Strings.format("Already optimised · %@", Figures.bytes(result.bytesAfter)))
                     } else if let result = model.card.result {
                         Text(Figures.change(before: result.bytesBefore, after: result.bytesAfter) + " · ")
                             + Text(Figures.percent(before: result.bytesBefore, after: result.bytesAfter)).foregroundStyle(Palette.accent).fontWeight(.semibold)
@@ -133,20 +135,10 @@ struct OptionsHeader: View {
                 }
                 .font(OptionsType.label)
                 .monospacedDigit()
-                Text(meta).font(OptionsType.label).foregroundStyle(.secondary).monospacedDigit().lineLimit(1)
+                Text(model.headerMeta).font(OptionsType.label).foregroundStyle(.secondary).monospacedDigit().lineLimit(1)
             }
         }
         .onChange(of: editing) { _, now in if !now { model.commitName() } }
-    }
-
-    /// "PNG · 2940 × 1912", "HEVC · 3840 × 2160 · 2:14", "PDF · 28 pages", "AAC · 8:42".
-    private var meta: String {
-        var parts = [model.currentFormat?.displayName].compactMap { $0 }
-        let facts = model.facts
-        if let width = facts.width, let height = facts.height { parts.append("\(width) × \(height)") }
-        if let duration = facts.duration { parts.append(Figures.duration(duration)) }
-        if let pages = facts.pages { parts.append(Strings.format(pages == 1 ? "%d page" : "%d pages", pages)) }
-        return parts.joined(separator: " · ")
     }
 }
 

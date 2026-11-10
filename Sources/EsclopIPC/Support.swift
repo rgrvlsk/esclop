@@ -311,6 +311,7 @@ extension EsclopError {
         case .invalidPipeline: return "invalidPipeline"
         case .invalidArgument: return "invalidArgument"
         case .appNotRunning: return "appNotRunning"
+        case .unreadable: return "unreadable"
         case .other: return "other"
         }
     }

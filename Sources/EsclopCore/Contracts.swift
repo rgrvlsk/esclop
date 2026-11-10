@@ -282,7 +282,20 @@ public enum EsclopError: Error, Codable, Equatable, Sendable, CustomStringConver
     case invalidPipeline(String)
     case invalidArgument(String)
     case appNotRunning
+    /// A file of a kind L'Esclop handles that cannot be read: damaged, cut short or mislabelled.
+    /// The tool's own output goes to the log, not into this message.
+    case unreadable(kind: MediaKind)
     case other(String)
+
+    /// "This file isn’t a video L'Esclop can read. It may be damaged."
+    public static func unreadableMessage(_ kind: MediaKind) -> String {
+        switch kind {
+        case .image: return "This file isn’t an image L’Esclop can read. It may be damaged."
+        case .video: return "This file isn’t a video L’Esclop can read. It may be damaged."
+        case .pdf: return "This file isn’t a PDF L’Esclop can read. It may be damaged."
+        case .audio: return "This file isn’t audio L’Esclop can read. It may be damaged."
+        }
+    }
 
     public var description: String {
         switch self {
@@ -296,6 +309,7 @@ public enum EsclopError: Error, Codable, Equatable, Sendable, CustomStringConver
         case let .invalidPipeline(why): return "Invalid pipeline: \(why)"
         case let .invalidArgument(why): return "Invalid argument: \(why)"
         case .appNotRunning: return "The esclop app is not running"
+        case let .unreadable(kind): return Self.unreadableMessage(kind)
         case let .other(msg): return msg
         }
     }
