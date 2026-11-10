@@ -23,13 +23,26 @@ if [ -z "$body" ]; then
   exit 1
 fi
 
+# Without notarisation credentials the app is signed ad hoc, and macOS will not open it at once.
+opening=""
+if [ -z "${ESCLOP_NOTARY_PROFILE:-}" ]; then
+  opening="
+## Opening the app
+
+This build is not notarised by Apple, so macOS refuses to open it the first time. Drag
+L'Esclop to Applications and open it once; then go to System Settings → Privacy & Security,
+find the message about L'Esclop near the end and click **Open Anyway**. macOS asks once.
+"
+fi
+
 cat <<EOF
 $body
-
+$opening
 ## Downloads
 
 | File | What it is |
 | --- | --- |
+| \`LEsclop-$VERSION.dmg\` | The menu bar app, with the command line and the bundled tools inside (macOS 14+, Apple Silicon and Intel) |
 | \`esclop-$VERSION-cli.tar.gz\` | The \`esclop\` command line and MCP server with the bundled tools and every licence text (macOS 14+, Apple Silicon and Intel) |
 | \`esclop-$VERSION-source.tar.zst\` | The source of this release (the repository at \`v$VERSION\`) |
 | \`esclop-engine-$VERSION-vendor.tar.zst\` | The Rust crates \`esclop-engine\` is built from (\`cargo vendor\`) |
