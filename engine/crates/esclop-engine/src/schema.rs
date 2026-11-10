@@ -18,7 +18,7 @@ pub fn all() -> Vec<(String, String)> {
         ("result.schema.json".to_string(), one::<OpResult>()),
         ("hello-result.schema.json".to_string(), one::<HelloResult>()),
     ];
-    let params: [(&str, String); 12] = [
+    let params: [(&str, String); 13] = [
         ("probe", one::<ProbeParams>()),
         ("png.optimise", one::<PngParams>()),
         ("jpeg.optimise", one::<JpegParams>()),
@@ -31,6 +31,7 @@ pub fn all() -> Vec<(String, String)> {
         ("metadata.strip", one::<StripParams>()),
         ("convert", one::<ConvertParams>()),
         ("fit", one::<FitParams>()),
+        ("pdf.optimise", one::<PdfParams>()),
     ];
     v.extend(params.into_iter().map(|(op, s)| (format!("params/{op}.schema.json"), s)));
     v

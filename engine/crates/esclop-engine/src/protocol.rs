@@ -25,6 +25,7 @@ pub const OPS: &[&str] = &[
     "metadata.strip",
     "convert",
     "fit",
+    "pdf.optimise",
     "cancel",
 ];
 
@@ -105,6 +106,8 @@ pub enum Format {
     Bmp,
     Heic,
     Jxl,
+    /// Only `pdf.optimise` reads and writes it.
+    Pdf,
 }
 
 impl Format {
@@ -119,6 +122,7 @@ impl Format {
             Format::Bmp => "bmp",
             Format::Heic => "heic",
             Format::Jxl => "jxl",
+            Format::Pdf => "pdf",
         }
     }
     pub fn encodable(self) -> bool {
@@ -490,6 +494,26 @@ pub struct FitParams {
     /// avif speed (default 6).
     #[schemars(range(min = 1, max = 10))]
     pub speed: Option<u8>,
+    #[serde(flatten)]
+    pub out: OutputParams,
+}
+
+/// `pdf.optimise`: recompresses a PDF's streams without touching fonts, text, annotations, forms,
+/// outlines or structure. Encrypted PDFs answer `unsupported`, damaged ones `decode`.
+#[derive(Debug, Clone, Default, Deserialize, Serialize, JsonSchema)]
+#[serde(default)]
+pub struct PdfParams {
+    /// Highest image resolution kept, in dots per inch of the page: 48..=300. Images drawn
+    /// denser are downsampled to it. 0, 300 or absent: no downsampling.
+    #[schemars(range(max = 300))]
+    pub dpi: Option<u32>,
+    /// Compression factor 0..=100 (30 normal, 64 aggressive): the JPEG ceiling images are
+    /// re-encoded at, as for `jpeg.optimise`. JPEGs already at or under it are only re-coded
+    /// losslessly unless they need downsampling. Default 30.
+    #[schemars(range(max = 100))]
+    pub compression: Option<u8>,
+    /// `strip` removes the document information, the catalog's XMP, page thumbnails and
+    /// application data (`/PieceInfo`); `keep` does not apply.
     #[serde(flatten)]
     pub out: OutputParams,
 }
