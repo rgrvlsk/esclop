@@ -106,6 +106,9 @@ into the body of its GitHub release.
   Images, Video, PDF and Audio panes.
 
 ### Fixed
+- Release builds no longer carry the path of the machine that built them: looking for tools
+  beside the source file is for debug builds only. The release workflow checks the app's
+  binaries for such paths, as it did the command line's, and now builds the DMG.
 - Floating results and the options popover, from a live UI check:
   - the popover header shows the result's size after a crop or a downscale;
   - a result's row of buttons no longer covers the result above, and results no longer touch;
