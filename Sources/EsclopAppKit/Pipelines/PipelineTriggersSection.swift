@@ -16,8 +16,17 @@ struct PipelineTriggersSection: View {
     var body: some View {
         Section {
             ForEach(Self.simple, id: \.self) { trigger in
-                Toggle(PipelineVocabulary.triggerTitle(trigger.name), isOn: $model.draft[trigger: trigger])
+                if trigger == .rightClick {
+                    TitledToggle(
+                        title: PipelineVocabulary.triggerTitle(trigger.name),
+                        subtitle: Strings.text("In Finder, under Quick Actions › Run a Pipeline with L’Esclop…"),
+                        isOn: $model.draft[trigger: trigger]
+                    )
+                } else {
+                    Toggle(PipelineVocabulary.triggerTitle(trigger.name), isOn: $model.draft[trigger: trigger])
+                }
             }
+
             ForEach(model.draft.folders, id: \.self) { folder in
                 HStack(spacing: 8) {
                     Image(systemName: "folder").foregroundStyle(.secondary).frame(width: 18).accessibilityHidden(true)

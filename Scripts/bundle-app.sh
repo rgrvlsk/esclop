@@ -50,6 +50,12 @@ Scripts/build-swift.sh esclop "$APP/Contents/MacOS/esclop"
 sed -e "s|@EXECUTABLE@|$EXEC|" -e "s|@VERSION@|$VERSION|" -e "s|@BUILD@|$BUILD|" \
   -e "s|@SOURCE_URL@|$ESCLOP_SOURCE_URL|" Scripts/templates/Info.plist.in > "$APP/Contents/Info.plist"
 plutil -lint -s "$APP/Contents/Info.plist"
+# The Finder Quick Actions' titles in each language (Info.plist's NSServices hold the English).
+for strings in Scripts/templates/ServicesMenu/*.lproj; do
+  mkdir -p "$APP/Contents/Resources/$(basename "$strings")"
+  cp "$strings/ServicesMenu.strings" "$APP/Contents/Resources/$(basename "$strings")/"
+done
+
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 for t in esclop-engine ffmpeg ffprobe gs gifsicle; do cp "Binaries/$t" "$APP/Contents/Resources/bin/"; done

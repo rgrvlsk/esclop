@@ -1341,6 +1341,16 @@
         }
       }
     },
+    "Choose images, videos, PDFs or audio files in Finder.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tria imatges, vídeos, PDF o fitxers d’àudio al Finder."
+          }
+        }
+      }
+    },
     "Choose images, videos, PDFs or audio files.": {
       "localizations": {
         "ca": {
@@ -2741,6 +2751,16 @@
         }
       }
     },
+    "In Finder, under Quick Actions › Run a Pipeline with L’Esclop…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Al Finder, a Accions ràpides › Passa per un pipeline de L’Esclop…"
+          }
+        }
+      }
+    },
     "In a specific folder": {
       "localizations": {
         "ca": {
@@ -3501,6 +3521,16 @@
         }
       }
     },
+    "No pipeline for Finder yet": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encara no hi ha cap pipeline per al Finder"
+          }
+        }
+      }
+    },
     "No pipeline selected": {
       "localizations": {
         "ca": {
@@ -3661,6 +3691,16 @@
         }
       }
     },
+    "Nothing to convert": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hi ha res per convertir"
+          }
+        }
+      }
+    },
     "Nothing to optimise": {
       "localizations": {
         "ca": {
@@ -3677,6 +3717,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Només si"
+          }
+        }
+      }
+    },
+    "Only images convert to WebP.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Només les imatges es converteixen a WebP."
           }
         }
       }
@@ -5757,6 +5807,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "S’està provant amb «%@»…"
+          }
+        }
+      }
+    },
+    "Turn on “Finder’s right-click menu” for a pipeline in the pipeline editor.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activa «El menú del clic dret del Finder» en un pipeline a l’editor de pipelines."
           }
         }
       }

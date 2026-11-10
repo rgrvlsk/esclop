@@ -29,6 +29,8 @@ public final class AppServices {
     let server: AppServer
     /// Pictures of the app's windows on request; only with ESCLOP_SNAPSHOT_DIR set.
     let snapshots = WindowSnapshots()
+    /// Finder's Quick Actions (Services).
+    let finderServices: FinderServices
     private let log = Logger(subsystem: Paths.bundleIdentifier, category: "app")
 
     public init(settings: SettingsStore = .shared) {
@@ -78,6 +80,7 @@ public final class AppServices {
         self.batchWindow = batchWindow
         model.onBatch = { [weak batchWindow] batch in batchWindow?.show(batch) }
         let store = model.service.context.pipelines
+        finderServices = FinderServices(model: model, pipelines: { (try? store.list()) ?? [] })
         let folders = WatchedFolders(model: model, pipelines: { (try? store.list()) ?? [] })
         self.folders = folders
         model.onPauseChange = { [weak folders] in folders?.refresh() }
@@ -109,7 +112,11 @@ public final class AppServices {
                 MainActor.assumeIsolated { folders?.refresh() }
             }
         }
+        // Finder's Quick Actions come to this object; refreshing makes a new install's show at once.
+        NSApp.servicesProvider = finderServices
+        NSUpdateDynamicServices()
         Hotkeys.register(model)
+
         onboarding.showIfFirstRun()
         snapshots?.start()
         log.info("L'Esclop \(EsclopVersion.string, privacy: .public) is running")

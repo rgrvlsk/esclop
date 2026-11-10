@@ -7,6 +7,14 @@ into the body of its GitHub release.
 
 ## [Unreleased]
 
+### Added
+- Finder Quick Actions: right-click images, videos, PDFs or audio files in Finder and choose
+  "Optimise with L’Esclop", "Optimise Harder with L’Esclop", "Convert to WebP with L’Esclop"
+  (images) or "Run a Pipeline with L’Esclop…", which offers the pipelines whose triggers
+  include Finder's right-click menu. Nothing opens: the files go through the usual floating
+  results, or the batch window from `batchWindowFrom` files. Made with macOS Services, as Clop
+  does; the titles are in English and Catalan.
+
 ### Changed
 - The whole app speaks Catalan when macOS does (or with `ESCLOP_LANGUAGE=ca`): the menu, the
   Settings window with every setting, option, heading and the search, the Agents and MCP pane
