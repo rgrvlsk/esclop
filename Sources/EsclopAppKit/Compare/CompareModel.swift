@@ -23,6 +23,8 @@ public final class CompareModel {
 
     /// The result shown when its floating result is gone.
     public private(set) var stored: OptimisationResult?
+    /// The last link named a result the app no longer knows; the window says so.
+    public private(set) var isUnknown = false
     /// The floating result the window follows, when there is one.
     @ObservationIgnored private var cardID: UUID?
     /// Undone from this window (the app's own list is not observed).
@@ -90,10 +92,12 @@ public final class CompareModel {
     public func open(_ result: OptimisationResult) {
         stored = result
         cardID = app.cards.first { $0.result?.id == result.id }?.id
+        isUnknown = false
         reset()
     }
 
-    /// Opens a result by id: the app's recent results, then the shared log. False when unknown.
+    /// Opens a result by id: the app's recent results, then the shared log. False when unknown,
+    /// and then the comparison on screen is cleared, so the window never shows another result.
     @discardableResult
     public func open(id: UUID) -> Bool {
         if let card = app.cards.first(where: { $0.result?.id == id }), let result = card.result {
@@ -101,7 +105,13 @@ public final class CompareModel {
             return true
         }
         let known = app.recent + app.service.results.recent(limit: 500)
-        guard let result = known.first(where: { $0.id == id }) else { return false }
+        guard let result = known.first(where: { $0.id == id }) else {
+            stored = nil
+            cardID = nil
+            isUnknown = true
+            reset()
+            return false
+        }
         open(result)
         return true
     }

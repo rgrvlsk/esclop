@@ -111,6 +111,9 @@ import Testing
         try await act { compare.open(pruned) }
         try await act { try? FileManager.default.removeItem(at: pruned.backup!); compare.mode = .split }
         #expect(compare.sides == .pruned(after: pruned.output))
+        // A link to a result the app no longer knows, while a comparison is on screen.
+        try await act { #expect(!compare.open(id: UUID())) }
+        #expect(compare.isUnknown && compare.result == nil)
         // Back to the image while everything above is gone.
         try await act { compare.open(image) }
         try await act { await compare.load() }
