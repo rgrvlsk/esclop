@@ -25,7 +25,7 @@ struct AgentsConnectSection: View {
                     .foregroundStyle(.red)
             }
             if agents.loaded, agents.found.isEmpty {
-                Text("No agents found on this Mac. Pick one below to set it up anyway, or copy a snippet at the end of this pane.")
+                Text(Strings.text("No agents found on this Mac. Pick one below to set it up anyway, or copy a snippet at the end of this pane."))
                     .foregroundStyle(.secondary)
             }
             ForEach(agents.found) { row in
@@ -42,14 +42,14 @@ struct AgentsConnectSection: View {
                             .font(.caption.weight(.semibold))
                             .rotationEffect(.degrees(showsOthers ? 90 : 0))
                             .foregroundStyle(.secondary)
-                        Text("Not found on this Mac (\(agents.notFound.count))")
+                        Text(Strings.format("Not found on this Mac (%d)", agents.notFound.count))
                         Spacer()
                     }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityValue(showsOthers ? "Expanded" : "Collapsed")
-                .accessibilityAction(named: showsOthers ? "Collapse" : "Expand") { showsOthers.toggle() }
+                .accessibilityValue(showsOthers ? Strings.text("Expanded") : Strings.text("Collapsed"))
+                .accessibilityAction(named: showsOthers ? Strings.text("Collapse") : Strings.text("Expand")) { showsOthers.toggle() }
                 if showsOthers {
                     ForEach(agents.notFound) { row in
                         AgentRow(row: row, agents: agents, model: model, actions: actions)
@@ -57,9 +57,9 @@ struct AgentsConnectSection: View {
                 }
             }
         } header: {
-            Text("Connect an agent")
+            Text(Strings.text("Connect an agent"))
         } footer: {
-            Text("Connecting adds an esclop entry to the agent's own config file and nothing else. You see the change before it is written, and the previous version is kept in L'Esclop's folder.")
+            Text(Strings.text("Connecting adds an esclop entry to the agent's own config file and nothing else. You see the change before it is written, and the previous version is kept in L'Esclop's folder."))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 // Grouped forms put footers on the trailing side; these read with the rows above.
@@ -136,49 +136,49 @@ struct AgentRow: View {
         switch row.status.state {
         case .installed:
             Image(systemName: "checkmark.circle.fill").foregroundStyle(Palette.accent)
-                .accessibilityLabel("Connected")
+                .accessibilityLabel(Strings.text("Connected"))
         case .different:
             Image(systemName: "arrow.triangle.2.circlepath.circle.fill").foregroundStyle(Palette.warm)
-                .accessibilityLabel("Runs another esclop")
+                .accessibilityLabel(Strings.text("Runs another esclop"))
         case .unreadable:
             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
-                .accessibilityLabel("Config unreadable")
+                .accessibilityLabel(Strings.text("Config unreadable"))
         case .absent, .manual:
             Image(systemName: "circle.dashed").foregroundStyle(.secondary)
-                .accessibilityLabel("Not connected")
+                .accessibilityLabel(Strings.text("Not connected"))
         }
     }
 
     var stateText: String {
         let path = row.status.configPath ?? ""
         switch row.status.state {
-        case .installed: return "Connected in \(path)"
-        case .different: return "Runs another esclop: \(row.status.command?.command ?? "?"). Update it to this one."
-        case .absent: return row.status.present ? "Not connected. \(path)" : "Not found on this Mac. \(path)"
-        case .unreadable: return "\(path) does not parse, so it is left alone: \(row.status.detail ?? "")"
-        case .manual: return "Configured in Warp's own settings: Settings → AI → MCP Servers → Add, then paste the JSON."
+        case .installed: return Strings.format("Connected in %@", path)
+        case .different: return Strings.format("Runs another esclop: %@. Update it to this one.", row.status.command?.command ?? "?")
+        case .absent: return row.status.present ? Strings.format("Not connected. %@", path) : Strings.format("Not found on this Mac. %@", path)
+        case .unreadable: return Strings.format("%@ does not parse, so it is left alone: %@", path, row.status.detail ?? "")
+        case .manual: return Strings.text("Configured in Warp's own settings: Settings → AI → MCP Servers → Add, then paste the JSON.")
         }
     }
 
     @ViewBuilder private var buttons: some View {
         switch row.status.state {
         case .installed:
-            Button("Disconnect…") { agents.disconnect(row.agent) }
+            Button(Strings.text("Disconnect…")) { agents.disconnect(row.agent) }
         case .different:
             HStack {
-                Button("Disconnect…") { agents.disconnect(row.agent) }
-                Button("Update…") { agents.connect(row.agent) }
+                Button(Strings.text("Disconnect…")) { agents.disconnect(row.agent) }
+                Button(Strings.text("Update…")) { agents.connect(row.agent) }
                     .disabled(agents.command == nil)
             }
         case .absent:
-            Button("Connect…") { agents.connect(row.agent) }
+            Button(Strings.text("Connect…")) { agents.connect(row.agent) }
                 .disabled(agents.command == nil)
         case .unreadable:
-            Button("Show in Finder") {
+            Button(Strings.text("Show in Finder")) {
                 if let path = row.status.configPath { actions.reveal(URL(fileURLWithPath: (path as NSString).expandingTildeInPath)) }
             }
         case .manual:
-            Button("Copy JSON") { if let json = agents.manualJSON { actions.copy(json) } }
+            Button(Strings.text("Copy JSON")) { if let json = agents.manualJSON { actions.copy(json) } }
                 .disabled(agents.manualJSON == nil)
         }
     }
@@ -190,11 +190,11 @@ struct ConfigChangeSheet: View {
     let onCancel: () -> Void
     let onConfirm: () -> Void
 
-    var verb: String { change.action == .install ? "Connect" : "Disconnect" }
+    var verb: String { change.action == .install ? Strings.text("Connect") : Strings.text("Disconnect") }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("\(verb) \(change.agentName)")
+            Text(change.action == .install ? Strings.format("Connect %@", change.agentName) : Strings.format("Disconnect %@", change.agentName))
                 .font(.title2.weight(.semibold))
             Text(explanation)
                 .foregroundStyle(.secondary)
@@ -202,9 +202,9 @@ struct ConfigChangeSheet: View {
             DiffView(lines: change.diff())
             HStack {
                 Spacer()
-                Button("Cancel", role: .cancel, action: onCancel)
+                Button(Strings.text("Cancel"), role: .cancel, action: onCancel)
                     .keyboardShortcut(.cancelAction)
-                Button(change.action == .install ? "Connect" : "Disconnect", action: onConfirm)
+                Button(verb, action: onConfirm)
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)
                     .tint(change.action == .install ? Palette.accent : .red)
@@ -217,12 +217,12 @@ struct ConfigChangeSheet: View {
 
     var explanation: String {
         var text = change.removesFile
-            ? "L'Esclop created \(change.shownPath) when it connected, and the file holds nothing else, so it will be removed."
+            ? Strings.format("L'Esclop created %@ when it connected, and the file holds nothing else, so it will be removed.", change.shownPath)
             : change.fileExists
-            ? "L'Esclop will edit \(change.shownPath). Only the esclop entry changes: other servers, comments and formatting stay as they are."
-            : "\(change.shownPath) does not exist yet. L'Esclop will create it with only the esclop entry."
+            ? Strings.format("L'Esclop will edit %@. Only the esclop entry changes: other servers, comments and formatting stay as they are.", change.shownPath)
+            : Strings.format("%@ does not exist yet. L'Esclop will create it with only the esclop entry.", change.shownPath)
         if let backup = change.shownBackup {
-            text += " The current version is kept as \(backup)."
+            text += " " + Strings.format("The current version is kept as %@.", backup)
         }
         return text
     }
@@ -247,7 +247,7 @@ struct DiffView: View {
         .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(.separator))
         .textSelection(.enabled)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Change to the config: \(lines.filter { $0.kind == .added }.count) lines added, \(lines.filter { $0.kind == .removed }.count) removed")
+        .accessibilityLabel(Strings.format("Change to the config: %d lines added, %d removed", lines.filter { $0.kind == .added }.count, lines.filter { $0.kind == .removed }.count))
     }
 
     /// Changes up to this many lines show without scrolling.
@@ -266,7 +266,7 @@ struct DiffView: View {
     @ViewBuilder private func row(_ line: DiffLine) -> some View {
         switch line.kind {
         case .skipped:
-            Text("⋯ \(line.skipped) unchanged line\(line.skipped == 1 ? "" : "s")")
+            Text(line.skipped == 1 ? Strings.text("⋯ 1 unchanged line") : Strings.format("⋯ %d unchanged lines", line.skipped))
                 .foregroundStyle(.tertiary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 2)
@@ -311,14 +311,14 @@ struct AgentsTestSection: View {
     let agents: AgentsModel
 
     var body: some View {
-        Section("Test the server") {
+        Section(Strings.text("Test the server")) {
             LabeledContent {
-                Button(agents.probe == .running ? "Testing…" : "Run Test") {
+                Button(agents.probe == .running ? Strings.text("Testing…") : Strings.text("Run Test")) {
                     Task { await agents.test() }
                 }
                 .disabled(agents.probe == .running)
             } label: {
-                SettingLabel(title: "Talk to the MCP server", summary: "Starts esclop mcp serve as an agent would, then asks for its tools and status.")
+                SettingLabel(title: Strings.text("Talk to the MCP server"), summary: Strings.text("Starts esclop mcp serve as an agent would, then asks for its tools and status."))
             }
             .id(Self.rowID)
             switch agents.probe {
@@ -327,7 +327,8 @@ struct AgentsTestSection: View {
             case .running:
                 ProgressView().controlSize(.small)
             case let .passed(report):
-                Label(report.summary, systemImage: "checkmark.circle.fill")
+                Label(AgentsModel.summary(of: report), systemImage: "checkmark.circle.fill")
+
                     .foregroundStyle(Palette.accent)
                     .monospacedDigit()
             case let .failed(why):
@@ -354,8 +355,8 @@ struct AgentsManualSection: View {
                     HStack {
                         Text(snippet.title)
                         Spacer()
-                        Button("Copy") { actions.copy(snippet.text) }
-                            .accessibilityLabel("Copy \(snippet.title)")
+                        Button(Strings.text("Copy")) { actions.copy(snippet.text) }
+                            .accessibilityLabel(Strings.format("Copy %@", snippet.title))
                     }
                     Text(snippet.text)
                         .font(.system(.callout, design: .monospaced))
@@ -368,9 +369,9 @@ struct AgentsManualSection: View {
                 .id("agents.snippet.\(snippet.id)")
             }
         } header: {
-            Text("Set up by hand")
+            Text(Strings.text("Set up by hand"))
         } footer: {
-            Text("Agents start the server with this command and talk to it over standard input and output. Each agent keeps it in its own settings file; Connect above writes it for you.")
+            Text(Strings.text("Agents start the server with this command and talk to it over standard input and output. Each agent keeps it in its own settings file; Connect above writes it for you."))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.leading)

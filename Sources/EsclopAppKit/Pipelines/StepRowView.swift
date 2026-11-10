@@ -31,7 +31,7 @@ struct StepRowView: View {
                     Text(title).font(.headline)
                     Text(step.name).font(.caption.monospaced()).foregroundStyle(.secondary)
                 }
-                .help(step.spec?.summary ?? "")
+                .help(step.spec.map(PipelineVocabulary.stepHelp) ?? "")
                 Spacer()
                 Button(Strings.text("Move Up"), systemImage: "chevron.up") { move(-1) }
                     .disabled(number == 1)

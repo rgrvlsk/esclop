@@ -45,6 +45,9 @@ public final class SettingsViewModel {
     }
 
     public var query = ""
+    /// The language the settings are shown in; tests set Catalan, the app follows `Strings`.
+    @ObservationIgnored var locale = Strings.locale
+
     public var pane: SettingsPane = .general
     /// The row a deep link or a search result points at; the pane scrolls to it and marks it.
     public var highlighted: String?
@@ -76,7 +79,8 @@ public final class SettingsViewModel {
     // MARK: Reading
 
     public func reload() {
-        descriptors = provider.descriptors()
+        // In the app's language; the registry and the CLI stay English.
+        descriptors = provider.descriptors().map { SettingWords.localised($0, locale: locale) }
     }
 
     /// Picks up one key's new value, written here or by another process.
@@ -146,11 +150,12 @@ public final class SettingsViewModel {
         var found: [Hit] = []
         for pane in SettingsPane.allCases {
             for group in groups(in: pane) {
-                for setting in group.settings where matches([setting.key, setting.title, setting.summary, pane.title, group.heading ?? ""] + setting.keywords) {
+                for setting in group.settings where matches([setting.key, setting.title, setting.summary, pane.title, pane.englishTitle, group.heading ?? ""] + setting.keywords) {
                     found.append(Hit(id: setting.key, title: setting.title, summary: setting.summary, pane: pane))
                 }
             }
-            for row in extraRows where row.pane == pane && matches([row.id, row.title, row.summary, pane.title] + row.keywords) {
+            for row in extraRows where row.pane == pane && matches([row.id, row.title, row.summary, pane.title, pane.englishTitle] + row.keywords) {
+
                 found.append(Hit(id: row.id, title: row.title, summary: row.summary, pane: pane))
             }
         }
@@ -176,11 +181,11 @@ public final class SettingsViewModel {
 
     /// Why `text` is not a valid value for the setting, or nil when it is. Writes nothing.
     public func problem(_ key: String, text: String) -> String? {
-        guard let descriptor = descriptor(key) else { return "Unknown setting" }
+        guard let descriptor = descriptor(key) else { return Strings.text("Unknown setting") }
         do {
             let value = try descriptor.parse(text)
             if let allowed = descriptor.jsonSchema?["enum"]?.arrayValue, !allowed.contains(where: { Self.same($0, value) }) {
-                return "Pick one of \(allowed.map { SettingPresentation.text(for: $0) }.joined(separator: ", "))"
+                return Strings.format("Pick one of %@", allowed.map { SettingPresentation.text(for: $0) }.joined(separator: ", "))
             }
             return nil
         } catch {
@@ -256,7 +261,8 @@ public final class SettingsViewModel {
             text = String(text.dropFirst(key.count + 1))
             text = text.prefix(1).uppercased() + text.dropFirst()
         }
-        return text
+        return SettingWords.problem(text)
+
     }
 }
 

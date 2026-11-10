@@ -68,7 +68,8 @@ public struct StepDraft: Identifiable, Hashable, Sendable {
         if let step = result.pipeline?[nil].first, result.errors.isEmpty, result.pipeline?[nil].count == 1 {
             return .success(step)
         }
-        let errors = result.errors.isEmpty ? [PipelineDiagnostic(line: 1, column: 1, "This step could not be read.")] : result.errors
+        let errors = result.errors.isEmpty ? [PipelineDiagnostic(line: 1, column: 1, Strings.text("This step could not be read."))]
+ : result.errors
         return .failure(PipelineSyntaxError(diagnostics: errors))
     }
 

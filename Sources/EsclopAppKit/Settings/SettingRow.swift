@@ -31,13 +31,13 @@ struct SettingRow: View {
         .id(key)
         .highlighted(model.highlighted == key)
         .contextMenu {
-            Button("Reset to Default") { model.reset(key) }
+            Button(Strings.text("Reset to Default")) { model.reset(key) }
                 .disabled(!model.isModified(key))
             Divider()
             if let link = model.link(to: key) {
-                Button("Copy Link to Setting") { actions.copy(link.absoluteString) }
+                Button(Strings.text("Copy Link to Setting")) { actions.copy(link.absoluteString) }
             }
-            Button("Copy Terminal Command") {
+            Button(Strings.text("Copy Terminal Command")) {
                 actions.copy("esclop settings set \(key) \(Self.shellQuoted(SettingsViewModel.text(for: descriptor.value ?? descriptor.defaultValue)))")
             }
         }
@@ -54,8 +54,8 @@ struct SettingRow: View {
                 }
                 .buttonStyle(.borderless)
                 .foregroundStyle(.secondary)
-                .help("Reset to the default: \(SettingPresentation.display(descriptor.defaultValue, for: descriptor))")
-                .accessibilityLabel("Reset \(descriptor.title) to the default")
+                .help(Strings.format("Reset to the default: %@", SettingPresentation.display(descriptor.defaultValue, for: descriptor)))
+                .accessibilityLabel(Strings.format("Reset %@ to the default", descriptor.title))
             }
         }
     }
@@ -64,6 +64,8 @@ struct SettingRow: View {
         switch SettingPresentation.control(for: descriptor) {
         case .toggle:
             Toggle(isOn: Binding(get: { descriptor.value?.boolValue ?? false }, set: { model.set(key, to: .bool($0)) })) { label }
+                .switchLabel(title: descriptor.title, hint: descriptor.summary)
+
         case let .picker(choices):
             Picker(selection: Binding(
                 get: { choices.first { SettingsViewModel.same($0.value, descriptor.value ?? descriptor.defaultValue) }?.value ?? descriptor.defaultValue },
@@ -198,7 +200,8 @@ struct NumberField: View {
 
     var range: String {
         switch (descriptor.minimum, descriptor.maximum) {
-        case let (low?, high?): return "From \(SettingPresentation.number(low)) to \(SettingPresentation.number(high))"
+        case let (low?, high?): return Strings.format("From %@ to %@", SettingPresentation.number(low), SettingPresentation.number(high))
+
         default: return descriptor.title
         }
     }

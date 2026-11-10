@@ -16,9 +16,9 @@ struct ShareTab: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .top, spacing: 2) {
                 RoundAction(symbol: "doc.on.doc", title: Strings.text("Copy"), shortcut: "⌘C") { app.perform(.copy, on: card) }
-                RoundAction(symbol: "airplayaudio", title: "AirDrop") { app.airDrop(card) }
+                RoundAction(symbol: "airplayaudio", title: Strings.text("AirDrop")) { app.airDrop(card) }
                 RoundAction(symbol: "square.and.arrow.down", title: Strings.text("Save as…"), shortcut: "⌘S") { app.saveAs(card) }
-                RoundAction(symbol: "folder", title: "Finder", shortcut: "⌘R") { app.perform(.reveal, on: card) }
+                RoundAction(symbol: "folder", title: Strings.text("Finder"), shortcut: "⌘R") { app.perform(.reveal, on: card) }
                 RoundAction(symbol: "eye", title: Strings.text("Quick Look"), shortcut: Strings.text("Space")) { app.quickLook(card) }
                     .keyboardShortcut(.space, modifiers: [])
                 SharePickerButton(file: card.shownFile)

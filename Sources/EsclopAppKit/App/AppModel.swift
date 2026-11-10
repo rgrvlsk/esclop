@@ -126,10 +126,10 @@ public final class AppModel {
     @ObservationIgnored public var onOpenPipelines: ((String?) -> Void)?
 
     public var status: String {
-        if activeFiles > 0 { return activeFiles == 1 ? "Optimising 1 file" : "Optimising \(activeFiles) files" }
-        if paused { return "Paused" }
-        if skipNextCopy { return "Skipping the next copy" }
-        return EsclopSettings.enableClipboardOptimiser.value(in: settings) ? "Watching the clipboard" : "Ready"
+        if activeFiles > 0 { return activeFiles == 1 ? Strings.text("Optimising 1 file") : Strings.format("Optimising %d files", activeFiles) }
+        if paused { return Strings.text("Paused") }
+        if skipNextCopy { return Strings.text("Skipping the next copy") }
+        return EsclopSettings.enableClipboardOptimiser.value(in: settings) ? Strings.text("Watching the clipboard") : Strings.text("Ready")
     }
 
     /// Results whose original can still be put back.
@@ -667,7 +667,8 @@ public final class AppModel {
             }
         } catch {
             if let card { card.phase = .failed(CardPresentation.message(for: error)) } else {
-                notice("Could not restore \(result.source.lastPathComponent)", CardPresentation.message(for: error))
+                notice(Strings.format("Could not restore %@", result.source.lastPathComponent), CardPresentation.message(for: error))
+
             }
         }
     }

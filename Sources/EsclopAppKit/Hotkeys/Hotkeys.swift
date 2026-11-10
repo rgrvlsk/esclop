@@ -12,11 +12,14 @@ extension KeyboardShortcuts.Name {
 }
 
 public enum Hotkeys {
-    public static let all: [(name: KeyboardShortcuts.Name, title: String)] = [
-        (.togglePause, "Pause or resume"),
-        (.optimiseClipboard, "Optimise the clipboard"),
-        (.optimiseClipboardHarder, "Optimise the clipboard harder"),
-    ]
+    public static var all: [(name: KeyboardShortcuts.Name, title: String)] {
+        [
+            (.togglePause, Strings.text("Pause or resume")),
+            (.optimiseClipboard, Strings.text("Optimise the clipboard")),
+            (.optimiseClipboardHarder, Strings.text("Optimise the clipboard harder")),
+        ]
+    }
+
 
     /// What each hotkey does, apart from the key handling so tests can press them.
     @MainActor
