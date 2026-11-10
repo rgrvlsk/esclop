@@ -141,6 +141,8 @@ jobs:
           fi
           app="dist/L'Esclop.app"
           [ -d "$app" ] || { echo "::error::Scripts/bundle-app.sh produced no app"; exit 1; }
+          # What goes into the DMG must start on a Mac that never saw this checkout.
+          Scripts/smoke-app.sh "$app"
           # The same rule as the CLI archive: nothing shipped names the machine that built it.
           for f in "$app"/Contents/MacOS/* "$app"/Contents/Resources/bin/*; do
             if LC_ALL=C grep -aEq '/(Users|home)/[[:alnum:]_.-]+' "$f"; then
