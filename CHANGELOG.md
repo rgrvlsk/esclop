@@ -7,6 +7,14 @@ into the body of its GitHub release.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.1.0] - 2026-11-10
+
+The first public beta: the menu bar app, the `esclop` command line and the MCP server for AI
+agents, in one download for Apple Silicon and Intel (macOS 14 or later). The app is signed ad
+hoc and not notarised yet.
+
 ### Added
 - Pipeline editor: a window (menu → Pipelines…, Settings → Advanced, a result's Share tab,
   `esclop://pipelines` and `esclop://pipelines/<name>`) to create, edit, duplicate, delete and
