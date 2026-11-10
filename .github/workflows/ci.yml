@@ -121,6 +121,32 @@ jobs:
   binaries:
     uses: ./.github/workflows/binaries.yml
 
+  # The app as it ships: bundled, signed ad hoc, copied elsewhere and started with the build
+  # directory out of the way. Tests run from the build directory and cannot see an app that
+  # only finds its resources there.
+  app-bundle:
+    name: app bundle starts on its own
+    needs: [binaries]
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: "{tools,engine}"
+          merge-multiple: true
+      - name: Unpack into Binaries/
+        run: |
+          tar -xf tools.tar -C Binaries
+          tar -xf engine.tar -C Binaries
+      - name: Bundle the app
+        run: Scripts/bundle-app.sh
+        env:
+          ESCLOP_SOURCE_URL: ""
+      - name: Start it from a copy
+        run: Scripts/smoke-app.sh "dist/L'Esclop.app"
+        timeout-minutes: 5
+
   gate:
     name: licence gate and tests with the real tools
     needs: [binaries]
