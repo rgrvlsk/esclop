@@ -32,6 +32,8 @@ public final class AppServices {
     let snapshots = WindowSnapshots()
     /// Finder's Quick Actions (Services).
     let finderServices: FinderServices
+    /// Sparkle: checks for, downloads and installs new versions.
+    public let updater: Updater
     private let log = Logger(subsystem: Paths.bundleIdentifier, category: "app")
 
     public init(settings: SettingsStore = .shared) {
@@ -85,6 +87,11 @@ public final class AppServices {
         model.onBatch = { [weak batchWindow] batch in batchWindow?.show(batch) }
         let store = model.service.context.pipelines
         finderServices = FinderServices(model: model, pipelines: { (try? store.list()) ?? [] })
+        let updater = Updater(settings: settings)
+        self.updater = updater
+        if Updater.isAvailable() {
+            model.onCheckForUpdates = { [weak updater] in updater?.checkForUpdates() }
+        }
         let folders = WatchedFolders(model: model, pipelines: { (try? store.list()) ?? [] })
         self.folders = folders
         model.onPauseChange = { [weak folders] in folders?.refresh() }
@@ -122,6 +129,7 @@ public final class AppServices {
         // Shortcuts actions run in this process and use this model.
         ShortcutActions.model = model
         Hotkeys.register(model)
+        updater.start()
 
         onboarding.showIfFirstRun()
         snapshots?.start()

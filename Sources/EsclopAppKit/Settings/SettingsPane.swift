@@ -51,7 +51,7 @@ public enum SettingsPane: String, CaseIterable, Identifiable, Hashable, Sendable
     /// The registry sections this pane lists, in order.
     public var sections: [SettingsSection] {
         switch self {
-        case .general: return [.general, .output, .backups]
+        case .general: return [.general, .output, .backups, .updates]
         case .images: return [.images]
         case .video: return [.video]
         case .pdf: return [.pdf]
@@ -101,6 +101,7 @@ public enum SettingsPane: String, CaseIterable, Identifiable, Hashable, Sendable
         case .general: return Strings.text("Every file")
         case .output: return Strings.text("Where results go")
         case .backups: return Strings.text("Backups")
+        case .updates: return Strings.text("Updates")
         case .automation: return Strings.text("Automatic optimisation")
         case .agents: return Strings.text("What agents may do without asking")
         case .interface: return sections.count > 1 ? Strings.text("Interface") : nil

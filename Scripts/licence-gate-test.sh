@@ -105,6 +105,22 @@ clang -arch x86_64 -o "$T/uses-x86" "$T/uses.c" "$T/libhelper-x86.dylib"
 lipo -create "$T/arm64only" "$T/uses-x86" -output "$T/c10/gifsicle"
 expect 1 "/opt/foreign/libhelper.dylib (x86_64)" "a foreign library in the x86_64 slice alone fails" -- --universal "$T/c10"
 
+# 12. an app's framework from a Swift package pin (Sparkle): its files are recorded by the pin,
+#     and the app's link to it is not foreign; a framework no pin names fails
+fw="$T/c12/Contents/Frameworks/Sparkle.framework/Versions/B"
+mkdir -p "$T/c12/Contents/MacOS" "$fw"
+plutil -create xml1 "$T/c12/Contents/Info.plist"
+plutil -insert CFBundleExecutable -string EsclopApp "$T/c12/Contents/Info.plist"
+clang -dynamiclib -arch arm64 -o "$fw/Sparkle" -install_name @rpath/Sparkle.framework/Versions/B/Sparkle "$T/lib.c"
+cp "$T/arm64only" "$fw/Autoupdate"
+clang -arch arm64 -o "$T/c12/Contents/MacOS/EsclopApp" "$T/uses.c" "$fw/Sparkle" -Xlinker -rpath -Xlinker @executable_path/../Frameworks
+if grep -q '"identity" : "sparkle"' "$ROOT/Package.resolved" 2>/dev/null; then
+  expect 0 "Swift package sparkle" "a framework from a Package.resolved pin passes, and so does the app linking it" -- "$T/c12"
+fi
+mkdir -p "$T/c12/Contents/Frameworks/Mystery.framework/Versions/A"
+cp "$T/arm64only" "$T/c12/Contents/Frameworks/Mystery.framework/Versions/A/Mystery"
+expect 1 "Mystery.framework comes from no Package.resolved pin" "a framework no pin names fails" -- "$T/c12"
+
 # 11. Scripts/foreign-dylibs.sh, which Scripts/build-engine.sh uses on the universal engine
 check() { # description want got
   if [ "$2" = "$3" ]; then echo "ok    $1"; pass=$((pass + 1)); else

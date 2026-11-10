@@ -165,6 +165,7 @@ public enum SettingPresentation {
         "videoDirs": "enableAutomaticVideoOptimisations",
         "pdfDirs": "enableAutomaticPDFOptimisations",
         "audioDirs": "enableAutomaticAudioOptimisations",
+        "installUpdatesAutomatically": "checkForUpdatesAutomatically",
     ]
 
     /// False when the setting has no effect with the current values.

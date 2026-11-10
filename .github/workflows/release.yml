@@ -6,6 +6,10 @@
 # Run it by hand (workflow_dispatch) for a dry run: same build and artefacts, kept as a workflow
 # artefact, no release.
 #
+# When a person publishes the release (pre-release or not), the feed job signs its DMG with the
+# EdDSA key (secret SPARKLE_ED_PRIVATE_KEY) and publishes appcast.xml on the appcast branch, the
+# fixed address installed apps read (docs/release.md › Updates).
+#
 # Signing and notarisation read these secrets by name and are skipped when they are absent:
 #   MACOS_CERTIFICATE           base64 of a Developer ID Application .p12
 #   MACOS_CERTIFICATE_PASSWORD  its password
@@ -16,6 +20,8 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+  release:
+    types: [published]
 
 concurrency:
   group: release-${{ github.ref }}
@@ -32,12 +38,14 @@ env:
 
 jobs:
   binaries:
+    if: github.event_name != 'release'
     uses: ./.github/workflows/binaries.yml
     with:
       tool-sources: true
 
   package:
     name: package and draft release
+    if: github.event_name != 'release'
     needs: [binaries]
     # The app ships Liquid Glass, which needs the macOS 26 SDK; the tools come from binaries.yml.
     runs-on: macos-26
@@ -192,3 +200,62 @@ jobs:
       - name: Remove the signing keychain
         if: always() && env.HAS_CERT == 'true'
         run: security delete-keychain "$KEYCHAIN" || true
+
+  # ---------------------------------------------------------------- update feed
+  feed:
+    name: update feed
+    if: github.event_name == 'release'
+    runs-on: macos-26
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    concurrency:
+      group: appcast
+      cancel-in-progress: false
+    env:
+      TAG: ${{ github.event.release.tag_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+      - name: The release's DMG
+        run: |
+          mkdir -p dist
+          gh release download "$TAG" --pattern 'LEsclop-*.dmg' --dir dist
+          dmg="$(ls dist/LEsclop-*.dmg)"
+          echo "DMG=$dmg" >> "$GITHUB_ENV"
+          echo "DMG_URL=${{ github.server_url }}/${{ github.repository }}/releases/download/$TAG/$(basename "$dmg")" >> "$GITHUB_ENV"
+      - name: Sign it and write the appcast
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          [ -n "$SPARKLE_ED_PRIVATE_KEY" ] || { echo "::error::The SPARKLE_ED_PRIVATE_KEY secret is missing"; exit 1; }
+          Scripts/appcast.sh "$DMG" "$DMG_URL" dist/appcast.xml
+      - name: Publish it on the appcast branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          build="$(python3 -c 'import re,sys; print(re.search(r"<sparkle:version>([^<]+)<", open(sys.argv[1]).read()).group(1))' dist/appcast.xml)"
+          git worktree add --detach "$RUNNER_TEMP/feed"
+          cd "$RUNNER_TEMP/feed"
+          if git fetch --depth 1 origin appcast 2>/dev/null; then
+            git checkout -B appcast FETCH_HEAD
+            # Never go back: publishing an older release again leaves the newer one in the feed.
+            if [ -f appcast.xml ]; then
+              current="$(python3 -c 'import re,sys; print(re.search(r"<sparkle:version>([^<]+)<", open(sys.argv[1]).read()).group(1))' appcast.xml)"
+              if [ "$build" -le "$current" ]; then
+                echo "::notice::The feed already offers build $current; $TAG is build $build, so the feed stays as it is."
+                exit 0
+              fi
+            fi
+          else
+            git checkout --orphan appcast
+            git rm -rfq .
+          fi
+          cp "$GITHUB_WORKSPACE/dist/appcast.xml" appcast.xml
+          git add appcast.xml
+          git commit -qm "Offer $TAG (build $build) to installed apps"
+          git push origin HEAD:appcast
+          echo "::notice::https://raw.githubusercontent.com/${{ github.repository }}/appcast/appcast.xml now offers $TAG"
