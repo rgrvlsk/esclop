@@ -14,6 +14,8 @@
 //! - the glyphs a one-byte code can select are taken from every mapping a viewer might use
 //!   (each `cmap` subtable at the code, at 0xF000 + code and at the code's Unicode value, the
 //!   `post` glyph names of `/Differences`, and the code as a glyph id), not one guessed mapping;
+//!   a simple font drawing a code that no `cmap` subtable maps is kept whole, since viewers
+//!   then fall back to `post` names through the base encoding (Word's subsets often lack `cmap`);
 //! - text is collected from page content, form XObjects, tiling patterns, Type 3 glyphs,
 //!   soft-mask groups and annotation appearances; a font dictionary that no scanned stream
 //!   selects, an interactive form's default fonts (`/AcroForm /DR`, which fill fields typed
@@ -77,8 +79,10 @@ fn key(d: &Dictionary) -> usize {
 
 /// How a font dictionary's codes select glyphs of its program.
 enum Map {
-    /// One-byte codes; each lists every glyph it might select.
-    Simple(Box<[Vec<u16>]>),
+    /// One-byte codes; each lists every glyph it might select, or is `None` when no `cmap`
+    /// subtable maps it (the viewer would then go through `post` names or other guesses, which
+    /// this module does not follow: the font is kept whole).
+    Simple(Box<[Option<Vec<u16>>]>),
     /// Two-byte CIDs (Identity-H or -V) through `/CIDToGIDMap`; `None` is Identity.
     Cid(Option<Vec<u16>>),
 }
@@ -151,7 +155,7 @@ impl Programs {
     }
 
     /// For each one-byte code, every glyph of the program a viewer might draw for it.
-    fn simple_map(&mut self, doc: &Document, font: &Dictionary, program: ObjectId) -> Option<Box<[Vec<u16>]>> {
+    fn simple_map(&mut self, doc: &Document, font: &Dictionary, program: ObjectId) -> Option<Box<[Option<Vec<u16>>]>> {
         let encoding = font.get_font_encoding(doc).ok();
         let differences = differences(doc, font);
         let data = self.bytes(doc, program)?;
@@ -170,7 +174,7 @@ impl Programs {
                 }
             }
         }
-        let mut out = vec![Vec::new(); 256];
+        let mut out = vec![None; 256];
         for (c, slot) in out.iter_mut().enumerate() {
             let mut cps: Vec<u32> = vec![c as u32, 0xF000 + c as u32, 0xF100 + c as u32, 0xF200 + c as u32];
             if let Some(e) = &encoding
@@ -184,13 +188,15 @@ impl Programs {
                 cps.extend(unicode_of_name(n));
                 gids.extend(gid_of_name(n));
             }
+            let before = gids.len();
             for t in &subtables {
                 gids.extend(cps.iter().filter_map(|cp| t.map_codepoint(*cp)).map(|g| g.to_u32() as u16));
             }
+            let mapped = gids.len() > before;
             gids.retain(|g| *g < glyphs);
             gids.sort_unstable();
             gids.dedup();
-            *slot = gids;
+            *slot = mapped.then_some(gids);
         }
         Some(out.into_boxed_slice())
     }
@@ -256,7 +262,16 @@ impl Usage {
             Some(Ok(f)) => {
                 let set = self.used.entry(f.program).or_default();
                 match &f.map {
-                    Map::Simple(m) => text.iter().for_each(|b| set.extend(&m[*b as usize])),
+                    Map::Simple(m) => {
+                        for b in text {
+                            match &m[*b as usize] {
+                                Some(g) => set.extend(g),
+                                None => {
+                                    self.keep_whole.insert(f.program);
+                                }
+                            }
+                        }
+                    }
                     Map::Cid(m) => {
                         for c in text.chunks_exact(2) {
                             let cid = u16::from_be_bytes([c[0], c[1]]);
