@@ -11,7 +11,7 @@ import Foundation
 // MARK: - Sections
 
 public enum SettingsSection: String, CaseIterable, Codable, Sendable {
-    case general, interface, images, video, pdf, audio, clipboard, automation, output, backups, agents
+    case general, interface, images, video, pdf, audio, clipboard, automation, output, backups, agents, updates
 
     public var title: String {
         switch self {
@@ -26,6 +26,7 @@ public enum SettingsSection: String, CaseIterable, Codable, Sendable {
         case .output: return "Output"
         case .backups: return "Backups"
         case .agents: return "Agents"
+        case .updates: return "Updates"
         }
     }
 }

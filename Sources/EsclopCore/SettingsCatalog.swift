@@ -55,6 +55,19 @@ public enum EsclopSettings {
         section: .general
     )
 
+    // MARK: Updates
+
+    public static let checkForUpdatesAutomatically = Setting<Bool>(
+        "checkForUpdatesAutomatically", default: true, title: "Check for updates automatically",
+        description: "Look for a newer version of L'Esclop once a day. Nothing about this Mac is sent.",
+        section: .updates
+    )
+    public static let installUpdatesAutomatically = Setting<Bool>(
+        "installUpdatesAutomatically", default: false, title: "Download and install updates automatically",
+        description: "Download a new version in the background and install it when L'Esclop quits. Off asks first.",
+        section: .updates
+    )
+
     // MARK: Interface
 
     public static let floatingResultsCorner = Setting<ScreenCorner>(
@@ -494,5 +507,6 @@ public enum EsclopSettings {
         enableAutomaticAudioOptimisations.erased, imageDirs.erased, videoDirs.erased, pdfDirs.erased, audioDirs.erased,
         maxImageFileCount.erased, maxVideoFileCount.erased, maxPDFFileCount.erased, maxAudioFileCount.erased,
         allowOverwriteOriginals.erased, allowDeleteBackups.erased, allowRunScripts.erased, allowSettingsChanges.erased,
+        checkForUpdatesAutomatically.erased, installUpdatesAutomatically.erased,
     ]
 }

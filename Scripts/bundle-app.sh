@@ -16,7 +16,9 @@
 # The EsclopApp product only exists when Xcode is installed (see Package.swift); without it the
 # script says so and exits 0. Environment: ESCLOP_SOURCE_URL (Info.plist EsclopSourceURL, the
 # place the corresponding source is offered; defaults to the origin remote's release page),
-# ESCLOP_BUILD_NUMBER (CFBundleVersion; defaults to the commit count).
+# ESCLOP_BUILD_NUMBER (CFBundleVersion, which Sparkle compares; defaults to the commit count),
+# ESCLOP_SPARKLE_PUBLIC_KEY (SUPublicEDKey; defaults to the release key, SPARKLE_PUBLIC_KEY below;
+# Scripts/update-e2e.sh uses a throwaway one).
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -32,6 +34,10 @@ for t in esclop-engine ffmpeg ffprobe gs gifsicle; do
   [ -x "Binaries/$t" ] || { echo "bundle-app: Binaries/$t is missing (Scripts/build-tools.sh, Scripts/build-engine.sh)" >&2; exit 1; }
 done
 
+# The public half of the EdDSA key that signs the DMGs and the appcast. The private half is the
+# SPARKLE_ED_PRIVATE_KEY repository secret and, as its backup, the login keychain of the Mac that
+# made it (docs/release.md › Updates).
+SPARKLE_PUBLIC_KEY="vd0oDuP5IYAcB7dN8H8qlwUP1KkWxl+CAdb/zkTAXWk="
 VERSION="$(sed -n 's/.*static let string = "\(.*\)".*/\1/p' Sources/EsclopIPC/Protocol.swift)"
 BUILD="${ESCLOP_BUILD_NUMBER:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}"
 if [ -z "${ESCLOP_SOURCE_URL+x}" ]; then
@@ -48,7 +54,8 @@ Scripts/build-swift.sh "$EXEC" "$APP/Contents/MacOS/$EXEC"
 Scripts/build-swift.sh esclop "$APP/Contents/MacOS/esclop"
 
 sed -e "s|@EXECUTABLE@|$EXEC|" -e "s|@VERSION@|$VERSION|" -e "s|@BUILD@|$BUILD|" \
-  -e "s|@SOURCE_URL@|$ESCLOP_SOURCE_URL|" Scripts/templates/Info.plist.in > "$APP/Contents/Info.plist"
+  -e "s|@SOURCE_URL@|$ESCLOP_SOURCE_URL|" -e "s|@SPARKLE_PUBLIC_KEY@|${ESCLOP_SPARKLE_PUBLIC_KEY:-$SPARKLE_PUBLIC_KEY}|" \
+  Scripts/templates/Info.plist.in > "$APP/Contents/Info.plist"
 plutil -lint -s "$APP/Contents/Info.plist"
 # The Finder Quick Actions' titles in each language (Info.plist's NSServices hold the English).
 for strings in Scripts/templates/ServicesMenu/*.lproj; do
@@ -70,6 +77,21 @@ for b in "$bindir"/*.bundle; do
   [ -d "$b" ] && cp -R "$b" "$APP/Contents/Resources/" && bundles=$((bundles + 1))
 done
 [ "$bundles" -gt 0 ] || { echo "bundle-app: no resource bundles in $bindir" >&2; exit 1; }
+
+# Sparkle.framework (updates), with its helpers (Autoupdate, Updater.app) and XPC services, from
+# the package's binary target. ditto keeps the framework's symlinks.
+[ -d "$bindir/Sparkle.framework" ] || { echo "bundle-app: no Sparkle.framework in $bindir" >&2; exit 1; }
+mkdir -p "$APP/Contents/Frameworks"
+ditto "$bindir/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
+rm -rf "$APP/Contents/Frameworks/Sparkle.framework/Versions/B/Headers" "$APP/Contents/Frameworks/Sparkle.framework/Versions/B/PrivateHeaders" \
+  "$APP/Contents/Frameworks/Sparkle.framework/Versions/B/Modules" "$APP/Contents/Frameworks/Sparkle.framework/Headers" \
+  "$APP/Contents/Frameworks/Sparkle.framework/PrivateHeaders" "$APP/Contents/Frameworks/Sparkle.framework/Modules"
+# The app finds it through @executable_path/../Frameworks (Package.swift). SwiftPM also leaves
+# rpaths into the build directory, which would load a framework from the machine that built it.
+otool -l "$APP/Contents/MacOS/$EXEC" | awk '/cmd LC_RPATH/ {r = 1} r && /path / {print $2; r = 0}' | sort -u |
+  while IFS= read -r rpath; do
+    case "$rpath" in /usr/lib/*|@*) ;; *) install_name_tool -delete_rpath "$rpath" "$APP/Contents/MacOS/$EXEC";; esac
+  done
 # The older engine's accessor carries the build directory's path to each bundle, and finds the
 # bundles nowhere else once the app leaves this machine: refuse to ship it.
 if strings -a "$APP/Contents/MacOS/$EXEC" | grep -Eq '/[^/]+\.bundle$' &&
@@ -93,6 +115,14 @@ else
   sign=(codesign --force --sign -)
 fi
 for f in "$APP"/Contents/Resources/bin/* "$APP/Contents/MacOS/esclop"; do "${sign[@]}" "$f" >/dev/null; done
+# Sparkle's nested code, inside out, as Sparkle's documentation orders it (the Downloader service
+# keeps its entitlements). Ad hoc, these are new ad hoc signatures, like the app's.
+fw="$APP/Contents/Frameworks/Sparkle.framework"
+"${sign[@]}" "$fw/Versions/B/XPCServices/Installer.xpc" >/dev/null
+"${sign[@]}" --preserve-metadata=entitlements "$fw/Versions/B/XPCServices/Downloader.xpc" >/dev/null
+"${sign[@]}" "$fw/Versions/B/Autoupdate" >/dev/null
+"${sign[@]}" "$fw/Versions/B/Updater.app" >/dev/null
+"${sign[@]}" "$fw" >/dev/null
 "${sign[@]}" "$APP" >/dev/null
 codesign --verify --deep --strict "$APP"
 

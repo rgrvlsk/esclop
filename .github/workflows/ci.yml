@@ -146,6 +146,10 @@ jobs:
       - name: Start it from a copy
         run: Scripts/smoke-app.sh "dist/L'Esclop.app"
         timeout-minutes: 5
+      # Version N finds N+1 on a local feed, downloads it and installs it over itself.
+      - name: It updates itself
+        run: Scripts/update-e2e.sh "dist/L'Esclop.app"
+        timeout-minutes: 8
 
   gate:
     name: licence gate and tests with the real tools

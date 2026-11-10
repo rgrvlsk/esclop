@@ -1381,6 +1381,16 @@
         }
       }
     },
+    "Check for Updates…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprova si hi ha actualitzacions…"
+          }
+        }
+      }
+    },
     "Choose a File…": {
       "localizations": {
         "ca": {
@@ -6861,6 +6871,16 @@
         }
       }
     },
+    "Updates": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualitzacions"
+          }
+        }
+      }
+    },
     "Update…": {
       "localizations": {
         "ca": {
@@ -8091,6 +8111,26 @@
         }
       }
     },
+    "setting.checkForUpdatesAutomatically.summary": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mira un cop al dia si hi ha una versió nova de L’Esclop. No s’envia res d’aquest Mac."
+          }
+        }
+      }
+    },
+    "setting.checkForUpdatesAutomatically.title": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprova automàticament si hi ha actualitzacions"
+          }
+        }
+      }
+    },
     "setting.clipboardIgnoredAppBundleIds.summary": {
       "localizations": {
         "ca": {
@@ -8627,6 +8667,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Carpetes de captures de pantalla"
+          }
+        }
+      }
+    },
+    "setting.installUpdatesAutomatically.summary": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Baixa la versió nova en segon pla i la instal·la quan surts de L’Esclop. Desactivat, primer pregunta."
+          }
+        }
+      }
+    },
+    "setting.installUpdatesAutomatically.title": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Baixa i instal·la les actualitzacions automàticament"
           }
         }
       }

@@ -50,6 +50,18 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>Free software under the GNU GPL, version 3 or later.</string>
+	<!-- Updates (Sparkle, docs/release.md › Updates): the feed, the EdDSA public key its DMGs and
+	     the feed itself are signed with, and checks that follow the app's settings without asking. -->
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/rgrvlsk/esclop/appcast/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>@SPARKLE_PUBLIC_KEY@</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SURequireSignedFeed</key>
+	<true/>
+	<key>SUVerifyUpdateBeforeExtraction</key>
+	<true/>
 	<!-- Finder's Quick Actions (Services): titles in Resources/<lang>.lproj/ServicesMenu.strings. -->
 	<key>NSServices</key>
 	<array>

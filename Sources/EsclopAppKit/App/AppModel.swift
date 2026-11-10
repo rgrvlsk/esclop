@@ -127,6 +127,8 @@ public final class AppModel {
     /// Opens the pipeline editor, on a pipeline when one is named.
 
     @ObservationIgnored public var onOpenPipelines: ((String?) -> Void)?
+    /// The menu's "Check for Updates…"; nil when the app cannot update itself (no bundle key).
+    @ObservationIgnored public var onCheckForUpdates: (() -> Void)?
 
     public var status: String {
         if activeFiles > 0 { return activeFiles == 1 ? Strings.text("Optimising 1 file") : Strings.format("Optimising %d files", activeFiles) }
