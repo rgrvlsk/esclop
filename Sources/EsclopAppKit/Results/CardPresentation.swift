@@ -17,6 +17,8 @@ public struct CardPresentation: Equatable, Sendable {
         case downscale
         case crop
         case more
+        /// Opens the compare window on the result.
+        case compare
         case openDetail
         case closeDetail
         case retry
@@ -32,6 +34,7 @@ public struct CardPresentation: Equatable, Sendable {
             case .downscale: return Strings.text("Downscale to half")
             case .crop: return Strings.text("Crop")
             case .more: return Strings.text("More options")
+            case .compare: return Strings.text("Compare")
             case .openDetail: return Strings.text("Show details")
             case .closeDetail: return Strings.text("Hide details")
             case .retry: return Strings.text("Try again")
@@ -46,7 +49,9 @@ public struct CardPresentation: Equatable, Sendable {
             switch self {
             case .undo: return Strings.text("Undo, restore the original")
             case .copy: return Strings.text("Copy the file")
+            case .compare: return Strings.text("Compare the original and the optimised file")
             default: return title
+
             }
         }
 
@@ -68,6 +73,7 @@ public struct CardPresentation: Equatable, Sendable {
             case .downscale: return "arrow.down.right.and.arrow.up.left"
             case .crop: return "crop"
             case .more: return "ellipsis"
+            case .compare: return "rectangle.lefthalf.inset.filled"
             case .openDetail: return "rectangle.expand.vertical"
             case .closeDetail, .dismiss: return "xmark"
             case .retry: return "arrow.clockwise"
@@ -164,7 +170,10 @@ public struct CardPresentation: Equatable, Sendable {
             barEnd = result.bytesBefore > 0 ? min(1, max(0, Double(result.bytesAfter) / Double(result.bytesBefore))) : 1
             formats = "\(Self.formatName(of: result.source)) → \(Self.formatName(of: result.output))"
             dimensions = Self.dimensions(result)
-            detailActions = undo + resultEditing
+            // Compare only when there is an original to compare with.
+            let comparable = result.backup != nil || result.output.standardizedFileURL != result.source.standardizedFileURL
+            detailActions = undo + (comparable ? [.compare] : []) + resultEditing
+
             actions = [.openDetail] + tools + [.reveal, .copy, .dismiss]
             accessibilityLabel = "\(fileName), \(Self.announcement(for: result, locale: locale))"
         case let .unchanged(bytes):

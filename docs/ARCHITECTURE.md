@@ -179,6 +179,13 @@ holds the rest, in folders by feature:
   rest, so a result is never picked up again. `AppServices` refreshes the watcher when the
   lists, the pause, the pipelines folder or the mounted disks change. `FolderListEditor` is the
   Settings control for the four lists.
+- `Compare`: the compare window. `CompareSides` resolves the two files from a result (its
+  backup, or the original beside a result written next to it) and says when the original is no
+  longer kept; `CompareViewport` is the zoom, pan and divider arithmetic shared by both sides;
+  `CompareMedia` decodes images, draws PDF pages from their media box and computes the
+  difference mask with Core Image; `ComparePlayers` keeps two AVPlayers in step.
+  `CompareModel` follows the result's floating result, so "try another" (run through
+  `AppModel.reprocess`, as the popover does) updates the window in place.
 - `Pipelines`: the pipeline editor. `PipelineDraft` is a pipeline as the form holds it (each
   step as its name and the text of its arguments, the filter as the `if` step every section
   starts with); it builds step text, has `PipelineParser` read it, places the parser's errors
