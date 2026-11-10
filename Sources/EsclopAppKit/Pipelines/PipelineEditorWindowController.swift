@@ -11,6 +11,7 @@ import SwiftUI
 public final class PipelineEditorWindowController {
     public let model: PipelineEditorModel
     private(set) var window: NSWindow?
+    private var closeObserver: NSObjectProtocol?
 
     public init(model: PipelineEditorModel) {
         self.model = model
@@ -55,6 +56,10 @@ public final class PipelineEditorWindowController {
         window.contentMinSize = NSSize(width: 760, height: 520)
         window.center()
         window.setFrameAutosaveName("dev.esclop.pipelines")
+        // A "Try it" copy does not outlive the window.
+        closeObserver = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [weak model] _ in
+            MainActor.assumeIsolated { model?.discardTry() }
+        }
         return window
     }
 }

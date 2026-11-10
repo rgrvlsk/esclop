@@ -17,9 +17,12 @@ struct PipelineFilterSection: View {
                 Text(Strings.text("Only some files"))
                 Text(Strings.text("Files that do not match are left alone."))
             }
-            if let filter = Binding($model.draft.filter) {
-                StepParamsEditor(step: filter, kind: nil)
-                StepIssues(issues: model.check.issues[filter.wrappedValue.id] ?? [])
+            // A value, not `Binding($model.draft.filter)`: that binding force-unwraps, and the
+            // rows below are still read in the update where the filter goes away.
+            if let filter = model.draft.filter {
+                StepParamsEditor(step: model.binding(for: filter), kind: nil)
+                    .id(filter.id)
+                StepIssues(issues: model.check.issues[filter.id] ?? [])
                 HStack(spacing: 8) {
                     if let sample = model.sampleFile, let matches = model.filterMatches {
                         Image(systemName: matches ? "checkmark.circle.fill" : "xmark.circle.fill")
@@ -37,7 +40,7 @@ struct PipelineFilterSection: View {
                     Button(Strings.text("Choose a File…")) { chooseSample() }
                         .accessibilityLabel(Strings.text("Choose a file to check the filter with"))
                 }
-                .task(id: filter.wrappedValue) { await model.checkFilter() }
+                .task(id: filter) { await model.checkFilter() }
             }
         } header: {
             Text(Strings.text("Filter"))

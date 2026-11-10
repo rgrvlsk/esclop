@@ -115,6 +115,11 @@ into the body of its GitHub release.
 ### Changed
 - The four "Watch folders for …" switches and the folder lists moved from Automation to the
   Images, Video, PDF and Audio panes.
+- Watched folders no longer read inside a folder when they start: macOS asks for access to a
+  protected folder such as the Desktop when the first new file lands there, as with Clop, and
+  the first-run tour says so. If access is refused, the folder leaves the watch without a
+  notice or another attempt until the folder lists change or the app restarts, and its
+  Settings row says why.
 
 ### Fixed
 - Release builds no longer carry the path of the machine that built them: looking for tools
