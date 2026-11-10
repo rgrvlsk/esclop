@@ -181,6 +181,15 @@ extension AppModel {
         (try? service.context.pipelines.list().map(\.name)) ?? []
     }
 
+    /// Runs a saved pipeline on files the person chose (the pipeline editor's Run).
+    public func runPipeline(_ name: String, on files: [URL]) {
+        for file in files {
+            var job = factory.job(for: file, origin: .app)
+            job.operation = .pipeline(name)
+            Task { await run(job) }
+        }
+    }
+
     public func runPipeline(_ name: String, on card: ResultCard) {
         var job = factory.job(for: card.shownFile, origin: .app)
         job.operation = .pipeline(name)

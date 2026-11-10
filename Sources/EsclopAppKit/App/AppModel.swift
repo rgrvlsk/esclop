@@ -122,6 +122,8 @@ public final class AppModel {
     public internal(set) var watchedFolderCount = 0
     /// The watched folders follow the pause.
     @ObservationIgnored var onPauseChange: (() -> Void)?
+    /// Opens the pipeline editor, on a pipeline when one is named.
+    @ObservationIgnored public var onOpenPipelines: ((String?) -> Void)?
 
     public var status: String {
         if activeFiles > 0 { return activeFiles == 1 ? "Optimising 1 file" : "Optimising \(activeFiles) files" }

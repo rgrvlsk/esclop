@@ -312,3 +312,46 @@ final class Flag: @unchecked Sendable {
         rig.folders.stop()
     }
 }
+
+/// P4: watching does not read inside a folder until a file lands, and a refusal is final until
+/// the lists change.
+@MainActor @Suite(.serialized) struct WatchedFoldersAccessTests {
+    @Test func startingToWatchDoesNotReadInsideTheFolder() throws {
+        let rig = try WatchedFoldersTests.Rig()
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: rig.folder.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: rig.folder.path) }
+        rig.folders.refresh()
+        #expect(rig.folders.statuses[WatchPlan.canonical(rig.folder.path)] == .watching, "only the folder itself is looked at")
+        #expect(FolderStatus.check(rig.folder) == .unreadable, "the Settings row still finds out")
+        rig.folders.stop()
+    }
+
+    @Test func aRefusalTakesTheFolderOutQuietly() async throws {
+        let rig = try WatchedFoldersTests.Rig()
+        let file = rig.land("shot.png")
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: rig.folder.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: rig.folder.path) }
+        rig.folders.received([file])
+        let folder = WatchPlan.canonical(rig.folder.path)
+        #expect(rig.folders.denied == [folder])
+        #expect(rig.folders.statuses[folder] == .unreadable)
+        #expect(rig.harness.model.watchedFolderCount == 0)
+        #expect(!rig.harness.model.cards.contains { if case .notice = $0.phase { return true } else { return false } }, "no notice")
+        rig.folders.received([file])
+        rig.folders.refresh()
+        #expect(rig.folders.statuses[folder] == .unreadable, "no new attempt on a plain refresh")
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: rig.folder.path)
+        rig.folders.refresh(retryDenied: true)
+        #expect(rig.folders.statuses[folder] == .watching, "the lists changed: it is tried again")
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(rig.harness.requests.requests.isEmpty)
+        rig.folders.stop()
+    }
+
+    @Test func permissionErrorsAreRecognised() {
+        #expect(WatchedFolders.isDenied(CocoaError(.fileReadNoPermission)))
+        #expect(WatchedFolders.isDenied(NSError(domain: NSPOSIXErrorDomain, code: Int(EACCES))))
+        #expect(WatchedFolders.isDenied(NSError(domain: NSCocoaErrorDomain, code: 260, userInfo: [NSUnderlyingErrorKey: NSError(domain: NSPOSIXErrorDomain, code: Int(EPERM))])))
+        #expect(!WatchedFolders.isDenied(CocoaError(.fileReadNoSuchFile)))
+    }
+}

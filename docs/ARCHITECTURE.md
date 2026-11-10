@@ -179,12 +179,23 @@ holds the rest, in folders by feature:
   rest, so a result is never picked up again. `AppServices` refreshes the watcher when the
   lists, the pause, the pipelines folder or the mounted disks change. `FolderListEditor` is the
   Settings control for the four lists.
+- `Pipelines`: the pipeline editor. `PipelineDraft` is a pipeline as the form holds it (each
+  step as its name and the text of its arguments, the filter as the `if` step every section
+  starts with); it builds step text, has `PipelineParser` read it, places the parser's errors
+  and warnings on their step, and turns into the `Pipeline` that `PipelineStore` saves through
+  `PipelineSerializer`. `PipelineEditorModel` holds the list, the selection, the text view and
+  "Try it" (a `PipelineRunner` with no host on a copy in a folder of its own);
+  `PipelineEditorWindowController` owns the window and `esclop://pipelines[/<name>]`. Rows bind
+  to steps through `PipelineEditorModel.binding(for:)`, which looks the step up by id on every
+  read, so a row read in the update where its step, section or filter went away does not trap.
+  A try's folder is removed by the next try, a new selection and the window closing, and
+  leftovers at launch.
 - `Onboarding`: `OnboardingModel` (steps, the `finishedOnboarding` flag in the app's defaults,
   clipboard access from `NSPasteboard.accessBehavior`, open at login through `SMAppService`),
   `OnboardingView` (its pages reuse `SettingRow` and the Agents pane's section) and
   `OnboardingWindowController`, which `AppServices.start()` asks to show on the first launch.
 
-Planned: the pipeline editor and a crop window.
+Planned: a crop window.
 
 ## Build and packaging
 - `swift build` builds the CLI and libraries with Command Line Tools. The package includes

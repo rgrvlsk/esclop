@@ -22,6 +22,42 @@ import Testing
         return FileManager.default.temporaryDirectory.appendingPathComponent("esclop-renders-\(UUID().uuidString)", isDirectory: true)
     }()
 
+    /// Draws the view in a light and a dark window at once, so both share one wait; writes
+    /// `<name>-light.png` and `<name>-dark.png` and returns the content sizes in points.
+    @discardableResult
+    static func renderBoth(_ view: (ColorScheme) -> some View, size: CGSize, name: String, settle: Duration = .milliseconds(250)) async throws -> [CGSize] {
+        _ = NSApplication.shared
+        let schemes: [ColorScheme] = [.light, .dark]
+        let windows = schemes.map { scheme in
+            let host = NSHostingView(rootView: view(scheme).environment(\.screenshotLocation, "~/Desktop").environment(\.colorScheme, scheme))
+            let window = KeyWindow(
+                contentRect: NSRect(origin: .zero, size: size),
+                styleMask: [.titled, .closable, .resizable, .fullSizeContentView], backing: .buffered, defer: false
+            )
+            window.isReleasedWhenClosed = false
+            window.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
+            window.contentView = host
+            window.setFrameOrigin(NSPoint(x: 40, y: 40))
+            window.orderFrontRegardless()
+            return window
+        }
+        try await Task.sleep(for: settle)
+        var sizes: [CGSize] = []
+        for (scheme, window) in zip(schemes, windows) {
+            window.contentView?.layoutSubtreeIfNeeded()
+            sizes.append(window.contentView?.bounds.size ?? .zero)
+            defer {
+                window.orderOut(nil)
+                window.close()
+            }
+            guard let image = WindowSnapshots.image(of: window) else { continue }
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            let data = try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
+            try data.write(to: folder.appendingPathComponent("\(name)-\(scheme == .dark ? "dark" : "light").png"))
+        }
+        return sizes
+    }
+
     /// Draws `view` in a window of `size` with the scheme's appearance; returns the PNG's size in points.
     @discardableResult
     static func renderWindow(_ view: some View, size: CGSize, name: String, scheme: ColorScheme, settle: Duration = .milliseconds(250)) async throws -> CGSize {
