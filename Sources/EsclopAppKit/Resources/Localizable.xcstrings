@@ -141,6 +141,16 @@
         }
       }
     },
+    "%@ of the pixels differ noticeably": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El %@ dels píxels són visiblement diferents"
+          }
+        }
+      }
+    },
     "%@ photos from Photos": {
       "localizations": {
         "ca": {
@@ -277,6 +287,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%d ja optimitzats"
+          }
+        }
+      }
+    },
+    "%d days": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d dies"
           }
         }
       }
@@ -421,6 +441,16 @@
         }
       }
     },
+    "1 day": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 dia"
+          }
+        }
+      }
+    },
     "1 file optimised": {
       "localizations": {
         "ca": {
@@ -457,6 +487,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "1 original restaurat"
+          }
+        }
+      }
+    },
+    "1 page": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 pàgina"
           }
         }
       }
@@ -647,6 +687,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "AV1, SVT"
+          }
+        }
+      }
+    },
+    "Actual Size": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mida real"
           }
         }
       }
@@ -1151,6 +1201,16 @@
         }
       }
     },
+    "Backups of originals are kept for %@, and this one has been removed. The optimised file is still in place: %@.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les còpies de seguretat dels originals es conserven durant %@, i aquesta ja s’ha eliminat. El fitxer optimitzat continua al seu lloc: %@."
+          }
+        }
+      }
+    },
     "Batch": {
       "localizations": {
         "ca": {
@@ -1361,6 +1421,16 @@
         }
       }
     },
+    "Choose images, videos, PDFs or audio files in Finder.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tria imatges, vídeos, PDF o fitxers d’àudio al Finder."
+          }
+        }
+      }
+    },
     "Choose images, videos, PDFs or audio files.": {
       "localizations": {
         "ca": {
@@ -1431,6 +1501,16 @@
         }
       }
     },
+    "Close": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tanca"
+          }
+        }
+      }
+    },
     "Close the tour. It stays in the menu: Welcome to L'Esclop.": {
       "localizations": {
         "ca": {
@@ -1467,6 +1547,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ordre"
+          }
+        }
+      }
+    },
+    "Compare": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compara"
+          }
+        }
+      }
+    },
+    "Compare %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compara %@"
+          }
+        }
+      }
+    },
+    "Compare the original and the optimised file": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compara l’original i el fitxer optimitzat"
+          }
+        }
+      }
+    },
+    "Compare with the original…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compara amb l’original…"
+          }
+        }
+      }
+    },
+    "Comparison": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comparació"
           }
         }
       }
@@ -2001,6 +2131,16 @@
         }
       }
     },
+    "Differences": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diferències"
+          }
+        }
+      }
+    },
     "Discard Changes": {
       "localizations": {
         "ca": {
@@ -2057,6 +2197,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Descarta"
+          }
+        }
+      }
+    },
+    "Divider at %d %%, zoom %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Divisòria al %d %%, zoom %@"
           }
         }
       }
@@ -2511,6 +2661,16 @@
         }
       }
     },
+    "Fit, or 100 % (one image pixel per screen pixel)": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajusta, o 100 % (un píxel de la imatge per píxel de la pantalla)"
+          }
+        }
+      }
+    },
     "Fix the marked lines first.": {
       "localizations": {
         "ca": {
@@ -2537,6 +2697,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Primer corregeix els passos marcats."
+          }
+        }
+      }
+    },
+    "Flip": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alterna"
+          }
+        }
+      }
+    },
+    "Flip between the two (Space)": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alterna entre els dos (espai)"
           }
         }
       }
@@ -2811,6 +2991,16 @@
         }
       }
     },
+    "How the two files are shown": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Com es mostren els dos fitxers"
+          }
+        }
+      }
+    },
     "Ignore": {
       "localizations": {
         "ca": {
@@ -2871,6 +3061,16 @@
         }
       }
     },
+    "In Finder, under Quick Actions › Run a Pipeline with L’Esclop…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Al Finder, a Accions ràpides › Passa per un pipeline de L’Esclop…"
+          }
+        }
+      }
+    },
     "In a specific folder": {
       "localizations": {
         "ca": {
@@ -2911,6 +3111,16 @@
         }
       }
     },
+    "It was moved or deleted after it was optimised.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es va moure o eliminar després d’optimitzar-lo."
+          }
+        }
+      }
+    },
     "Its script steps run code on your Mac with your permissions. AI agents may only run this pipeline when “Agents may run scripts” is on.": {
       "localizations": {
         "ca": {
@@ -2927,6 +3137,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "JSON, per a la majoria d’agents (mcpServers)"
+          }
+        }
+      }
+    },
+    "Keep": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conserva"
           }
         }
       }
@@ -2967,6 +3187,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Conserva la freqüència de fotogrames"
+          }
+        }
+      }
+    },
+    "Keep the optimised file and close": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conserva el fitxer optimitzat i tanca"
           }
         }
       }
@@ -3097,6 +3327,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Més gran que (bytes)"
+          }
+        }
+      }
+    },
+    "Layout": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disposició"
           }
         }
       }
@@ -3257,6 +3497,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fa més petites les imatges, els vídeos, els PDF i l’àudio que copies i deixes anar, allà on són."
+          }
+        }
+      }
+    },
+    "Mark in red where the two differ": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marca en vermell on són diferents"
           }
         }
       }
@@ -3581,6 +3831,26 @@
         }
       }
     },
+    "Next Frame": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotograma següent"
+          }
+        }
+      }
+    },
+    "Next Page": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pàgina següent"
+          }
+        }
+      }
+    },
     "Next to the original": {
       "localizations": {
         "ca": {
@@ -3657,6 +3927,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No es conserva cap original"
+          }
+        }
+      }
+    },
+    "No pipeline for Finder yet": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encara no hi ha cap pipeline per al Finder"
           }
         }
       }
@@ -3821,6 +4101,36 @@
         }
       }
     },
+    "Nothing to compare": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hi ha res per comparar"
+          }
+        }
+      }
+    },
+    "Nothing to compare yet": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encara no hi ha res per comparar"
+          }
+        }
+      }
+    },
+    "Nothing to convert": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hi ha res per convertir"
+          }
+        }
+      }
+    },
     "Nothing to optimise": {
       "localizations": {
         "ca": {
@@ -3837,6 +4147,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Només si"
+          }
+        }
+      }
+    },
+    "Only images convert to WebP.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Només les imatges es converteixen a WebP."
           }
         }
       }
@@ -3987,6 +4307,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Optimitza fitxers…"
+          }
+        }
+      }
+    },
+    "Optimise again from the original with another compression or format": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Torna a optimitzar a partir de l’original amb una altra compressió o un altre format"
           }
         }
       }
@@ -4221,6 +4551,16 @@
         }
       }
     },
+    "Page %d of %d": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pàgina %d de %d"
+          }
+        }
+      }
+    },
     "Pages as images": {
       "localizations": {
         "ca": {
@@ -4257,6 +4597,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Posa en pausa l’optimització automàtica"
+          }
+        }
+      }
+    },
+    "Pause Both": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posa’ls en pausa"
           }
         }
       }
@@ -4401,6 +4751,36 @@
         }
       }
     },
+    "Play Both": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprodueix-los"
+          }
+        }
+      }
+    },
+    "Play the optimised file": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprodueix el fitxer optimitzat"
+          }
+        }
+      }
+    },
+    "Play the original": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprodueix l’original"
+          }
+        }
+      }
+    },
     "Playback speed": {
       "localizations": {
         "ca": {
@@ -4421,12 +4801,42 @@
         }
       }
     },
+    "Position in both files": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posició als dos fitxers"
+          }
+        }
+      }
+    },
     "Press again to pause everything.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Torna-ho a prémer per posar-ho tot en pausa."
+          }
+        }
+      }
+    },
+    "Previous Frame": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotograma anterior"
+          }
+        }
+      }
+    },
+    "Previous Page": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pàgina anterior"
           }
         }
       }
@@ -4457,6 +4867,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Posa els passos a la línia següent de la capçalera de secció `[%@]`."
+          }
+        }
+      }
+    },
+    "Put the original back and drop the optimised file": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Torna a posar l’original i descarta el fitxer optimitzat"
           }
         }
       }
@@ -4837,6 +5257,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Restaura l’original"
+          }
+        }
+      }
+    },
+    "Restore the original?": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vols restaurar l’original?"
           }
         }
       }
@@ -5301,6 +5731,26 @@
         }
       }
     },
+    "Show Optimised": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra l’optimitzat"
+          }
+        }
+      }
+    },
+    "Show Original": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra l’original"
+          }
+        }
+      }
+    },
     "Show details": {
       "localizations": {
         "ca": {
@@ -5347,6 +5797,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mostra la còpia provada al Finder"
+          }
+        }
+      }
+    },
+    "Showing the optimised file, zoom %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es mostra el fitxer optimitzat, zoom %@"
+          }
+        }
+      }
+    },
+    "Showing the original, zoom %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es mostra l’original, zoom %@"
+          }
+        }
+      }
+    },
+    "Side by side": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Costat a costat"
+          }
+        }
+      }
+    },
+    "Side by side, zoom %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Costat a costat, zoom %@"
           }
         }
       }
@@ -5447,6 +5937,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "espai"
+          }
+        }
+      }
+    },
+    "Split": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dividit"
           }
         }
       }
@@ -5751,6 +6251,16 @@
         }
       }
     },
+    "That result is no longer in the recent results.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquest resultat ja no és als resultats recents."
+          }
+        }
+      }
+    },
     "The MCP server checks every request from an agent against these switches, and the app checks it again. They start off, and agents cannot turn them on. The esclop command line acts for you and is not limited by them.": {
       "localizations": {
         "ca": {
@@ -5837,6 +6347,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "La capçalera que s’obre aquí no es tanca mai. Afegeix-hi una línia amb `---` després."
+          }
+        }
+      }
+    },
+    "The optimised file is not there": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El fitxer optimitzat no hi és"
+          }
+        }
+      }
+    },
+    "The optimised file is replaced by the original.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El fitxer optimitzat se substitueix per l’original."
+          }
+        }
+      }
+    },
+    "The original is back": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’original ha tornat"
+          }
+        }
+      }
+    },
+    "The original is no longer kept": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’original ja no es conserva"
           }
         }
       }
@@ -6001,6 +6551,16 @@
         }
       }
     },
+    "This result was undone, so there is no optimised version to compare.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquest resultat es va desfer, així que no hi ha cap versió optimitzada per comparar."
+          }
+        }
+      }
+    },
     "This script uses Clop's variables. In esclop they are `$ESCLOP_BIN` and `$ESCLOP_INPUT_FILE`.": {
       "localizations": {
         "ca": {
@@ -6071,6 +6631,16 @@
         }
       }
     },
+    "Try Another…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prova’n un altre…"
+          }
+        }
+      }
+    },
     "Try It": {
       "localizations": {
         "ca": {
@@ -6097,6 +6667,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "S’està provant amb «%@»…"
+          }
+        }
+      }
+    },
+    "Turn on “Finder’s right-click menu” for a pipeline in the pipeline editor.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activa «El menú del clic dret del Finder» en un pipeline a l’editor de pipelines."
           }
         }
       }
@@ -6597,6 +7177,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Els teus pipelines"
+          }
+        }
+      }
+    },
+    "Zoom In": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apropa"
+          }
+        }
+      }
+    },
+    "Zoom Out": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allunya"
+          }
+        }
+      }
+    },
+    "Zoom: %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom: %@"
           }
         }
       }

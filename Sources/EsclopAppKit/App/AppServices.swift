@@ -16,6 +16,7 @@ public final class AppServices {
     public let settingsModel: SettingsViewModel
     public let settingsWindow: SettingsWindowController
     public let pipelinesWindow: PipelineEditorWindowController
+    public let compareWindow: CompareWindowController
     public let onboarding: OnboardingWindowController
     let panels: FloatingPanelController
     let dropZone: DropZoneController
@@ -29,6 +30,8 @@ public final class AppServices {
     let server: AppServer
     /// Pictures of the app's windows on request; only with ESCLOP_SNAPSHOT_DIR set.
     let snapshots = WindowSnapshots()
+    /// Finder's Quick Actions (Services).
+    let finderServices: FinderServices
     private let log = Logger(subsystem: Paths.bundleIdentifier, category: "app")
 
     public init(settings: SettingsStore = .shared) {
@@ -59,6 +62,9 @@ public final class AppServices {
         ))
         self.pipelinesWindow = pipelinesWindow
         model.onOpenPipelines = { [weak pipelinesWindow] name in pipelinesWindow?.show(name) }
+        let compareWindow = CompareWindowController(model: CompareModel(app: model))
+        self.compareWindow = compareWindow
+        model.onCompare = { [weak compareWindow] result in compareWindow?.show(result) }
         let panels = FloatingPanelController(model: model)
         self.panels = panels
         dropZone = DropZoneController(model: model) { [weak panels] in panels?.visibleFrame }
@@ -78,6 +84,7 @@ public final class AppServices {
         self.batchWindow = batchWindow
         model.onBatch = { [weak batchWindow] batch in batchWindow?.show(batch) }
         let store = model.service.context.pipelines
+        finderServices = FinderServices(model: model, pipelines: { (try? store.list()) ?? [] })
         let folders = WatchedFolders(model: model, pipelines: { (try? store.list()) ?? [] })
         self.folders = folders
         model.onPauseChange = { [weak folders] in folders?.refresh() }
@@ -109,6 +116,9 @@ public final class AppServices {
                 MainActor.assumeIsolated { folders?.refresh() }
             }
         }
+        // Finder's Quick Actions come to this object; refreshing makes a new install's show at once.
+        NSApp.servicesProvider = finderServices
+        NSUpdateDynamicServices()
         // Shortcuts actions run in this process and use this model.
         ShortcutActions.model = model
         Hotkeys.register(model)
@@ -120,7 +130,8 @@ public final class AppServices {
 
     /// Handles `esclop://` links: `esclop://settings/...` opens the Settings window there.
     public func open(_ urls: [URL]) {
-        for url in urls where !settingsWindow.open(url) && !pipelinesWindow.open(url) {
+        for url in urls where !settingsWindow.open(url) && !pipelinesWindow.open(url) && !compareWindow.open(url) {
+
             log.info("Ignored a link L'Esclop does not handle: \(url.absoluteString, privacy: .public)")
         }
     }

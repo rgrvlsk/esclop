@@ -1,0 +1,5 @@
+/* Finder's Quick Actions (Services), in Catalan. Keys are the NSMenuItem titles in Info.plist.in. */
+"Optimise with L’Esclop" = "Optimitza amb L’Esclop";
+"Optimise Harder with L’Esclop" = "Optimitza més amb L’Esclop";
+"Convert to WebP with L’Esclop" = "Converteix a WebP amb L’Esclop";
+"Run a Pipeline with L’Esclop…" = "Passa per un pipeline de L’Esclop…";

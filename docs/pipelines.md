@@ -106,7 +106,7 @@ A plain Clop pipeline is just an `[any]` section, so Clop text is a valid `.pipe
 | `dropZone` | on files dropped on the drop zone |
 | `presetZone` | from a preset zone shown while you drag (Control-drag in the drop zone) |
 | `folder("~/path")` | on new files directly in that folder, instead of the plain optimisation, for the kinds it has steps for; the folder is watched even when no Settings list names it |
-| `rightClick` | from Finder's right-click menu |
+| `rightClick` | from Finder's right-click menu: Quick Actions › Run a Pipeline with L’Esclop… lists every pipeline with this trigger (one runs straight away) |
 | `cli` | as a quick action offered by the command line |
 | `mcp` | when an AI agent asks for it; listed as a tool hint |
 
