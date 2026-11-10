@@ -20,8 +20,10 @@
 | `SHA256SUMS` | checksums of the above |
 
 Releases must provide complete corresponding source, including SwiftPM dependencies,
-vendored Rust crates and upstream tool sources. The app and its DMG are configured in
-`release.yml` but disabled with `SHIP_APP: "false"` until the app is ready; until then `Scripts/bundle-app.sh` runs as a smoke test only.
+vendored Rust crates and upstream tool sources. The menu bar app ships as
+`LEsclop-X.Y.Z.dmg`, built by `release.yml` when `SHIP_APP` is `"true"`; with `"false"`,
+`Scripts/bundle-app.sh` runs as a smoke test only. Without the signing secrets the app is signed
+ad hoc and not notarised, and the release notes say how to open it.
 
 ## Signing and notarisation
 
