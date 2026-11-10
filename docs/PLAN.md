@@ -25,10 +25,11 @@ in a floating card and restore the original. CLI and MCP workflows already run w
 - The pipeline editor: steps, triggers, filter, a text view and Try it.
 - The compare window: split, side by side and flip, zoom with pan in step, the pixel
   difference, video, audio and PDF, keep, restore and try another.
+- Finder Quick Actions through Services: optimise, optimise harder, convert to WebP, run a pipeline.
 
 ## Next
 
-- Finder actions through Services, then Shortcuts actions through App Intents.
+- Shortcuts actions through App Intents.
 - A crop window for files that are not on screen as a floating result.
 
 ## Later

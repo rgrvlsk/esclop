@@ -18,6 +18,12 @@ into the body of its GitHub release.
   restore the original, try another compression or format (the window follows the new
   result), copy and show in Finder. It works from the backup, so it opens long after the
   floating result is gone, and says so plainly when the backup has been pruned.
+- Finder Quick Actions: right-click images, videos, PDFs or audio files in Finder and choose
+  "Optimise with L’Esclop", "Optimise Harder with L’Esclop", "Convert to WebP with L’Esclop"
+  (images) or "Run a Pipeline with L’Esclop…", which offers the pipelines whose triggers
+  include Finder's right-click menu. Nothing opens: the files go through the usual floating
+  results, or the batch window from `batchWindowFrom` files. Made with macOS Services, as Clop
+  does; the titles are in English and Catalan.
 
 ## [0.1.0] - 2026-11-10
 
