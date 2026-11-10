@@ -93,7 +93,7 @@ import Testing
         let model = OnboardingModel(defaults: settings.store.defaults)
         model.go(to: step)
         let view = OnboardingView(onboarding: model, settings: viewModel, agents: agents, actions: SettingsActions(), icon: Self.appIcon) {}
-        let size = try await SettingsRenderTests.renderWindow(view, size: CGSize(width: 640, height: 560), name: "onboarding-\(step.rawValue + 1)-\(step.title.lowercased())", scheme: scheme)
+        let size = try await SettingsRenderTests.renderWindow(view, size: CGSize(width: 640, height: 560), name: "onboarding-\(step.rawValue + 1)-\(String(describing: step))", scheme: scheme)
         #expect(size.width == 640)
     }
 

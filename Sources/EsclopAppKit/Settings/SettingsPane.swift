@@ -11,19 +11,28 @@ public enum SettingsPane: String, CaseIterable, Identifiable, Hashable, Sendable
 
     public var id: String { rawValue }
 
+    /// The pane's name in the app's language.
     public var title: String {
         switch self {
-        case .general: return "General"
-        case .images: return "Images"
-        case .video: return "Video"
-        case .pdf: return "PDF"
-        case .audio: return "Audio"
-        case .clipboard: return "Clipboard"
-        case .floatingResults: return "Floating results"
-        case .agents: return "Agents and MCP"
-        case .advanced: return "Advanced"
+        case .general: return Strings.text("General")
+        case .images: return Strings.text("Images")
+        case .video: return Strings.text("Video")
+        case .pdf: return Strings.text("PDF")
+        case .audio: return Strings.text("Audio")
+        case .clipboard: return Strings.text("Clipboard")
+        case .floatingResults: return Strings.text("Floating results")
+        case .agents: return Strings.text("Agents and MCP")
+        case .advanced: return Strings.text("Advanced")
         }
     }
+
+    /// The English name, which the search also matches.
+    public var englishTitle: String { Self.english[self] ?? rawValue }
+
+    static let english: [SettingsPane: String] = [
+        .general: "General", .images: "Images", .video: "Video", .pdf: "PDF", .audio: "Audio", .clipboard: "Clipboard",
+        .floatingResults: "Floating results", .agents: "Agents and MCP", .advanced: "Advanced",
+    ]
 
     public var symbol: String {
         switch self {
@@ -80,7 +89,7 @@ public enum SettingsPane: String, CaseIterable, Identifiable, Hashable, Sendable
     public func footer(for section: SettingsSection) -> String? {
         switch section {
         case .agents:
-            return "The MCP server checks every request from an agent against these switches, and the app checks it again. They start off, and agents cannot turn them on. The esclop command line acts for you and is not limited by them."
+            return Strings.text("The MCP server checks every request from an agent against these switches, and the app checks it again. They start off, and agents cannot turn them on. The esclop command line acts for you and is not limited by them.")
         default:
             return nil
         }
@@ -89,12 +98,18 @@ public enum SettingsPane: String, CaseIterable, Identifiable, Hashable, Sendable
     /// The heading a registry section gets inside its pane; nil when the pane has only that one.
     public func heading(for section: SettingsSection) -> String? {
         switch section {
-        case .general: return "Every file"
-        case .output: return "Where results go"
-        case .backups: return "Backups"
-        case .automation: return "Automatic optimisation"
-        case .agents: return "What agents may do without asking"
-        default: return sections.count > 1 ? section.title : nil
+        case .general: return Strings.text("Every file")
+        case .output: return Strings.text("Where results go")
+        case .backups: return Strings.text("Backups")
+        case .automation: return Strings.text("Automatic optimisation")
+        case .agents: return Strings.text("What agents may do without asking")
+        case .interface: return sections.count > 1 ? Strings.text("Interface") : nil
+        case .images: return sections.count > 1 ? Strings.text("Images") : nil
+        case .video: return sections.count > 1 ? Strings.text("Video") : nil
+        case .pdf: return sections.count > 1 ? Strings.text("PDF") : nil
+        case .audio: return sections.count > 1 ? Strings.text("Audio") : nil
+        case .clipboard: return sections.count > 1 ? Strings.text("Clipboard") : nil
+
         }
     }
 }

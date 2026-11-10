@@ -54,7 +54,7 @@ struct EstimateText: View {
             } else if let request, model.unavailable.contains(request) {
                 Text(verbatim: "—").accessibilityLabel(Strings.text("No estimate"))
             } else if request != nil {
-                Text("≈\u{00A0}000 kB").redacted(reason: .placeholder)
+                Text(verbatim: "≈\u{00A0}000 kB").redacted(reason: .placeholder)
                     .accessibilityLabel(Strings.text("Estimating"))
             }
         }

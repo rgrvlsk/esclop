@@ -85,14 +85,17 @@ struct PipelineDetailView: View {
 
     private var optionsSection: some View {
         Section(Strings.text("Options")) {
-            Toggle(isOn: $model.draft.optimiseFirst) {
-                Text(Strings.text("Optimise first"))
-                Text(Strings.text("Compress the file before the steps run, unless the first step re-encodes it anyway."))
-            }
-            Toggle(isOn: $model.draft.hideResult) {
-                Text(Strings.text("Run without a floating result"))
-                Text(Strings.text("Nothing appears on screen when it runs on its own."))
-            }
+            TitledToggle(
+                title: Strings.text("Optimise first"),
+                subtitle: Strings.text("Compress the file before the steps run, unless the first step re-encodes it anyway."),
+                isOn: $model.draft.optimiseFirst
+            )
+            TitledToggle(
+                title: Strings.text("Run without a floating result"),
+                subtitle: Strings.text("Nothing appears on screen when it runs on its own."),
+                isOn: $model.draft.hideResult
+            )
+
         }
     }
 

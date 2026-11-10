@@ -21,7 +21,7 @@ struct StringListEditor: View {
         VStack(alignment: .leading, spacing: 8) {
             label
             if items.isEmpty {
-                Text(isApps ? "No apps" : "No folders")
+                Text(isApps ? Strings.text("No apps") : Strings.text("No folders"))
                     .foregroundStyle(.secondary)
             }
             ForEach(items, id: \.self) { item in
@@ -42,10 +42,11 @@ struct StringListEditor: View {
                     }
                     .buttonStyle(.borderless)
                     .foregroundStyle(.secondary)
-                    .accessibilityLabel("Remove \(isApps ? Self.appName(item) : item)")
+                    .accessibilityLabel(Strings.format("Remove %@", isApps ? Self.appName(item) : item))
                 }
             }
-            Button(isApps ? "Add App…" : "Add Folder…", systemImage: "plus") { add() }
+            Button(isApps ? Strings.text("Add App…") : Strings.text("Add Folder…"), systemImage: "plus") { add() }
+
                 .buttonStyle(.borderless)
         }
     }
@@ -62,12 +63,12 @@ struct StringListEditor: View {
             panel.canChooseDirectories = false
             panel.allowedContentTypes = [.application]
             panel.directoryURL = URL(fileURLWithPath: "/Applications")
-            panel.prompt = "Ignore"
+            panel.prompt = Strings.text("Ignore")
         } else {
             panel.canChooseFiles = false
             panel.canChooseDirectories = true
             panel.canCreateDirectories = true
-            panel.prompt = "Watch"
+            panel.prompt = Strings.text("Watch")
         }
         guard panel.runModal() == .OK else { return }
         let picked = panel.urls.compactMap { url in isApps ? Bundle(url: url)?.bundleIdentifier : Self.abbreviated(url) }

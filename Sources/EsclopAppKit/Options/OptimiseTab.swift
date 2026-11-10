@@ -220,6 +220,8 @@ struct RuleCheckbox: View {
             Toggle(isOn: $model.ruleOn) {
                 Text(ClipboardRule.checkboxTitle(origin: model.origin, inputType: model.card.inputType ?? "")).font(OptionsType.label)
             }
+            .switchLabel(title: ClipboardRule.checkboxTitle(origin: model.origin, inputType: model.card.inputType ?? ""), hint: nil)
+
             .toggleStyle(.checkbox)
             .tint(Palette.accent)
             .disabled(model.card.isWorking)

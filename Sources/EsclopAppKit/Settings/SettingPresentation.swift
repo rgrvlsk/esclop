@@ -44,10 +44,10 @@ public enum SettingPresentation {
     public static func control(for descriptor: SettingDescriptor) -> SettingControl {
         let key = descriptor.key
         if let choices = numberChoices[key] {
-            return .picker(choices.map { SettingControl.Choice(value: .int($0.0), label: $0.1) })
+            return .picker(choices.map { SettingControl.Choice(value: .int($0.0), label: Strings.text($0.1)) })
         }
         if key == EsclopSettings.targetVideoFPS.key {
-            var choices: [(Double, String)] = [(-4, "A quarter of the source"), (-2, "Half the source"), (24, "24 fps"), (30, "30 fps"), (60, "60 fps"), (120, "120 fps")]
+            var choices: [(Double, String)] = [(-4, Strings.text("A quarter of the source")), (-2, Strings.text("Half the source")), (24, "24 fps"), (30, "30 fps"), (60, "60 fps"), (120, "120 fps")]
             if let current = descriptor.value?.doubleValue, !choices.contains(where: { $0.0 == current }) {
                 choices.append((current, "\(Self.number(current)) fps"))
             }
@@ -68,7 +68,7 @@ public enum SettingPresentation {
         case .bool: return .toggle
         case .choice:
             return .picker((descriptor.choices ?? []).map { SettingControl.Choice(value: .string($0), label: label(for: $0, key: key)) })
-        case .int, .double: return .number(unit: units[key], step: descriptor.type == .int ? 1 : 0.5)
+        case .int, .double: return .number(unit: units[key].map { Strings.text($0) }, step: descriptor.type == .int ? 1 : 0.5)
         case .string: return .text
         }
     }
@@ -103,7 +103,7 @@ public enum SettingPresentation {
 
     /// The words for an allowed value: "bottomRight" reads "Bottom right".
     public static func label(for raw: String, key: String = "") -> String {
-        if let known = choiceLabels[raw] { return known }
+        if let known = choiceLabels[raw] { return Strings.text(known) }
         var out = ""
         for character in raw {
             if character.isUppercase { out += " " + character.lowercased() } else { out.append(character) }
@@ -118,7 +118,7 @@ public enum SettingPresentation {
         case let .array(items): return items.compactMap(\.stringValue).joined(separator: ", ")
         case let .double(number): return Self.number(number)
         case let .int(number): return String(number)
-        case let .bool(flag): return flag ? "on" : "off"
+        case let .bool(flag): return flag ? Strings.text("on") : Strings.text("off")
         case let .some(other): return "\(other)"
         case nil: return ""
         }
@@ -135,13 +135,14 @@ public enum SettingPresentation {
             return [text(for: value), unit].compactMap { $0 }.joined(separator: " ")
         case .folders, .apps, .extensions:
             let items = value?.arrayValue ?? []
-            return items.isEmpty ? "none" : text(for: value)
+            return items.isEmpty ? Strings.text("none") : text(for: value)
         case .clipboardRules:
             let rules = ClipboardRuleList.decode(value)
-            return rules.isEmpty ? "none" : rules.map { $0.subject() }.joined(separator: ", ")
+            return rules.isEmpty ? Strings.text("none") : rules.map { $0.subject() }.joined(separator: ", ")
         case .hoverButtons:
             let names = (value?.arrayValue ?? []).compactMap(\.stringValue)
-            return names.isEmpty ? "none" : names.map(CardPresentation.hoverButtonTitle).joined(separator: ", ")
+            return names.isEmpty ? Strings.text("none") : names.map(CardPresentation.hoverButtonTitle).joined(separator: ", ")
+
         default:
             return text(for: value)
         }

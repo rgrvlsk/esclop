@@ -29,7 +29,7 @@ public struct SettingsView: View {
             SettingsPaneView(pane: model.pane, model: model, agents: agents, actions: actions)
                 .navigationTitle(model.pane.title)
         }
-        .searchable(text: $model.query, placement: .sidebar, prompt: "Search settings")
+        .searchable(text: $model.query, placement: .sidebar, prompt: Strings.text("Search settings"))
         .tint(Palette.accent)
         .frame(minWidth: 720, idealWidth: 800, minHeight: 480, idealHeight: 620)
     }

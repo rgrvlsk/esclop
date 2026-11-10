@@ -7,7 +7,19 @@ into the body of its GitHub release.
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+- The whole app speaks Catalan when macOS does (or with `ESCLOP_LANGUAGE=ca`): the menu, the
+  Settings window with every setting, option, heading and the search, the Agents and MCP pane
+  and its sheets, the first-run tour, notices, the pipeline editor's step help and the
+  parser's messages in the editor (the command line keeps printing them in English). The
+  settings registry and the step catalog stay English for the command line and agents; the app
+  looks each entry up by key and falls back to English, and the tests fail when a setting or a
+  step has no Catalan entry. Settings search matches Catalan and English words.
+
+### Fixed
+- Switches with a line under their title read that line to VoiceOver instead of their name
+  (the pipeline editor's "Only some files", every Settings switch). Each switch is now named by
+  its title, with the line as the hint.
 
 ## [0.1.0] - 2026-11-10
 
