@@ -130,8 +130,12 @@ public final class OptionsModel {
     }
 
     /// Formats the tiles offer for this kind of file.
-    public var formats: [OutputFormat] {
+    public var formats: [OutputFormat] { Self.formats(for: kind) }
+
+    /// The formats offered for a kind of file (the popover's tiles, the compare window's menu).
+    public static func formats(for kind: MediaKind?) -> [OutputFormat] {
         switch kind {
+
         // Only what the engine writes: JPEG XL waits for an encoder in esclop-engine.
         case .image?: return [.png, .jpeg, .webp, .avif, .heic, .gif]
         case .video?: return [.mp4, .hevc, .av1, .webm, .mov, .gifVideo]

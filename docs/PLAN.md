@@ -22,8 +22,10 @@ in a floating card and restore the original. CLI and MCP workflows already run w
 - The batch window for many files at once: progress, aggregate saving, pause, stop and restore all.
 - Watched folders (screenshots and recordings by default) and pipeline folder triggers in the
   app, with a folder list editor in each kind's Settings pane.
-
 - The pipeline editor: steps, triggers, filter, a text view and Try it.
+- The compare window: split, side by side and flip, zoom with pan in step, the pixel
+  difference, video, audio and PDF, keep, restore and try another.
+- Finder Quick Actions through Services: optimise, optimise harder, convert to WebP, run a pipeline.
 - Shortcuts actions through App Intents: optimise, convert, downscale, crop, run a pipeline,
   get and change a setting, pause or resume.
 
@@ -33,7 +35,7 @@ in a floating card and restore the original. CLI and MCP workflows already run w
 
 ## Later
 
-- Preset zones, Finder actions, uploads and shelf integrations.
+- Preset zones, uploads and shelf integrations.
 - App release validation, notarisation, Sparkle updates and a Homebrew cask.
 
 ## Quality targets

@@ -54,7 +54,7 @@ import Testing
         #expect(info.barEnd == 0.25)
         #expect(info.formats == "PNG → PNG")
         #expect(info.dimensions == "2940 × 1912")
-        #expect(info.detailActions == [.undo, .convert(.webp), .downscale, .crop])
+        #expect(info.detailActions == [.undo, .compare, .convert(.webp), .downscale, .crop])
         #expect(info.actions.first == .openDetail)
         #expect(info.actions.suffix(3) == [.reveal, .copy, .dismiss])
         #expect(info.accessibilityLabel == "shot.png, Optimised, 600\(nbsp)kB, 75\(nbsp)% smaller")

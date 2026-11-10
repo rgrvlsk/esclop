@@ -8,6 +8,22 @@ into the body of its GitHub release.
 ## [Unreleased]
 
 ### Added
+- Compare window: judge an optimisation before keeping it. Opens from a floating result's
+  detail, the options popover, a batch row, the menu's Compare submenu and
+  `esclop://compare/<result id>`; one window, reused. Before and after split by a draggable
+  divider, side by side, or flipped in place (Space); zoom to 100 % and up to 800 % with
+  pan kept in step on both sides; the pixel difference marked in red with the share of pixels
+  that differ. Videos play, scrub and step a frame at a time together; audio plays one side at
+  a time from the same moment; PDFs go page by page on both sides. From the window: keep,
+  restore the original, try another compression or format (the window follows the new
+  result), copy and show in Finder. It works from the backup, so it opens long after the
+  floating result is gone, and says so plainly when the backup has been pruned.
+- Finder Quick Actions: right-click images, videos, PDFs or audio files in Finder and choose
+  "Optimise with L’Esclop", "Optimise Harder with L’Esclop", "Convert to WebP with L’Esclop"
+  (images) or "Run a Pipeline with L’Esclop…", which offers the pipelines whose triggers
+  include Finder's right-click menu. Nothing opens: the files go through the usual floating
+  results, or the batch window from `batchWindowFrom` files. Made with macOS Services, as Clop
+  does; the titles are in English and Catalan.
 - Shortcuts actions (App Intents): Optimise Files (optionally harder), Convert Files (to any
   format the engines write), Downscale Files (a factor between 1 % and 100 %), Crop Files
   (width and height, or one of them with the aspect kept), Run a Pipeline (the saved
