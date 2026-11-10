@@ -53,6 +53,8 @@ jobs:
       SHIP_APP: "true"
       ESCLOP_SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}
       ESCLOP_BUILD_NUMBER: ${{ github.run_number }}
+      # SwiftPM writes its build directory into the binaries; keep it outside the runner's home.
+      ESCLOP_SCRATCH_PATH: /private/tmp/esclop-build
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

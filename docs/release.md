@@ -29,7 +29,9 @@ ad hoc and not notarised, and the release notes say how to open it.
 
 Real releases require a clean working tree at the release tag. `--skip-vendor` is restricted
 to dry runs. Existing release assets can be replaced only while the release is still a draft.
-Packaging rejects binaries containing home-directory paths, even after stripping. Build
+Packaging rejects binaries containing home-directory paths, even after stripping. SwiftPM can
+write its build directory into a binary, so the release workflow builds in
+`ESCLOP_SCRATCH_PATH` (`/private/tmp/esclop-build`), which every packaging script honours. Build
 release binaries from a neutral directory such as `/tmp/esclop-build` and check them before
 signing. Rust source locations are also remapped by `Scripts/build-engine.sh`.
 

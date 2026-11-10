@@ -14,7 +14,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT=${1:?usage: Scripts/swift-notices.sh OUT.md}
 RESOLVED="$ROOT/Package.resolved"
-CHECKOUTS="$ROOT/.build/checkouts"
+CHECKOUTS="${ESCLOP_SCRATCH_PATH:-$ROOT/.build}/checkouts"
 [ -f "$RESOLVED" ] || { echo "swift-notices: no Package.resolved" >&2; exit 1; }
 
 identify() { # licence file -> SPDX expression
