@@ -186,6 +186,10 @@ holds the rest, in folders by feature:
   difference mask with Core Image; `ComparePlayers` keeps two AVPlayers in step.
   `CompareModel` follows the result's floating result, so "try another" (run through
   `AppModel.reprocess`, as the popover does) updates the window in place.
+- `Finder`: Finder's Quick Actions. `FinderServices` is `NSApp.servicesProvider`: the four
+  services declared in `Info.plist` (`NSServices`, titles localised in
+  `Resources/<lang>.lproj/ServicesMenu.strings`, both from `Scripts/templates`) hand their files
+  to `AppModel.optimise` with the `finder` origin, or to a pipeline with the `rightClick` trigger.
 - `Pipelines`: the pipeline editor. `PipelineDraft` is a pipeline as the form holds it (each
   step as its name and the text of its arguments, the filter as the `if` step every section
   starts with); it builds step text, has `PipelineParser` read it, places the parser's errors
