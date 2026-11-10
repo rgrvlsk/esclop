@@ -13,6 +13,10 @@
 # It runs the real app as the current user and changes two settings (they are reset at the
 # end), so outside CI it only runs with ESCLOP_SMOKE_HERE=1. Writes what it saw to
 # $ESCLOP_E2E_OUT/result.txt when that is set.
+#
+# ESCLOP_E2E_INTERACTIVE=1 is the same with automatic installation off: Sparkle's window offers
+# N+1 with its notes, and the script waits up to five minutes for a person to click "Install
+# Update", then for Sparkle to put N+1 in place and start it again.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP=${1:?usage: Scripts/update-e2e.sh APP}
@@ -73,7 +77,12 @@ server=$!
 # Automatic installation on, and no record of an earlier check, so Sparkle checks at launch.
 cli="$installed/Contents/MacOS/esclop"
 "$cli" settings set checkForUpdatesAutomatically true > /dev/null
-"$cli" settings set installUpdatesAutomatically true > /dev/null
+interactive="${ESCLOP_E2E_INTERACTIVE:-0}"
+if [ "$interactive" = 1 ]; then
+  "$cli" settings set installUpdatesAutomatically false > /dev/null
+else
+  "$cli" settings set installUpdatesAutomatically true > /dev/null
+fi
 defaults delete dev.esclop.app SULastCheckTime > /dev/null 2>&1 || true
 
 ESCLOP_UPDATE_FEED="http://127.0.0.1:$port/appcast.xml" "$installed/Contents/MacOS/EsclopApp" > "$TMP/app.log" 2>&1 &
@@ -95,6 +104,21 @@ wait_for() { # seconds description command...
   return 1
 }
 fetched() { grep -q 'GET /next.dmg' "$TMP/server.log"; }
+updated() { [ "$(plutil -extract CFBundleVersion raw -o - "$installed/Contents/Info.plist" 2>/dev/null)" = 2 ]; }
+if [ "$interactive" = 1 ]; then
+  appcast_read() { grep -q 'GET /appcast.xml' "$TMP/server.log"; }
+  wait_for 90 "the appcast to be read" appcast_read
+  say "Sparkle's window should offer L'Esclop 1.0.1 with its notes: click Install Update (5 min)"
+  for _ in $(seq 1 300); do updated && break; sleep 1; done
+  updated || { say "the app on disk is still build 1 after five minutes"; exit 1; }
+  pid=""
+  codesign --verify --deep --strict "$installed"
+  say "the app on disk is now build 2, signature valid, quarantine: $(xattr -p com.apple.quarantine "$installed" 2>/dev/null || echo none)"
+  relaunched() { pgrep -f "$TMP/Applications/L'Esclop.app/Contents/MacOS/EsclopApp" > /dev/null; }
+  for _ in $(seq 1 20); do relaunched && break; sleep 1; done
+  if relaunched; then say "Sparkle started N+1 again: N updated itself to N+1"; else say "N+1 is in place but Sparkle did not start it again"; exit 1; fi
+  exit 0
+fi
 installer() { pgrep -f "$TMP/Applications/L'Esclop.app/Contents/Frameworks/Sparkle.framework" > /dev/null || pgrep -x Autoupdate > /dev/null; }
 wait_for 90 "the appcast and the DMG to be fetched" fetched
 say "N fetched the appcast and the N+1 DMG"
@@ -107,7 +131,6 @@ for _ in $(seq 1 10); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
 kill -0 "$pid" 2>/dev/null && kill -KILL "$pid"
 pid=""
 
-updated() { [ "$(plutil -extract CFBundleVersion raw -o - "$installed/Contents/Info.plist" 2>/dev/null)" = 2 ]; }
 for _ in $(seq 1 90); do updated && break; sleep 1; done
 if ! updated; then
   say "the app on disk is still build $(plutil -extract CFBundleVersion raw -o - "$installed/Contents/Info.plist" 2>/dev/null || echo '?')"

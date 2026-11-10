@@ -106,7 +106,10 @@ the first launch; it sends no system profile. "Check for Updates…" in the menu
 throwaway key, a DMG and a signed appcast of build 2 on `127.0.0.1`, starts build 1 with
 automatic installation on, and checks that the bundle on disk becomes build 2, validly signed,
 without quarantine, and starts. CI runs it after the smoke test ("app bundle starts on its own").
-It starts the real app as the current user, so elsewhere it needs `ESCLOP_SMOKE_HERE=1`.
+It starts the real app as the current user, so elsewhere it needs `ESCLOP_SMOKE_HERE=1`. With
+`ESCLOP_E2E_INTERACTIVE=1` automatic installation stays off: Sparkle's window offers build 2 with
+its notes, the script waits for someone to click "Install Update", then checks that Sparkle put
+build 2 in place and started it again.
 
 ## Licence gate
 
