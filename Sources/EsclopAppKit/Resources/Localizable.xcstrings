@@ -151,12 +151,62 @@
         }
       }
     },
+    "%d already optimised": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d ja optimitzats"
+          }
+        }
+      }
+    },
+    "%d failed": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d amb error"
+          }
+        }
+      }
+    },
+    "%d files optimised": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d fitxers optimitzats"
+          }
+        }
+      }
+    },
     "%d min left": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Queden %d min"
+          }
+        }
+      }
+    },
+    "%d of %d files optimised": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d de %d fitxers optimitzats"
+          }
+        }
+      }
+    },
+    "%d optimised": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d optimitzats"
           }
         }
       }
@@ -181,12 +231,52 @@
         }
       }
     },
+    "%d restored": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d restaurats"
+          }
+        }
+      }
+    },
     "%d s left": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Queden %d s"
+          }
+        }
+      }
+    },
+    "%d stopped": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d aturats"
+          }
+        }
+      }
+    },
+    "%d to go": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "en falten %d"
+          }
+        }
+      }
+    },
+    "1 file optimised": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 fitxer optimitzat"
           }
         }
       }
@@ -391,6 +481,26 @@
         }
       }
     },
+    "Batch": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lot"
+          }
+        }
+      }
+    },
+    "Batch finished: %d files, %@ saved": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lot acabat: %d fitxers, %@ estalviats"
+          }
+        }
+      }
+    },
     "Bitrate": {
       "localizations": {
         "ca": {
@@ -407,6 +517,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cancel·la"
+          }
+        }
+      }
+    },
+    "Choose images, videos, PDFs or audio files.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tria imatges, vídeos, PDF o fitxers d’àudio."
+          }
+        }
+      }
+    },
+    "Choose images, videos, PDFs, audio or folders to optimise.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tria imatges, vídeos, PDF, àudio o carpetes per optimitzar."
           }
         }
       }
@@ -991,6 +1121,16 @@
         }
       }
     },
+    "Nothing to optimise": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hi ha res per optimitzar"
+          }
+        }
+      }
+    },
     "Open the editor…": {
       "localizations": {
         "ca": {
@@ -1047,6 +1187,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Optimitzat, %@, %@ més petit"
+          }
+        }
+      }
+    },
+    "Optimising %d %%": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprimint %d %%"
+          }
+        }
+      }
+    },
+    "Optimising %d of %d files": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprimint %d de %d fitxers"
           }
         }
       }
@@ -1131,6 +1291,26 @@
         }
       }
     },
+    "Pause": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausa"
+          }
+        }
+      }
+    },
+    "Paused at %d of %d files": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En pausa a %d de %d fitxers"
+          }
+        }
+      }
+    },
     "Photo from Photos": {
       "localizations": {
         "ca": {
@@ -1201,12 +1381,32 @@
         }
       }
     },
+    "Remove from the List": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Treu de la llista"
+          }
+        }
+      }
+    },
     "Resolution": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Resolució"
+          }
+        }
+      }
+    },
+    "Restore All": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaura-ho tot"
           }
         }
       }
@@ -1227,6 +1427,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Restaura la mida original (100 %)"
+          }
+        }
+      }
+    },
+    "Restore the original": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaura l’original"
+          }
+        }
+      }
+    },
+    "Resume": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprèn"
           }
         }
       }
@@ -1381,12 +1601,32 @@
         }
       }
     },
+    "Stop": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atura"
+          }
+        }
+      }
+    },
     "Stopped before it finished.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "S’ha aturat abans d’acabar."
+          }
+        }
+      }
+    },
+    "Stopped, original kept": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aturat, es conserva l’original"
           }
         }
       }
@@ -1497,6 +1737,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nota de veu"
+          }
+        }
+      }
+    },
+    "Waiting": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En espera"
           }
         }
       }

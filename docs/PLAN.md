@@ -19,10 +19,10 @@ in a floating card and restore the original. CLI and MCP workflows already run w
 - First-run onboarding, skippable and reopened from the menu.
 - The options popover from "…" (Optimise, Size with the crop editor, Share; Sound for audio)
   with size estimates, origin suggestions, clipboard rules and the Catalan localisation.
+- The batch window for many files at once: progress, aggregate saving, pause, stop and restore all.
 
 ## Next
 
-- The batch window: many files at once, with progress, aggregate saving, cancel and restore-all.
 - Watched folders (screenshots and recordings) and pipeline triggers in the app.
 
 ## Later
