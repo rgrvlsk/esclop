@@ -33,7 +33,14 @@ for arch in arm64 x86_64; do
   echo "build-swift: $PRODUCT for $triple" >&2
   swift build -c release --build-system "$BUILD_SYSTEM" --scratch-path "$SCRATCH" --product "$PRODUCT" --triple "$triple" >&2
   cp "$(swift build -c release --build-system "$BUILD_SYSTEM" --scratch-path "$SCRATCH" --triple "$triple" --show-bin-path)/$PRODUCT" "$TMP/$arch"
-  [ "$(lipo -archs "$TMP/$arch")" = "$arch" ] || { echo "build-swift: the $triple build is not $arch" >&2; exit 1; }
+  built="$(lipo -archs "$TMP/$arch")"
+  if [ "$built" != "$arch" ]; then
+    # Some engine versions answer a triple with a universal binary: keep the slice asked for.
+    case " $built " in
+      *" $arch "*) lipo "$TMP/$arch" -thin "$arch" -output "$TMP/$arch.thin" && mv "$TMP/$arch.thin" "$TMP/$arch" ;;
+      *) echo "build-swift: the $triple build is not $arch but: $built" >&2; exit 1 ;;
+    esac
+  fi
   slices+=("$TMP/$arch")
 done
 mkdir -p "$(dirname "$OUT")"
