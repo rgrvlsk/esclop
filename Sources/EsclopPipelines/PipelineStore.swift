@@ -37,7 +37,7 @@ public struct PipelineStore: Sendable {
         return files.map { url in
             let name = url.deletingPathExtension().lastPathComponent
             guard let text = try? String(contentsOf: url, encoding: .utf8) else {
-                return PipelineStoreEntry(name: name, url: url, pipeline: nil, diagnostics: [PipelineDiagnostic(line: 1, column: 1, "The file is not UTF-8 text.")])
+                return PipelineStoreEntry(name: name, url: url, pipeline: nil, diagnostics: [PipelineDiagnostic(line: 1, column: 1, text: T("The file is not UTF-8 text."))])
             }
             let result = PipelineParser.check(text, name: name)
             return PipelineStoreEntry(name: name, url: url, pipeline: result.pipeline, diagnostics: result.diagnostics)

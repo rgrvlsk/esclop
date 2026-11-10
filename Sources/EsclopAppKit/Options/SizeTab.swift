@@ -68,7 +68,7 @@ struct FitChips: View {
                     .textFieldStyle(.roundedBorder)
                     .font(OptionsType.body)
                     .onSubmit(applyCustom)
-                Text("kB").foregroundStyle(PopoverInk.secondary.color)
+                Text(verbatim: "kB").foregroundStyle(PopoverInk.secondary.color)
                 Button(Strings.text("Fit"), action: applyCustom).disabled(Int(model.customFit) == nil)
             }
         }

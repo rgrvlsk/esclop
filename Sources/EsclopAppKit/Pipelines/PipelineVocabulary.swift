@@ -5,6 +5,7 @@
 
 import EsclopCore
 import EsclopPipelines
+import Foundation
 
 enum PipelineVocabulary {
     static func stepTitle(_ name: String) -> String {
@@ -38,6 +39,26 @@ enum PipelineVocabulary {
         case "openWith": Strings.text("Open with")
         default: name
         }
+    }
+
+    /// The step's one-line help (the catalog's summary) in the app's language. The catalog stays
+    /// English for the CLI and agents; its backticks are dropped for a tooltip.
+    static func stepHelp(_ spec: StepSpec) -> String {
+        SettingWords.lookup("step.\(spec.name).summary", english: spec.summary).replacingOccurrences(of: "`", with: "")
+    }
+
+    /// An argument's help; `ifNot` shares `if`'s conditions.
+    static func paramHelp(step: String, param: ParamSpec) -> String {
+        SettingWords.lookup(paramHelpKey(step: step, param: param.name), english: param.doc).replacingOccurrences(of: "`", with: "")
+    }
+
+    static func paramHelpKey(step: String, param: String) -> String { "step.\(step == "ifNot" ? "if" : step).\(param)" }
+
+    /// A parser message in the app's language: its template (and the phrases nested in it) looked
+    /// up in the catalog, the English when there is none. The CLI keeps printing `message`.
+    static func message(_ diagnostic: PipelineDiagnostic, locale: Locale = Strings.locale) -> String {
+        guard let text = diagnostic.text else { return diagnostic.message }
+        return text.rendered { Strings.text($0, locale: locale) }
     }
 
     static func paramTitle(_ name: String) -> String {

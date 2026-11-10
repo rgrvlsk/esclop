@@ -99,7 +99,7 @@ extension AppModel {
             guard let url = try Clipboard.materialise(.image(data, type)).first else { return }
             file = url
         } catch {
-            notice("Could not read the copied image", CardPresentation.message(for: error))
+            notice(Strings.text("Could not read the copied image"), CardPresentation.message(for: error))
             return
         }
         let copyBack = EsclopSettings.autoCopyToClipboard.value(in: settings)
@@ -139,14 +139,14 @@ extension AppModel {
         switch content {
         case let .files(urls):
             let media = urls.filter { MediaKind.of($0) != nil }
-            guard !media.isEmpty else { return notice("Nothing to optimise", "The copied files are not images, videos, PDFs or audio.") }
+            guard !media.isEmpty else { return notice(Strings.text("Nothing to optimise"), Strings.text("The copied files are not images, videos, PDFs or audio.")) }
             optimise(media, origin: .clipboard, aggressive: aggressive)
         case let .path(url):
             optimise([url], origin: .clipboard, aggressive: aggressive)
         case let .image(data, type), let .base64Image(data, type):
             optimiseImageData(data, type: type, aggressive: aggressive)
         case .empty:
-            notice("Nothing to optimise", "Copy an image or a file first.")
+            notice(Strings.text("Nothing to optimise"), Strings.text("Copy an image or a file first."))
         }
     }
 
@@ -204,7 +204,7 @@ extension AppModel {
 
     public func optimiseDropped(_ urls: [URL], harder: Bool) {
         let files = PathInput.expand(urls, recursive: true).filter { MediaKind.of($0) != nil }
-        guard !files.isEmpty else { return notice("Nothing to optimise", "Drop images, videos, PDFs or audio files.") }
+        guard !files.isEmpty else { return notice(Strings.text("Nothing to optimise"), Strings.text("Drop images, videos, PDFs or audio files.")) }
         optimise(files, origin: .dropZone, aggressive: harder)
     }
 
@@ -214,14 +214,14 @@ extension AppModel {
     public func cyclePause() {
         if paused {
             setPaused(false)
-            notice("Running", "Watching the clipboard again.")
+            notice(Strings.text("Running"), Strings.text("Watching the clipboard again."))
         } else if skipNextCopy {
             skipNextCopy = false
             setPaused(true)
-            notice("Paused", "Automatic optimisation is off until you resume it.")
+            notice(Strings.text("Paused"), Strings.text("Automatic optimisation is off until you resume it."))
         } else {
             skipNextCopy = true
-            notice("Skipping the next copy", "Press again to pause everything.")
+            notice(Strings.text("Skipping the next copy"), Strings.text("Press again to pause everything."))
         }
     }
 }

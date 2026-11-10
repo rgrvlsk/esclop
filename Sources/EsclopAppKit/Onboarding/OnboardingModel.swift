@@ -19,11 +19,11 @@ public final class OnboardingModel {
 
         public var title: String {
             switch self {
-            case .welcome: return "Welcome"
-            case .automatic: return "Automatic"
-            case .permissions: return "Permissions"
-            case .agents: return "Agents"
-            case .done: return "Done"
+            case .welcome: return Strings.text("Welcome")
+            case .automatic: return Strings.text("Automatic")
+            case .permissions: return Strings.text("Permissions")
+            case .agents: return Strings.text("Agents")
+            case .done: return Strings.text("Done")
             }
         }
     }
@@ -115,7 +115,8 @@ public final class OnboardingModel {
                     if newValue { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
                     loginError = nil
                 } catch {
-                    loginError = "macOS did not add L'Esclop to the login items: \(error.localizedDescription). Add it in System Settings → General → Login Items."
+                    loginError = Strings.format("macOS did not add L'Esclop to the login items: %@. Add it in System Settings → General → Login Items.", error.localizedDescription)
+
                 }
             }
         }

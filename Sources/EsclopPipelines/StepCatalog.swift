@@ -32,32 +32,38 @@ public enum ParamType: Hashable, Codable, Sendable {
     case compression
 
     /// A short description for signatures and error messages.
-    public var summary: String {
+    public var summary: String { summaryText.english }
+
+    /// The summary as a template, for messages an app shows in its own language.
+    public var summaryText: DiagnosticText {
         switch self {
         case let .integer(min, max):
             switch (min, max) {
-            case let (lo?, hi?): "a whole number from \(lo) to \(hi)"
-            case let (lo?, nil): "a whole number of at least \(lo)"
-            default: "a whole number"
+            case let (lo?, hi?): T("a whole number from %@ to %@", String(lo), String(hi))
+            case let (lo?, nil): T("a whole number of at least %@", String(lo))
+            default: T("a whole number")
             }
         case let .number(min, max, exclusive):
-            switch (min, max) {
-            case let (lo?, hi?): "a number \(exclusive ? "above" : "from") \(PipelineSerializer.number(lo)) \(exclusive ? "up to" : "to") \(PipelineSerializer.number(hi))"
-            case let (lo?, nil): "a number \(exclusive ? "above" : "of at least") \(PipelineSerializer.number(lo))"
-            default: "a number"
+            switch (min, max, exclusive) {
+            case let (lo?, hi?, true): T("a number above %@ up to %@", PipelineSerializer.number(lo), PipelineSerializer.number(hi))
+            case let (lo?, hi?, false): T("a number from %@ to %@", PipelineSerializer.number(lo), PipelineSerializer.number(hi))
+            case let (lo?, nil, true): T("a number above %@", PipelineSerializer.number(lo))
+            case let (lo?, nil, false): T("a number of at least %@", PipelineSerializer.number(lo))
+            default: T("a number")
             }
-        case .boolean: "`true` or `false`"
-        case let .choice(values): "one of " + values.map { "`\($0)`" }.joined(separator: ", ")
-        case .byteSize: "a size such as `500KB`, `10MB` or `2MiB`"
-        case .duration: "a duration such as `15m`, `1h`, `3d` or `never`"
-        case .text: "quoted text"
-        case .location: "`inPlace`, `sameFolder`, `temporaryFolder` or a quoted path template"
-        case .aspectRatio: "a ratio such as `16:9`, `4:3` or `1.91:1`"
-        case .typeList: "space-separated types such as `jpeg png webp` or `image`"
-        case .resolution: "a size such as `640x480`"
-        case .compression: "`adaptive`, `auto` or a number from 5 (best quality) to 100 (smallest file)"
+        case .boolean: T("`true` or `false`")
+        case let .choice(values): T("one of %@", values.map { "`\($0)`" }.joined(separator: ", "))
+        case .byteSize: T("a size such as `500KB`, `10MB` or `2MiB`")
+        case .duration: T("a duration such as `15m`, `1h`, `3d` or `never`")
+        case .text: T("quoted text")
+        case .location: T("`inPlace`, `sameFolder`, `temporaryFolder` or a quoted path template")
+        case .aspectRatio: T("a ratio such as `16:9`, `4:3` or `1.91:1`")
+        case .typeList: T("space-separated types such as `jpeg png webp` or `image`")
+        case .resolution: T("a size such as `640x480`")
+        case .compression: T("`adaptive`, `auto` or a number from 5 (best quality) to 100 (smallest file)")
         }
     }
+
 
     /// Values an editor can offer.
     public var suggestions: [String] {
