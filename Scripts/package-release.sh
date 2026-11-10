@@ -81,7 +81,8 @@ for t in $TOOLS; do cp "Binaries/$t" "$CLI/libexec/esclop/"; done
 # Source paths can survive stripping, for example in panic messages and compiler literals.
 for f in "$CLI/bin/esclop" "$CLI"/libexec/esclop/*; do
   if LC_ALL=C grep -aEq '/(Users|home)/[[:alnum:]_.-]+' "$f"; then
-    die "${f##*/} contains a home directory path; rebuild from a neutral directory"
+    strings -a "$f" | grep -E '/(Users|home)/[[:alnum:]_.-]+' | sort -u | head -5 >&2
+    die "${f##*/} contains a home directory path (listed above); rebuild from a neutral directory"
   fi
 done
 Scripts/stage-notices.sh "$CLI/LICENSES"

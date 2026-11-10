@@ -142,7 +142,8 @@ jobs:
           # The same rule as the CLI archive: nothing shipped names the machine that built it.
           for f in "$app"/Contents/MacOS/* "$app"/Contents/Resources/bin/*; do
             if LC_ALL=C grep -aEq '/(Users|home)/[[:alnum:]_.-]+' "$f"; then
-              echo "::error::${f##*/} in the app contains a home directory path"; exit 1
+              strings -a "$f" | grep -E '/(Users|home)/[[:alnum:]_.-]+' | sort -u | head -5
+              echo "::error::${f##*/} in the app contains a home directory path (listed above)"; exit 1
             fi
           done
           version="$(plutil -extract CFBundleShortVersionString raw -o - "$app/Contents/Info.plist")"
