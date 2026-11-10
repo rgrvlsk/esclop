@@ -12,7 +12,8 @@
 //! A glyph that is drawn but left out would show as a blank, so every doubt keeps glyphs or
 //! keeps the whole font:
 //! - the glyphs a one-byte code can select are taken from every mapping a viewer might use
-//!   (each `cmap` subtable at the code, at 0xF000 + code and at the code's Unicode value, the
+//!   (each `cmap` subtable at the code, at 0xF000 + code, at the code's Unicode value and at its
+//!   MacRoman code, the
 //!   `post` glyph names of `/Differences`, and the code as a glyph id), not one guessed mapping;
 //!   a simple font drawing a code that no `cmap` subtable maps is kept whole, since viewers
 //!   then fall back to `post` names through the base encoding (Word's subsets often lack `cmap`);
@@ -40,9 +41,10 @@ const DROP: &[&[u8; 4]] = &[
     b"GSUB", b"GPOS", b"GDEF", b"BASE", b"JSTF", b"MATH", b"kern", b"morx", b"mort", b"feat", b"kerx", b"DSIG",
     b"hdmx", b"LTSH", b"VDMX", b"PCLT", b"meta", b"STAT", b"trak", b"opbd", b"prop", b"lcar", b"just",
 ];
-/// Copied unchanged: the code-to-glyph map (glyph ids are kept, so it stays right) and the
-/// hinting programs.
-const KEEP: &[&[u8; 4]] = &[b"cmap", b"fpgm", b"prep", b"cvt ", b"gasp"];
+/// Copied unchanged: the code-to-glyph map (glyph ids are kept, so it stays right), the hinting
+/// programs, and `OS/2`, whose recomputed ranges and first and last characters moved
+/// CoreGraphics' rendering of glyph tops by a pixel.
+const KEEP: &[&[u8; 4]] = &[b"cmap", b"fpgm", b"prep", b"cvt ", b"gasp", b"OS/2", b"hmtx", b"hhea", b"post"];
 
 fn deref<'a>(doc: &'a Document, mut o: &'a Object) -> &'a Object {
     for _ in 0..16 {
@@ -136,7 +138,7 @@ fn cid_map(doc: &Document, font: &Dictionary) -> Option<Option<Vec<u16>>> {
         Some(Object::Name(n)) if n == b"Identity" => Some(None),
         Some(Object::Stream(s)) => {
             let data = s.decompressed_content_with_limit(LIMIT).ok()?;
-            Some(Some(data.chunks_exact(2).map(|c| u16::from_be_bytes([c[0], c[1]])).collect()))
+            Some(Some(data.as_chunks::<2>().0.iter().map(|c| u16::from_be_bytes(*c)).collect()))
         }
         _ => None,
     }
@@ -157,6 +159,12 @@ impl Programs {
     /// For each one-byte code, every glyph of the program a viewer might draw for it.
     fn simple_map(&mut self, doc: &Document, font: &Dictionary, program: ObjectId) -> Option<Box<[Option<Vec<u16>>]>> {
         let encoding = font.get_font_encoding(doc).ok();
+        // Non-symbolic fonts with a Macintosh (1,0) cmap are read through the glyph's
+        // MacRoman code (® is 0xAE in WinAnsi, 0xA8 in MacRoman).
+        let mut mac = Dictionary::new();
+        mac.set("Type", Object::Name(b"Font".to_vec()));
+        mac.set("Encoding", Object::Name(b"MacRomanEncoding".to_vec()));
+        let mac_roman = mac.get_font_encoding(doc).ok();
         let differences = differences(doc, font);
         let data = self.bytes(doc, program)?;
         let f = FontRef::new(data).ok()?;
@@ -164,13 +172,15 @@ impl Programs {
         let cmap = f.cmap().ok();
         let subtables: Vec<_> =
             cmap.iter().flat_map(|c| c.encoding_records().iter().filter_map(|r| r.subtable(c.offset_data()).ok())).collect();
-        let mut by_name: HashMap<String, u16> = HashMap::new();
-        if differences.iter().any(Option::is_some)
-            && let Ok(post) = f.post()
-        {
+        // Glyphs by `post` name, and each glyph's name. CoreGraphics picks glyphs by name, so a
+        // font with two glyphs of one name can draw either: both are kept.
+        let mut by_name: HashMap<String, Vec<u16>> = HashMap::new();
+        let mut names: Vec<Option<String>> = vec![None; glyphs as usize];
+        if let Ok(post) = f.post() {
             for g in 0..glyphs {
-                if let Some(n) = post.glyph_name(g.into()) {
-                    by_name.entry(n.to_string()).or_insert(g);
+                if let Some(n) = post.glyph_name(g.into()).filter(|n| !n.is_empty() && *n != ".notdef") {
+                    by_name.entry(n.to_string()).or_default().push(g);
+                    names[g as usize] = Some(n.to_string());
                 }
             }
         }
@@ -181,10 +191,13 @@ impl Programs {
                 && let Ok(s) = e.bytes_to_string(&[c as u8])
             {
                 cps.extend(s.chars().map(u32::from));
+                if let Some(m) = &mac_roman {
+                    cps.extend(m.string_to_bytes(&s).into_iter().map(u32::from));
+                }
             }
             let mut gids: Vec<u16> = vec![c as u16];
             if let Some(n) = &differences[c] {
-                gids.extend(by_name.get(n.as_str()));
+                gids.extend(by_name.get(n.as_str()).into_iter().flatten());
                 cps.extend(unicode_of_name(n));
                 gids.extend(gid_of_name(n));
             }
@@ -194,6 +207,12 @@ impl Programs {
             }
             let mapped = gids.len() > before;
             gids.retain(|g| *g < glyphs);
+            let same_name: Vec<u16> = gids
+                .iter()
+                .filter_map(|g| names[*g as usize].as_ref())
+                .flat_map(|n| by_name.get(n).into_iter().flatten().copied())
+                .collect();
+            gids.extend(same_name);
             gids.sort_unstable();
             gids.dedup();
             *slot = mapped.then_some(gids);
@@ -273,7 +292,7 @@ impl Usage {
                         }
                     }
                     Map::Cid(m) => {
-                        for c in text.chunks_exact(2) {
+                        for c in text.as_chunks::<2>().0 {
                             let cid = u16::from_be_bytes([c[0], c[1]]);
                             set.insert(m.as_ref().map_or(cid, |m| m.get(cid as usize).copied().unwrap_or(0)));
                         }
@@ -293,6 +312,14 @@ impl Usage {
             self.failed = true;
             return;
         };
+        // lopdf stops at a token it cannot parse and returns what came before as a success,
+        // while viewers skip the token and draw the rest. A parse that saw fewer text operators
+        // than the raw bytes hold counts as failed.
+        let shown = ops.operations.iter().filter(|o| matches!(o.operator.as_str(), "Tj" | "TJ" | "'" | "\"")).count();
+        if shown < text_operator_tokens(content) {
+            self.failed = true;
+            return;
+        }
         let res = |k: &[u8]| resources.and_then(|r| get(doc, r, k)).and_then(|o| dict(doc, o));
         let (fonts, xobjects, states) = (res(b"Font"), res(b"XObject"), res(b"ExtGState"));
         if let Some(r) = resources {
@@ -388,6 +415,27 @@ impl Usage {
             }
         }
     }
+}
+
+/// Text-showing operator tokens (`Tj`, `TJ`, `'`, `"`) in raw content bytes, standing between
+/// delimiters. Never fewer than the real operators; bytes inside strings or inline images may
+/// add more, which only makes the check above more cautious.
+fn text_operator_tokens(content: &[u8]) -> usize {
+    let delim = |b: u8| b.is_ascii_whitespace() || b"()<>[]{}/%".contains(&b);
+    let mut n = 0;
+    for i in 0..content.len() {
+        let before = i == 0 || delim(content[i - 1]);
+        let len = match &content[i..] {
+            [b'T', b'j' | b'J', ..] => 2,
+            [b'\'' | b'"', ..] => 1,
+            _ => continue,
+        };
+        let after = content.get(i + len).is_none_or(|b| delim(*b));
+        if before && after {
+            n += 1;
+        }
+    }
+    n
 }
 
 fn page_resources(doc: &Document, page: ObjectId) -> Option<&Dictionary> {
@@ -561,6 +609,16 @@ pub fn subset_fonts(doc: &mut Document) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn text_tokens() {
+        assert_eq!(text_operator_tokens(b"BT /F1 9 Tf (a)Tj [(b) 3 (c)]TJ (d) ' 1 2 (e) \" ET"), 4);
+        assert_eq!(text_operator_tokens(b"(don't) Tj /TjX 1 0 0 1 0 0 cm"), 1);
+        // A token lopdf cannot parse ends its parse; the raw count still sees the text after it.
+        let content = b"BT /F1 9 Tf (a) Tj ET 1 2 m - 3 l BT (b) Tj ET";
+        let ops = Content::decode(content).map(|c| c.operations.len()).unwrap_or(0);
+        assert!(text_operator_tokens(content) == 2 && ops > 0);
+    }
 
     #[test]
     fn glyph_names() {

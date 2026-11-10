@@ -53,7 +53,7 @@ fn main() {
         let mut seen: HashSet<ObjectId> = HashSet::new();
         let mut by_name: HashMap<(String, Vec<u8>), Vec<u64>> = HashMap::new();
         let mut kinds_here: HashSet<String> = HashSet::new();
-        for (_, o) in doc.objects.iter() {
+        for o in doc.objects.values() {
             if let Object::Stream(s) = o
                 && s.dict.get(b"Subtype").ok().and_then(|t| t.as_name().ok()) == Some(b"Image")
             {

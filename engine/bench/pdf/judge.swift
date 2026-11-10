@@ -197,6 +197,31 @@ func diffPixels(_ a: Raster, _ b: Raster) -> Int {
     return n
 }
 
+/// Pixels where the mean signed luminance difference over the 5x5 window around them passes 24
+/// levels. Anti-aliasing that rounds an edge differently moves little ink in and out within a
+/// few pixels and averages out; a glyph that is missing or changed removes or adds ink over its
+/// whole area and does not.
+func inkDiffPixels(_ a: Raster, _ b: Raster) -> Int {
+    guard a.w == b.w, a.h == b.h else { return a.w * a.h }
+    let w = a.w, h = a.h, r = 2
+    var n = 0
+    a.px.withUnsafeBufferPointer { pa in
+        b.px.withUnsafeBufferPointer { pb in
+            func luma(_ p: UnsafeBufferPointer<UInt8>, _ o: Int) -> Int { (Int(p[o]) * 299 + Int(p[o + 1]) * 587 + Int(p[o + 2]) * 114) / 1000 }
+            for j in r ..< h - r {
+                for i in r ..< w - r {
+                    let c = (j * w + i) * 4
+                    if pa[c] == pb[c] && pa[c + 1] == pb[c + 1] && pa[c + 2] == pb[c + 2] { continue }
+                    var sum = 0
+                    for dj in -r ... r { for di in -r ... r { let o = ((j + dj) * w + i + di) * 4; sum += luma(pa, o) - luma(pb, o) } }
+                    if abs(sum) > 24 * 25 { n += 1 }
+                }
+            }
+        }
+    }
+    return n
+}
+
 /// Caps the raster bytes in flight across pages: a page waits until its rasters fit, except
 /// when nothing else is in flight, so one oversized page still runs alone.
 final class Budget {
@@ -305,6 +330,8 @@ func compareMany(_ a: URL, _ outs: [URL]) -> [String: Any] {
     buffer.initialize(repeating: 0)
     let diffs = UnsafeMutableBufferPointer<Int>.allocate(capacity: max(1, n * outs.count))
     diffs.initialize(repeating: -1)
+    let shifted = UnsafeMutableBufferPointer<Int>.allocate(capacity: max(1, n * outs.count))
+    shifted.initialize(repeating: -1)
     if let da, n > 0, !da.isEncrypted || da.isUnlocked {
         DispatchQueue.concurrentPerform(iterations: n) { i in
             autoreleasepool {
@@ -318,6 +345,7 @@ func compareMany(_ a: URL, _ outs: [URL]) -> [String: Any] {
                                 let rb = render(pb, dpi: dpi)
                                 buffer[k * n + i] = ssim(ra, rb)
                                 diffs[k * n + i] = diffPixels(ra, rb)
+                                shifted[k * n + i] = diffs[k * n + i] == 0 ? 0 : inkDiffPixels(ra, rb)
                             }
                         }
                     }
@@ -328,10 +356,12 @@ func compareMany(_ a: URL, _ outs: [URL]) -> [String: Any] {
     result["outputs"] = outs.enumerated().map { k, url -> [String: Any] in
         let values = usable[k] ? Array(buffer[k * n ..< (k + 1) * n]).map { ($0 * 10000).rounded() / 10000 } : []
         let d = usable[k] ? Array(diffs[k * n ..< (k + 1) * n]) : []
-        return ["output": info(url), "ssim": values, "diffpx": d]
+        let sh = usable[k] ? Array(shifted[k * n ..< (k + 1) * n]) : []
+        return ["output": info(url), "ssim": values, "diffpx": d, "diffpx_ink": sh]
     }
     buffer.deallocate()
     diffs.deallocate()
+    shifted.deallocate()
     return result
 }
 
