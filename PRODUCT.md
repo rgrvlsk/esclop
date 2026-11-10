@@ -38,9 +38,10 @@ ImageIO handles HEIC and other system image formats; ImageIO and Core Image hand
 
 ## Release scope
 
-The CLI and MCP server are the current entry points. The full GUI, Shortcuts actions and
-Sparkle updates remain planned. Signing and notarisation support exists in the release
-scripts; app releases remain disabled until the GUI is ready. Windows and Linux are out of scope.
+Releases ship the menu-bar app as a DMG and the CLI with the MCP server as an archive. Shortcuts
+actions and Sparkle updates remain planned. Signing and notarisation support exists in the
+release scripts and runs when its credentials are configured; until then the app is signed ad
+hoc. Windows and Linux are out of scope.
 
 ## Constraints
 
