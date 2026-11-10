@@ -164,6 +164,17 @@ import UniformTypeIdentifiers
         #expect(Inspect.size(long.output)! == (200, 150))
     }
 
+    /// A damaged image says so plainly, and a file of another kind is still unsupported.
+    @Test func aDamagedImageIsUnreadable() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let broken = world.file("broken.png")
+        try Data("not a picture".utf8).write(to: broken)
+        await #expect(throws: EsclopError.unreadable(kind: .image)) {
+            _ = try await world.engine.optimise(broken, request: world.request(broken), progress: { _ in })
+        }
+    }
+
     @Test func freeCropKeepsTheRegionAndScalesIt() async throws {
         let world = try await TestWorld()
         defer { Task { await world.finish() } }

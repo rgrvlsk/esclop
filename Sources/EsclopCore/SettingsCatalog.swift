@@ -133,8 +133,9 @@ public enum EsclopSettings {
     )
     public static let downscaleFactor = Setting<Double>(
         "downscaleFactor", default: 0.5, title: "Default downscale factor",
-        description: "Scale used by the downscale action when no factor is given, from 0.1 to 1.",
-        section: .images, minimum: 0.1, maximum: 1
+        description: "How much Downscale shrinks a picture when no size is given: 50 % halves the width and the height.",
+        section: .images, minimum: 0.1, maximum: 1,
+        schema: ["x-details": "A factor from 0.1 to 1 of the width and height."]
     )
     public static let downscaleRetinaImages = Setting<Bool>(
         "downscaleRetinaImages", default: false, title: "Downscale Retina screenshots",
@@ -185,13 +186,15 @@ public enum EsclopSettings {
     )
     public static let targetVideoFPS = Setting<Double>(
         "targetVideoFPS", default: 60, title: "Target frame rate",
-        description: "Frame rate ceiling. -2 halves the source frame rate and -4 quarters it, never below the minimum.",
-        section: .video, minimum: -4, maximum: 240
+        description: "The highest frame rate optimised videos keep. Half or a quarter of the source follows each video's own rate, never below the minimum.",
+        section: .video, minimum: -4, maximum: 240,
+        schema: ["x-details": "-2 halves the source frame rate and -4 quarters it."]
     )
     public static let minVideoFPS = Setting<Double>(
         "minVideoFPS", default: 30, title: "Minimum frame rate",
-        description: "Lower bound when the target frame rate is relative (-2 or -4).",
-        section: .video, minimum: 1, maximum: 240
+        description: "The lowest frame rate kept when the target is half or a quarter of the source.",
+        section: .video, minimum: 1, maximum: 240,
+        schema: ["x-details": "Applies when targetVideoFPS is -2 or -4."]
     )
     public static let removeAudioFromVideos = Setting<Bool>(
         "removeAudioFromVideos", default: false, title: "Remove audio from videos",
@@ -203,8 +206,9 @@ public enum EsclopSettings {
     )
     public static let playbackSpeedFrames = Setting<PlaybackSpeedFrames>(
         "playbackSpeedFrameBehaviour", default: .keepFrames, title: "Speed change frames",
-        description: "keepFrames raises the frame rate with the speed; dropFrames keeps the source frame rate.",
-        section: .video
+        description: "When a video plays faster: keep every frame for smooth motion, or keep the frame rate for a smaller file.",
+        section: .video,
+        schema: ["x-details": "keepFrames raises the frame rate with the speed; dropFrames keeps the source frame rate."]
     )
     public static let maxVideoSizeMB = Setting<Int>(
         "maxVideoSizeMB", default: 500, title: "Largest video to optimise automatically",
@@ -268,8 +272,9 @@ public enum EsclopSettings {
     )
     public static let audioCoverArt = Setting<AudioCoverArt>(
         "audioCoverArt", default: .optimise, title: "Cover art",
-        description: "optimise downscales and recompresses album artwork, remove drops it, keep copies it untouched.",
-        section: .audio
+        description: "Album artwork in audio files: make it smaller, remove it, or keep it as it is.",
+        section: .audio,
+        schema: ["x-details": "optimise downscales and recompresses album artwork, remove drops it, keep copies it untouched."]
     )
     public static let normalizeLoudness = Setting<Bool>(
         "normalizeLoudness", default: false, title: "Normalise loudness",
@@ -363,8 +368,9 @@ public enum EsclopSettings {
     )
     public static let clipboardRules = Setting<[String]>(
         "clipboardRules", default: [], title: "Clipboard rules",
-        description: "Choices saved with \"Always apply\" in a file's options. Each one applies to the next copies of one origin and format, such as PNG screenshots; stored as one JSON object per rule.",
-        section: .clipboard
+        description: "Choices saved with \"Always apply\" in a file's options. Each one applies to the next copies of one kind, such as PNG screenshots.",
+        section: .clipboard,
+        schema: ["x-details": "One JSON object per rule: origin, inputType (a UTType identifier) and choice."]
     )
     public static let autoCopyToClipboard = Setting<Bool>(
         "autoCopyToClipboard", default: true, title: "Copy results to the clipboard",

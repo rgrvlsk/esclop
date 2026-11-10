@@ -230,8 +230,22 @@ import Testing
 
     @Test func shellLinesSurviveApostrophesAndSpaces() {
         #expect(ServerCommand(command: "/usr/local/bin/esclop").shellLine == "/usr/local/bin/esclop mcp serve")
-        #expect(ServerCommand(command: "/Applications/L'Esclop.app/Contents/MacOS/esclop").shellLine == "'/Applications/L'\\''Esclop.app/Contents/MacOS/esclop' mcp serve")
-        #expect(ServerCommand(command: "/Volumes/My Disk/esclop").shellLine == "'/Volumes/My Disk/esclop' mcp serve")
+        #expect(ServerCommand(command: "/Applications/L'Esclop.app/Contents/MacOS/esclop").shellLine == "\"/Applications/L'Esclop.app/Contents/MacOS/esclop\" mcp serve")
+        #expect(ServerCommand(command: "/Volumes/My Disk/esclop").shellLine == "\"/Volumes/My Disk/esclop\" mcp serve")
+    }
+
+    /// The shell reads every quoted word back exactly as it was.
+    @Test func quotedWordsSurviveTheShell() throws {
+        for word in ["/Applications/L'Esclop.app/esclop", "My Disk", "it's \"$HOME\"", "a`b`", "back\\slash", "bang!", "plain"] {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/sh")
+            process.arguments = ["-c", "printf %s " + ServerCommand.shellQuoted(word)]
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            try process.run()
+            process.waitUntilExit()
+            #expect(String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self) == word)
+        }
     }
 
     @Test func entryShapes() throws {

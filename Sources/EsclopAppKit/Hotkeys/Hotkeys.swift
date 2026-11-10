@@ -18,10 +18,21 @@ public enum Hotkeys {
         (.optimiseClipboardHarder, "Optimise the clipboard harder"),
     ]
 
+    /// What each hotkey does, apart from the key handling so tests can press them.
+    @MainActor
+    static func action(for name: KeyboardShortcuts.Name) -> (AppModel) -> Void {
+        switch name {
+        case .togglePause: return { $0.cyclePause() }
+        case .optimiseClipboardHarder: return { $0.optimiseClipboardNow(aggressive: true) }
+        default: return { $0.optimiseClipboardNow(aggressive: false) }
+        }
+    }
+
     @MainActor
     static func register(_ model: AppModel) {
-        KeyboardShortcuts.onKeyUp(for: .togglePause) { [weak model] in model?.cyclePause() }
-        KeyboardShortcuts.onKeyUp(for: .optimiseClipboard) { [weak model] in model?.optimiseClipboardNow(aggressive: false) }
-        KeyboardShortcuts.onKeyUp(for: .optimiseClipboardHarder) { [weak model] in model?.optimiseClipboardNow(aggressive: true) }
+        for (name, _) in all {
+            let run = action(for: name)
+            KeyboardShortcuts.onKeyUp(for: name) { [weak model] in if let model { run(model) } }
+        }
     }
 }

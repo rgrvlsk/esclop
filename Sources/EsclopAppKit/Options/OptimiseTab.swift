@@ -48,7 +48,7 @@ struct SuggestionCard: View {
         let rule = model.card.appliedRule
         VStack(alignment: .leading, spacing: 4) {
             Label {
-                Text(model.origin.title + (model.inputFormat.map { " (\($0.displayName))" } ?? ""))
+                Text(model.originLabel)
             } icon: {
                 Image(systemName: rule == nil ? model.origin.symbol : "wand.and.stars")
             }

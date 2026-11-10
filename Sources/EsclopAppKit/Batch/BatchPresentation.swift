@@ -40,7 +40,7 @@ public struct BatchPresentation: Equatable {
             progress = nil
         }
         change = before > 0 ? Figures.change(before: before, after: after, locale: locale) : nil
-        percent = before > 0 && after != before ? Figures.percent(before: before, after: after, locale: locale) : nil
+        percent = before > 0 && !Figures.isNoSaving(before: before, after: after) ? Figures.percent(before: before, after: after, locale: locale) : nil
         barEnd = before > 0 ? min(1, max(0, Double(after) / Double(before))) : 1
         var parts: [String] = []
         if batch.optimised > 0 { parts.append(f("%d optimised", batch.optimised)) }
@@ -62,7 +62,11 @@ public struct BatchPresentation: Equatable {
         case .waiting: return t("Waiting")
         case let .working(fraction):
             return fraction > 0 ? String(format: t("Optimising %d %%"), locale: locale, Int((fraction * 100).rounded())).replacingOccurrences(of: " %", with: Figures.space + "%") : t("Optimising…")
-        case let .done(result): return Figures.change(before: result.bytesBefore, after: result.bytesAfter, locale: locale)
+        case let .done(result):
+            if Figures.isNoSaving(before: result.bytesBefore, after: result.bytesAfter) {
+                return String(format: t("Already optimised · %@"), locale: locale, Figures.bytes(result.bytesAfter, locale: locale))
+            }
+            return Figures.change(before: result.bytesBefore, after: result.bytesAfter, locale: locale)
         case .unchanged: return String(format: t("Already optimised · %@"), locale: locale, Figures.bytes(row.bytesBefore, locale: locale))
         case let .failed(message): return message
         case .cancelled: return t("Stopped, original kept")
@@ -72,7 +76,7 @@ public struct BatchPresentation: Equatable {
 
     /// The figure at the end of a row: "−75 %", or nothing.
     public static func figure(of row: BatchRow, locale: Locale = Strings.locale) -> String? {
-        guard let result = row.result else { return nil }
+        guard let result = row.result, !Figures.isNoSaving(before: result.bytesBefore, after: result.bytesAfter) else { return nil }
         return Figures.percent(before: result.bytesBefore, after: result.bytesAfter, locale: locale)
     }
 }

@@ -15,6 +15,16 @@ extension AppModel {
     /// What the clipboard watcher decided. Runs on the main actor, after the pasteboard reads.
     public func handleClipboard(_ action: ClipboardAction) {
         if case .ignore = action { return }
+        // Our own write, back again without its marker (a clipboard manager or another app copied
+        // it on): it is a result already, not a new copy.
+        switch action {
+        case let .optimiseImage(data, _) where ownWrites.contains(ClipboardFingerprint(data: data)):
+            return
+        case let .optimiseFiles(urls) where urls.allSatisfy({ ClipboardFingerprint(file: $0).map(ownWrites.contains) ?? false }):
+            return
+        default:
+            break
+        }
         if skipNextCopy {
             skipNextCopy = false
             return
@@ -75,7 +85,7 @@ extension AppModel {
                     guard copyBack else { return }
                     // A batch puts every finished file back, not only the last one.
                     let files = batch.map { $0.rows.compactMap { $0.result?.output } } ?? [result.output]
-                    Clipboard.write(files: files, to: self.pasteboard)
+                    self.writeClipboard(files: files)
                 })
             }
         }
@@ -100,7 +110,7 @@ extension AppModel {
             if context.rule != nil { context.choice.apply(to: &job.request) }
             await run(job, displayName: Strings.text("Copied image"), context: context, onResult: { result in
                 guard copyBack else { return }
-                Clipboard.write(files: [result.output], to: self.pasteboard)
+                self.writeClipboard(files: [result.output])
             })
         }
     }
@@ -120,6 +130,12 @@ extension AppModel {
             }
             return
         }
+        // The clipboard already holds one of L'Esclop's results: show that result again instead
+        // of optimising it a second time (which made a twin card with no saving).
+        if !aggressive, let shown = ownResult(on: content) {
+            shown()
+            return
+        }
         switch content {
         case let .files(urls):
             let media = urls.filter { MediaKind.of($0) != nil }
@@ -134,6 +150,22 @@ extension AppModel {
         }
     }
 
+    /// What to do when the clipboard holds a result L'Esclop wrote: refresh its card, or bring
+    /// it back from Recent Results. nil when the clipboard holds something else.
+    private func ownResult(on content: ClipboardContent) -> (() -> Void)? {
+        guard isOwnClipboardContent(content) else { return nil }
+        guard case let .files(urls) = content else { return {} }
+        let paths = Set(urls.map { $0.standardizedFileURL.resolvingSymlinksInPath().path })
+        func holds(_ url: URL) -> Bool { paths.contains(url.standardizedFileURL.resolvingSymlinksInPath().path) }
+        if let card = cards.first(where: { holds($0.shownFile) }) {
+            return { [weak self] in self?.settle(card) }
+        }
+        if let result = recent.first(where: { holds($0.output) }) {
+            return { [weak self] in self?.show(result) }
+        }
+        return {}
+    }
+
     private func optimiseAgain(_ source: URL, wasClipboardImage: Bool) {
         let location: OutputLocation? = wasClipboardImage ? .inPlace : nil
         let job = factory.job(for: source, origin: .clipboard, aggressive: true, location: location)
@@ -141,7 +173,7 @@ extension AppModel {
         Task {
             await run(job, displayName: wasClipboardImage ? Strings.text("Copied image") : nil, onResult: { result in
                 guard copyBack else { return }
-                Clipboard.write(files: [result.output], to: self.pasteboard)
+                self.writeClipboard(files: [result.output])
             })
         }
     }

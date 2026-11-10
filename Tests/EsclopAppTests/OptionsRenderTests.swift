@@ -98,6 +98,30 @@ import UniformTypeIdentifiers
         try await snapshot(share, name: "options-share", scheme: scheme)
     }
 
+    /// The crop editor alone, so its default button shows: the app's green, not system blue
+    /// (UI check, F6).
+    @Test(arguments: [ColorScheme.light, .dark])
+    func cropEditor(scheme: ColorScheme) async throws {
+        let harness = Harness()
+        let model = model(card(.done(renders.saved())), harness: harness) { $0.startCrop(aspect: .ratio(16, 9)) }
+        let editor = CropEditor(model: model).padding(OptionsType.padding).frame(width: OptionsType.width)
+        try await snapshot(editor, name: "options-crop-editor", scheme: scheme)
+    }
+
+    /// The default buttons of onboarding and the agent sheet, outside a window: window renders
+    /// draw them inactive (a test process is never the active app), these show the accent.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func primaryButtons(scheme: ColorScheme) async throws {
+        let row = HStack(spacing: 12) {
+            Button("Get Started") {}.primaryButton()
+            Button("Continue") {}.primaryButton()
+            Button("Done") {}.primaryButton()
+            Button("Connect") {}.primaryButton()
+        }
+        .padding(OptionsType.padding)
+        try await snapshot(row, name: "primary-buttons", scheme: scheme)
+    }
+
     @Test(arguments: [ColorScheme.light, .dark])
     func otherKinds(scheme: ColorScheme) async throws {
         let harness = Harness()

@@ -189,7 +189,7 @@ struct BatchRowView: View {
             if row.isRunning {
                 RowButton(symbol: "stop.fill", title: Strings.text("Stop")) { row.cancel?() }
             } else {
-                RowButton(symbol: "doc.on.doc", title: Strings.text("Copy")) { Clipboard.write(files: [row.shownFile], to: app.pasteboard) }
+                RowButton(symbol: "doc.on.doc", title: Strings.text("Copy")) { app.writeClipboard(files: [row.shownFile]) }
                 RowButton(symbol: "folder", title: Strings.text("Show in Finder")) { app.reveal([row.shownFile]) }
             }
         }
@@ -209,7 +209,7 @@ struct BatchRowView: View {
         if canRetry { Button(Strings.text("Try again")) { row.retry?() } }
         if row.isRunning { Button(Strings.text("Stop")) { row.cancel?() } }
         Button(Strings.text("Show in Finder")) { app.reveal([row.shownFile]) }
-        Button(Strings.text("Copy")) { Clipboard.write(files: [row.shownFile], to: app.pasteboard) }
+        Button(Strings.text("Copy")) { app.writeClipboard(files: [row.shownFile]) }
         if row.isFinished {
             Divider()
             Button(Strings.text("Remove from the List")) { batch.remove(row) }

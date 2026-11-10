@@ -73,7 +73,8 @@ struct RoundAction: View {
                     .frame(width: 32, height: 32)
                     .background(Circle().fill(Color.primary.opacity(0.06)))
                     .overlay(Circle().strokeBorder(Color.primary.opacity(0.12)))
-                Text(title).font(OptionsType.label).lineLimit(2).multilineTextAlignment(.center)
+                // Two lines kept for every name, so the shortcuts sit on one line across the row.
+                Text(title).font(OptionsType.label).lineLimit(2, reservesSpace: true).multilineTextAlignment(.center)
                 if let shortcut { Text(shortcut).font(OptionsType.label).foregroundStyle(.secondary) }
             }
             .frame(maxWidth: .infinity)

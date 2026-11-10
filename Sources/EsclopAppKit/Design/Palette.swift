@@ -6,6 +6,14 @@
 import AppKit
 import SwiftUI
 
+extension View {
+    /// The default action of a window or sheet: prominent, in the app's accent rather than the
+    /// system blue, like the switches, savings and bars.
+    func primaryButton() -> some View {
+        buttonStyle(.borderedProminent).tint(Palette.accent)
+    }
+}
+
 public enum Palette {
     /// Savings, progress, primary actions.
     public static let accent = Color(nsColor: dynamic(light: 0x1E7F6A, dark: 0x3DBF9F))
@@ -40,6 +48,8 @@ public enum Metrics {
     public static let detailPictureRadius: CGFloat = 12
     /// The capsule hangs this far below the thumbnail's bottom edge.
     public static let capsuleOverhang: CGFloat = 16
+    /// Between the thumbnail's bottom edge and an error capsule hanging below it.
+    public static let errorCapsuleGap: CGFloat = 6
     public static let toolSize: CGFloat = 28
     public static let toolGap: CGFloat = 7
     /// Space between the thumbnail and its row of buttons.
@@ -48,7 +58,8 @@ public enum Metrics {
     public static let activityHeight: CGFloat = 76
     /// How far the activity capsule tucks under the thumbnail.
     public static let activityTuck: CGFloat = 14
-    public static let stackGap: CGFloat = 8
+    /// Between one result's capsule and the next thumbnail: clear air, not touching.
+    public static let stackGap: CGFloat = 12
     /// Space between the results and the screen edge; also room for the glass shadow.
     public static let screenMargin: CGFloat = 16
 

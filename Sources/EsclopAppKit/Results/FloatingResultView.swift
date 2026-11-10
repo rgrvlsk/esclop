@@ -42,6 +42,7 @@ public struct FloatingResultView: View {
         // One glass container per result, spacing 0: the thumbnail, its detail and the activity
         // capsule share it so they morph into each other, while the capsule and the buttons sit
         // outside it and never melt into the thumbnail.
+        VStack(alignment: corner.isRight ? .trailing : .leading, spacing: Metrics.errorCapsuleGap) {
         GlassGroup(spacing: 0) {
             if case .notice = card.phase {
                 NoticeCapsule(info: info)
@@ -55,6 +56,10 @@ public struct FloatingResultView: View {
         }
         .overlay(alignment: corner.isRight ? .bottomTrailing : .bottomLeading) {
             if card.machine.level == .thumbnail, !isNotice { thumbnailControls(info) }
+        }
+            // An error hangs below the thumbnail, in the layout and clear of its red rim: laid
+            // over the picture, the translucent capsule showed the rim through it.
+            if showsErrorCapsule(info) { capsule(info) }
         }
         .animation(reduceMotion ? Motion.crossfade : Motion.detail, value: card.machine.level)
         .focusable()
@@ -117,7 +122,7 @@ public struct FloatingResultView: View {
             shell(info).zIndex(1)
             if !corner.isRight, showsWing { wing.transition(wingTransition) }
         }
-        .padding(.bottom, Metrics.capsuleOverhang)
+        .padding(.bottom, bottomRoom(info))
         .animation(reduceMotion ? Motion.crossfade : Motion.activity, value: showsWing)
     }
 
@@ -128,14 +133,23 @@ public struct FloatingResultView: View {
         return Color.clear
             .frame(width: Metrics.thumbnailWidth, height: shellHeight)
             .allowsHitTesting(false)
-            .overlay(alignment: isError ? (corner.isRight ? .bottomTrailing : .bottomLeading) : .bottom) {
-                capsule(info).alignmentGuide(.bottom) { $0[.bottom] - Metrics.capsuleOverhang }
+            .overlay(alignment: .bottom) {
+                if !isError { capsule(info).alignmentGuide(.bottom) { $0[.bottom] - Metrics.capsuleOverhang } }
             }
             // Above the thumbnail at every corner, so the object never changes size under the pointer.
             .overlay(alignment: corner.isRight ? .topTrailing : .topLeading) {
                 buttons(info).alignmentGuide(.top) { $0[.bottom] }
             }
-            .padding(.bottom, Metrics.capsuleOverhang)
+            .padding(.bottom, bottomRoom(info))
+    }
+
+    /// Room under the thumbnail for the pinned capsule's overhang; an error capsule has its own row.
+    private func bottomRoom(_ info: CardPresentation) -> CGFloat {
+        info.tone == .error ? 0 : Metrics.capsuleOverhang
+    }
+
+    private func showsErrorCapsule(_ info: CardPresentation) -> Bool {
+        info.tone == .error && card.machine.level == .thumbnail && !isNotice
     }
 
     private var shellHeight: CGFloat {
@@ -187,10 +201,11 @@ public struct FloatingResultView: View {
             Button { interact(.capsuleClicked) } label: {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title).font(.callout.weight(.semibold)).foregroundStyle(.red)
-                    Text(message).font(.subheadline).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                    // Whole sentences: the messages are written to fit, and never end in an ellipsis.
+                    Text(message).font(.subheadline).lineLimit(4).fixedSize(horizontal: false, vertical: true)
                     Text(Strings.text("Original kept · Try again")).font(.subheadline).foregroundStyle(.secondary)
                 }
-                .frame(maxWidth: 236, alignment: .leading)
+                .frame(width: Metrics.thumbnailWidth - 24, alignment: .leading)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .contentShape(Rectangle())

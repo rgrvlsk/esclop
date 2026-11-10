@@ -38,13 +38,21 @@ struct MediaInfo: Sendable {
     var audioStreamCount: Int
 
     static func probe(_ url: URL, tools: ToolLocator) async throws -> MediaInfo {
-        let result = try await ProcessRunner.run(
-            .ffprobe, ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", url.path],
-            options: ProcessOptions(timeout: 60), locator: tools
-        )
+        let kind = MediaKind.of(url) ?? .video
+        let result: ProcessResult
+        do {
+            result = try await ProcessRunner.run(
+                .ffprobe, ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", url.path],
+                options: ProcessOptions(timeout: 60), locator: tools
+            )
+        } catch let EsclopError.toolFailed(tool, code, stderr) {
+            // The person gets a plain message; the tool's words stay in the log.
+            Log.engine.error("\(tool, privacy: .public) could not read \(url.lastPathComponent, privacy: .private) (\(code)): \(stderr, privacy: .private)")
+            throw EsclopError.unreadable(kind: kind)
+        }
         let json = JSONValue(parsing: result.stdoutString)
         guard let format = json["format"]?.objectValue else {
-            throw EsclopError.unsupportedFile(url.lastPathComponent)
+            throw EsclopError.unreadable(kind: kind)
         }
         let streams = json["streams"]?.arrayValue?.compactMap(\.objectValue) ?? []
         func number(_ value: JSONValue?) -> Double? {
