@@ -99,7 +99,7 @@ import Testing
         #expect(MenuContent.foldersLine(count: 3, paused: false) == "Watching 3 folders")
         #expect(MenuContent.foldersLine(count: 3, paused: true) == nil, "the menu already says it is paused")
         let ca = Locale(identifier: "ca_ES")
-        #expect(Strings.format("Watching %d folders", 3, locale: ca) == "Vigilant 3 carpetes")
+        #expect(Strings.format("Watching %d folders", 3, locale: ca) == "S’estan vigilant 3 carpetes")
     }
 
     @Test func aFolderThatIsNotThereIsMissing() {
