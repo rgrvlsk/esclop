@@ -7,11 +7,7 @@ into the body of its GitHub release.
 
 ## [Unreleased]
 
-### Fixed
-- The app built by the release workflow died at launch on any Mac but the one that built it:
-  SwiftPM's older build engine generated a resource accessor that never looks in
-  `Contents/Resources`. Builds now always use the Swift Build engine, bundling refuses the
-  older accessor, and CI starts the bundled app from a copy before anything ships.
+Nothing yet.
 
 ## [0.1.0] - 2026-11-10
 
