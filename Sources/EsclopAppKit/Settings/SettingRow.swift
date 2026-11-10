@@ -94,7 +94,9 @@ struct SettingRow: View {
             } label: {
                 label
             }
-        case .folders, .apps:
+        case .folders:
+            FolderListEditor(descriptor: descriptor, model: model, label: AnyView(label))
+        case .apps:
             StringListEditor(descriptor: descriptor, model: model, label: AnyView(label))
         case .clipboardRules:
             ClipboardRuleList(descriptor: descriptor, model: model, label: AnyView(label))

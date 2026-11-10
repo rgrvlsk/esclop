@@ -2,8 +2,9 @@
 
 A pipeline is a list of steps esclop runs on a file: optimise it, resize it, convert it, move
 it somewhere or copy a path. Pipelines run through `esclop pipeline run` and MCP.
-Automatic clipboard, drop-zone and watched-folder triggers are planned; their configuration
-can already be saved.
+The app runs a pipeline with a `folder(...)` trigger on new files in that folder (see
+[Triggers](#triggers)). Clipboard and drop-zone triggers are planned; their configuration can
+already be saved.
 
 The language follows Clop's step names and syntax. Supported operations depend on the
 engine and host; see [Coming from Clop](#coming-from-clop) for differences.
@@ -100,10 +101,16 @@ A plain Clop pipeline is just an `[any]` section, so Clop text is a valid `.pipe
 | `clipboard` | on files and images you copy |
 | `dropZone` | on files dropped on the drop zone |
 | `presetZone` | from a preset zone shown while you drag (Control-drag in the drop zone) |
-| `folder("~/path")` | on new files in that folder |
+| `folder("~/path")` | on new files directly in that folder, instead of the plain optimisation, for the kinds it has steps for; the folder is watched even when no Settings list names it |
 | `rightClick` | from Finder's right-click menu |
 | `cli` | as a quick action offered by the command line |
 | `mcp` | when an AI agent asks for it; listed as a tool hint |
+
+A `folder(...)` pipeline sees the same new files as the Settings folder lists: hidden,
+temporary and already optimised files are skipped, a file still being written waits, and more
+files of one kind at once than its count (`maxImageFileCount` and the like) are left alone. The
+size limits do not apply; the pipeline can filter with `if(...)`. When two pipelines name the
+same folder, the first by name runs.
 
 ## Steps
 

@@ -20,6 +20,10 @@ public final class AppModel {
     }
     /// The files of the latest job too large for floating results, shown in the batch window.
     public private(set) var batch: Batch?
+    /// Files L'Esclop wrote, and when: a watched folder leaves them alone for a while (Clop's
+    /// three-second protection), so a result written in place is never optimised again.
+    @ObservationIgnored var recentlyWritten: [String: Date] = [:]
+    static let writeProtection: TimeInterval = 3
     /// What L'Esclop last wrote to the clipboard, by bytes (`ClipboardFingerprint`).
     @ObservationIgnored var ownWrites: [ClipboardFingerprint] = []
     /// Shows the batch window when a batch starts.
@@ -111,7 +115,13 @@ public final class AppModel {
     public func pauseChanged(_ value: Bool) {
         paused = value
         if value { skipNextCopy = false }
+        onPauseChange?()
     }
+
+    /// Folders being watched now, for the menu.
+    public internal(set) var watchedFolderCount = 0
+    /// The watched folders follow the pause.
+    @ObservationIgnored var onPauseChange: (() -> Void)?
 
     public var status: String {
         if activeFiles > 0 { return activeFiles == 1 ? "Optimising 1 file" : "Optimising \(activeFiles) files" }
@@ -224,6 +234,7 @@ public final class AppModel {
         do {
             _ = try service.restoreBackup(of: result, deleteBackup: false)
             restoredIDs.insert(result.id)
+            noteWritten([result.source, result.output])
             row.state = .restored(result)
         } catch {
             row.state = .failed(CardPresentation.message(for: error))
@@ -286,6 +297,7 @@ public final class AppModel {
         switch outcome {
         case let .success(result):
             events(.result(result))
+            noteWritten([result.output, result.source] + [result.backup].compactMap { $0 })
             record(result)
             card?.phase = .done(result)
             if let card {
@@ -314,6 +326,26 @@ public final class AppModel {
     private func progress(_ fraction: Double, cardID: UUID) {
         guard let card = cards.first(where: { $0.id == cardID }), case let .working(current) = card.phase else { return }
         if fraction > current { card.phase = .working(fraction: fraction) }
+    }
+
+    /// Remembers files L'Esclop just wrote, for the watched folders.
+    func noteWritten(_ urls: [URL]) {
+        let time = now()
+        for url in urls { recentlyWritten[url.standardizedFileURL.resolvingSymlinksInPath().path] = time }
+        recentlyWritten = recentlyWritten.filter { time.timeIntervalSince($0.value) < Self.writeProtection * 10 }
+    }
+
+    /// L'Esclop wrote this file in the last three seconds.
+    public func wasJustWritten(_ url: URL) -> Bool {
+        guard let at = recentlyWritten[url.standardizedFileURL.resolvingSymlinksInPath().path] else { return false }
+        return now().timeIntervalSince(at) < Self.writeProtection
+    }
+
+    /// A new file in a folder a pipeline watches: the pipeline runs on it.
+    public func runPipeline(_ name: String, onWatched file: URL) {
+        var job = factory.job(for: file, origin: .watchedFolder)
+        job.operation = .pipeline(name)
+        Task { await run(job) }
     }
 
     func record(_ result: OptimisationResult) {
@@ -616,6 +648,7 @@ public final class AppModel {
         do {
             _ = try await service.restoreBackup(for: result.output, deleteBackup: false)
             restoredIDs.insert(result.id)
+            noteWritten([result.source, result.output])
             if let card {
                 card.phase = .restored(result)
                 loadThumbnail(card, url: result.source)
