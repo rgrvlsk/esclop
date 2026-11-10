@@ -1391,6 +1391,16 @@
         }
       }
     },
+    "Files in Desktop, Documents and Downloads": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fitxers de l’Escriptori, Documents i Descàrregues"
+          }
+        }
+      }
+    },
     "Files that do not match are left alone.": {
       "localizations": {
         "ca": {
@@ -3867,6 +3877,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "macOS no deixa que L’Esclop llegeixi aquesta carpeta. Permet-ho a Configuració del Sistema › Privacitat i seguretat › Fitxers i carpetes."
+          }
+        }
+      }
+    },
+    "macOS will ask to let L’Esclop see your Desktop: that is where screenshots land, and L’Esclop watches it for new ones. It asks again the first time L’Esclop replaces a file in Documents or Downloads. If you say no, the Desktop is left alone; Settings › Images shows how to allow it later.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El macOS et demanarà que deixis que L’Esclop vegi l’Escriptori: és on van a parar les captures de pantalla, i L’Esclop hi vigila les noves. Torna a preguntar la primera vegada que L’Esclop substitueix un fitxer de Documents o Descàrregues. Si dius que no, no es toca l’Escriptori; a Configuració › Images hi ha com permetre-ho més endavant."
           }
         }
       }

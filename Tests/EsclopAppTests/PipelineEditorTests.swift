@@ -201,3 +201,66 @@ import Testing
         #expect(!PipelineDraft(try PipelineParser.parse("optimise", name: "s")).hasScripts)
     }
 }
+
+/// P2, P3: a file that did not read is not "changed" until its text is, and "Try it" cleans up.
+@MainActor @Suite struct PipelineEditorHousekeepingTests {
+    let temp = TempDir()
+    var store: PipelineStore { PipelineStore(directory: temp.url.appendingPathComponent("pipelines", isDirectory: true), useTrash: false) }
+
+    func editor() -> PipelineEditorModel {
+        let model = PipelineEditorModel(store: store, engine: ShrinkingEngine(backups: temp.url.appendingPathComponent("backups", isDirectory: true)))
+        model.tryRoot = temp.url.appendingPathComponent("tries", isDirectory: true)
+        return model
+    }
+
+    @Test func aBrokenFileOpenedAndLeftAloneIsNotChanged() throws {
+        try FileManager.default.createDirectory(at: store.directory, withIntermediateDirectories: true)
+        try "optimise -> nonsense\n".write(to: store.directory.appendingPathComponent("broken.pipeline"), atomically: true, encoding: .utf8)
+        _ = try store.save(Pipeline(name: "good", steps: [.optimise()]))
+        let model = editor()
+        model.request(.saved("broken"))
+        #expect(!model.hasChanges)
+        model.request(.saved("good"))
+        #expect(model.pendingSelection == nil, "no question")
+        #expect(model.selection == .saved("good"))
+        model.request(.saved("broken"))
+        model.editText("optimise -> nonsens\n")
+        #expect(model.hasChanges)
+        model.request(.saved("good"))
+        #expect(model.pendingSelection == .saved("good"), "now it asks")
+    }
+
+    @Test func warningsAloneAreNotChanges() throws {
+        _ = try store.save(text: "runScript(path: \"~/a.sh\", code: \"echo $1\")", name: "warned")
+        let model = editor()
+        model.request(.saved("warned"))
+        model.setShowsText(true)
+        #expect(!model.textDiagnostics.isEmpty || model.text.contains("runScript"))
+        #expect(!model.hasChanges)
+    }
+
+    @Test func eachTryReplacesTheLastAndANewSelectionRemovesIt() async throws {
+        _ = try store.save(Pipeline(name: "a", steps: [.optimise()]))
+        _ = try store.save(Pipeline(name: "b", steps: [.stripExif]))
+        let model = editor()
+        model.request(.saved("a"))
+        await model.tryIt(on: temp.file("one.png"))
+        let first = try #require(model.tryFolder)
+        await model.tryIt(on: temp.file("two.png"))
+        let second = try #require(model.tryFolder)
+        #expect(!FileManager.default.fileExists(atPath: first.path), "the previous try is gone")
+        #expect(FileManager.default.fileExists(atPath: second.path))
+        model.request(.saved("b"))
+        #expect(!FileManager.default.fileExists(atPath: second.path), "a new selection removes it")
+        #expect(model.tryFolder == nil)
+    }
+
+    @Test func leftoversAreClearedAtLaunch() throws {
+        let root = temp.url.appendingPathComponent("tmp", isDirectory: true)
+        for name in ["try-1", "try-2", "clipboard-keep"] {
+            try FileManager.default.createDirectory(at: root.appendingPathComponent(name), withIntermediateDirectories: true)
+        }
+        PipelineEditorModel.removeLeftovers(in: root)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: root.path) == ["clipboard-keep"])
+    }
+}

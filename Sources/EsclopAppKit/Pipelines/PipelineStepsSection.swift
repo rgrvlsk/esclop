@@ -44,10 +44,12 @@ struct PipelineStepsSection: View {
                 if steps.isEmpty {
                     Text(Strings.text("No steps yet. Add one below.")).foregroundStyle(.secondary)
                 }
-                ForEach($model.draft.sections[index].steps) { $step in
+                // Values, not `$model.draft.sections[index].steps`: the section at `index` can be
+                // gone by the time a row is read (removed, or another pipeline opened).
+                ForEach(steps) { step in
                     let position = steps.firstIndex { $0.id == step.id } ?? 0
                     StepRowView(
-                        step: $step, kind: kind, number: position + 1, count: steps.count,
+                        step: model.binding(for: step), kind: kind, number: position + 1, count: steps.count,
                         issues: model.check.issues[step.id] ?? [],
                         move: { model.moveStep(step.id, by: $0) }, remove: { model.removeStep(step.id) }
                     )

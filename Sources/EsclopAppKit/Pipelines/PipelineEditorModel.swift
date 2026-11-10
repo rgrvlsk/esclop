@@ -70,6 +70,13 @@ public final class PipelineEditorModel {
     /// Whether the filter lets the sample file through: nil before there is a sample.
     public private(set) var filterMatches: Bool?
 
+    /// The text of a file that did not read, as it was opened.
+    @ObservationIgnored private var originalText: String?
+    /// The folder of the last "Try it" copy; removed by the next try, a new selection and the window closing.
+    @ObservationIgnored private(set) var tryFolder: URL?
+    /// Where "Try it" makes its folders.
+    @ObservationIgnored var tryRoot: URL = Paths.temporary
+
     /// A selection waiting for the person to save or discard changes first.
     public var pendingSelection: Selection?
     /// Shown when saving, deleting or loading fails.
@@ -132,7 +139,11 @@ public final class PipelineEditorModel {
     public var hasChanges: Bool {
         switch selection {
         case .new: return true
-        case .saved: return check.pipeline.map { $0 != original } ?? true || showsText && !textDiagnostics.isEmpty
+        case .saved:
+            // A file that did not read opens as its text: it changed only if that text did.
+            if original == nil { return showsText && text != originalText }
+            let textHasErrors = showsText && textDiagnostics.contains { $0.severity == .error }
+            return check.pipeline.map { $0 != original } ?? true || textHasErrors
         default: return false
         }
     }
@@ -171,6 +182,8 @@ public final class PipelineEditorModel {
 
     func select(_ next: Selection?) {
         defer { recheck() }
+        discardTry()
+        originalText = nil
         pendingSelection = nil
         selection = next
         failure = nil
@@ -187,6 +200,7 @@ public final class PipelineEditorModel {
                 text = (try? store.text(of: name)) ?? ""
                 showsText = true
                 textDiagnostics = entry?.diagnostics ?? []
+                originalText = text
             }
         case let .template(name):
             if let template = templates.first(where: { $0.name == name }) { load(template, original: template) }
@@ -412,7 +426,9 @@ public final class PipelineEditorModel {
         sampleFile = file
         await checkFilter()
         tryState = .running(file.lastPathComponent)
-        let folder = Paths.temporary.appendingPathComponent("try-\(UUID().uuidString)", isDirectory: true)
+        discardTry()
+        let folder = tryRoot.appendingPathComponent("\(Self.tryPrefix)\(UUID().uuidString)", isDirectory: true)
+        tryFolder = folder
         let copy = folder.appendingPathComponent(file.lastPathComponent)
         let before = AppModel.size(of: file)
         do {
@@ -433,6 +449,24 @@ public final class PipelineEditorModel {
             steps: fileReport.log.map { TryStep(step: $0.step, outcome: $0.outcome, message: $0.message) },
             bytesBefore: before, bytesAfter: after, finalFile: fileReport.finalFile, error: fileReport.error
         ))
+    }
+
+    nonisolated static let tryPrefix = "try-"
+
+    /// Removes the last try's copy and what the pipeline made of it.
+    public func discardTry() {
+        guard let folder = tryFolder else { return }
+        try? FileManager.default.removeItem(at: folder)
+        tryFolder = nil
+        if case .done = tryState { tryState = .idle }
+    }
+
+    /// Removes "Try it" folders an earlier run left behind (it quit or crashed with one open).
+    public nonisolated static func removeLeftovers(in root: URL = Paths.temporary) {
+        let items = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
+        for item in items where item.lastPathComponent.hasPrefix(tryPrefix) {
+            try? FileManager.default.removeItem(at: item)
+        }
     }
 
     /// Checks the sample file against the filter with the runner's own evaluation.

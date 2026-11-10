@@ -83,7 +83,7 @@ public final class AppServices {
         model.onPauseChange = { [weak folders] in folders?.refresh() }
         // Folder lists changed here or by `esclop settings set` in another process.
         folderSettings = DefaultsObserver(defaults: settings.defaults, keys: WatchedFolders.settingKeys) { [weak folders] _ in
-            Task { @MainActor in folders?.refresh() }
+            Task { @MainActor in folders?.refresh(retryDenied: true) }
         }
         // A pipeline saved, attached to a folder or deleted (here, by the CLI or by an agent).
         pipelineFiles = FolderWatcher(everyChange: true) { [weak folders, weak pipelinesWindow] _ in
@@ -100,6 +100,7 @@ public final class AppServices {
         watcher.start()
         dropZone.start()
         folders.refresh()
+        PipelineEditorModel.removeLeftovers()
         try? FileManager.default.createDirectory(at: model.service.context.pipelines.directory, withIntermediateDirectories: true)
         pipelineFiles?.start([model.service.context.pipelines.directory])
         let workspace = NSWorkspace.shared.notificationCenter

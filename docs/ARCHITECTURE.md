@@ -185,7 +185,11 @@ holds the rest, in folders by feature:
   and warnings on their step, and turns into the `Pipeline` that `PipelineStore` saves through
   `PipelineSerializer`. `PipelineEditorModel` holds the list, the selection, the text view and
   "Try it" (a `PipelineRunner` with no host on a copy in a folder of its own);
-  `PipelineEditorWindowController` owns the window and `esclop://pipelines[/<name>]`.
+  `PipelineEditorWindowController` owns the window and `esclop://pipelines[/<name>]`. Rows bind
+  to steps through `PipelineEditorModel.binding(for:)`, which looks the step up by id on every
+  read, so a row read in the update where its step, section or filter went away does not trap.
+  A try's folder is removed by the next try, a new selection and the window closing, and
+  leftovers at launch.
 - `Onboarding`: `OnboardingModel` (steps, the `finishedOnboarding` flag in the app's defaults,
   clipboard access from `NSPasteboard.accessBehavior`, open at login through `SMAppService`),
   `OnboardingView` (its pages reuse `SettingRow` and the Agents pane's section) and
