@@ -3066,7 +3066,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Al Finder, a Accions ràpides › Passa per un pipeline de L’Esclop…"
+            "value": "Al Finder, a Accions ràpides › Executa un pipeline de L’Esclop…"
           }
         }
       }
@@ -5356,7 +5356,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Passa per un pipeline"
+            "value": "Executa un pipeline"
           }
         }
       }
@@ -5376,7 +5376,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Passa per un pipeline"
+            "value": "Executa un pipeline"
           }
         }
       }
