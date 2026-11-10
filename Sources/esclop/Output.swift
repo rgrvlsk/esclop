@@ -82,6 +82,7 @@ enum Output {
         if summary.failures.isEmpty { return 0 }
         if summary.results.isEmpty, summary.failures.allSatisfy({ $0.code == "fileNotFound" }) { return 66 }
         if summary.results.isEmpty, summary.failures.allSatisfy({ $0.code == "toolMissing" }) { return 69 }
+        if summary.results.isEmpty, summary.failures.allSatisfy({ $0.code == "unreadable" }) { return 65 }
         return 1
     }
 

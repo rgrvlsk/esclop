@@ -33,7 +33,7 @@ public struct CardPresentation: Equatable, Sendable {
             case .crop: return Strings.text("Crop")
             case .more: return Strings.text("More options")
             case .openDetail: return Strings.text("Show details")
-            case .closeDetail: return Strings.text("Close details")
+            case .closeDetail: return Strings.text("Hide details")
             case .retry: return Strings.text("Try again")
             case .reveal: return Strings.text("Show in Finder")
             case .copy: return Strings.text("Copy")

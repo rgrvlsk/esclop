@@ -288,6 +288,16 @@ public struct AgentInstaller: Sendable {
         guard let url = configURL(agent), FileManager.default.fileExists(atPath: url.path) else { return nil }
         let (target, before, _) = try read(url)
         guard try installedCommand(agent, in: before) != nil else { return nil }
+        // Disconnect undoes what Connect did: a file Connect created, still exactly as written,
+        // goes away instead of staying behind as an empty `{ "mcpServers": { } }`.
+        if let created = try? String(contentsOf: createdMarker(agent), encoding: .utf8), created == before {
+            var change = ConfigChange(
+                agentID: agent.id, agentName: agent.name, action: .uninstall, file: target, shownPath: shown(url),
+                fileExists: true, before: before, after: "", command: nil, backup: backupURL(agent, target), shownBackup: shown(backupURL(agent, target))
+            )
+            change.removesFile = true
+            return change
+        }
         let after = try remove(agent, from: before)
         guard try installedCommand(agent, in: after) == nil else {
             throw ConfigLayoutError("Removing esclop from \(shown(url)) did not take; nothing was written")
@@ -322,7 +332,14 @@ public struct AgentInstaller: Sendable {
         guard exists == change.fileExists, current == change.before else {
             throw ConfigLayoutError("\(change.shownPath) changed since it was read; nothing was written. Look at the change again")
         }
-        if change.after != change.before {
+        if change.removesFile {
+            if let backup = change.backup {
+                try fm.createDirectory(at: backup.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try Data(change.before.utf8).write(to: backup, options: .atomic)
+            }
+            try fm.removeItem(at: target)
+            try? fm.removeItem(at: createdMarker(agent))
+        } else if change.after != change.before {
             if exists, let backup = change.backup {
                 // The version before esclop touched it, one per agent, overwritten each time.
                 try fm.createDirectory(at: backup.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -332,6 +349,14 @@ public struct AgentInstaller: Sendable {
             let permissions = exists ? (try? fm.attributesOfItem(atPath: target.path))?[.posixPermissions] : nil
             try change.after.write(to: target, atomically: true, encoding: .utf8)
             if let permissions { try? fm.setAttributes([.posixPermissions: permissions], ofItemAtPath: target.path) }
+            if change.action == .install, !exists {
+                // Remember that Connect made this file, and what it wrote, for Disconnect.
+                try fm.createDirectory(at: createdMarker(agent).deletingLastPathComponent(), withIntermediateDirectories: true)
+                try Data(change.after.utf8).write(to: createdMarker(agent), options: .atomic)
+            } else {
+                // The file was there already, or esclop left it: the note no longer applies.
+                try? fm.removeItem(at: createdMarker(agent))
+            }
         }
         switch change.action {
         case .install:
@@ -361,6 +386,11 @@ public struct AgentInstaller: Sendable {
         let home = self.home.standardizedFileURL.path
         let path = url.standardizedFileURL.path
         return path.hasPrefix(home + "/") ? "~/" + path.dropFirst(home.count + 1) : path
+    }
+
+    /// What Connect wrote into a config file it created, kept beside the backups.
+    func createdMarker(_ agent: AgentDefinition) -> URL {
+        backupFolder.appendingPathComponent("\(agent.id).created-by-esclop")
     }
 
     func backupURL(_ agent: AgentDefinition, _ target: URL) -> URL {

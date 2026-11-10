@@ -26,6 +26,9 @@ public struct ConfigChange: Sendable, Equatable {
     public var backup: URL?
     /// The backup's path as `~/Library/...`.
     public var shownBackup: String?
+    /// Disconnect removes the whole file: L'Esclop created it on Connect and it still holds only
+    /// what L'Esclop wrote, so removing it leaves things as they were before.
+    public var removesFile = false
 
     public var changesNothing: Bool { before == after }
 

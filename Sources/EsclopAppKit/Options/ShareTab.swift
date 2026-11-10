@@ -44,7 +44,7 @@ struct ShareTab: View {
             }
             .buttonStyle(.plain)
             .font(OptionsType.label)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(PopoverInk.secondary.color)
         }
     }
 
@@ -75,7 +75,7 @@ struct RoundAction: View {
                     .overlay(Circle().strokeBorder(Color.primary.opacity(0.12)))
                 // Two lines kept for every name, so the shortcuts sit on one line across the row.
                 Text(title).font(OptionsType.label).lineLimit(2, reservesSpace: true).multilineTextAlignment(.center)
-                if let shortcut { Text(shortcut).font(OptionsType.label).foregroundStyle(.secondary) }
+                if let shortcut { Text(shortcut).font(OptionsType.label).foregroundStyle(PopoverInk.secondary.color) }
             }
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
@@ -134,7 +134,7 @@ struct OptionsDrill: View {
         case .shortcut:
             DrillPage(title: Strings.text("Run a Shortcut"), back: back) {
                 if model.shortcuts.isEmpty {
-                    Text(Strings.text("No shortcuts yet. Make one in the Shortcuts app.")).foregroundStyle(.secondary)
+                    Text(Strings.text("No shortcuts yet. Make one in the Shortcuts app.")).foregroundStyle(PopoverInk.secondary.color)
                 }
                 ForEach(model.shortcuts, id: \.self) { name in
                     DrillRow(symbol: "square.2.layers.3d", title: name, chevron: false) { app.runShortcut(name, on: card) }
@@ -145,7 +145,7 @@ struct OptionsDrill: View {
             DrillPage(title: Strings.text("Run a pipeline"), back: back) {
                 let names = app.pipelineNames
                 if names.isEmpty {
-                    Text(Strings.text("No pipelines yet. Save one in Settings or with `esclop pipeline`.")).foregroundStyle(.secondary)
+                    Text(Strings.text("No pipelines yet. Save one in Settings or with `esclop pipeline`.")).foregroundStyle(PopoverInk.secondary.color)
                 }
                 ForEach(names, id: \.self) { name in
                     DrillRow(symbol: "wand.and.rays", title: name, chevron: false) { app.runPipeline(name, on: card) }
@@ -173,7 +173,7 @@ struct OptionsDrill: View {
                         set: { app.setHoverButton(name, shown: $0) }
                     ))
                 }
-                Text(Strings.text("“…” always stays, so the options are one click away.")).font(OptionsType.label).foregroundStyle(.secondary)
+                Text(Strings.text("“…” always stays, so the options are one click away.")).font(OptionsType.label).foregroundStyle(PopoverInk.secondary.color)
             }
         }
     }

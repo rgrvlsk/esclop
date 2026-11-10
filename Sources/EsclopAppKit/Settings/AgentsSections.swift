@@ -107,6 +107,9 @@ struct AgentRow: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+                // The agent's name first, then its state: VoiceOver read the state alone.
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Self.accessibilityLabel(name: row.agent.name, state: stateText))
             }
             switch agents.outcomes[row.id] {
             case let .done(text)?:
@@ -126,6 +129,8 @@ struct AgentRow: View {
         .id(Self.rowID(row.agent))
         .highlighted(model.highlighted == Self.rowID(row.agent))
     }
+
+    static func accessibilityLabel(name: String, state: String) -> String { "\(name): \(state)" }
 
     @ViewBuilder private var stateIcon: some View {
         switch row.status.state {
@@ -211,7 +216,9 @@ struct ConfigChangeSheet: View {
     }
 
     var explanation: String {
-        var text = change.fileExists
+        var text = change.removesFile
+            ? "L'Esclop created \(change.shownPath) when it connected, and the file holds nothing else, so it will be removed."
+            : change.fileExists
             ? "L'Esclop will edit \(change.shownPath). Only the esclop entry changes: other servers, comments and formatting stay as they are."
             : "\(change.shownPath) does not exist yet. L'Esclop will create it with only the esclop entry."
         if let backup = change.shownBackup {

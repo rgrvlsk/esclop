@@ -54,6 +54,9 @@ import Testing
         let done = BatchPresentation(batch: batch(running: false), locale: Locale(identifier: "en"))
         #expect(done.title == "5 of 7 files optimised")
         #expect(done.counts == "5 optimised · 1 already optimised · 1 failed")
+        let restored = batch(running: false)
+        for row in restored.rows { if let result = row.result { row.state = .restored(result) } else { row.state = .cancelled } }
+        try await snapshots.snapshot(BatchView(batch: restored, app: harness.model).frame(width: 560, height: 420), name: "batch-restored", scheme: scheme)
         let finished = BatchView(batch: batch(running: false), app: harness.model).frame(width: 560, height: 520)
         try await snapshots.snapshot(finished, name: "batch-finished", scheme: scheme)
     }
