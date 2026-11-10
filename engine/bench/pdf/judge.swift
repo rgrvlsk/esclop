@@ -92,6 +92,13 @@ func adaptiveDPI(_ url: URL) -> Int {
 
 struct Raster { var w: Int; var h: Int; var px: [UInt8] }
 
+/// 150 dpi, or less for pages so large that 150 dpi would pass 25 megapixels (posters, maps).
+func pageDPI(_ page: CGPDFPage) -> Double {
+    let box = page.getBoxRect(.cropBox)
+    let px = Double(box.width) * Double(box.height) * 150 * 150 / (72 * 72)
+    return px > 25e6 ? 150 * (25e6 / px).squareRoot() : 150
+}
+
 func render(_ page: CGPDFPage, dpi: Double = 150) -> Raster {
     let box = page.getBoxRect(.cropBox)
     let rot = page.rotationAngle % 180 != 0
@@ -164,13 +171,46 @@ func compare(_ a: URL, _ b: URL) -> [String: Any] {
     return result
 }
 
+/// One rendering of the original against several outputs: [{"output": info, "ssim": [...]}].
+func compareMany(_ a: URL, _ outs: [URL]) -> [String: Any] {
+    var result: [String: Any] = ["original": info(a)]
+    let da = CGPDFDocument(a as CFURL)
+    let docs = outs.map { CGPDFDocument($0 as CFURL) }
+    let n = da?.numberOfPages ?? 0
+    let usable = docs.map { d in d.map { $0.numberOfPages == n && n > 0 && (!$0.isEncrypted || $0.isUnlocked) } ?? false }
+    let buffer = UnsafeMutableBufferPointer<Double>.allocate(capacity: max(1, n * outs.count))
+    buffer.initialize(repeating: 0)
+    if let da, n > 0, !da.isEncrypted || da.isUnlocked {
+        DispatchQueue.concurrentPerform(iterations: n) { i in
+            autoreleasepool {
+                guard let pa = da.page(at: i + 1) else { return }
+                let dpi = pageDPI(pa)
+                let ra = render(pa, dpi: dpi)
+                for (k, d) in docs.enumerated() where usable[k] {
+                    autoreleasepool {
+                        if let pb = d?.page(at: i + 1) { buffer[k * n + i] = ssim(ra, render(pb, dpi: dpi)) }
+                    }
+                }
+            }
+        }
+    }
+    result["outputs"] = outs.enumerated().map { k, url -> [String: Any] in
+        let values = usable[k] ? Array(buffer[k * n ..< (k + 1) * n]).map { ($0 * 10000).rounded() / 10000 } : []
+        return ["output": info(url), "ssim": values]
+    }
+    buffer.deallocate()
+    return result
+}
+
 let args = CommandLine.arguments
 let out: [String: Any]
 switch (args.count, args.count > 1 ? args[1] : "") {
 case (3, "info"): out = info(URL(fileURLWithPath: args[2]))
 case (4, "compare"): out = compare(URL(fileURLWithPath: args[2]), URL(fileURLWithPath: args[3]))
+case (_, "compare-many") where args.count >= 4:
+    out = compareMany(URL(fileURLWithPath: args[2]), args[3...].map { URL(fileURLWithPath: $0) })
 default:
-    FileHandle.standardError.write("usage: judge info FILE | judge compare ORIGINAL OUTPUT\n".data(using: .utf8)!)
+    FileHandle.standardError.write("usage: judge info FILE | judge compare ORIGINAL OUTPUT | judge compare-many ORIGINAL OUTPUT...\n".data(using: .utf8)!)
     exit(2)
 }
 print(String(data: try JSONSerialization.data(withJSONObject: out, options: [.sortedKeys]), encoding: .utf8)!)
