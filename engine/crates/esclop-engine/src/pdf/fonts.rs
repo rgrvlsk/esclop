@@ -454,21 +454,32 @@ fn collect(doc: &Document) -> (HashMap<ObjectId, BTreeSet<u16>>, Programs) {
             }
         }
         if u.failed {
+            if std::env::var_os("ESCLOP_FONT_TRACE").is_some() {
+                eprintln!("fonts: a content stream failed to parse on page {page:?}");
+            }
             return (HashMap::new(), u.programs);
         }
     }
     let mut skip = unscanned_programs(doc, &u);
     skip.extend(&u.keep_whole);
+    if std::env::var_os("ESCLOP_FONT_TRACE").is_some() {
+        eprintln!("fonts: used {:?}", u.used.iter().map(|(p, g)| (p.0, g.len(), skip.contains(p))).collect::<Vec<_>>());
+        eprintln!("fonts: unscanned {:?} keep_whole {:?}", unscanned_programs(doc, &u).iter().map(|p| p.0).collect::<Vec<_>>(), u.keep_whole.iter().map(|p| p.0).collect::<Vec<_>>());
+    }
     let used = u.used.into_iter().filter(|(p, _)| !skip.contains(p)).collect();
     (used, u.programs)
 }
 
 /// The program holding only `gids` (plus `.notdef`), glyph ids unchanged.
-fn subset(data: &[u8], gids: &BTreeSet<u16>) -> Option<Vec<u8>> {
-    let font = FontRef::new(data).ok()?;
-    font.glyf().ok()?;
+fn subset(data: &[u8], gids: &BTreeSet<u16>) -> Result<Vec<u8>, String> {
+    let font = FontRef::new(data).map_err(|e| format!("read: {e}"))?;
+    font.glyf().map_err(|e| format!("glyf: {e}"))?;
+    let total = font.maxp().map_err(|e| format!("maxp: {e}"))?.num_glyphs();
     let mut input = IntSet::<GlyphId>::empty();
     input.insert(GlyphId::NOTDEF);
+    // Retained ids stop at the highest glyph kept; keeping the last one too holds the glyph
+    // count, so the unchanged `cmap` never points past the end.
+    input.insert(GlyphId::new(u32::from(total.saturating_sub(1))));
     input.extend(gids.iter().map(|g| GlyphId::new(u32::from(*g))));
     let drop: IntSet<Tag> = DROP.iter().map(|t| Tag::new(t)).collect();
     let keep: IntSet<Tag> = KEEP.iter().map(|t| Tag::new(t)).collect();
@@ -483,10 +494,14 @@ fn subset(data: &[u8], gids: &BTreeSet<u16>) -> Option<Vec<u8>> {
     let empty_tags = IntSet::<Tag>::empty();
     let mut plan = Plan::new(&input, &IntSet::empty(), &font, flags, &drop, &empty_tags, &empty_tags, &names, &languages);
     plan.set_no_subset_tables(&keep);
-    let out = subset_font(&font, &plan).ok()?;
+    let out = subset_font(&font, &plan).map_err(|e| format!("subset: {e}"))?;
     // The subset must read back with the same number of glyphs, or ids would shift.
-    let back = FontRef::new(&out).ok()?;
-    (back.maxp().ok()?.num_glyphs() == font.maxp().ok()?.num_glyphs()).then_some(out)
+    let back = FontRef::new(&out).map_err(|e| format!("reread: {e}"))?;
+    let count = |f: &FontRef| f.maxp().map(|m| m.num_glyphs()).ok();
+    if count(&back) != count(&font) || count(&font).is_none() {
+        return Err(format!("glyph count {:?} -> {:?}", count(&font), count(&back)));
+    }
+    Ok(out)
 }
 
 /// Replaces each embedded TrueType program the document can spare glyphs of with its subset,
@@ -501,7 +516,11 @@ pub fn subset_fonts(doc: &mut Document) -> usize {
     let done: Vec<(ObjectId, Vec<u8>, usize)> = jobs
         .into_par_iter()
         .filter_map(|(id, data, gids)| {
-            let out = subset(&data, &gids)?;
+            let out = subset(&data, &gids);
+            if std::env::var_os("ESCLOP_FONT_TRACE").is_some() {
+                eprintln!("fonts: program {} {} bytes, {} glyphs -> {:?}", id.0, data.len(), gids.len(), out.as_ref().map(Vec::len));
+            }
+            let out = out.ok()?;
             let n = out.len();
             Some((id, deflate::zlib(&out, 9), n))
         })

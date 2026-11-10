@@ -90,7 +90,7 @@ REPEAT = 1
 # every child now runs under a resident-memory cap, at most one judge runs at a time, files a
 # child writes are capped, and the run stops when free disk runs low.
 JUDGE_MEM_MB = 1536
-TOOL_MEM_MB = 2048
+TOOL_MEM_MB = 2560
 FILE_LIMIT = 2 << 30
 MIN_FREE_DISK = 10 << 30
 JUDGE_SLOTS = threading.Semaphore(1)
@@ -261,15 +261,18 @@ def evaluate(src, out, rec, info, compared, aggressive):
             o = compared.get("output", {})
             rec["opens"] = bool(o.get("opens"))
             rec["ssim"] = compared.get("ssim", [])
-            rec["min_ssim"] = min(rec["ssim"]) if rec["ssim"] else 0.0
+            judged = [v for v in rec["ssim"] if v >= 0]  # -1: page too costly to render, not judged
+            rec["unjudged_pages"] = len(rec["ssim"]) - len(judged)
+            rec["min_ssim"] = min(judged) if judged else (0.0 if not rec["ssim"] else None)
             rec["checks"] = {k: info.get(k) == o.get(k) for k in CHECKS}
             if not rec["opens"]:
                 fails.append("unopenable")
             else:
                 fails += [k for k, ok in rec["checks"].items() if not ok]
-                if rec["min_ssim"] < (0.95 if aggressive else 0.98):
+                if rec["min_ssim"] is not None and rec["min_ssim"] < (0.95 if aggressive else 0.98):
                     fails.append(f"ssim {rec['min_ssim']:.3f}")
-            rec["bytes"] = rec["raw_bytes"] if rec["opens"] else before
+            # Savings count only for outputs with at least one judged page.
+            rec["bytes"] = rec["raw_bytes"] if rec["opens"] and rec["min_ssim"] is not None else before
     rec["fails"] = fails
     return rec
 
@@ -280,6 +283,8 @@ def process(src, name, a):
         info["valid"] = "ok"
     elif info.get("locked"):
         info["valid"] = "locked"
+    elif info.get("judge_error") == "memory":
+        info["valid"] = "judge-limit"  # the judge could not read it within its memory cap
     else:
         info["valid"] = "gs-only" if gs_opens(src) else "invalid"
     entry = {"info": info}
@@ -295,12 +300,12 @@ def process(src, name, a):
     compared = {}
     if info["valid"] == "ok" and scored and not a.timing_only:
         c = judge("compare-many", src, *[r[2] for r in scored])
-        entry["judge_rss_mb"] = c.get("judge_rss_mb", c.get("rss_mb"))
+        info["judge_rss_mb"] = c.get("judge_rss_mb", c.get("rss_mb"))
         if "outputs" in c:
             for r, o in zip(scored, c["outputs"]):
                 compared[(r[0], r[1])] = o
         else:
-            entry["judge_failed"] = c  # the judge, not the tool: scored as unknown, listed
+            info["judge_failed"] = c  # the judge, not the tool: scored as unknown, listed
     for path, mode, out, rec in runs:
         e = evaluate(src, out, rec, info, compared.get((path, mode)), mode == "aggressive")
         if info["valid"] != "ok":
@@ -399,7 +404,7 @@ def table(results, paths):
                 if "seconds" in r:
                     times[p].append(r["seconds"])
                 st = r["status"]
-                ssim = f"{r['min_ssim']:.4f}" if "min_ssim" in r else "-"
+                ssim = f"{r['min_ssim']:.4f}" if r.get("min_ssim") is not None else "-"
                 row += [kb(r["bytes"]) + ("" if st == "ok" else f" ({st})"), ssim, f"{r.get('seconds', 0):.2f}"]
                 bad = [k for k, v in r.get("checks", {}).items() if not v]
                 if bad:

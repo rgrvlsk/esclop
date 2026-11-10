@@ -8,8 +8,10 @@
 //                                uniform window, mean of the three channels)
 //   judge compare-many ORIG OUT…  the same against several outputs, rendering the original once
 //
-// Memory: SSIM needs O(width); the rasters in flight are capped by JUDGE_RASTER_MB (400 MB by
-// default), so pages run one per core only while they are small.
+// Memory: SSIM needs O(width). Each page's cost (two rasters plus CoreGraphics' full-size image
+// decode) counts against JUDGE_RASTER_MB in flight (400 MB by default), so pages run one per
+// core only while they are small; a page over JUDGE_PAGE_MB (1200) is not rendered and gets
+// SSIM -1 (unjudged).
 
 import CoreGraphics
 import CryptoKit
@@ -96,11 +98,14 @@ func adaptiveDPI(_ url: URL) -> Int {
 
 struct Raster { var w: Int; var h: Int; var px: [UInt8] }
 
-/// 150 dpi, or less for pages so large that 150 dpi would pass 25 megapixels (posters, maps).
+/// Largest page raster, in pixels (JUDGE_MAX_MP megapixels).
+let maxPagePixels = (Double(ProcessInfo.processInfo.environment["JUDGE_MAX_MP"] ?? "") ?? 25) * 1e6
+
+/// 150 dpi, or less for pages so large that 150 dpi would pass `maxPagePixels` (posters, maps).
 func pageDPI(_ page: CGPDFPage) -> Double {
     let box = page.getBoxRect(.cropBox)
     let px = Double(box.width) * Double(box.height) * 150 * 150 / (72 * 72)
-    return px > 25e6 ? 150 * (25e6 / px).squareRoot() : 150
+    return px > maxPagePixels ? 150 * (maxPagePixels / px).squareRoot() : 150
 }
 
 func render(_ page: CGPDFPage, dpi: Double = 150) -> Raster {
@@ -198,9 +203,58 @@ final class Budget {
 /// one output's) plus CoreGraphics' own buffers while rendering.
 let rasterBudget = Budget((Int(ProcessInfo.processInfo.environment["JUDGE_RASTER_MB"] ?? "") ?? 400) << 20)
 
-func rasterCost(_ page: CGPDFPage, dpi: Double) -> Int {
+/// Pixels of the images a page draws through its XObjects (two form levels deep). CoreGraphics
+/// decodes each at full size whatever the output resolution, so this, not the raster, sets the
+/// memory a render of an image-heavy page needs.
+func imagePixels(_ page: CGPDFPage) -> Double {
+    final class Sum { var px = 0.0 }
+    let sum = Sum()
+    func visit(_ res: CGPDFDictionaryRef, _ depth: Int) {
+        var xo: CGPDFDictionaryRef?
+        guard CGPDFDictionaryGetDictionary(res, "XObject", &xo), let xo else { return }
+        var forms: [CGPDFDictionaryRef] = []
+        withUnsafeMutablePointer(to: &forms) { fp in
+            CGPDFDictionaryApplyBlock(xo, { _, object, info in
+                let fp = info!.assumingMemoryBound(to: [CGPDFDictionaryRef].self)
+                var s: CGPDFStreamRef?
+                guard CGPDFObjectGetValue(object, .stream, &s), let s, let d = CGPDFStreamGetDictionary(s) else { return true }
+                var st: UnsafePointer<CChar>?
+                guard CGPDFDictionaryGetName(d, "Subtype", &st), let st else { return true }
+                if String(cString: st) == "Image" {
+                    var w: CGPDFInteger = 0, h: CGPDFInteger = 0
+                    if CGPDFDictionaryGetInteger(d, "Width", &w), CGPDFDictionaryGetInteger(d, "Height", &h) {
+                        sum.px += Double(w) * Double(h)
+                    }
+                } else if String(cString: st) == "Form" {
+                    var r: CGPDFDictionaryRef?
+                    if CGPDFDictionaryGetDictionary(d, "Resources", &r), let r { fp.pointee.append(r) }
+                }
+                return true
+            }, fp)
+        }
+        if depth < 2 { forms.forEach { visit($0, depth + 1) } }
+    }
+    var res: CGPDFDictionaryRef?
+    if let d = page.dictionary, CGPDFDictionaryGetDictionary(d, "Resources", &res), let res { visit(res, 0) }
+    return sum.px
+}
+
+/// Bytes a page comparison holds: two RGBA rasters, plus ~8 bytes per image pixel for
+/// CoreGraphics' decode (a 212-megapixel scan measured 1.6 GB).
+func pageCost(_ page: CGPDFPage, dpi: Double) -> Int {
     let box = page.getBoxRect(.cropBox)
-    return 2 * 4 * Int(Double(box.width) * dpi / 72 + 1) * Int(Double(box.height) * dpi / 72 + 1)
+    let raster = 2 * 4 * Int(Double(box.width) * dpi / 72 + 1) * Int(Double(box.height) * dpi / 72 + 1)
+    return raster + Int(8 * imagePixels(page))
+}
+
+/// Pages costing more than this are not rendered; their SSIM is -1 (unjudged).
+let pageLimit = (Int(ProcessInfo.processInfo.environment["JUDGE_PAGE_MB"] ?? "") ?? 1200) << 20
+
+/// SSIM of one page pair within the budget, or -1 when the page is over `pageLimit`.
+func judgedPage(_ pa: CGPDFPage, _ body: (Double) -> Void) {
+    let dpi = pageDPI(pa), cost = pageCost(pa, dpi: dpi)
+    if cost > pageLimit { return }
+    rasterBudget.run(cost) { body(dpi) }
 }
 
 func compare(_ a: URL, _ b: URL) -> [String: Any] {
@@ -215,8 +269,8 @@ func compare(_ a: URL, _ b: URL) -> [String: Any] {
     DispatchQueue.concurrentPerform(iterations: da.numberOfPages) { i in
         autoreleasepool {
             guard let pa = da.page(at: i + 1), let pb = db.page(at: i + 1) else { return }
-            let dpi = pageDPI(pa)
-            buffer[i] = rasterBudget.run(rasterCost(pa, dpi: dpi)) { ssim(render(pa, dpi: dpi), render(pb, dpi: dpi)) }
+            buffer[i] = -1
+            judgedPage(pa) { dpi in buffer[i] = ssim(render(pa, dpi: dpi), render(pb, dpi: dpi)) }
         }
     }
     let values = Array(buffer)
@@ -238,8 +292,8 @@ func compareMany(_ a: URL, _ outs: [URL]) -> [String: Any] {
         DispatchQueue.concurrentPerform(iterations: n) { i in
             autoreleasepool {
                 guard let pa = da.page(at: i + 1) else { return }
-                let dpi = pageDPI(pa)
-                rasterBudget.run(rasterCost(pa, dpi: dpi)) {
+                for k in 0 ..< docs.count { buffer[k * n + i] = -1 }
+                judgedPage(pa) { dpi in
                     let ra = render(pa, dpi: dpi)
                     for (k, d) in docs.enumerated() where usable[k] {
                         autoreleasepool {
@@ -263,6 +317,9 @@ let out: [String: Any]
 switch (args.count, args.count > 1 ? args[1] : "") {
 case (3, "info"): out = info(URL(fileURLWithPath: args[2]))
 case (4, "compare"): out = compare(URL(fileURLWithPath: args[2]), URL(fileURLWithPath: args[3]))
+case (3, "pagecost"):
+    let d = CGPDFDocument(URL(fileURLWithPath: args[2]) as CFURL)
+    out = ["image_mp": (1 ... max(1, d?.numberOfPages ?? 0)).map { i in d?.page(at: i).map { imagePixels($0) / 1e6 } ?? 0 }]
 case (_, "compare-many") where args.count >= 4:
     out = compareMany(URL(fileURLWithPath: args[2]), args[3...].map { URL(fileURLWithPath: $0) })
 default:
