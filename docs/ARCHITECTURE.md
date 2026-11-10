@@ -179,6 +179,13 @@ holds the rest, in folders by feature:
   rest, so a result is never picked up again. `AppServices` refreshes the watcher when the
   lists, the pause, the pipelines folder or the mounted disks change. `FolderListEditor` is the
   Settings control for the four lists.
+- `Compare`: the compare window. `CompareSides` resolves the two files from a result (its
+  backup, or the original beside a result written next to it) and says when the original is no
+  longer kept; `CompareViewport` is the zoom, pan and divider arithmetic shared by both sides;
+  `CompareMedia` decodes images, draws PDF pages from their media box and computes the
+  difference mask with Core Image; `ComparePlayers` keeps two AVPlayers in step.
+  `CompareModel` follows the result's floating result, so "try another" (run through
+  `AppModel.reprocess`, as the popover does) updates the window in place.
 - `Finder`: Finder's Quick Actions. `FinderServices` is `NSApp.servicesProvider`: the four
   services declared in `Info.plist` (`NSServices`, titles localised in
   `Resources/<lang>.lproj/ServicesMenu.strings`, both from `Scripts/templates`) hand their files
