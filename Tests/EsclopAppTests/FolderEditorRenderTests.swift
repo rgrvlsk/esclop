@@ -27,10 +27,17 @@ import Testing
         let settings = TestSettings()
         let model = SettingsViewModel(provider: RegistrySettingsProvider(store: settings.store), extraRows: SettingsPaneView.extraRows)
         model.set("imageDirs", to: .array(["~/Desktop", "/Volumes/Archive/Screenshots", Self.locked.path].map(JSONValue.string)))
-        model.open(SettingsRoute(pane: .images, row: "imageDirs"))
-        let view = SettingsView(model: model).environment(\.screenshotLocation, "~/Pictures/Screenshots")
-        let size = try await SettingsRenderTests.renderWindow(view, size: CGSize(width: 800, height: 620), name: "settings-folders", scheme: scheme, settle: .milliseconds(600))
-        #expect(size.width == 800)
+        let descriptor = try #require(model.descriptors.first { $0.key == "imageDirs" })
+        // The row as the Images pane draws it, alone: the whole pane would need a scroll, which
+        // takes a varying time to land.
+        let view = Form {
+            Section("Images") { SettingRow(descriptor: descriptor, model: model, actions: SettingsActions()) }
+        }
+        .formStyle(.grouped)
+        .tint(Palette.accent)
+        .environment(\.screenshotLocation, "~/Pictures/Screenshots")
+        let size = try await SettingsRenderTests.renderWindow(view, size: CGSize(width: 640, height: 520), name: "settings-folders", scheme: scheme, settle: .milliseconds(300))
+        #expect(size.width == 640)
         #expect(FolderStatus.check(Self.locked) == .unreadable, "the picture shows the unreadable row")
     }
 }
