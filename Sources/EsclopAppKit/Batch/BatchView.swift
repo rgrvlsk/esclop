@@ -63,7 +63,7 @@ struct BatchHeader: View {
                         .contentTransition(.numericText())
                 }
             }
-            DeflateBar(end: info.barEnd, progress: info.progress, tint: Palette.accent, filled: info.progress == nil)
+            DeflateBar(end: info.barIsNeutral ? 0 : info.barEnd, progress: info.progress, tint: Palette.accent, filled: info.progress == nil && !info.barIsNeutral)
             Text(info.counts).font(.subheadline).foregroundStyle(.secondary).monospacedDigit()
             HStack(spacing: 8) {
                 if batch.isRunning {

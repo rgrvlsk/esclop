@@ -31,7 +31,7 @@ struct SectionLabel<Value: View>: View {
             value.monospacedDigit()
         }
         .font(OptionsType.label)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(PopoverInk.secondary.color)
         .padding(.top, 8)
     }
 }
@@ -83,7 +83,7 @@ struct FormatTile: View {
         Button(action: action) {
             VStack(spacing: 2) {
                 Text(title).font(OptionsType.bodyStrong)
-                EstimateText(model: model, request: request).font(OptionsType.label).foregroundStyle(selected ? Palette.accent : .secondary)
+                EstimateText(model: model, request: request).font(OptionsType.label).foregroundStyle(selected ? PopoverInk.accent.color : PopoverInk.secondary.color)
             }
             .lineLimit(1)
             .frame(maxWidth: .infinity, minHeight: 44)
@@ -101,7 +101,7 @@ struct TileStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
         configuration.label
-            .foregroundStyle(selected ? Palette.accent : .primary)
+            .foregroundStyle(selected ? PopoverInk.accent.color : PopoverInk.primary.color)
             .background(shape.fill(selected ? Palette.accent.opacity(0.12) : Color.primary.opacity(configuration.isPressed ? 0.1 : 0.05)))
             .overlay(shape.strokeBorder(selected ? Palette.accent : Color.primary.opacity(0.12), lineWidth: 1))
     }
@@ -127,7 +127,7 @@ struct ChipStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundStyle(selected ? Palette.accent : .primary)
+            .foregroundStyle(selected ? PopoverInk.accent.color : PopoverInk.primary.color)
             .background(Capsule().fill(selected ? Palette.accent.opacity(0.12) : Color.primary.opacity(configuration.isPressed ? 0.1 : 0.05)))
             .overlay(Capsule().strokeBorder(selected ? Palette.accent : Color.primary.opacity(0.12), lineWidth: 1))
     }
@@ -144,11 +144,11 @@ struct DrillRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                Image(systemName: symbol).frame(width: 18).foregroundStyle(.secondary)
+                Image(systemName: symbol).frame(width: 18).foregroundStyle(PopoverInk.icon.color)
                 Text(title)
                 Spacer(minLength: 8)
-                if let detail { Text(detail).foregroundStyle(.secondary).monospacedDigit() }
-                if chevron { Image(systemName: "chevron.right").font(OptionsType.label.weight(.semibold)).foregroundStyle(.tertiary) }
+                if let detail { Text(detail).foregroundStyle(PopoverInk.secondary.color).monospacedDigit() }
+                if chevron { Image(systemName: "chevron.right").font(OptionsType.label.weight(.semibold)).foregroundStyle(PopoverInk.icon.color) }
             }
             .font(OptionsType.body)
             .frame(minHeight: 28)
@@ -247,7 +247,7 @@ struct Segments<Value: Hashable>: View {
                 Button { selection = option } label: {
                     Text(title(option))
                         .font(selected ? OptionsType.bodyStrong : OptionsType.body)
-                        .foregroundStyle(tint(option) ?? .primary)
+                        .foregroundStyle(tint(option) ?? PopoverInk.primary.color)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, minHeight: 26)
                         .background {
@@ -260,9 +260,12 @@ struct Segments<Value: Hashable>: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                // Each segment by its own name; the control's name goes on the group.
+                .accessibilityLabel(title(option))
                 .accessibilityAddTraits(selected ? [.isSelected] : [])
             }
         }
+        .accessibilityElement(children: .contain)
         .padding(3)
         .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(Color.primary.opacity(0.07)))
     }

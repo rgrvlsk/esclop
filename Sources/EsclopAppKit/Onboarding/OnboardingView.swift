@@ -334,7 +334,8 @@ struct DonePage: View {
                 .padding(.top, 14)
             Group {
                 if let glyph = MenuBarLabel.customGlyph {
-                    Text("Look for \(Image(nsImage: glyph)) at the top of the screen. It has recent results, originals to restore and Settings.")
+                    // A template, so it takes the text colour: as is, it was dark on the dark ground.
+                    Text("Look for \(Image(nsImage: glyph).renderingMode(.template)) at the top of the screen. It has recent results, originals to restore and Settings.")
                 } else {
                     Text("Look for the clog at the top of the screen. It has recent results, originals to restore and Settings.")
                 }

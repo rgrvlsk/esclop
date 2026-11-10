@@ -12,7 +12,7 @@ public final class SettingsWindowController {
     public let model: SettingsViewModel
     public let agents: AgentsModel
     let actions: SettingsActions
-    private var window: NSWindow?
+    private(set) var window: NSWindow?
 
     public init(model: SettingsViewModel, agents: AgentsModel = AgentsModel(), actions: SettingsActions) {
         self.model = model
@@ -27,6 +27,9 @@ public final class SettingsWindowController {
         if model.pane == .agents { Task { await agents.refresh() } }
         let window = window ?? makeWindow()
         self.window = window
+        // The pane's name from the first moment: opened by a link at launch, the window said
+        // "Settings" until SwiftUI's title bridging caught up.
+        window.title = model.pane.title
         NSApp.activate()
         window.makeKeyAndOrderFront(nil)
     }
@@ -43,7 +46,7 @@ public final class SettingsWindowController {
         let host = NSHostingController(rootView: SettingsView(model: model, agents: agents, actions: actions))
         host.sceneBridgingOptions = [.title, .toolbars]
         let window = NSWindow(contentViewController: host)
-        window.title = "Settings"
+        window.title = model.pane.title
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         window.toolbarStyle = .unified
         window.isReleasedWhenClosed = false
