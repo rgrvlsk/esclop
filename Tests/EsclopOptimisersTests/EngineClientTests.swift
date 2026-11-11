@@ -45,6 +45,9 @@ import Testing
         #expect(EngineClient.mapError(code: "already_smaller", message: "") == .alreadySmaller)
         #expect(EngineClient.mapError(code: "invalid_params", message: "bad") == .invalidArgument("bad"))
         #expect(EngineClient.mapError(code: "decode", message: "broken file") == .toolFailed(tool: "esclop-engine", exitCode: -1, stderr: "decode: broken file"))
+        // With the input's kind known, a file the engine cannot read is a damaged file of that kind.
+        #expect(EngineClient.mapError(code: "decode", message: "the cross-reference table misplaces object 5", kind: .pdf) == .unreadable(kind: .pdf))
+        #expect(EngineClient.mapError(code: "decode", message: "bad", kind: .image) == .unreadable(kind: .image))
     }
 
     @Test func progressEventsReachTheCaller() async throws {
