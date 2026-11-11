@@ -520,3 +520,45 @@ fn an_image_with_a_matte_soft_mask_keeps_the_mask_size() {
         assert_eq!(widths.iter().all(|w| *w == 600), keeps, "{matte:?}: {widths:?}");
     }
 }
+
+#[test]
+fn text_that_names_encrypt_is_not_encryption() {
+    // Uncompressed content showing the string "/Encrypt": the file is not encrypted.
+    let mut objs = image_page(gray_image(64, 64));
+    objs[3] = stream("", b"BT /F1 12 Tf ((/Encrypt) is a key) Tj ET q 64 0 0 64 0 0 cm /Im Do Q", false);
+    let (r, _) = rewrite_within(build(&objs), Some(150.0), Duration::from_secs(20)).expect("over 20 s");
+    assert!(r.is_ok(), "{r:?}");
+}
+
+#[test]
+fn a_jpeg_the_decoder_cannot_take_is_kept_and_the_rest_rewritten() {
+    // A gray JPEG whose frame header claims two components: the decoder refuses it.
+    let img = image::GrayImage::from_fn(300, 300, |x, y| image::Luma([((x ^ y) & 0xff) as u8]));
+    let mut gray = Vec::new();
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut gray, 95).encode_image(&img).unwrap();
+    let sof = gray.windows(2).position(|w| w == [0xFF, 0xC0]).unwrap();
+    assert_eq!(gray[sof + 9], 1);
+    let mut two = gray[..sof + 2].to_vec();
+    two.extend([0, 14]);
+    two.extend(&gray[sof + 4..sof + 9]);
+    two.push(2);
+    two.extend(&gray[sof + 10..sof + 13]);
+    two.extend([2, 0x11, 0]);
+    two.extend(&gray[sof + 13..]);
+    let mut im = format!(
+        "<< /Type /XObject /Subtype /Image /Width 300 /Height 300 /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /DCTDecode /Length {} >>\nstream\n",
+        two.len()
+    )
+    .into_bytes();
+    im.extend(&two);
+    im.extend(b"\nendstream");
+    let mut objs = one_page(
+        "<< /XObject << /Im 5 0 R /G 6 0 R >> >>",
+        b"q 72 0 0 72 0 0 cm /Im Do Q q 300 0 0 300 100 100 cm /G Do Q",
+    );
+    objs.push(im);
+    objs.push(gray_image(300, 300));
+    let (r, _) = rewrite_within(build(&objs), Some(150.0), Duration::from_secs(20)).expect("over 20 s");
+    let out = r.unwrap().0;
+    assert!(images_of(&out).iter().any(|s| s.content == two), "the JPEG was not kept as stored");
+}
