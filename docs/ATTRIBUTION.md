@@ -10,7 +10,7 @@ original copyright header plus a dated modification notice (GPLv3 §5a).
 | L'Esclop file | Clop source (commit 4be5106) | What was kept, what changed |
 |---|---|---|
 | `Sources/EsclopOptimisers/CompressionCurves.swift` | `Shared.swift` | Kept: the curves that map one compression factor to JPEG quality, PNG quantisation range and speed, gifsicle `-O`/`--lossy`/`--colors`, WebP/AVIF/HEIC quality, ImageIO qualities, VideoToolbox H.264/HEVC `-q:v`, SVT-AV1 CRF and preset, VP9 CRF. Changed: dropped the tier enum and the x264/x265 paths; image curves feed esclop-engine parameters. |
-| `Sources/EsclopOptimisers/GhostscriptArguments.swift` | `Clop/PDF.swift` | Kept: the pdfwrite argument set, distiller parameters, DOCINFO clearing, QFactor at low DPI, DPI stops and the per-document DPI choice with the low-outlier fence. Changed: `-dSAFER` first, image scan rewritten as a plain function, no parallel-page path, progress UI or settings plumbing. |
+| `Sources/EsclopOptimisers/PDFResolution.swift` | `Clop/PDF.swift` | Kept: the DPI stops and the per-document DPI choice with the low-outlier fence. Changed: image scan rewritten as a plain function, no settings plumbing; the pdfwrite argument set left with Ghostscript (2026-11-11). |
 | `Sources/EsclopOptimisers/AudioEncoding.swift` | `Clop/Audio.swift`, `Shared/AudioFormat.swift` | Kept: per-codec bitrate ranges, factor-to-bitrate curve, allowed bitrate steps, LAME VBR mapping and ffmpeg encoding arguments. Changed: mapped onto `OutputFormat`, fallback from AudioToolbox AAC to ffmpeg's AAC, no settings or UI. |
 
 ### Behavioural references (no code reused)

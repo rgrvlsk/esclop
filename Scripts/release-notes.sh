@@ -54,7 +54,7 @@ $opening
 | \`esclop-$VERSION-source.tar.zst\` | The source of this release (the repository at \`v$VERSION\`) |
 | \`esclop-engine-$VERSION-vendor.tar.zst\` | The Rust crates \`esclop-engine\` is built from (\`cargo vendor\`) |
 | \`esclop-swift-$VERSION-vendor.tar.zst\` | The Swift packages at their \`Package.resolved\` revisions, with offline build instructions |
-| \`third-party-src-$VERSION.tar.zst\` | The upstream source tarballs, patches and build script of ffmpeg, Ghostscript and gifsicle |
+| \`third-party-src-$VERSION.tar.zst\` | The upstream source tarballs, patches and build script of ffmpeg and gifsicle |
 | \`SHA256SUMS\` | SHA-256 of each file above |
 
 L'Esclop is free software under the GNU GPL, version 3 or later. The four source archives

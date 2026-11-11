@@ -29,7 +29,7 @@ print(result.output, result.bytesBefore, result.bytesAfter, result.steps)
 | `downscale(_:factor:request:progress:)` | `0 < factor <= 1`. A result that is not smaller throws `alreadySmaller`. |
 | `crop(_:to:request:progress:)` | `CropSize`: width/height (crop to fill), `longEdge`, `aspectRatio` ("16:9", "1.5"), `smart` (Vision saliency picks the focus). PDFs crop their pages' crop box to the aspect ratio without recompressing. |
 | `fit(_:underBytes:request:progress:)` | Lands at or under the size, or throws `.other("Could not fit ...")` with the smallest size reached. A file already under the target is returned untouched. |
-| `stripMetadata(_:request:)` | Lossless where the format allows: images (engine or ImageIO), video/audio (`-c copy -map_metadata -1`), PDF (Ghostscript without downsampling). |
+| `stripMetadata(_:request:)` | Lossless where the format allows: images (engine or ImageIO), video/audio (`-c copy -map_metadata -1`), PDF (`pdf.optimise` without downsampling, metadata stripped). |
 | `supports(_:)` | Whether the extension is a kind and format the engines handle. |
 
 Extra operations (pipelines reach them through `PipelineMediaOperations`, conformed in
@@ -80,8 +80,8 @@ app that wants one `EngineClient`).
 - **Results.** `output`, `backup` (the copy in `Paths.backups`), `kind` (of the output: a video
   turned GIF is an image), sizes, `width`/`height`/`duration` when known, and `steps`, a
   readable log ("Resized to 160x90", "Encoded JPEG at quality 85").
-- **Progress.** 0 at the start, 1 at the end, fractions in between from ffmpeg's `-progress`,
-  Ghostscript's page counter and the engine's progress events.
+- **Progress.** 0 at the start, 1 at the end, fractions in between from ffmpeg's `-progress`
+  and the engine's progress events.
 
 ### What runs where
 
@@ -96,7 +96,7 @@ app that wants one `EngineClient`).
 | Video to GIF | ffmpeg frames + `esclop-engine gif.from_frames` (gifski); ffmpeg palette + gifsicle when the engine cannot |
 | Animated GIF to MP4/WebM/MOV | ffmpeg |
 | Audio | ffmpeg: `aac_at` (falls back to `aac`), `libmp3lame` VBR, `libopus`, FLAC, PCM |
-| PDF | Ghostscript `-dSAFER` pdfwrite; PDFKit for crop/uncrop/pages; images become PDFs with PDFKit |
+| PDF | esclop-engine `pdf.optimise`; PDFKit for crop/uncrop/pages; images become PDFs with PDFKit |
 
 ## Image engine client
 
@@ -145,7 +145,7 @@ both sides.
 | Image | The engine's `fit` op when it lists it. Otherwise `FitSearch`: the normal factor; if too big, factor 100; if that fits, binary search for the gentlest factor that fits; if not, keep factor 70 and binary search the scale from the estimate `sqrt(target / size)`. About ten encodes at most. |
 | Video | Bitrate from the duration (92% of the budget, audio 12% capped at 96 kbit/s, audio dropped when under 80 kbit/s is left), frames scaled down when the budget falls under 0.04 bits per pixel, VideoToolbox with up to three bitrate corrections, then SVT-AV1 the same way. |
 | Audio | The highest allowed bitrate under the budget, then each lower step. Lossless sources go to AAC. |
-| PDF | Ghostscript at each DPI stop from the resolved one down to 48. |
+| PDF | `pdf.optimise` at each DPI stop from the resolved one down to 48. |
 
 ## Settings
 
@@ -249,7 +249,7 @@ Swift code reads typed values: `EsclopSettings.stripMetadata.value` (or `.value(
 
 ## Tools
 
-`Tool` lists the five executables: `esclop-engine`, `ffmpeg`, `ffprobe`, `gs`, `gifsicle`.
+`Tool` lists the four executables: `esclop-engine`, `ffmpeg`, `ffprobe`, `gifsicle`.
 `ToolLocator` searches `$ESCLOP_BIN`, `<app>/Contents/Resources/bin`, a checkout's `Binaries/`
 (from `Scripts/build-tools.sh`) and `engine/target/release/`, then PATH plus `/opt/homebrew/bin`
 and `/usr/local/bin`. A missing tool throws `EsclopError.toolMissing("<name>")`.
@@ -288,5 +288,5 @@ file) or `.empty`. `materialise(_:)` saves image data to files; `write(files:)`,
 `lavfi`). Image tests run against `Tests/FakeEngine/fake-esclop-engine.swift`, compiled once per
 run with `swiftc`: an ImageIO stand-in that speaks the protocol (it writes PNG, JPEG, GIF and
 AVIF, not WebP, which exercises the capability checks). `RealEngineTests` runs when a real
-`esclop-engine` is found. Video, audio and PDF suites are skipped when ffmpeg or Ghostscript
-are missing.
+`esclop-engine` is found. Video and audio suites are skipped when ffmpeg is missing, and the PDF suite when
+`esclop-engine` is.

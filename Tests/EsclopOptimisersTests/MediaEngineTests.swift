@@ -187,9 +187,9 @@ import UniformTypeIdentifiers
     }
 }
 
-@Suite(.enabled(if: Harness.hasGhostscript)) struct PDFEngineTests {
+@Suite(.enabled(if: Harness.hasRealEngine)) struct PDFEngineTests {
     @Test func optimiseDownsamplesImages() async throws {
-        let world = try await TestWorld()
+        let world = try await TestWorld(realEngine: true)
         defer { Task { await world.finish() } }
         let pdf = world.file("scan.pdf")
         try Fixture.pdf(pdf)
@@ -203,7 +203,7 @@ import UniformTypeIdentifiers
     }
 
     @Test func defaultOptimisationProducesAValidSmallerPDF() async throws {
-        let world = try await TestWorld()
+        let world = try await TestWorld(realEngine: true)
         defer { Task { await world.finish() } }
         let pdf = world.file("default.pdf")
         try Fixture.pdf(pdf, pages: 2)
@@ -213,7 +213,7 @@ import UniformTypeIdentifiers
     }
 
     @Test func cropUncropAndPages() async throws {
-        let world = try await TestWorld()
+        let world = try await TestWorld(realEngine: true)
         defer { Task { await world.finish() } }
         let pdf = world.file("page.pdf")
         try Fixture.pdf(pdf)
@@ -232,11 +232,13 @@ import UniformTypeIdentifiers
     }
 
     @Test func fitWalksDownTheDPIStops() async throws {
-        let world = try await TestWorld()
+        let world = try await TestWorld(realEngine: true)
         defer { Task { await world.finish() } }
         let pdf = world.file("fit.pdf")
         try Fixture.pdf(pdf)
-        let target = Inspect.bytes(pdf) / 5
+        // The fixture's noise keeps the fidelity gate from taking it much below a quarter at the
+        // default setting: 150 and 100 dpi miss this target, 72 dpi meets it.
+        let target = Inspect.bytes(pdf) / 4
         let result = try await world.engine.fit(pdf, underBytes: target, request: world.request(pdf, location: .temporary), progress: { _ in })
         #expect(result.bytesAfter <= target)
         #expect(PDFDocument(url: result.output) != nil)
@@ -244,13 +246,10 @@ import UniformTypeIdentifiers
 
     @Test func dpiStopsAndAdaptiveChoice() {
         #expect(EsclopEngine.pdfDPIStops == [300, 250, 200, 150, 100, 72, 48])
-        #expect(Ghostscript.stepDown(from: 300) == 250)
-        #expect(Ghostscript.stepDown(from: 48) == 48)
-        #expect(Ghostscript.snap(160) == 150)
-        #expect(Ghostscript.dropLowOutliers([300, 300, 290, 310, 20]) == [300, 300, 290, 310])
-        let args = Ghostscript.arguments(input: "in.pdf", output: "out.pdf", lossy: true, dpi: 72)
-        #expect(args.first == "-dSAFER")
-        #expect(args.contains("-dColorImageResolution=72"))
+        #expect(PDFResolution.stepDown(from: 300) == 250)
+        #expect(PDFResolution.stepDown(from: 48) == 48)
+        #expect(PDFResolution.snap(160) == 150)
+        #expect(PDFResolution.dropLowOutliers([300, 300, 290, 310, 20]) == [300, 300, 290, 310])
     }
 }
 

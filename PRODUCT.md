@@ -32,8 +32,8 @@ macOS; the planned GUI uses SwiftUI and AppKit. The Rust image engine uses image
 oxipng, mozjpeg, fast_image_resize, libwebp, libaom through libavif, and gifski.
 An optional rav1e encoder is available. See the [engine guide](engine/README.md).
 
-The bundled external tools are ffmpeg and ffprobe, Ghostscript and gifsicle, built from
-pinned source. ffmpeg uses an LGPL configuration with VideoToolbox and AudioToolbox encoders.
+The bundled external tools are ffmpeg and ffprobe and gifsicle, built from pinned source;
+PDFs go through the Rust engine. ffmpeg uses an LGPL configuration with VideoToolbox and AudioToolbox encoders.
 ImageIO handles HEIC and other system image formats; ImageIO and Core Image handle HDR gain maps.
 
 ## Release scope

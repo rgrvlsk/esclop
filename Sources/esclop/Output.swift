@@ -46,7 +46,7 @@ extension ResultSummary {
     static func percentText(_ value: Double) -> String { percent(value) }
 }
 
-/// What to do when a bundled tool (esclop-engine, ffmpeg, gs, gifsicle) cannot be found.
+/// What to do when a bundled tool (esclop-engine, ffmpeg, gifsicle) cannot be found.
 let missingToolHint = """
 A bundled tool is missing. The L'Esclop app carries them; from a checkout, build them with \
 Scripts/build-tools.sh and `cargo build --release` in engine/, or point ESCLOP_BIN at a folder that \
