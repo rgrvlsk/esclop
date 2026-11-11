@@ -275,3 +275,52 @@ fn object_streams_that_parse_past_the_budget_are_refused() {
     let (r, _) = rewrite_within(build(&objs), None, Duration::from_secs(30)).expect("over 30 s");
     assert!(is_unsupported(&r), "{:?}", r.map(|r| r.0.len()));
 }
+
+/// A noisy RGB JPEG at quality `q`.
+pub fn jpeg(w: u32, h: u32, q: u8) -> Vec<u8> {
+    let img = image::RgbImage::from_fn(w, h, |x, y| {
+        let n = (x.wrapping_mul(2654435761) ^ y.wrapping_mul(40503)) >> 7;
+        image::Rgb([(x * 255 / w) as u8, (y * 255 / h) as u8, n as u8])
+    });
+    let mut out = Vec::new();
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, q).encode_image(&img).unwrap();
+    out
+}
+
+/// One page drawing one image (object 5) full width.
+fn image_page(image: Vec<u8>) -> Vec<Vec<u8>> {
+    let mut objs = one_page("<< /XObject << /Im 5 0 R >> >>", b"q 612 0 0 612 0 90 cm /Im Do Q");
+    objs.push(image);
+    objs
+}
+
+fn jpeg_image(jpg: &[u8], w: u32, h: u32, extra: &str) -> Vec<u8> {
+    let mut o = format!(
+        "<< /Type /XObject /Subtype /Image /Width {w} /Height {h} /ColorSpace /DeviceRGB /BitsPerComponent 8 {extra} /Filter /DCTDecode /Length {} >>\nstream\n",
+        jpg.len()
+    )
+    .into_bytes();
+    o.extend(jpg);
+    o.extend(b"\nendstream");
+    o
+}
+
+#[test]
+fn an_impossible_bit_depth_keeps_the_image() {
+    let jpg = jpeg(600, 600, 95);
+    let mut o = format!(
+        "<< /Type /XObject /Subtype /Image /Width 600 /Height 600 /ColorSpace /DeviceRGB /BitsPerComponent 4611686018427387904 /Filter /DCTDecode /Length {} >>\nstream\n",
+        jpg.len()
+    )
+    .into_bytes();
+    o.extend(&jpg);
+    o.extend(b"\nendstream");
+    let (r, _) = rewrite_within(build(&image_page(o)), Some(72.0), Duration::from_secs(20)).expect("over 20 s");
+    let (_, lossy) = r.unwrap();
+    assert!(!lossy, "an image with a crafted depth was re-encoded");
+    // The same image at depth 8 is re-encoded.
+    let (r, _) =
+        rewrite_within(build(&image_page(jpeg_image(&jpg, 600, 600, ""))), Some(72.0), Duration::from_secs(20))
+            .expect("over 20 s");
+    assert!(r.unwrap().1);
+}
