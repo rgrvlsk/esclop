@@ -272,6 +272,13 @@ def evaluate(src, out, rec, info, compared, aggressive):
                 fails += [k for k, ok in rec["checks"].items() if not ok]
                 if rec["min_ssim"] is not None and rec["min_ssim"] < (0.95 if aggressive else 0.98):
                     fails.append(f"ssim {rec['min_ssim']:.3f}")
+                fill = compared.get("fillable")
+                if fill is not None:
+                    rec["fillable"] = fill
+                    if fill.get("bad"):
+                        fails.append("fillable")
+                    elif fill.get("error"):
+                        rec["fillable_error"] = fill["error"]
                 if "first_judgement" in compared:
                     rec["first_judgement"] = compared["first_judgement"]
                     rec["ssim_first"] = compared.get("ssim_first", [])
@@ -332,6 +339,14 @@ def process(src, name, a):
                 o2["first_judgement"] = "pass" if not pages else ("glitch" if same else "fail")
             if "outputs" in c2:
                 c = c2
+        # Fillability (formcheck.py): every field's /DA font kept as the original had it.
+        fc = child([sys.executable, HERE / "formcheck.py", src, *[r[2] for r in scored]], INFO_TIMEOUT, TOOL_MEM_MB, "judge")
+        lines = fc.stdout.strip().splitlines() if fc is not None and fc.returncode == 0 else []
+        if len(lines) != len(scored):
+            info["formcheck_error"] = "timeout" if fc is None else (fc.stderr or "")[-200:]
+            lines = []
+        for r, line, o in zip(scored, lines, c.get("outputs", [])):
+            o["fillable"] = json.loads(line)
         info["judge_rss_mb"] = c.get("judge_rss_mb", c.get("rss_mb"))
         if "outputs" in c:
             for r, o in zip(scored, c["outputs"]):

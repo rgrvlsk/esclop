@@ -10,7 +10,8 @@ cargo build --release --manifest-path engine/Cargo.toml
 python3 engine/bench/pdf/run.py /tmp/pdf-corpus --out /tmp/pdf-bench   # gs and engine, 3 runs each
 ```
 
-Needs macOS (PDFKit, Quartz), Python 3 with numpy and Pillow, `gs` on PATH (10.08.0 is what
+Needs macOS (PDFKit, Quartz), Python 3 with numpy, Pillow, pikepdf and fontTools (run `run.py`
+with that interpreter: it runs `formcheck.py` with it), `gs` on PATH (10.08.0 is what
 L'Esclop bundled) and `swiftc` (`DEVELOPER_DIR` pointing at Xcode).
 
 - **Corpus** (`make_corpus.py`): everything is synthesised; no third-party files. Scans (JPEG,
@@ -33,6 +34,10 @@ L'Esclop bundled) and `swiftc` (`DEVELOPER_DIR` pointing at Xcode).
   mean signed luminance difference passes 24): SSIM to four decimals hides a page of lost
   glyphs (0.984 on one), `diffpx_ink` does not, and it ignores the one-pixel antialiasing
   shifts CoreGraphics makes whenever a font's unused glyphs are emptied.
+- **Fillability** (`formcheck.py`, tests in `test_formcheck.py`): for every form field, the font
+  its `/DA` names (in the field's or the AcroForm's `/DR`; for an XFA form, every `/DR` font)
+  must stay embedded with no fewer glyphs, no glyph outline dropped and no `cmap`, charset or
+  encoding entry lost. A field whose font is missing or subset fails the output.
 - **Real corpus** (`fetch_real.py`): the pdf.js test PDFs and one GovDocs1 thread, 1576 files
   pinned by `real.sha256`, kept in the gitignored `.data/` beside the binaries under test.
   `fontoracle.py` renders engine v1's output against a newer engine's on every file: the two
