@@ -134,11 +134,14 @@ fn resolve(doc: &Document, font: &Dictionary, programs: &mut Programs) -> Option
         // TrueType font, lost glyphs): kept whole.
         Some(b"TrueType") if programs.bytes(doc, program).is_some_and(|d| cff_table(d).is_some()) => None,
         Some(b"TrueType") => programs.simple_map(doc, font, program).map(Map::Simple),
-        Some(b"Type0") => cid_map(doc, font).map(|m| Map::Cid(m, programs.cff_cids(doc, program))),
+        Some(b"Type0") => programs.cid_map(doc, font).map(|m| Map::Cid(m, programs.cff_cids(doc, program))),
         _ => None,
     };
     Some(map.map(|map| Font { program, map }).ok_or(program))
 }
+
+/// The longest `/CIDToGIDMap` that means anything: two bytes for each of the 65,536 CIDs.
+const MAX_CID_MAP: usize = 2 << 16;
 
 fn cid_map(doc: &Document, font: &Dictionary) -> Option<Option<Vec<u16>>> {
     if !matches!(name(doc, font, b"Encoding"), Some(b"Identity-H" | b"Identity-V")) {
@@ -154,8 +157,9 @@ fn cid_map(doc: &Document, font: &Dictionary) -> Option<Option<Vec<u16>>> {
     match get(doc, desc, b"CIDToGIDMap") {
         None => Some(None),
         Some(Object::Name(n)) if n == b"Identity" => Some(None),
+        // Decoded only that far: a longer map (or one that inflates further) keeps the font whole.
         Some(Object::Stream(s)) => {
-            let data = s.decompressed_content_with_limit(LIMIT).ok()?;
+            let data = s.decompressed_content_with_limit(MAX_CID_MAP).ok()?;
             Some(Some(data.as_chunks::<2>().0.iter().map(|c| u16::from_be_bytes(*c)).collect()))
         }
         _ => None,
@@ -219,9 +223,28 @@ impl Programs {
             .as_deref()
     }
 
+    /// Takes `bytes` from the document's budget for a map kept for the whole scan; false (and
+    /// `over`) when it does not fit.
+    fn take(&mut self, bytes: usize) -> bool {
+        if self.held.as_ref().is_some_and(|h| h.take(bytes).is_err()) {
+            self.over = true;
+        }
+        !self.over
+    }
+
+    /// The font's `/CIDToGIDMap` (see `cid_map`), counted against the budget.
+    fn cid_map(&mut self, doc: &Document, font: &Dictionary) -> Option<Option<Vec<u16>>> {
+        let m = cid_map(doc, font)?;
+        let bytes = m.as_ref().map_or(0, |m| m.len() * 2);
+        self.take(bytes).then_some(m)
+    }
+
     /// For a program with CFF outlines (bare or in an sfnt), the glyph of each CID in the CFF
-    /// charset (`u16::MAX` where none).
+    /// charset (`u16::MAX` where none), counted against the budget.
     fn cff_cids(&mut self, doc: &Document, program: ObjectId) -> Option<Vec<u16>> {
+        if !self.take(MAX_CID_MAP) {
+            return None;
+        }
         let data = self.bytes(doc, program)?;
         // read-fonts reads no charset from a bare CID-keyed CFF: parsed here.
         let cids = cff::cids(cff_table(data)?)?;
@@ -830,6 +853,33 @@ mod tests {
         out.extend(charset);
         out.extend(cs_index);
         (out, [1, 2, 3])
+    }
+
+    #[test]
+    fn a_cid_map_is_decoded_no_further_than_65536_cids() {
+        use crate::pdf::tests::{build, obj, one_page, stream};
+        // A /CIDToGIDMap that inflates to 200 MB of zeros: not decoded past 128 KB, so not read.
+        let zeros = deflate::zlib(&vec![0u8; 200 << 20], 9);
+        let mut objs = one_page("<< >>", b"");
+        objs.push(obj("<< /Type /Font /Subtype /Type0 /BaseFont /X /Encoding /Identity-H /DescendantFonts [6 0 R] >>"));
+        objs.push(obj("<< /Type /Font /Subtype /CIDFontType2 /BaseFont /X /CIDToGIDMap 7 0 R >>"));
+        let mut o = format!("<< /Filter /FlateDecode /Length {} >>\nstream\n", zeros.len()).into_bytes();
+        o.extend(&zeros);
+        o.extend(b"\nendstream");
+        objs.push(o);
+        // And a real one, two CIDs long.
+        objs.push(obj("<< /Type /Font /Subtype /Type0 /BaseFont /Y /Encoding /Identity-H /DescendantFonts [9 0 R] >>"));
+        objs.push(obj("<< /Type /Font /Subtype /CIDFontType2 /BaseFont /Y /CIDToGIDMap 10 0 R >>"));
+        objs.push(stream("", &[0, 5, 0, 9], true));
+        let doc = Document::load_mem(&build(&objs)).unwrap();
+        let font = |id| doc.get_dictionary((id, 0)).unwrap();
+        assert!(cid_map(&doc, font(5)).is_none(), "an inflating map was decoded");
+        assert_eq!(cid_map(&doc, font(8)), Some(Some(vec![5, 9])));
+        // Kept maps count against the document's budget.
+        let held = Arc::new(Held::new(0));
+        let mut p = Programs { held: Some(held.clone()), ..Default::default() };
+        assert!(p.cid_map(&doc, font(8)).is_some());
+        assert_eq!(super::super::budget::MAX_HELD - held.room(), 4);
     }
 
     #[test]
