@@ -26,6 +26,7 @@
 //!   later) and fonts used through a CMap other than Identity keep their whole program;
 //! - if any content stream fails to parse, no font in the document is subset.
 
+use super::budget::{Held, too_much};
 use super::{cff, deflate};
 use crate::error::{EngineError, Result};
 use lopdf::content::Content;
@@ -161,25 +162,57 @@ fn cid_map(doc: &Document, font: &Dictionary) -> Option<Option<Vec<u16>>> {
     }
 }
 
-/// Decoded font programs, by stream id.
+/// Decoded font programs, by stream id, counted against the document's `Held` budget (`over`
+/// once a program did not fit).
 #[derive(Default)]
-struct Programs(HashMap<ObjectId, Option<Vec<u8>>>);
+struct Programs {
+    data: HashMap<ObjectId, Option<Vec<u8>>>,
+    held: Option<Arc<Held>>,
+    over: bool,
+}
 
 impl Programs {
     fn bytes(&mut self, doc: &Document, id: ObjectId) -> Option<&[u8]> {
-        self.0
+        let held = self.held.clone();
+        let over = &mut self.over;
+        self.data
             .entry(id)
             .or_insert_with(|| {
                 let s = doc.get_object(id).ok()?.as_stream().ok()?;
+                // Decoded only as far as the document's budget has room: past it the operation
+                // is refused, never a program decoded first and counted after.
+                let room = held.as_ref().map_or(LIMIT, |h| h.room().min(LIMIT));
                 // Strictly decoded and of the declared length: a short read would be subset into
                 // a font missing glyphs.
                 let data = match s.filters().unwrap_or_default().as_slice() {
                     [] => s.content.clone(),
                     [b"FlateDecode"] if !s.dict.has(b"DecodeParms") => {
-                        miniz_oxide::inflate::decompress_to_vec_zlib_with_limit(&s.content, LIMIT).ok()?
+                        match miniz_oxide::inflate::decompress_to_vec_zlib_with_limit(&s.content, room) {
+                            Ok(d) => d,
+                            Err(e) => {
+                                *over |= room < LIMIT && e.status == miniz_oxide::inflate::TINFLStatus::HasMoreOutput;
+                                return None;
+                            }
+                        }
                     }
-                    _ => s.decompressed_content_with_limit(LIMIT).ok()?,
+                    _ => match s.decompressed_content_with_limit(room) {
+                        Ok(d) => d,
+                        Err(e) => {
+                            *over |= room < LIMIT
+                                && matches!(
+                                    e,
+                                    lopdf::Error::Decompress(lopdf::DecompressError::MemoryLimitExceeded { .. })
+                                );
+                            return None;
+                        }
+                    },
                 };
+                if let Some(h) = &held
+                    && h.take(data.len()).is_err()
+                {
+                    *over = true;
+                    return None;
+                }
                 let declared = s.dict.get(b"Length1").and_then(|l| l.as_i64()).ok();
                 declared.is_none_or(|l| l as usize == data.len()).then_some(data)
             })
@@ -564,8 +597,13 @@ fn unscanned_programs(doc: &Document, usage: &Usage) -> HashSet<ObjectId> {
 }
 
 /// Glyph ids each TrueType program must keep, for the programs that can be subset.
-fn collect(doc: &Document, cancel: &Arc<AtomicBool>) -> Result<(HashMap<ObjectId, BTreeSet<u16>>, Programs)> {
-    let mut u = Usage { cancel: Some(cancel.clone()), ..Default::default() };
+fn collect(
+    doc: &Document,
+    cancel: &Arc<AtomicBool>,
+    held: &Arc<Held>,
+) -> Result<(HashMap<ObjectId, BTreeSet<u16>>, Programs)> {
+    let programs = Programs { held: Some(held.clone()), ..Default::default() };
+    let mut u = Usage { cancel: Some(cancel.clone()), programs, ..Default::default() };
     for (_, page) in doc.get_pages() {
         let res = page_resources(doc, page);
         // The page's streams joined, within `placement::MAX_CONTENT`.
@@ -594,12 +632,18 @@ fn collect(doc: &Document, cancel: &Arc<AtomicBool>) -> Result<(HashMap<ObjectId
         if u.cancelled {
             return Err(EngineError::cancelled());
         }
+        if u.programs.over {
+            return Err(too_much());
+        }
         if u.failed {
             return Ok((HashMap::new(), u.programs));
         }
     }
     let mut skip = unscanned_programs(doc, &u);
     skip.extend(&u.keep_whole);
+    if u.programs.over {
+        return Err(too_much());
+    }
     let used = u.used.into_iter().filter(|(p, _)| !skip.contains(p)).collect();
     Ok((used, u.programs))
 }
@@ -691,10 +735,11 @@ fn subset(data: &[u8], gids: &BTreeSet<u16>) -> Result<Vec<u8>, String> {
 
 /// Replaces each embedded TrueType program the document can spare glyphs of with its subset,
 /// where that is smaller. Returns how many were replaced.
-pub fn subset_fonts(doc: &mut Document, cancel: &Arc<AtomicBool>) -> Result<usize> {
-    let (used, mut programs) = collect(doc, cancel)?;
+pub fn subset_fonts(doc: &mut Document, cancel: &Arc<AtomicBool>, held: &Arc<Held>) -> Result<usize> {
+    let (used, mut programs) = collect(doc, cancel, held)?;
+    // Moved out of the cache, not copied: the programs are held once.
     let jobs: Vec<(ObjectId, Vec<u8>, BTreeSet<u16>)> =
-        used.into_iter().filter_map(|(id, gids)| Some((id, programs.bytes(doc, id)?.to_vec(), gids))).collect();
+        used.into_iter().filter_map(|(id, gids)| Some((id, programs.data.remove(&id).flatten()?, gids))).collect();
     drop(programs);
     let done: Vec<(ObjectId, Vec<u8>, usize)> = jobs
         .into_par_iter()
