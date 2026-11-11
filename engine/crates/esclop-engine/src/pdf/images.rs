@@ -8,6 +8,7 @@
 //! 8-bit (or 16-bit, reduced to 8) gray, RGB or CMYK in a device, calibrated or ICC-based space,
 //! never for masks, colour-keyed images, indexed, separation, DeviceN or Lab images.
 
+use super::budget::Budget;
 use super::{deflate, mono};
 use crate::codec::jpeg::{self, EncodeOptions, Layout, TranscodeOptions};
 use crate::error::{EngineError, Result};
@@ -92,7 +93,7 @@ fn layout(comps: usize) -> Layout {
 }
 
 /// The new stream for an image and whether its pixels changed, or None to keep it as it is.
-pub fn recompress(doc: &Document, stream: &Stream, plan: &ImagePlan) -> Result<Option<(Stream, bool)>> {
+pub fn recompress(doc: &Document, stream: &Stream, plan: &ImagePlan, budget: &Budget) -> Result<Option<(Stream, bool)>> {
     let d = &stream.dict;
     let (Some(w), Some(h)) = (int(d, b"Width"), int(d, b"Height")) else { return Ok(None) };
     if w <= 0 || h <= 0 || (w as u64) * (h as u64) > MAX_PIXELS {
@@ -106,6 +107,13 @@ pub fn recompress(doc: &Document, stream: &Stream, plan: &ImagePlan) -> Result<O
     let bpc = if stencil { 1 } else { int(d, b"BitsPerComponent").unwrap_or(8) };
     let space = if stencil { Some(Space::Other(1)) } else { space(doc, d.get(b"ColorSpace").ok()) };
     let lossy_ok = !plan.is_mask && !colour_key && !stencil;
+    // Working set: the samples about three times over (decoded, resampled or filtered, encoded).
+    let comps_est = match space {
+        Some(Space::Jpegable(n) | Space::Other(n)) => n.max(1),
+        None => 4,
+    };
+    let cost = (w as usize) * (h as usize) * comps_est * (bpc.max(8) as usize / 8) * 3 + stream.content.len() * 2;
+    let Some(_hold) = budget.hold(cost)? else { return Ok(None) };
     let scale = match (plan.dpi, plan.drawn_dpi) {
         (Some(target), Some(drawn)) if drawn > target * 1.05 => target / drawn,
         _ => 1.0,
@@ -115,16 +123,21 @@ pub fn recompress(doc: &Document, stream: &Stream, plan: &ImagePlan) -> Result<O
     // Huffman coding losslessly.
     if filters.len() == 1 && filters[0] == b"DCTDecode" {
         let original = &stream.content;
+        // The JPEG's own frame must be the image the PDF declares: a frame larger than
+        // `/Width` x `/Height` (a 65280-row placeholder height, say) would be decoded in full.
+        let parts = JpegParts::parse(original).ok();
+        if parts.as_ref().and_then(|p| p.dimensions()) != Some((w, h)) {
+            return Ok(None);
+        }
         let lossless = || -> Option<Vec<u8>> {
             jpeg::codec().transcode(original, &TranscodeOptions { progressive: true, markers: &[] }).ok()
         };
         let best: Option<Vec<u8>> = lossless().filter(|t| t.len() < original.len());
         let jpegable = matches!(space, Some(Space::Jpegable(_))) && lossy_ok && !has_decode_parms;
-        let est =
-            JpegParts::parse(original).ok().and_then(|p| p.luma_qtable()).map(|t| jpeg::codec().estimate_quality(&t));
+        let est = parts.and_then(|p| p.luma_qtable()).map(|t| jpeg::codec().estimate_quality(&t));
         let above = plan.reencode_jpeg && est.is_some_and(|q| q > plan.jpeg_quality);
         if jpegable && (above || scale < 1.0) {
-            let raw = jpeg::decode_samples(original, MAX_PIXELS)?;
+            let raw = jpeg::decode_samples(original, u64::from(w) * u64::from(h))?;
             if raw.width == w && raw.height == h && space == Some(Space::Jpegable(raw.layout.components())) {
                 let comps = raw.layout.components();
                 let (px, nw, nh) = resample(raw.pixels, w, h, comps, scale)?;

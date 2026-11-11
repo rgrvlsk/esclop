@@ -16,9 +16,11 @@
 //! Encrypted input is refused (`unsupported`), and so is input lopdf cannot read completely
 //! (`decode`): a rewrite of a damaged file could silently lose pages.
 
+mod budget;
 mod deflate;
 mod fonts;
 mod images;
+mod integrity;
 mod mono;
 mod placement;
 
@@ -33,8 +35,6 @@ use rayon::prelude::*;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-/// Bound on any one decoded stream, against decompression bombs.
-const MAX_STREAM: usize = 1 << 30;
 
 pub fn optimise(req: &Request, ctx: &Ctx) -> Result<OpResult> {
     let (p, ignored) = parse_params::<PdfParams>(&req.params)?;
@@ -72,8 +72,11 @@ pub fn rewrite(bytes: &[u8], dpi: Option<f64>, jpeg_quality: u8, strip: bool, ct
     if !head.windows(5).any(|w| w == b"%PDF-") {
         return Err(EngineError::unsupported("not a PDF"));
     }
+    if bytes.len() > budget::MAX_INPUT {
+        return Err(EngineError::unsupported(format!("PDFs over {} MB are not rewritten", budget::MAX_INPUT >> 20)));
+    }
     ctx.progress(0.02, "decode");
-    let options = LoadOptions { max_decompressed_size: Some(MAX_STREAM), ..Default::default() };
+    let options = LoadOptions { max_decompressed_size: Some(budget::MAX_STREAM), ..Default::default() };
     let mut doc = match Document::load_mem_with_options(bytes, options) {
         Ok(d) => d,
         Err(e) if is_encrypted(bytes) => return Err(EngineError::unsupported(format!("encrypted PDF: {e}"))),
@@ -82,6 +85,7 @@ pub fn rewrite(bytes: &[u8], dpi: Option<f64>, jpeg_quality: u8, strip: bool, ct
     if doc.trailer.has(b"Encrypt") || doc.was_encrypted() || doc.is_encrypted() {
         return Err(EngineError::unsupported("encrypted PDFs are not rewritten"));
     }
+    integrity::check(bytes, &doc)?;
     let pages = check_complete(&doc)?;
     ctx.check()?;
 
@@ -103,6 +107,7 @@ pub fn rewrite(bytes: &[u8], dpi: Option<f64>, jpeg_quality: u8, strip: bool, ct
     let lossy = AtomicUsize::new(0);
     let cancel = ctx.cancel_flag();
     let total = ids.len().max(1);
+    let budget = budget::Budget::new();
     let replaced: Vec<(ObjectId, Stream)> = ids
         .par_iter()
         .map(|id| -> Result<Option<(ObjectId, Stream)>> {
@@ -118,13 +123,17 @@ pub fn rewrite(bytes: &[u8], dpi: Option<f64>, jpeg_quality: u8, strip: bool, ct
                     is_mask: masks.contains(id),
                     reencode_jpeg: true,
                 };
-                let new = images::recompress(&doc, s, &plan).unwrap_or(None);
+                let new = match images::recompress(&doc, s, &plan, &budget) {
+                    Ok(n) => n,
+                    Err(e) if e.code == crate::error::ErrorCode::Unsupported => return Err(e),
+                    Err(_) => None,
+                };
                 if new.as_ref().is_some_and(|(n, changed)| *changed && n.content.len() < s.content.len()) {
                     lossy.fetch_add(1, Ordering::Relaxed);
                 }
                 new.map(|(n, _)| n)
             } else {
-                recompress_stream(s)
+                recompress_stream(s, &budget)?
             };
             let n = done.fetch_add(1, Ordering::Relaxed) + 1;
             if n.is_multiple_of(16) {
@@ -148,9 +157,16 @@ pub fn rewrite(bytes: &[u8], dpi: Option<f64>, jpeg_quality: u8, strip: bool, ct
         doc.version = "1.5".into();
     }
     ctx.progress(0.92, "write");
-    let mut out = Vec::new();
+    let mut writer = budget::CappedWriter::new(budget::max_output(bytes.len()));
     let save = SaveOptions::builder().use_object_streams(true).use_xref_streams(true).compression_level(9).build();
-    doc.save_with_options(&mut out, save).map_err(|e| EngineError::encode(format!("writing the PDF: {e}")))?;
+    if let Err(e) = doc.save_with_options(&mut writer, save) {
+        return Err(if writer.buf.len() + (1 << 20) > budget::max_output(bytes.len()) {
+            EngineError::unsupported("the rewritten PDF would be more than twice the size of the original")
+        } else {
+            EngineError::encode(format!("writing the PDF: {e}"))
+        });
+    }
+    let out = writer.buf;
 
     // The result must read back with every page.
     let back =
@@ -199,7 +215,7 @@ fn check_complete(doc: &Document) -> Result<usize> {
                 .get_object(r)
                 .and_then(|o| o.as_stream())
                 .map_err(|_| EngineError::decode("a page's content is missing"))?;
-            if s.filters().is_ok() && s.decompressed_content_with_limit(MAX_STREAM).is_err() {
+            if s.filters().is_ok() && s.decompressed_content_with_limit(budget::MAX_STREAM).is_err() {
                 return Err(EngineError::decode("a page's content does not decode"));
             }
         }
@@ -225,25 +241,39 @@ fn mask_ids(doc: &Document) -> HashSet<ObjectId> {
 /// Flate or unfiltered streams other than images, recompressed. Metadata streams stay as they
 /// are (PDF/A wants XMP readable without decoding), and so do streams with predictors or other
 /// filters.
-fn recompress_stream(s: &Stream) -> Option<Stream> {
+fn recompress_stream(s: &Stream, budget: &budget::Budget) -> Result<Option<Stream>> {
     let d = &s.dict;
     let ty = d.get(b"Type").and_then(|t| t.as_name()).ok();
     if matches!(ty, Some(b"Metadata" | b"XRef" | b"ObjStm")) || d.has(b"DecodeParms") {
-        return None;
+        return Ok(None);
     }
     let filters = s.filters().unwrap_or_default();
     if !filters.iter().all(|f| matches!(*f, b"FlateDecode" | b"Fl")) || filters.len() > 1 {
-        return None;
+        return Ok(None);
     }
-    let data = s.decompressed_content_with_limit(MAX_STREAM).ok()?;
+    // Room for twenty times the stored size: a stream that inflates more is already compact
+    // and stays as stored.
+    let room = (s.content.len() * 20).clamp(1 << 20, budget::MAX_STREAM);
+    let Some(_hold) = budget.hold(room * 2)? else { return Ok(None) };
+    // No filter (or an empty `/Filter []`, which lopdf decodes to nothing): the stored bytes are
+    // the data.
+    let data = if filters.is_empty() {
+        s.content.clone()
+    } else {
+        let Ok(data) = s.decompressed_content_with_limit(room) else { return Ok(None) };
+        data
+    };
+    if data.is_empty() && !s.content.is_empty() {
+        return Ok(None);
+    }
     // libdeflate's level 12 runs at a few MB/s; large streams (fonts, big drawings) get 9.
     let packed = deflate::zlib(&data, if data.len() > 256 << 10 { 9 } else { 12 });
     if packed.len() >= s.content.len() {
-        return None;
+        return Ok(None);
     }
     let mut nd = d.clone();
     nd.set("Filter", Object::Name(b"FlateDecode".to_vec()));
-    Some(Stream::new(nd, packed))
+    Ok(Some(Stream::new(nd, packed)))
 }
 
 fn strip_metadata(doc: &mut Document) {
