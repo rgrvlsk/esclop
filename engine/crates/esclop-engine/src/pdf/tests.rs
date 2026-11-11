@@ -632,3 +632,20 @@ fn an_encrypted_input_shares_one_limit_between_its_object_streams() {
     assert_eq!(e.reason, Some(reasons::ENCRYPTED_LARGE));
     assert_eq!(names_count(b"/ObjStm/ObjStmX /Obj#53tm (/ObjStm)", b"ObjStm"), 3);
 }
+
+#[test]
+fn the_font_scan_stops_at_the_operator_cap() {
+    // 2,000 fonts, each set before a Do of one form of 200,000 operators: 400 million operators
+    // if every font walked the form again.
+    let n = 2000;
+    let fonts: String =
+        (0..n).map(|i| format!("/F{i} << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> ")).collect();
+    let content: String = (0..n).map(|i| format!("/F{i} 9 Tf /X Do\n")).collect();
+    let mut objs = one_page(&format!("<< /Font << {fonts}>> /XObject << /X 5 0 R >> >>"), content.as_bytes());
+    objs.push(stream("/Type /XObject /Subtype /Form /BBox [0 0 1 1]", &b"0 0 m\n".repeat(200_000), true));
+    let mut doc = Document::load_mem(&build(&objs)).unwrap();
+    let held = std::sync::Arc::new(budget::Held::new(0));
+    let t = Instant::now();
+    fonts::subset_fonts(&mut doc, &Ctx::silent().cancel_flag(), &held).unwrap();
+    assert!(t.elapsed() < Duration::from_secs(5), "{:?}", t.elapsed());
+}
