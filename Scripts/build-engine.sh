@@ -7,8 +7,10 @@
 # - Each target first gets the pinned libaom from Scripts/build-libaom.sh (needs cmake, and nasm
 #   for x86_64), which the AVIF encoder links instead of libaom-sys's older bundled copy.
 # - Strips, re-signs ad hoc (lipo and strip invalidate the linker's signature), then checks the
-#   targets: each slice at most 15 MB, and no dynamic library outside /usr/lib and
-#   /System/Library in any slice (Scripts/foreign-dylibs.sh).
+#   targets: each slice at most 22 MB, and no dynamic library outside /usr/lib and
+#   /System/Library in any slice (Scripts/foreign-dylibs.sh). The limit catches a dependency that
+#   brings far more than it should; PDF support (lopdf, font subsetting, JPEG 2000) added about
+#   6 MB per slice, the x86_64 slice is about 20 MB, and the bundle lost Ghostscript's 32 MB.
 #
 # - Writes Binaries/LICENSES/libaom.txt, the licence of the C library statically in the engine.
 #
@@ -24,7 +26,7 @@ for arg in "$@"; do
     esac
 done
 
-MAX_SLICE_BYTES=$((15 * 1024 * 1024))
+MAX_SLICE_BYTES=$((22 * 1024 * 1024))
 OUT=Binaries/esclop-engine
 export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-14.0}"
 # Rust embeds source paths in panic locations, including dependency paths under the home directory.
@@ -84,7 +86,7 @@ for arch in $(lipo -archs "$OUT"); do
     bytes=$(wc -c < "$TMP_SLICE" | tr -d ' ')
     echo "build-engine: $arch slice $bytes bytes (limit $MAX_SLICE_BYTES)" >&2
     if [ "$bytes" -gt "$MAX_SLICE_BYTES" ]; then
-        echo "build-engine: FAIL $arch slice is over 15 MB" >&2
+        echo "build-engine: FAIL $arch slice is over 22 MB" >&2
         status=1
     fi
 done

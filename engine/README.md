@@ -69,8 +69,9 @@ lipo -archs Binaries/esclop-engine
 A Homebrew `rust` without rustup has only the host's standard library, so the script then
 builds the host slice and says which target it skipped. CI must use rustup.
 
-The script fails when a slice is larger than 15 MB or when `otool -L` shows a library outside
-`/usr/lib` and `/System/Library/Frameworks` (today: libSystem and libiconv only).
+The script fails when a slice is larger than 22 MB (the x86_64 slice is about 20 MB, arm64 about
+14 MB) or when `otool -L` shows a library outside `/usr/lib` and `/System/Library/Frameworks`
+(today: libSystem and libiconv only).
 
 ## Test
 
