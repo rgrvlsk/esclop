@@ -73,6 +73,10 @@ pub struct ErrorBody {
     pub code: ErrorCode,
     /// For people and agents; do not parse.
     pub message: String,
+    /// With `unsupported`: why the file is left as it is, one sentence meant to be shown to
+    /// people as it is (or translated). Absent when there is nothing to say beyond `message`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
 }
 
 /// Progress line, zero or more per request before its response.

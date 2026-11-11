@@ -31,6 +31,7 @@ mod inline;
 mod integrity;
 mod mono;
 mod placement;
+pub mod reasons;
 #[cfg(test)]
 mod tests;
 
@@ -114,7 +115,10 @@ pub fn rewrite(bytes: &[u8], settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>,
         return Err(EngineError::unsupported("not a PDF"));
     }
     if bytes.len() > budget::MAX_INPUT {
-        return Err(EngineError::unsupported(format!("PDFs over {} MB are not rewritten", budget::MAX_INPUT >> 20)));
+        return Err(EngineError::left_as_is(
+            reasons::TOO_LARGE,
+            format!("PDFs over {} MB are not rewritten", budget::MAX_INPUT >> 20),
+        ));
     }
     ctx.progress(0.02, "decode");
     let options = LoadOptions {
@@ -151,16 +155,18 @@ pub fn rewrite(bytes: &[u8], settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>,
     let mut doc = match loaded {
         Ok(d) => d,
         Err(lopdf::Error::Decompress(lopdf::DecompressError::MemoryLimitExceeded { .. })) => {
-            return Err(EngineError::unsupported(format!(
-                "this PDF has an object stream over {} MB",
-                budget::MAX_LOAD_STREAM >> 20
-            )));
+            return Err(EngineError::left_as_is(
+                reasons::MEMORY,
+                format!("this PDF has an object stream over {} MB", budget::MAX_LOAD_STREAM >> 20),
+            ));
         }
-        Err(e) if is_encrypted(bytes) => return Err(EngineError::unsupported(format!("encrypted PDF: {e}"))),
+        Err(e) if is_encrypted(bytes) => {
+            return Err(EngineError::left_as_is(reasons::ENCRYPTION, format!("encrypted PDF: {e}")));
+        }
         Err(e) => return Err(EngineError::decode(format!("unreadable PDF: {e}"))),
     };
     if doc.is_encrypted() {
-        return Err(EngineError::unsupported("this PDF needs a password"));
+        return Err(EngineError::left_as_is(reasons::PASSWORD, "this PDF needs a password"));
     }
     // Set when lopdf opened the file with the empty user password: the output is encrypted
     // again with it, never left unprotected.
@@ -169,13 +175,20 @@ pub fn rewrite(bytes: &[u8], settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>,
     // it does not follow (pdf.js issue7665, `/CF` given by reference) and hand back undecrypted
     // strings as if the file were plain; writing that out would lose the protection and the text.
     if encryption.is_none() && names_encryption(bytes, &doc) {
-        return Err(EngineError::unsupported("this PDF's encryption cannot be read and written again"));
+        return Err(EngineError::left_as_is(
+            reasons::ENCRYPTION,
+            "this PDF's encryption cannot be read and written again",
+        ));
     }
     let handler = match &encryption {
         Some(state) => {
-            let dict = state.encode().map_err(|e| EngineError::unsupported(format!("encryption: {e}")))?;
+            let dict =
+                state.encode().map_err(|e| EngineError::left_as_is(reasons::ENCRYPTION, format!("encryption: {e}")))?;
             if dict.get(b"Filter").and_then(|f| f.as_name()).ok() != Some(b"Standard") {
-                return Err(EngineError::unsupported("only the standard security handler is rewritten"));
+                return Err(EngineError::left_as_is(
+                    reasons::ENCRYPTION,
+                    "only the standard security handler is rewritten",
+                ));
             }
             // From V4 on, the crypt filters /StmF and /StrF name must be defined: lopdf leaves
             // them out when `/CF` is a reference (pdf.js issue7665) and would then decrypt and
@@ -185,7 +198,10 @@ pub fn rewrite(bytes: &[u8], settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>,
                 for key in [&b"StmF"[..], b"StrF"] {
                     let name = dict.get(key).and_then(|n| n.as_name()).unwrap_or(b"Identity");
                     if name != b"Identity" && !cf.is_some_and(|cf| cf.has(name)) {
-                        return Err(EngineError::unsupported("this PDF's crypt filters cannot be read"));
+                        return Err(EngineError::left_as_is(
+                            reasons::ENCRYPTION,
+                            "this PDF's crypt filters cannot be read",
+                        ));
                     }
                 }
             }
@@ -198,7 +214,10 @@ pub fn rewrite(bytes: &[u8], settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>,
                 .any(|o| matches!(o, Object::Stream(s) if s.filters().is_ok_and(|f| f.iter().any(|n| *n == b"Crypt"))));
             let eff = dict.get(b"EFF").and_then(|n| n.as_name()).ok();
             if per_stream || eff.is_some_and(|e| Some(e) != dict.get(b"StmF").and_then(|n| n.as_name()).ok()) {
-                return Err(EngineError::unsupported("this PDF's per-stream encryption is not reproduced"));
+                return Err(EngineError::left_as_is(
+                    reasons::ENCRYPTION,
+                    "this PDF's per-stream encryption is not reproduced",
+                ));
             }
             Some(dict)
         }
@@ -207,7 +226,7 @@ pub fn rewrite(bytes: &[u8], settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>,
     // A rewrite moves every byte a signature's /ByteRange covers, and Reader usage rights
     // (/Perms /UR3) are a signature too.
     if is_signed(&doc) {
-        return Err(EngineError::unsupported("Signed PDFs are left as they are, so their signatures stay valid"));
+        return Err(EngineError::left_as_is(reasons::SIGNED, "signed: a /ByteRange signature or the catalog's /Perms"));
     }
     ctx.check()?;
     integrity::check(bytes, &doc, &ctx.cancel_flag())?;

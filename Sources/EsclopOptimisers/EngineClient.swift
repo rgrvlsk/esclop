@@ -363,7 +363,8 @@ public actor EngineClient {
                 entry.continuation.resume(throwing: Self.mapError(
                     code: error["code"]?.stringValue ?? "internal",
                     message: error["message"]?.stringValue ?? "esclop-engine failed",
-                    kind: entry.kind
+                    kind: entry.kind,
+                    reason: error["reason"]?.stringValue
                 ))
             }
         } else {
@@ -374,7 +375,12 @@ public actor EngineClient {
 
     /// `kind` is the input's: the engine's `decode` (it could not read the file) is a damaged
     /// file of that kind, its message going to the log.
-    static func mapError(code: String, message: String, kind: MediaKind? = nil) -> EsclopError {
+    /// `reason`, with `unsupported`: why the file is left as it is, for people.
+    static func mapError(code: String, message: String, kind: MediaKind? = nil, reason: String? = nil) -> EsclopError {
+        if code == "unsupported", let reason, !reason.isEmpty {
+            Log.engine.info("esclop-engine left the input as it is: \(message, privacy: .public)")
+            return .leftAsIs(reason)
+        }
         if code == "decode", let kind {
             Log.engine.info("esclop-engine could not read the input: \(message, privacy: .public)")
             return .unreadable(kind: kind)

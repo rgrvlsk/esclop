@@ -351,7 +351,7 @@ fn signed_and_reader_extended_pdfs_are_left_as_they_are() {
         let (r, _) = rewrite_within(build(&objs), Some(72.0), Duration::from_secs(20)).expect("over 20 s");
         match r {
             Err(e) => assert!(
-                e.code == crate::error::ErrorCode::Unsupported && e.message.contains("signatures stay valid"),
+                e.code == crate::error::ErrorCode::Unsupported && e.reason == Some(reasons::SIGNED),
                 "{name}: {e:?}"
             ),
             Ok(_) => panic!("{name}: rewritten"),
@@ -581,4 +581,15 @@ fn a_page_tree_the_xref_misplaces_is_rebuilt_as_lopdf_would() {
     let (r, _) = rewrite_within(broken, Some(150.0), Duration::from_secs(20)).expect("over 20 s");
     let out = r.unwrap().0;
     assert_eq!(Document::load_mem(&out).unwrap().get_pages().len(), 1);
+}
+
+#[test]
+fn a_reason_reaches_the_reply() {
+    let r = crate::error_response(serde_json::json!("1"), EngineError::left_as_is(reasons::SIGNED, "signed"));
+    let line = serde_json::to_value(&r).unwrap();
+    assert_eq!(line["error"]["reason"], reasons::SIGNED);
+    assert_eq!(line["error"]["code"], "unsupported");
+    let plain =
+        serde_json::to_value(crate::error_response(serde_json::json!("1"), EngineError::unsupported("x"))).unwrap();
+    assert!(plain["error"].get("reason").is_none());
 }

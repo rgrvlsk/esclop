@@ -105,5 +105,10 @@ pub fn respond(req: &Request, ctx: &Ctx) -> Response {
 }
 
 pub fn error_response(id: serde_json::Value, e: EngineError) -> Response {
-    Response { id, ok: false, result: None, error: Some(ErrorBody { code: e.code, message: e.message }) }
+    Response {
+        id,
+        ok: false,
+        result: None,
+        error: Some(ErrorBody { code: e.code, message: e.message, reason: e.reason.map(String::from) }),
+    }
 }
