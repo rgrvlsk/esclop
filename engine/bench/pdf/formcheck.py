@@ -36,12 +36,12 @@ def fields(pdf):
     out = []
 
     def walk(f, prefix, depth):
-        if depth > 32:
+        if depth > 32 or not isinstance(f, pikepdf.Dictionary):
             return
         t = f.get("/T")
         name = f"{prefix}.{t}" if prefix and t is not None else (str(t) if t is not None else prefix)
         kids = f.get("/Kids")
-        if kids is not None and any("/T" in k for k in kids):
+        if isinstance(kids, pikepdf.Array) and any(isinstance(k, pikepdf.Dictionary) and "/T" in k for k in kids):
             for k in kids:
                 walk(k, name, depth + 1)
         else:
@@ -73,8 +73,8 @@ def da_font(pdf, f):
         return None
     name = "/" + m.group(1).decode("latin-1")
     for res in (inherited(f, "/DR"), form.get("/DR") if form is not None else None):
-        fonts = res.get("/Font") if res is not None else None
-        if fonts is not None and name in fonts:
+        fonts = res.get("/Font") if isinstance(res, pikepdf.Dictionary) else None
+        if isinstance(fonts, pikepdf.Dictionary) and name in fonts:
             return fonts[name]
     return None
 
@@ -175,8 +175,9 @@ def xfa_fonts(pdf):
     form = pdf.Root.get("/AcroForm")
     if form is None or "/XFA" not in form:
         return {}
-    fonts = form.get("/DR", {}).get("/Font", {})
-    return {str(k): v for k, v in fonts.items()}
+    dr = form.get("/DR")
+    fonts = dr.get("/Font") if isinstance(dr, pikepdf.Dictionary) else None
+    return {str(k): v for k, v in fonts.items()} if isinstance(fonts, pikepdf.Dictionary) else {}
 
 
 def check(original, output):
