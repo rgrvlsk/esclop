@@ -50,6 +50,8 @@ public struct S3Uploader: Sendable {
             throw EsclopError.other(Strings.format("Could not reach %@: %@", url.host() ?? target.endpoint, error.localizedDescription))
         }
         guard let http = response as? HTTPURLResponse else { throw EsclopError.other(Strings.text("The upload target did not answer.")) }
+        // The session reports sent bytes on its own queue; none may land after the last word.
+        delegate.finish()
         guard (200 ..< 300).contains(http.statusCode) else {
             throw EsclopError.other(Self.refusal(status: http.statusCode, body: data))
         }
@@ -71,16 +73,24 @@ public struct S3Uploader: Sendable {
     }
 }
 
-/// Reports the bytes sent.
+/// Reports the bytes sent, until the upload is over.
 private final class ProgressDelegate: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
     let report: @Sendable (Double) -> Void
+    private let lock = NSLock()
+    private var finished = false
 
     init(_ report: @escaping @Sendable (Double) -> Void) {
         self.report = report
     }
 
+    func finish() { lock.withLock { finished = true } }
+
     func urlSession(_ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
         guard totalBytesExpectedToSend > 0 else { return }
-        report(min(0.99, Double(totalBytesSent) / Double(totalBytesExpectedToSend)))
+        // Under the lock, so a report never crosses finish().
+        lock.withLock {
+            guard !finished else { return }
+            report(min(0.99, Double(totalBytesSent) / Double(totalBytesExpectedToSend)))
+        }
     }
 }

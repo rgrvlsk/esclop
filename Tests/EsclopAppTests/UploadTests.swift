@@ -19,15 +19,21 @@ struct S3TestServer {
 
     static let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
 
-    /// Off the main actor: the first start installs moto, which takes a while.
+    /// One server for the whole test run (a start takes half a minute on a CI runner), started off
+    /// the main actor and stopped when the test process ends. Tests use their own keys in it.
     static func start() async throws -> S3TestServer {
-        try await Task.detached { try launch() }.value
+        try await shared.value
     }
+
+    private static let shared = Task.detached { try launch() }
 
     private static func launch() throws -> S3TestServer {
         let process = Process()
         process.executableURL = root.appendingPathComponent("Scripts/s3-test-server.sh")
         process.arguments = ["start"]
+        var environment = ProcessInfo.processInfo.environment
+        environment["ESCLOP_S3_OWNER"] = String(ProcessInfo.processInfo.processIdentifier)
+        process.environment = environment
         let out = Pipe()
         process.standardOutput = out
         try process.run()
@@ -43,7 +49,8 @@ struct S3TestServer {
         )
     }
 
-    func stop() { kill(pid, SIGTERM) }
+    /// The server outlives each test: it goes when the test process does.
+    func stop() {}
 
     func target(_ name: String = "Local", publicURL: String = "") -> UploadTarget {
         UploadTarget(name: name, endpoint: endpoint, bucket: bucket, region: "us-east-1", path: "tests/%f.%e", publicURL: publicURL)
