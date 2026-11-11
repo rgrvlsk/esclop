@@ -34,6 +34,8 @@ libdeflater = "1.26.1"
 # MIT OR Apache-2.0 (googlefonts/fontations): font subsetting for embedded TrueType fonts.
 read-fonts = { version = "0.46.0", default-features = false, features = ["std"] }
 skera = "0.9.0"
+# MIT OR Apache-2.0 (googlefonts/fontations): rebuilds OpenType fonts whose CFF table was subset.
+write-fonts = "0.55.0"
 # MIT OR Apache-2.0 (LaurenzV/hayro): JPEG 2000 decoding for JPXDecode images.
 hayro-jpeg2000 = { version = "0.5.0", default-features = false, features = ["std", "simd"] }
 lopdf = { version = "0.47.0", default-features = false }

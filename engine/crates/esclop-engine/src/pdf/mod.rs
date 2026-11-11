@@ -7,7 +7,8 @@
 //!   the compression factor's ceiling (only where that is safe, see `images`) and Flate with PNG
 //!   predictors; JPEGs at or under the ceiling are only re-coded losslessly;
 //! - every other Flate or uncompressed stream is recompressed with libdeflate's strongest level;
-//! - embedded TrueType fonts keep only the glyphs the document draws (see `fonts`);
+//! - embedded TrueType and CFF fonts keep only the glyphs the document draws (see `fonts`);
+//! - large inline images are moved into image XObjects first (see `inline`);
 //! - identical streams are stored once, unreachable objects are dropped, and the rest go into
 //!   object streams with a cross-reference stream;
 //! - with `strip`, the document information dictionary, the catalog's XMP, page thumbnails and
@@ -21,9 +22,11 @@
 //! (`decode`): a rewrite of a damaged file could silently lose pages.
 
 mod budget;
+mod cff;
 mod deflate;
 mod fonts;
 mod images;
+mod inline;
 mod integrity;
 mod mono;
 mod placement;
@@ -139,6 +142,8 @@ pub fn rewrite(bytes: &[u8], dpi: Option<f64>, jpeg_quality: u8, min_ssim: f64, 
     if strip {
         strip_metadata(&mut doc);
     }
+    // Before the placement walk, so the moved images get their drawn size.
+    inline::move_inline_images(&mut doc);
     // Unreachable fonts would otherwise count as used by something the font scan cannot see.
     doc.prune_objects();
     ctx.progress(0.03, "fonts");
