@@ -82,11 +82,33 @@ public actor EngineClient {
     private var cachedCapabilities: EngineCapabilities?
     private var exits: [Date] = []
     private var stopping: ObjectIdentifier?
+    /// Requests cancelled (or timed out) while running whose reply has not come back yet, by the
+    /// child that runs them. One still missing after `cancelGrace` holds a worker in a step that
+    /// does not check for cancellation: the child is restarted to free it. (A request still queued
+    /// is answered at once by the engine, so it is never watched.)
+    private var abandoned: [String: ObjectIdentifier] = [:]
+    private let cancelGrace: TimeInterval
+    /// The ops that check for cancellation all the way through, so one still running long after
+    /// a cancel is stuck. The others (the AVIF and WebP encoders, `convert`, `gif.from_frames`)
+    /// finish what they started whatever the cancel: restarting the engine for them would only
+    /// kill the other requests it runs.
+    private let watchedOps: Set<String>
+    public static let opsThatStopWhenCancelled: Set<String> = ["pdf.optimise"]
 
     private struct Pending {
         let continuation: CheckedContinuation<[String: JSONValue], Error>
         let progress: (@Sendable (Double) -> Void)?
         let generation: ObjectIdentifier
+        /// The input's kind, for a `decode` refusal (a damaged file of that kind).
+        let kind: MediaKind?
+        /// How long it may run once a worker has it (the engine's `started` event).
+        let timeout: TimeInterval?
+        /// The input's name (or the op), for the time-out message.
+        let label: String
+        /// A worker took it: a cancel then has to stop it, rather than drop it from the queue.
+        var started = false
+        /// The op checks for cancellation (see `watchedOps`).
+        let watched: Bool
     }
 
     /// The child process went away while a request was in flight.
@@ -97,12 +119,20 @@ public actor EngineClient {
 
     /// `executable` overrides the locator (tests point it at a fake engine); `environment` is
     /// added to the child's.
-    public init(locator: ToolLocator = .shared, executable: URL? = nil, arguments: [String] = ["serve"], environment: [String: String] = [:]) {
+    public init(
+        locator: ToolLocator = .shared, executable: URL? = nil, arguments: [String] = ["serve"], environment: [String: String] = [:],
+        cancelGrace: TimeInterval = 30, watchedOps: Set<String> = EngineClient.opsThatStopWhenCancelled
+    ) {
         self.locator = locator
         self.executable = executable
         self.arguments = arguments
         self.environment = environment
+        self.cancelGrace = cancelGrace
+        self.watchedOps = watchedOps
     }
+
+    /// The running child's process id (tests).
+    var childProcessIdentifier: Int32? { running?.processIdentifier }
 
     /// Whether an engine executable exists at all.
     public nonisolated var isInstalled: Bool {
@@ -142,17 +172,19 @@ public actor EngineClient {
     // MARK: Calls
 
     /// Runs one op. `input`/`output` are absolute file URLs. Errors map onto `EsclopError`.
+    /// With `timeout`, a request still running that long after a worker took it is cancelled
+    /// and fails (time spent queued behind other requests does not count; see `abandoned`).
     @discardableResult
     public func call(
         _ op: String, input: URL? = nil, output: URL? = nil, params: [String: JSONValue] = [:],
-        progress: (@Sendable (Double) -> Void)? = nil
+        timeout: TimeInterval? = nil, progress: (@Sendable (Double) -> Void)? = nil
     ) async throws -> EngineReply {
         do {
-            return EngineReply(try await send(op: op, input: input, output: output, params: params, progress: progress))
+            return EngineReply(try await send(op: op, input: input, output: output, params: params, timeout: timeout, progress: progress))
         } catch is ChildExited {
             // The child crashed or was restarted under us; one more go on a fresh child.
             do {
-                return EngineReply(try await send(op: op, input: input, output: output, params: params, progress: progress))
+                return EngineReply(try await send(op: op, input: input, output: output, params: params, timeout: timeout, progress: progress))
             } catch let exited as ChildExited {
                 throw EsclopError.toolFailed(
                     tool: Tool.esclopEngine.rawValue, exitCode: exited.status,
@@ -173,7 +205,7 @@ public actor EngineClient {
     }
 
     private func send(
-        op: String, input: URL?, output: URL?, params: [String: JSONValue]?,
+        op: String, input: URL?, output: URL?, params: [String: JSONValue]?, timeout: TimeInterval? = nil,
         progress: (@Sendable (Double) -> Void)?
     ) async throws -> [String: JSONValue] {
         if Task.isCancelled { throw EsclopError.cancelled }
@@ -194,7 +226,11 @@ public actor EngineClient {
                     continuation.resume(throwing: EsclopError.cancelled)
                     return
                 }
-                pending[id] = Pending(continuation: continuation, progress: progress, generation: ObjectIdentifier(child))
+                pending[id] = Pending(
+                    continuation: continuation, progress: progress, generation: ObjectIdentifier(child),
+                    kind: input.flatMap(MediaKind.of), timeout: timeout, label: input?.lastPathComponent ?? op,
+                    watched: watchedOps.contains(op)
+                )
                 do {
                     try child.send(line)
                 } catch {
@@ -213,7 +249,50 @@ public actor EngineClient {
             return
         }
         entry.continuation.resume(throwing: EsclopError.cancelled)
+        stop(id, entry)
+    }
+
+    /// Tells the engine to stop `id`; a running one is watched until its reply comes back.
+    private func stop(_ id: String, _ entry: Pending) {
         try? running?.send(JSONValue.object(["id": .string(id), "op": "cancel"]).jsonString())
+        guard entry.started, entry.watched else { return }
+        abandoned[id] = entry.generation
+        let grace = cancelGrace
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(grace * 1_000_000_000))
+            await self?.restartIfStillRunning(id)
+        }
+    }
+
+    /// A worker took `id`: its time limit starts.
+    private func started(_ id: String) {
+        guard var entry = pending[id], !entry.started else { return }
+        entry.started = true
+        pending[id] = entry
+        guard let timeout = entry.timeout else { return }
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+            await self?.timedOut(id)
+        }
+    }
+
+    /// `id` ran past its time limit: it fails, and the engine is told to stop it.
+    private func timedOut(_ id: String) {
+        guard let entry = pending.removeValue(forKey: id), let timeout = entry.timeout else { return }
+        let seconds = timeout < 10 ? String(format: "%.1f", timeout) : String(Int(timeout))
+        entry.continuation.resume(throwing: EsclopError.toolFailed(
+            tool: Tool.esclopEngine.rawValue, exitCode: -1,
+            stderr: "esclop-engine did not finish \(entry.label) within \(seconds) s"
+        ))
+        stop(id, entry)
+    }
+
+    /// The cancelled request `id` never came back: its worker is stuck, so the child goes.
+    /// Requests still in flight on it fail with `ChildExited` and are retried once.
+    private func restartIfStillRunning(_ id: String) {
+        guard let generation = abandoned.removeValue(forKey: id), let running, ObjectIdentifier(running) == generation else { return }
+        Log.engine.error("esclop-engine did not stop request \(id, privacy: .public) when cancelled; restarting it")
+        shutdown()
     }
 
     // MARK: Child process
@@ -257,6 +336,7 @@ public actor EngineClient {
         // Let replies the child wrote before exiting arrive first.
         await reader?.value
         let generation = ObjectIdentifier(child)
+        abandoned = abandoned.filter { $0.value != generation }
         let stderr = child.stderrTail.trimmingCharacters(in: .whitespacesAndNewlines).suffix(1000)
         for (id, entry) in pending where entry.generation == generation {
             pending[id] = nil
@@ -287,8 +367,13 @@ public actor EngineClient {
             }
             return
         }
+        if let event = object["event"]?.stringValue {
+            if event == "started", let id { started(id) }
+            return
+        }
 
         // A reply without an id can only be the hello answer in its bare form.
+        if let id { abandoned[id] = nil }
         guard let id, let entry = pending.removeValue(forKey: id) else {
             if id == nil, object["version"] != nil,
                let helloID = helloIDs.first(where: { pending[$0] != nil })
@@ -305,7 +390,9 @@ public actor EngineClient {
                 let error = object["error"]?.objectValue ?? [:]
                 entry.continuation.resume(throwing: Self.mapError(
                     code: error["code"]?.stringValue ?? "internal",
-                    message: error["message"]?.stringValue ?? "esclop-engine failed"
+                    message: error["message"]?.stringValue ?? "esclop-engine failed",
+                    kind: entry.kind,
+                    reason: error["reason"]?.stringValue
                 ))
             }
         } else {
@@ -314,7 +401,18 @@ public actor EngineClient {
         }
     }
 
-    static func mapError(code: String, message: String) -> EsclopError {
+    /// `kind` is the input's: the engine's `decode` (it could not read the file) is a damaged
+    /// file of that kind, its message going to the log.
+    /// `reason`, with `unsupported`: why the file is left as it is, for people.
+    static func mapError(code: String, message: String, kind: MediaKind? = nil, reason: String? = nil) -> EsclopError {
+        if code == "unsupported", let reason, !reason.isEmpty {
+            Log.engine.info("esclop-engine left the input as it is: \(message, privacy: .public)")
+            return .leftAsIs(reason)
+        }
+        if code == "decode", let kind {
+            Log.engine.info("esclop-engine could not read the input: \(message, privacy: .public)")
+            return .unreadable(kind: kind)
+        }
         switch code {
         case "unsupported": return .unsupportedFile(message)
         case "not_found": return .fileNotFound(message)

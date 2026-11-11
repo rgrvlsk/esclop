@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Builds the command-line tools esclop bundles (ffmpeg, ffprobe, gs, gifsicle)
+# Builds the command-line tools esclop bundles (ffmpeg, ffprobe, gifsicle)
 # from pinned upstream SOURCE tarballs into Binaries/ as universal
 # (arm64 + x86_64) executables. It never downloads prebuilt binaries.
 #
-#   Scripts/build-tools.sh [--force] [--verify] [--no-verify] [ffmpeg|gs|gifsicle ...]
+#   Scripts/build-tools.sh [--force] [--verify] [--no-verify] [ffmpeg|gifsicle ...]
 #
 # See docs/build-tools.md. Targets bash 3.2 (the macOS system bash).
 set -euo pipefail
@@ -44,9 +44,6 @@ SVT_VER=4.3.0
 SVT_URL=https://gitlab.com/AOMediaCodec/SVT-AV1/-/archive/v4.3.0/SVT-AV1-v4.3.0.tar.gz
 SVT_SHA=95ce8fc2381ba707e65ac8b9b2e165915bfbe9cd4d2f7b0f58d64ce31bd98f6d
 
-GS_VER=10.08.0
-GS_URL=https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10080/ghostscript-10.08.0.tar.xz
-GS_SHA=c20492bc8ebb96c87fa2e52a0926e1cda8cde95d66145e018ac713fed5da38cf
 
 GIFSICLE_VER=1.98
 GIFSICLE_URL=https://www.lcdf.org/gifsicle/gifsicle-1.98.tar.gz
@@ -312,70 +309,6 @@ build_ffmpeg() { # outdir
 }
 #<< RECIPE ffmpeg
 
-# -------------------------------------------------------- ghostscript
-#>> RECIPE gs
-# Only the devices L'Esclop runs (pdfwrite; txtwrite and png for page text and previews) and no
-# printer, IJS, TIFF, URF or contributed drivers. The Resource tree (fonts, CMaps) stays
-# compiled in.
-GS_DRIVERS="pdfwrite,txtwrite,png16m,pngalpha,pnggray"
-GS_FLAGS="--without-x --disable-cups --disable-gtk --disable-dbus --disable-fontconfig --without-libidn --without-tesseract --without-libpaper --without-ijs --without-libtiff --without-urf --without-so --without-pdftoraster --disable-contrib --with-drivers=$GS_DRIVERS --enable-compile-inits"
-
-# Fonts compiled into gs: the 14 standard PDF fonts (URW equivalents), which PDFs may use
-# without embedding. The other 21 URW fonts (Bookman, Palatino, New Century Schoolbook, Avant
-# Garde, Zapf Chancery, Helvetica Narrow) go, and Fontmap.GS sends their names to the kept font
-# of the same family and style (GS_FONT_SUBST), so a PDF naming one of them without embedding
-# it keeps its text with a close serif or sans. The CMaps and the CJK fallback (CIDFSubst)
-# stay, or non-embedded CJK text would vanish.
-GS_FONT_SUBST="C059-Roman:NimbusRoman-Regular C059-Bold:NimbusRoman-Bold C059-Italic:NimbusRoman-Italic C059-BdIta:NimbusRoman-BoldItalic P052-Roman:NimbusRoman-Regular P052-Bold:NimbusRoman-Bold P052-Italic:NimbusRoman-Italic P052-BoldItalic:NimbusRoman-BoldItalic URWBookman-Light:NimbusRoman-Regular URWBookman-Demi:NimbusRoman-Bold URWBookman-LightItalic:NimbusRoman-Italic URWBookman-DemiItalic:NimbusRoman-BoldItalic Z003-MediumItalic:NimbusRoman-Italic URWGothic-Book:NimbusSans-Regular URWGothic-Demi:NimbusSans-Bold URWGothic-BookOblique:NimbusSans-Italic URWGothic-DemiOblique:NimbusSans-BoldItalic NimbusSansNarrow-Regular:NimbusSans-Regular NimbusSansNarrow-Bold:NimbusSans-Bold NimbusSansNarrow-Oblique:NimbusSans-Italic NimbusSansNarrow-BoldOblique:NimbusSans-BoldItalic"
-GS_FONTS="NimbusSans-Regular NimbusSans-Bold NimbusSans-Italic NimbusSans-BoldItalic NimbusRoman-Regular NimbusRoman-Bold NimbusRoman-Italic NimbusRoman-BoldItalic NimbusMonoPS-Regular NimbusMonoPS-Bold NimbusMonoPS-Italic NimbusMonoPS-BoldItalic StandardSymbolsPS D050000L"
-
-build_gs_arch() {
-  unpack ghostscript "$T_GS" "$WORK/src-gs-$ARCH"
-  local f
-  for f in "$SRC"/Resource/Font/*; do
-    case " $GS_FONTS " in *" $(basename "$f") "*) ;; *) rm -f "$f";; esac
-  done
-  # psi/psromfs.mak lists every font as a dependency of the compiled-in file system.
-  awk -v keep=" $GS_FONTS " 'match($0, /Font\$\(D\)[A-Za-z0-9-]+/) {
-      name = substr($0, RSTART + 8, RLENGTH - 8); if (index(keep, " " name " ") == 0) next }
-    { print }' "$SRC/psi/psromfs.mak" > "$SRC/psi/psromfs.mak.new" && mv "$SRC/psi/psromfs.mak.new" "$SRC/psi/psromfs.mak"
-  local pair sedargs=()
-  for pair in $GS_FONT_SUBST; do
-    sedargs+=(-e "s#/${pair%%:*}\([[:space:];]\)#/${pair#*:}\1#g")
-  done
-  sed "${sedargs[@]}" "$SRC/Resource/Init/Fontmap.GS" > "$SRC/Resource/Init/Fontmap.GS.new" &&
-    mv "$SRC/Resource/Init/Fontmap.GS.new" "$SRC/Resource/Init/Fontmap.GS"
-  # Ghostscript builds and runs helper programs (genarch, mkromfs...). The
-  # Command Line Tools are arm64-only, so the x86_64 slice is cross-compiled:
-  # helpers are built for the host (CCAUX) and arch.h is reused from the arm64
-  # build (both targets are little-endian LP64 with identical type sizes).
-  local extra=""
-  if [ "$ARCH" != arm64 ]; then
-    extra="--host=$HOST_TRIPLE --with-arch_h=$WORK/arm64-arch.h"
-    export CCAUX="clang -arch arm64" CFLAGSAUX="-O2 -mmacosx-version-min=14.0"
-  fi
-  step "gs-$ARCH-configure" in_dir "$SRC" ./configure $GS_FLAGS $extra
-  step "gs-$ARCH-make" in_dir "$SRC" make -j"$JOBS"
-  mkdir -p "$WORK/out-$ARCH"
-  cp "$SRC/bin/gs" "$WORK/out-$ARCH/gs"
-  [ "$ARCH" != arm64 ] || cp "$SRC/obj/arch.h" "$WORK/arm64-arch.h"
-}
-
-build_gs() { # outdir
-  local out=$1 a
-  T_GS="$(fetch "$GS_URL" "$GS_SHA" ghostscript-$GS_VER.tar.xz)"
-  for a in $ARCHES; do
-    say "ghostscript: $a"
-    use_arch "$a"
-    build_gs_arch
-  done
-  make_universal "$out/gs" "$WORK/out-arm64/gs" "$WORK/out-x86_64/gs"
-  unpack_nopatch "$T_GS" "$WORK/lic/gs"
-  write_license "$out/LICENSES/ghostscript.txt" ghostscript "$GS_VER" "$GS_URL" "$GS_SHA" "$SRC" LICENSE \
-    freetype/docs/FTL.TXT jpeg/README libpng/LICENSE zlib/README jbig2dec/LICENSE openjpeg/LICENSE \
-    lcms2mt/COPYING brotli/LICENSE
-}
-#<< RECIPE gs
 
 # ----------------------------------------------------------- gifsicle
 #>> RECIPE gifsicle
@@ -404,12 +337,12 @@ build_gifsicle() { # outdir
 #<< RECIPE gifsicle
 
 # ---------------------------------------------------- group bookkeeping
-group_tools() { case "$1" in ffmpeg) echo "ffmpeg ffprobe";; gs) echo gs;; gifsicle) echo gifsicle;; esac; }
+group_tools() { case "$1" in ffmpeg) echo "ffmpeg ffprobe";; gifsicle) echo gifsicle;; esac; }
 group_patch_dirs() { case "$1" in
-  ffmpeg) echo "ffmpeg lame opus libvpx svt-av1";; gs) echo ghostscript;; gifsicle) echo gifsicle;; esac; }
+  ffmpeg) echo "ffmpeg lame opus libvpx svt-av1";; gifsicle) echo gifsicle;; esac; }
 group_pins() { case "$1" in
   ffmpeg) echo "$FFMPEG_SHA $LAME_SHA $OPUS_SHA $VPX_SHA $SVT_SHA";;
-  gs) echo "$GS_SHA";; gifsicle) echo "$GIFSICLE_SHA";; esac; }
+  gifsicle) echo "$GIFSICLE_SHA";; esac; }
 
 recipe_text() { sed -n "/^#>> RECIPE $1\$/,/^#<< RECIPE $1\$/p" "$SELF"; }
 
@@ -474,7 +407,6 @@ them. Licence texts are written to \`Binaries/LICENSES/\` by the build script.
 | Opus (libopus) | static in \`ffmpeg\` | $OPUS_VER | BSD-3-Clause | $OPUS_URL | $OPUS_SHA |
 | libvpx | static in \`ffmpeg\` | $VPX_VER | BSD-3-Clause | $VPX_URL | $VPX_SHA |
 | SVT-AV1 | static in \`ffmpeg\` | $SVT_VER | BSD-3-Clause-Clear | $SVT_URL | $SVT_SHA |
-| Ghostscript | \`gs\` | $GS_VER | AGPL-3.0-or-later | $GS_URL | $GS_SHA |
 | gifsicle | \`gifsicle\` | $GIFSICLE_VER | GPL-2.0-only | $GIFSICLE_URL | $GIFSICLE_SHA |
 
 ## How each tool is used
@@ -485,12 +417,6 @@ them. Licence texts are written to \`Binaries/LICENSES/\` by the build script.
   and statically linked into the ffmpeg executables, so the corresponding
   source (the pinned tarballs above and any patches under \`Binaries/patches/\`)
   must be made available with the application.
-- **gs**: separate process, AGPL-3.0-or-later. Statically contains the
-  third-party libraries bundled in the Ghostscript tarball (FreeType 2.14.2,
-  libpng 1.6.58, zlib 1.3.2, IJG JPEG 10, jbig2dec 0.20, OpenJPEG 2.5.x,
-  Brotli 1.2.0, lcms2mt), each under its own licence; their
-  licence files are appended to \`Binaries/LICENSES/ghostscript.txt\`.
-  Configure flags: \`$GS_FLAGS\`.
 - **gifsicle**: separate process, GPL-2.0-only. It is only ever executed, never
   linked into esclop. Configure flags: \`$GIFSICLE_FLAGS\`.
 
@@ -584,13 +510,6 @@ verify_ffmpeg_extras() {
   rm -rf "$tmp"
 }
 
-verify_gs() {
-  if runtool gs -dSAFER -q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -o /dev/null -c showpage >/dev/null 2>&1; then
-    echo "  smoke ok: gs pdfwrite"
-  else
-    vfail "gs pdfwrite smoke test failed"
-  fi
-}
 
 verify_all() { # groups...
   local g t
@@ -598,7 +517,7 @@ verify_all() { # groups...
   say "verify"
   for g in "$@"; do
     for t in $(group_tools "$g"); do verify_tool "$t"; done
-    case "$g" in ffmpeg) verify_ffmpeg_extras;; gs) verify_gs;; esac
+    case "$g" in ffmpeg) verify_ffmpeg_extras;; esac
   done
   [ "$VERIFY_FAIL" = 0 ] || die "verification failed"
   echo "verification passed"
@@ -614,11 +533,11 @@ for arg in "$@"; do
     --no-verify) DO_VERIFY=0;;
     -h|--help) usage;;
     ffmpeg|ffprobe) SEL="$SEL ffmpeg";;
-    gs|gifsicle) SEL="$SEL $arg";;
+    gifsicle) SEL="$SEL $arg";;
     *) die "unknown argument: $arg";;
   esac
 done
-[ -n "$SEL" ] || SEL="ffmpeg gs gifsicle"
+[ -n "$SEL" ] || SEL="ffmpeg gifsicle"
 SEL="$(echo $SEL | tr ' ' '\n' | sort -u | tr '\n' ' ')"
 
 [ "$(uname -s)" = Darwin ] || die "macOS only"

@@ -12,7 +12,7 @@ fn main() {
     let img = image::open(input).unwrap().into_rgb8();
     let (w, h) = img.dimensions();
     for q in 10..=98u8 {
-        let opts = EncodeOptions { quality: q, progressive: true, fast_scans: false, markers: &[] };
+        let opts = EncodeOptions { quality: q, progressive: true, fast_scans: false, chroma_full: false, markers: &[] };
         let data = Mozjpeg.encode_native(img.as_raw(), w, h, Layout::Rgb, &opts).unwrap();
         std::fs::write(out.join(format!("m{q}.jpg")), data).unwrap();
     }

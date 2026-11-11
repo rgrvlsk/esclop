@@ -1,7 +1,7 @@
 # esclop-engine protocol
 
-`esclop-engine` is a Rust executable shipped in `Contents/Resources/bin` next to ffmpeg, gs and
-gifsicle. It does the image work (PNG, JPEG, WebP, AVIF, GIF frames, resize, crop, metadata,
+`esclop-engine` is a Rust executable shipped in `Contents/Resources/bin` next to ffmpeg and
+gifsicle. It does the image and PDF work (PNG, JPEG, WebP, AVIF, GIF frames, PDF, resize, crop, metadata,
 probe). It uses Rust libraries and vendored C codecs in a separate process, isolating decoder
 crashes from the Swift caller.
 
@@ -29,7 +29,13 @@ order; `id` ties them together. One-shot form for scripts and debugging:
 - Error codes: `unsupported`, `not_found`, `decode`, `encode`, `io`, `already_smaller`,
   `invalid_params`, `cancelled`, `internal`. `message` is for people and agents.
 - `{"id":"1","op":"cancel"}` cancels request `1` (best effort). `cancel` has no response of its
-  own; request `1` answers `cancelled`, or its result if it finished first.
+  own; request `1` answers `cancelled`, or its result if it finished first. A request still
+  queued behind the worker pool answers `cancelled` at once; a running one when it stops.
+- `serve` sends `{"id":"1","event":"started","fraction":0}` when a worker takes request `1`: time
+  spent queued ends there (the app's time limit for a PDF counts from it).
+- With `unsupported`, `error.reason` may say why the file is left as it is, in one sentence for
+  people (`pdf.optimise`: signed, password, encryption, memory, size); the app shows it as the
+  message.
 - `{"op":"hello"}` answers in the usual envelope, `{"id":null,"ok":true,"result":{"version",
   "protocol","ops":[...],"features":{...}}}`, so Swift can detect the engine's capabilities
   instead of assuming.
@@ -57,6 +63,7 @@ order; `id` ties them together. One-shot form for scripts and debugging:
 | `metadata.strip` | `keep` list (icc, orientation) | |
 | `convert` | `format`, plus that format's params | decode anything, encode to png/jpeg/webp/avif/gif |
 | `fit` | `target_bytes`, `min_quality`, `max_quality`, `allow_resize`, `min_scale`, `format` | binary search inside the engine, returns the chosen `quality`/`scale` and `fitted` |
+| `pdf.optimise` | `dpi` 48..300 (0 or 300: keep resolution, JPEGs passed through), `compression` 0..100 (0: images untouched), `strip` | streams recompressed, images re-encoded and downsampled under a fidelity check, fonts subset, unused objects dropped; encrypted files re-encrypted with the same keys or refused, damaged files refused |
 
 HEIC, JPEG XL decode, HDR gain maps and anything Apple-only stay in Swift (ImageIO).
 

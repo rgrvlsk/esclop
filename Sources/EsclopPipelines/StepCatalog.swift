@@ -357,7 +357,7 @@ extension PipelineLanguage {
                 ParamSpec("code", .text, "one line of zsh, e.g. `\"sips -Z 800 $1\"`; must not contain `->`"),
             ],
             example: "runScript(code: \"sips -Z 800 $1\")",
-            notes: ["Give `path` or `code`.", "Bundled tools (ffmpeg, gs, exiftool...) are in `$ESCLOP_BIN`; the file is also in `$ESCLOP_INPUT_FILE`.", "Scripts only run where the setting that allows them is on."]
+            notes: ["Give `path` or `code`.", "Bundled tools (ffmpeg, gifsicle, esclop-engine) are in `$ESCLOP_BIN`; the file is also in `$ESCLOP_INPUT_FILE`.", "Scripts only run where the setting that allows them is on."]
         ),
         StepSpec(
             "runShortcut", .action, kinds: [.image, .video, .pdf, .audio],

@@ -132,7 +132,7 @@ import Testing
 
     @Test func errorMessagesSayWhatToDo() {
         #expect(CardPresentation.message(for: EsclopError.toolMissing("ffmpeg")) == "ffmpeg is missing. Reinstall L’Esclop or run Scripts/build-tools.sh.")
-        #expect(CardPresentation.message(for: EsclopError.toolFailed(tool: "gs", exitCode: 1, stderr: "x\nBad PDF")) == "gs stopped with code 1: Bad PDF")
+        #expect(CardPresentation.message(for: EsclopError.toolFailed(tool: "ffmpeg", exitCode: 1, stderr: "x\nBad file")) == "ffmpeg stopped with code 1: Bad file")
         #expect(CardPresentation.message(for: CancellationError()) == "Stopped before it finished.")
         #expect(
             CardPresentation.message(for: EsclopError.toolFailed(tool: "ffprobe", exitCode: 1, stderr: "moov atom not found\n/tmp/x/broken.mov: Invalid data found when processing input"))

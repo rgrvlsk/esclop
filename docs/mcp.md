@@ -164,7 +164,7 @@ fails with `needsInput` and the options, so the agent can ask in the chat and ca
 
 - **Start with `esclop_status`** (or `esclop status` in a terminal): it says whether the app is
   running, which engine runs in-process, what agents may do and where files live.
-- **"Missing tool: esclop-engine"** (or ffmpeg, gs, gifsicle): the server cannot find a bundled
+- **"Missing tool: esclop-engine"** (or ffmpeg, gifsicle): the server cannot find a bundled
   tool. From a checkout, run `Scripts/build-tools.sh` and `Scripts/build-engine.sh`, or point
   `ESCLOP_BIN` at a folder that contains the tools.
 - **The agent does not see the tools**: run `esclop mcp status`. `installed, other command` means

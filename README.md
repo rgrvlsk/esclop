@@ -41,7 +41,7 @@ have additional prerequisites documented in their build guides.
 
 ```sh
 swift build
-Scripts/build-tools.sh                 # ffmpeg, Ghostscript, gifsicle from pinned source
+Scripts/build-tools.sh                 # ffmpeg, gifsicle from pinned source
 Scripts/build-engine.sh                # esclop-engine, the Rust image engine
 ```
 

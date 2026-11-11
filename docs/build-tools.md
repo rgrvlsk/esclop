@@ -1,7 +1,7 @@
 # Building the bundled tools
 
 `Scripts/build-tools.sh` builds the command-line tools esclop ships (`ffmpeg`,
-`ffprobe`, `gs`, `gifsicle`) from pinned upstream source tarballs into
+`ffprobe`, `gifsicle`) from pinned upstream source tarballs into
 `Binaries/`. It never downloads prebuilt binaries. Every output is a universal
 (arm64 + x86_64) executable, built with clang for macOS 14.0
 (`MACOSX_DEPLOYMENT_TARGET=14.0`), with every third-party library linked
@@ -13,7 +13,7 @@ script); licence texts land in `Binaries/LICENSES/`.
 
 ```
 Scripts/build-tools.sh                 # build (or reinstall from cache) all tools, then verify
-Scripts/build-tools.sh ffmpeg gs       # only these (ffprobe is part of ffmpeg)
+Scripts/build-tools.sh ffmpeg          # only these (ffprobe is part of ffmpeg)
 Scripts/build-tools.sh --force         # ignore the cache and rebuild
 Scripts/build-tools.sh --verify        # verify what is in Binaries/, build nothing
 Scripts/build-tools.sh --no-verify     # skip the final verification
@@ -24,9 +24,7 @@ Prerequisites: Xcode Command Line Tools and `brew install nasm cmake
 pkg-config` (build tools only; no Homebrew library is ever linked: the build
 `PATH` is reduced to the system directories plus those three tools). Rosetta is
 not needed: x86_64 slices are cross-compiled (ffmpeg with
-`--enable-cross-compile --arch=x86_64`; Ghostscript with `--host` plus
-`CCAUX`, its helper programs being built for the host and `arch.h` reused from
-the arm64 build, which is valid because both are little-endian LP64). On an arm64 host, verification runs the x86_64 slices under Rosetta and skips execution of
+`--enable-cross-compile --arch=x86_64`). On an arm64 host, verification runs the x86_64 slices under Rosetta and skips execution of
 that slice when Rosetta is absent.
 
 ## Pinned sources
@@ -38,7 +36,6 @@ that slice when Rosetta is absent.
 | Opus | 1.6.1 | BSD-3-Clause | libopus in ffmpeg |
 | libvpx | 1.17.0 | BSD-3-Clause | VP9 encoder in ffmpeg |
 | SVT-AV1 | 4.3.0 | BSD-3-Clause-Clear | AV1 encoder in ffmpeg |
-| Ghostscript | 10.08.0 | AGPL-3.0-or-later | gs |
 | gifsicle | 1.98 | GPL-2.0-only | gifsicle |
 
 URLs and SHA-256 values are at the top of the script and in `THIRD_PARTY.md`.
@@ -67,19 +64,10 @@ encoders, filters, scaling, resampling or external libraries, and `--enable-smal
 H.264/HEVC decoding speed). Built from the ffmpeg
 configuration it would carry every encoder, about 15 MB per architecture.
 
-Ghostscript is built with only the `pdfwrite`, `txtwrite` and PNG devices (no
-printer, IJS, TIFF, URF or contributed drivers) and with `--enable-compile-inits`,
-which compiles its `Resource` tree (initialisation files, fonts, CMaps) into the
-binary, so nothing has to be installed alongside it: `findfont /Helvetica` and
-`/UniJIS-UTF16-H /CMap resourcestatus` both succeed under `env -i`. Of the 35 URW
-fonts only the 14 standard PDF fonts are kept (`GS_FONTS`); a PDF that names one
-of the others without embedding it gets the standard font of the same style. The
-CMaps and the CJK fallback font stay.
-
 ## Cache
 
 Build results are cached in `Binaries/.cache/<group>-<key>/` (groups: `ffmpeg`,
-`gs`, `gifsicle`). The key is the SHA-256 of the pinned tarball hashes, the
+`gifsicle`). The key is the SHA-256 of the pinned tarball hashes, the
 contents of all patches for the group and the group's recipe section in the
 script (the text between the `#>> RECIPE` and `#<< RECIPE` markers, including
 configure flags). If the key is unchanged the run only copies the cached files
@@ -97,7 +85,7 @@ into `Binaries/` (seconds). `--force` rebuilds. Downloads are kept in
 ## Patches
 
 `Binaries/patches/<component>/*.patch` (component: `ffmpeg`, `lame`, `opus`,
-`libvpx`, `svt-av1`, `ghostscript`, `gifsicle`) are applied in name order with
+`libvpx`, `svt-av1`, `gifsicle`) are applied in name order with
 `patch -p1` from the source root of that component, before configure. They are
 part of the cache key. `Binaries/patches/` is the only tracked part of
 `Binaries/`. A patch that fails to apply stops the build.
@@ -120,4 +108,3 @@ available. The checks include:
   `h264_videotoolbox` (skipped with a note if VideoToolbox is unavailable),
   `libsvtav1`, `libvpx-vp9` + `libopus` through scale/fps/format/aformat,
   `libmp3lame`, GIF palettegen/paletteuse and `aac_at` with `loudnorm`.
-- gs: `gs -dSAFER -q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -o /dev/null -c showpage`.
