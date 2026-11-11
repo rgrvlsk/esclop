@@ -104,6 +104,8 @@ struct SettingRow: View {
             ClipboardRuleList(descriptor: descriptor, model: model, label: AnyView(label))
         case .hoverButtons:
             HoverButtonSwitches(descriptor: descriptor, model: model, label: AnyView(label))
+        case .presetZones:
+            PresetZoneList(descriptor: descriptor, model: model, label: AnyView(label))
         }
     }
 
