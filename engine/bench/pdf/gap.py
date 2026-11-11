@@ -40,6 +40,7 @@ def main():
     ap.add_argument("engine", type=Path)
     ap.add_argument("--top", type=int, default=30)
     ap.add_argument("--mode", default="default")
+    ap.add_argument("--clean", action="store_true", help="only files where gs's output passes every check")
     a = ap.parse_args()
     run.ENGINE = a.engine.resolve()
     r = json.loads(a.results.read_text())
@@ -47,7 +48,7 @@ def main():
     rows = []
     for name, e in r.items():
         g, en = e.get(f"gs/{mode}"), e.get(f"engine/{mode}")
-        if e["info"].get("valid") != "ok" or not g or not en:
+        if e["info"].get("valid") != "ok" or not g or not en or (a.clean and g["fails"]):
             continue
         rows.append((en["bytes"] - g["bytes"], name, e))
     total_gap = sum(d for d, *_ in rows)

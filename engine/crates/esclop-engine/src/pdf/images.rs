@@ -110,6 +110,9 @@ pub fn recompress(doc: &Document, stream: &Stream, plan: &ImagePlan, budget: &Bu
     let bpc = if stencil { 1 } else { int(d, b"BitsPerComponent").unwrap_or(8) };
     let space = if stencil { Some(Space::Other(1)) } else { space(doc, d.get(b"ColorSpace").ok()) };
     let lossy_ok = !plan.is_mask && !colour_key && !stencil;
+    if filters.len() == 1 && filters[0] == b"JPXDecode" {
+        return jpx_image(stream, w, h, space, plan, lossy_ok, budget);
+    }
     // Working set: the samples about five times over (decoded, resampled or filtered, encoded,
     // and the encode decoded again and smoothed for the fidelity check).
     let comps_est = match space {
@@ -231,6 +234,57 @@ pub fn recompress(doc: &Document, stream: &Stream, plan: &ImagePlan, budget: &Bu
         return Ok(Some((Stream::new(nd, lossless), nw != w || nh != h || out_bpc != bpc)));
     }
     Ok(None)
+}
+
+/// A JPEG 2000 image (`/JPXDecode`) as a checked JPEG, decoded only to the resolution needed:
+/// JPEG 2000 can skip resolution levels, so a 143-megapixel scan drawn at 250 dpi decodes at a
+/// quarter of its size. Only images whose PDF colour space is gray or RGB (device, calibrated
+/// or ICC) and that carry no alpha, `/SMaskInData` or `/Decode` are handled; the rest stay as
+/// stored, and so does any result not smaller than the JPEG 2000 original.
+fn jpx_image(
+    stream: &Stream,
+    w: u32,
+    h: u32,
+    space: Option<Space>,
+    plan: &ImagePlan,
+    lossy_ok: bool,
+    budget: &Budget,
+) -> Result<Option<(Stream, bool)>> {
+    let d = &stream.dict;
+    let Some(Space::Jpegable(comps @ (1 | 3))) = space else { return Ok(None) };
+    let smask_in_data = d.get(b"SMaskInData").and_then(|o| o.as_i64()).unwrap_or(0) != 0;
+    if !lossy_ok || smask_in_data || d.has(b"Decode") {
+        return Ok(None);
+    }
+    let scale = match (plan.dpi, plan.drawn_dpi) {
+        (Some(target), Some(drawn)) if drawn > target * 1.05 => target / drawn,
+        _ => 1.0,
+    };
+    // Decode at the larger of the target and the 150 dpi view the fidelity check compares at.
+    let view = plan.drawn_dpi.filter(|d| *d > 0.0).map_or(1.0, |d| (VIEW_DPI / d).min(1.0));
+    let need = scale.max(view);
+    let target = (((w as f64 * need).ceil() as u32).max(1), ((h as f64 * need).ceil() as u32).max(1));
+    let settings = hayro_jpeg2000::DecodeSettings { target_resolution: Some(target), ..Default::default() };
+    let Ok(image) = hayro_jpeg2000::Image::new(&stream.content, &settings) else { return Ok(None) };
+    let (iw, ih) = (image.width(), image.height());
+    if image.has_alpha() || usize::from(image.color_space().num_channels()) != comps || iw == 0 || ih == 0 {
+        return Ok(None);
+    }
+    let cost = (iw as usize) * (ih as usize) * comps * 6 + stream.content.len() * 2;
+    let Some(_hold) = budget.hold(cost)? else { return Ok(None) };
+    let mut ctx = hayro_jpeg2000::DecoderContext::default();
+    let Ok(decoded) = image.decode(&mut ctx) else { return Ok(None) };
+    let px = decoded.data_u8();
+    if px.len() != (iw as usize) * (ih as usize) * comps {
+        return Ok(None);
+    }
+    // From here the decoded image stands in for the original: its own resolution as drawn.
+    let local = ImagePlan { drawn_dpi: plan.drawn_dpi.map(|d| d * f64::from(iw) / f64::from(w)), ..*plan };
+    let s = ((w as f64 * scale) / f64::from(iw)).min(1.0);
+    let s = checked_scale(&px, iw, ih, comps, s, &local)?;
+    let (px, nw, nh) = resample(px, iw, ih, comps, s)?;
+    let layout = if comps == 1 { Layout::Gray } else { Layout::Rgb };
+    Ok(encode_checked(&px, nw, nh, layout, &local, s, stream.content.len())?.map(|enc| (with_jpeg(d, enc, nw, nh), true)))
 }
 
 /// An image's decoded bytes, Flate (with or without PNG predictors) decoded here strictly: lopdf
@@ -381,6 +435,7 @@ fn with_jpeg(d: &Dictionary, data: Vec<u8>, w: u32, h: u32) -> Stream {
     let mut nd = d.clone();
     nd.set("Filter", Object::Name(b"DCTDecode".to_vec()));
     nd.remove(b"DecodeParms");
+    nd.remove(b"SMaskInData");
     nd.set("BitsPerComponent", 8);
     nd.set("Width", w as i64);
     nd.set("Height", h as i64);

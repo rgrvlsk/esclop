@@ -13,7 +13,11 @@
 //! - with `strip`, the document information dictionary, the catalog's XMP, page thumbnails and
 //!   application private data (`/PieceInfo`) are removed.
 //!
-//! Encrypted input is refused (`unsupported`), and so is input lopdf cannot read completely
+//! Encrypted input that opens without a password (an owner password with an empty user one) is
+//! rewritten and encrypted again with its own security handler: the same algorithm, key length,
+//! `/O`, `/U`, `/P` and crypt filters, and the same file key; the output is reopened and must
+//! give back exactly that. Input that needs a password is refused (`unsupported`), and so is
+//! input lopdf cannot read completely
 //! (`decode`): a rewrite of a damaged file could silently lose pages.
 
 mod budget;
@@ -84,9 +88,50 @@ pub fn rewrite(bytes: &[u8], dpi: Option<f64>, jpeg_quality: u8, min_ssim: f64, 
         Err(e) if is_encrypted(bytes) => return Err(EngineError::unsupported(format!("encrypted PDF: {e}"))),
         Err(e) => return Err(EngineError::decode(format!("unreadable PDF: {e}"))),
     };
-    if doc.trailer.has(b"Encrypt") || doc.was_encrypted() || doc.is_encrypted() {
-        return Err(EngineError::unsupported("encrypted PDFs are not rewritten"));
+    if doc.is_encrypted() {
+        return Err(EngineError::unsupported("this PDF needs a password"));
     }
+    // Set when lopdf opened the file with the empty user password: the output is encrypted
+    // again with it, never left unprotected.
+    let encryption = doc.encryption_state.clone();
+    // Whether the file is encrypted is read from its bytes too: lopdf can drop an `/Encrypt`
+    // it does not follow (pdf.js issue7665, `/CF` given by reference) and hand back undecrypted
+    // strings as if the file were plain; writing that out would lose the protection and the text.
+    if encryption.is_none() && bytes.windows(8).any(|w| w == b"/Encrypt") {
+        return Err(EngineError::unsupported("this PDF's encryption cannot be read and written again"));
+    }
+    let handler = match &encryption {
+        Some(state) => {
+            let dict = state.encode().map_err(|e| EngineError::unsupported(format!("encryption: {e}")))?;
+            if dict.get(b"Filter").and_then(|f| f.as_name()).ok() != Some(b"Standard") {
+                return Err(EngineError::unsupported("only the standard security handler is rewritten"));
+            }
+            // From V4 on, the crypt filters /StmF and /StrF name must be defined: lopdf leaves
+            // them out when `/CF` is a reference (pdf.js issue7665) and would then decrypt and
+            // encrypt nothing.
+            if dict.get(b"V").and_then(|v| v.as_i64()).unwrap_or(0) >= 4 {
+                let cf = dict.get(b"CF").and_then(|c| c.as_dict()).ok();
+                for key in [&b"StmF"[..], b"StrF"] {
+                    let name = dict.get(key).and_then(|n| n.as_name()).unwrap_or(b"Identity");
+                    if name != b"Identity" && !cf.is_some_and(|cf| cf.has(name)) {
+                        return Err(EngineError::unsupported("this PDF's crypt filters cannot be read"));
+                    }
+                }
+            }
+            // Per-stream crypt filters (`/Crypt` in a stream's filters) and a separate filter for
+            // embedded files are not reproduced: lopdf would encrypt those streams with the
+            // default filter (pdf.js crypt_filters lost the text of two forms).
+            let per_stream = doc.objects.values().any(|o| {
+                matches!(o, Object::Stream(s) if s.filters().is_ok_and(|f| f.iter().any(|n| *n == b"Crypt")))
+            });
+            let eff = dict.get(b"EFF").and_then(|n| n.as_name()).ok();
+            if per_stream || eff.is_some_and(|e| Some(e) != dict.get(b"StmF").and_then(|n| n.as_name()).ok()) {
+                return Err(EngineError::unsupported("this PDF's per-stream encryption is not reproduced"));
+            }
+            Some(dict)
+        }
+        None => None,
+    };
     integrity::check(bytes, &doc)?;
     let pages = check_complete(&doc)?;
     ctx.check()?;
@@ -160,9 +205,15 @@ pub fn rewrite(bytes: &[u8], dpi: Option<f64>, jpeg_quality: u8, min_ssim: f64, 
     if doc.version.as_str() < "1.5" {
         doc.version = "1.5".into();
     }
+    if let Some(state) = &encryption {
+        doc.encrypt(state).map_err(|e| EngineError::encode(format!("encrypting the PDF again: {e}")))?;
+    }
     ctx.progress(0.92, "write");
     let mut writer = budget::CappedWriter::new(budget::max_output(bytes.len()));
-    let save = SaveOptions::builder().use_object_streams(true).use_xref_streams(true).compression_level(9).build();
+    // Strings inside an object stream are not encrypted one by one (the stream is): lopdf
+    // packs objects after encrypting them, so an encrypted file keeps every object on its own.
+    let packed = encryption.is_none();
+    let save = SaveOptions::builder().use_object_streams(packed).use_xref_streams(packed).compression_level(9).build();
     if let Err(e) = doc.save_with_options(&mut writer, save) {
         return Err(if writer.buf.len() + (1 << 20) > budget::max_output(bytes.len()) {
             EngineError::unsupported("the rewritten PDF would be more than twice the size of the original")
@@ -177,6 +228,14 @@ pub fn rewrite(bytes: &[u8], dpi: Option<f64>, jpeg_quality: u8, min_ssim: f64, 
         Document::load_mem(&out).map_err(|e| EngineError::internal(format!("rewritten PDF does not load: {e}")))?;
     if back.get_pages().len() != pages {
         return Err(EngineError::internal("rewritten PDF lost pages"));
+    }
+    // Encrypted again exactly as it was: same handler dictionary, same file key.
+    if let (Some(before), Some(state)) = (&handler, &encryption) {
+        let after = back.encryption_state.as_ref().ok_or_else(|| EngineError::internal("the rewritten PDF lost its encryption"))?;
+        let same_dict = after.encode().ok().as_ref() == Some(before);
+        if !same_dict || after.file_encryption_key() != state.file_encryption_key() {
+            return Err(EngineError::internal("the rewritten PDF's encryption differs from the original's"));
+        }
     }
     Ok((out, lossy.load(Ordering::Relaxed) > 0))
 }

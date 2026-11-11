@@ -30,9 +30,12 @@ pub fn check(bytes: &[u8], doc: &Document) -> Result<()> {
         let Some(after) = object_header(bytes, offset as usize, id, generation) else {
             return Err(EngineError::decode(format!("the cross-reference table misplaces object {id}")));
         };
+        // Decrypted content is shorter than its stored bytes: AES adds a 16-byte IV and up to
+        // 16 bytes of padding (lopdf also rewrites `/Length` to the decrypted size).
+        let slack = if doc.was_encrypted() { 32 } else { 0 };
         if let Some(Object::Stream(s)) = doc.objects.get(&(id, generation))
             && let Some(raw) = raw_stream_len(&bytes[after..])
-            && s.content.len() < raw
+            && s.content.len() + slack < raw
         {
             return Err(EngineError::decode(format!(
                 "object {id}'s stream is {raw} bytes long but declares {}",

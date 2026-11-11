@@ -21,6 +21,10 @@ import PDFKit
 func info(_ url: URL) -> [String: Any] {
     guard let doc = PDFDocument(url: url) else { return ["opens": false] }
     var result: [String: Any] = ["opens": doc.pageCount > 0, "encrypted": doc.isEncrypted, "locked": doc.isLocked, "pages": doc.pageCount]
+    // What an unlocked reader may do: an optimiser must not widen (or narrow) it.
+    result["permissions"] = [doc.isEncrypted, doc.allowsPrinting, doc.allowsCopying, doc.allowsContentAccessibility,
+                             doc.allowsCommenting, doc.allowsDocumentAssembly, doc.allowsDocumentChanges,
+                             doc.allowsFormFieldEntry].map { $0 ? "1" : "0" }.joined()
     if doc.isLocked { return result }
     let text = doc.string ?? ""
     result["text_sha"] = SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined().prefix(16)

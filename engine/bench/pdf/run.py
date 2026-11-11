@@ -242,7 +242,7 @@ def run_engine(src, out, info, aggressive):
 
 
 PATHS = {"gs": run_gs, "engine": run_engine}
-CHECKS = ("pages", "text_sha", "links", "outline", "fields")
+CHECKS = ("pages", "text_sha", "links", "outline", "fields", "permissions")
 
 
 def evaluate(src, out, rec, info, compared, aggressive):
