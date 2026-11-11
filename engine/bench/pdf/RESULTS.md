@@ -179,3 +179,27 @@ Reader-extended: 39 files, left as stored. The SSIM floor costs 0.62 MB at the d
 (32 files) and 1.22 MB aggressive (42 files), 0.001 on either ratio; JPEG pass-through accounts
 for most of the default ratio's rise from 0.926. Synthetic corpus: 0 failures; 47.5 MB default
 (gs 50.5), 8.3 MB aggressive (gs 10.5).
+
+## Engine after the second review round (2026-11-11)
+
+Real corpus judged again in full (gs's results from the run above). The synthetic corpus now has
+a 340.9 MB scanned book (140 colour pages, JPEG at 300 dpi), which the 256 MB memory budget had
+refused: stored streams no longer count against it.
+
+| check | default | aggressive | target |
+|---|---:|---:|---:|
+| engine failures, real corpus (1539 judged) | 0 | 0 | 0 |
+| engine fillability failures | 0 | 0 | 0 |
+| engine / gs size, files gs passes (1033 / 1037) | 0.975 | 1.007 | 1.10 |
+| engine / gs size, all files | 1.328 | 1.437 | |
+| engine peak RSS, real corpus | 487 MB | | 512 MB |
+| synthetic corpus failures (35 files) | 0 | 0 | 0 |
+
+Synthetic totals: default engine 341.8 MB (gs 391.4), aggressive 62.8 MB (gs 73.3). The book:
+the judge cannot open 340 MB within its own 1.1 GB limit, so it was judged in 20-page slices
+(pikepdf copies of the same pages from the original and from each output): worst page SSIM
+1.0000 default, 0.9906 aggressive; 294.3 MB default (gs leaves it as it is) and 54.5 MB
+aggressive (gs 62.8 MB), in 57 s and 163 s (gs 7 s and 11 s). Its peak is 658 MB, about twice
+the input: lopdf copies every stream out of the input while it parses, and both exist until
+the load ends (the input is then dropped, recompression goes in 64 MB batches and the output
+is spooled to a file).

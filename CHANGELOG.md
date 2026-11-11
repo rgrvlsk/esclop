@@ -24,9 +24,11 @@ into the body of its GitHub release.
   types with stay whole), large inline images moved to shared objects, unused objects dropped.
   Text, links, outlines, form fields and permissions stay as they were; JPEGs are re-encoded
   only when downsampled, and "Strip metadata" touches no image. Encrypted PDFs are re-encrypted
-  with the same keys and permissions or left alone; signed and Reader-extended PDFs, damaged
-  files and ones that would need more than 256 MB of memory are left as they are, and a PDF
-  that takes more than 30 minutes is stopped. On 1,576 real PDFs (the pdf.js test files and
+  with the same keys and permissions or left alone (and always left alone over 64 MB); signed
+  and Reader-extended PDFs, damaged files and ones that would need more than 256 MB of memory
+  besides their own size are left as they are, and the result says why. A PDF still being
+  optimised 30 minutes after it started (time spent waiting behind others does not count) is
+  stopped. On 1,576 real PDFs (the pdf.js test files and
   GovDocs) the engine failed none of the checks, where Ghostscript failed 506 at the default
   setting; on the files Ghostscript handled cleanly, the engine's output is 0.98x
   Ghostscript's at the default setting and 1.01x at the aggressive one. Its memory stays under
