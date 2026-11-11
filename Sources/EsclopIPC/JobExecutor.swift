@@ -13,21 +13,38 @@ public protocol PipelineRunning: Sendable {
     /// Whether the pipeline has steps that run the person's code (`runScript`, `runShortcut`).
     func usesScripts(_ pipeline: String) throws -> Bool
 
+    /// Whether the pipeline has `upload` steps.
+    func usesUploads(_ pipeline: String) throws -> Bool
+
     func run(
         pipeline: String, on source: URL, request: OptimisationRequest, engine: any OptimisationEngine,
         progress: @escaping @Sendable (OptimisationProgress) -> Void
     ) async throws -> OptimisationResult
 }
 
+extension PipelineRunning {
+    /// Whether the pipeline has `upload` steps, which agents need `allowUploads` for.
+    public func usesUploads(_ pipeline: String) throws -> Bool { false }
+}
+
+/// Uploads a file to an upload target and returns its link. Only the app has one: the
+/// credentials are in its Keychain, so the command line and the MCP server send uploads there.
+public protocol FileUploading: Sendable {
+    func upload(_ file: URL, to target: String?, progress: @escaping @Sendable (Double) -> Void) async throws -> URL
+}
+
 public struct JobExecutor: Sendable {
     public var engine: any OptimisationEngine
     public var pipelineRunner: (any PipelineRunning)?
+    /// Uploads (`JobOperation.upload`); nil outside the app.
+    public var uploader: (any FileUploading)?
     public var pdf: PDFPageTools
     public var backups: URL
 
-    public init(engine: any OptimisationEngine, pipelineRunner: (any PipelineRunning)? = nil, backups: URL = Paths.backups) {
+    public init(engine: any OptimisationEngine, pipelineRunner: (any PipelineRunning)? = nil, uploader: (any FileUploading)? = nil, backups: URL = Paths.backups) {
         self.engine = engine
         self.pipelineRunner = pipelineRunner
+        self.uploader = uploader
         self.pdf = PDFPageTools()
         self.backups = backups
     }
@@ -88,6 +105,18 @@ public struct JobExecutor: Sendable {
             return try await pdfOperation(source, request: request, suffix: "uncropped", step: "uncrop-pdf") { output in
                 try pdf.uncrop(source, to: output)
             }
+        case let .upload(target):
+            guard let uploader else { throw EsclopError.appNotRunning }
+            let started = Date()
+            let size = Self.size(of: source)
+            let link = try await uploader.upload(source, to: target) { fraction in
+                progress(OptimisationProgress(requestID: request.id, source: source, fraction: fraction, message: "upload"))
+            }
+            return OptimisationResult(
+                source: source, output: source, kind: MediaKind.of(source) ?? .image,
+                bytesBefore: size, bytesAfter: size, startedAt: started, finishedAt: Date(),
+                steps: ["uploaded: \(link.absoluteString)"], link: link
+            )
         }
     }
 

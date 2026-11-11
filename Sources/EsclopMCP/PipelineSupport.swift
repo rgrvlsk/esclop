@@ -12,6 +12,11 @@ import Foundation
 extension Pipeline {
     var allSteps: [PipelineStep] { sections.flatMap(\.steps) }
 
+    /// Steps that upload the file to one of the person's upload targets.
+    public var usesUploads: Bool {
+        allSteps.contains { if case .upload = $0 { return true } else { return false } }
+    }
+
     /// Steps that run the person's own code or Shortcuts.
     public var usesScripts: Bool {
         allSteps.contains { step in
@@ -137,12 +142,16 @@ public struct StorePipelineRunner: PipelineRunning {
     public let allowRunScripts: Bool
     public let allowDelete: Bool
     public let temporaryDirectory: URL
+    /// What steps that need the app reach (the app's own host, with uploads); nil: the default for
+    /// the origin, which cannot upload.
+    public let host: (any PipelineHost)?
 
-    public init(store: PipelineStore, allowRunScripts: Bool, allowDelete: Bool, temporaryDirectory: URL = Paths.temporary) {
+    public init(store: PipelineStore, allowRunScripts: Bool, allowDelete: Bool, temporaryDirectory: URL = Paths.temporary, host: (any PipelineHost)? = nil) {
         self.store = store
         self.allowRunScripts = allowRunScripts
         self.allowDelete = allowDelete
         self.temporaryDirectory = temporaryDirectory
+        self.host = host
     }
 
     /// A saved name, a built-in preset, or inline steps.
@@ -154,6 +163,10 @@ public struct StorePipelineRunner: PipelineRunning {
         try resolve(pipeline).usesScripts
     }
 
+    public func usesUploads(_ pipeline: String) throws -> Bool {
+        try resolve(pipeline).usesUploads
+    }
+
     public func run(
         pipeline: String, on source: URL, request: OptimisationRequest, engine: any OptimisationEngine,
         progress: @escaping @Sendable (OptimisationProgress) -> Void
@@ -161,7 +174,7 @@ public struct StorePipelineRunner: PipelineRunning {
         let resolved = try resolve(pipeline)
         let started = Date()
         let before = Self.size(source)
-        let host: any PipelineHost = request.origin == .cli ? CommandLinePipelineHost() : NoopPipelineHost()
+        let host: any PipelineHost = self.host ?? (request.origin == .cli ? CommandLinePipelineHost() : NoopPipelineHost())
         let options = PipelineRunOptions(
             origin: request.origin, allowRunScripts: allowRunScripts, allowDelete: allowDelete,
             quality: request.quality, temporaryDirectory: temporaryDirectory

@@ -201,12 +201,32 @@
         }
       }
     },
+    "%@ uploaded, the link is on the clipboard": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ s’ha pujat; l’enllaç és al porta-retalls"
+          }
+        }
+      }
+    },
     "%@ voice memos": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "notes de veu %@"
+          }
+        }
+      }
+    },
+    "%@ was not uploaded": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ no s’ha pujat"
           }
         }
       }
@@ -261,6 +281,16 @@
         }
       }
     },
+    "%@, not uploaded: %@ The file is kept.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, no s’ha pujat: %@ El fitxer es conserva."
+          }
+        }
+      }
+    },
     "%@, optimising, %@": {
       "localizations": {
         "ca": {
@@ -277,6 +307,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@, original restaurat"
+          }
+        }
+      }
+    },
+    "%@, uploaded, the link is on the clipboard": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, pujat; l’enllaç és al porta-retalls"
+          }
+        }
+      }
+    },
+    "%@, uploading": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, pujant"
           }
         }
       }
@@ -661,6 +711,46 @@
         }
       }
     },
+    "A target needs a bucket.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un destí necessita un bucket."
+          }
+        }
+      }
+    },
+    "A target needs a name.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un destí necessita un nom."
+          }
+        }
+      }
+    },
+    "A target needs a path, such as %f.%e.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un destí necessita un camí, com ara %f.%e."
+          }
+        }
+      }
+    },
+    "A target needs a region (auto for Cloudflare R2).": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un destí necessita una regió (auto per a Cloudflare R2)."
+          }
+        }
+      }
+    },
     "AI agents": {
       "localizations": {
         "ca": {
@@ -687,6 +777,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "AV1, SVT"
+          }
+        }
+      }
+    },
+    "Access key ID": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ID de la clau d’accés"
           }
         }
       }
@@ -747,6 +847,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Afegeix un pas"
+          }
+        }
+      }
+    },
+    "Add Target…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afegeix un destí…"
           }
         }
       }
@@ -1041,6 +1151,16 @@
         }
       }
     },
+    "Another target has this name.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ja hi ha un altre destí amb aquest nom."
+          }
+        }
+      }
+    },
     "Any file": {
       "localizations": {
         "ca": {
@@ -1267,6 +1387,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "A baix a la dreta"
+          }
+        }
+      }
+    },
+    "Bucket": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bucket"
+          }
+        }
+      }
+    },
+    "Bucket in the path": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bucket al camí"
           }
         }
       }
@@ -1831,6 +1971,16 @@
         }
       }
     },
+    "Copied files": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fitxers copiats"
+          }
+        }
+      }
+    },
     "Copied files and images": {
       "localizations": {
         "ca": {
@@ -1887,6 +2037,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Copia el JSON"
+          }
+        }
+      }
+    },
+    "Copy Link": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia l’enllaç"
           }
         }
       }
@@ -1961,6 +2121,16 @@
         }
       }
     },
+    "Could not reach %@: %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha pogut connectar amb %@: %@"
+          }
+        }
+      }
+    },
     "Could not read the copied image": {
       "localizations": {
         "ca": {
@@ -1997,6 +2167,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No s’ha pogut optimitzar"
+          }
+        }
+      }
+    },
+    "Couldn’t upload": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha pogut pujar"
           }
         }
       }
@@ -2351,12 +2531,42 @@
         }
       }
     },
+    "Edit %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edita %@"
+          }
+        }
+      }
+    },
     "Edit Pipelines…": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Edita els pipelines…"
+          }
+        }
+      }
+    },
+    "Edit “%@”": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edita «%@»"
+          }
+        }
+      }
+    },
+    "Edit…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edita…"
           }
         }
       }
@@ -2377,6 +2587,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Codificador"
+          }
+        }
+      }
+    },
+    "Endpoint": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Punt d’accés"
+          }
+        }
+      }
+    },
+    "Enter both the access key ID and the secret, or neither to keep the saved ones.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Introdueix l’ID de la clau d’accés i el secret, o cap dels dos per conservar els desats."
+          }
+        }
+      }
+    },
+    "Enter the access key ID and the secret.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Introdueix l’ID de la clau d’accés i el secret."
           }
         }
       }
@@ -2541,6 +2781,16 @@
         }
       }
     },
+    "File kept · Upload again": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fitxer conservat · Torna a pujar"
+          }
+        }
+      }
+    },
     "File name": {
       "localizations": {
         "ca": {
@@ -2581,12 +2831,32 @@
         }
       }
     },
+    "Files from Finder’s Quick Actions": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fitxers de les accions ràpides del Finder"
+          }
+        }
+      }
+    },
     "Files in Desktop, Documents and Downloads": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Fitxers de l’Escriptori, Documents i Baixades"
+          }
+        }
+      }
+    },
+    "Files in watched folders": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fitxers de les carpetes vigilades"
           }
         }
       }
@@ -3127,6 +3397,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Es va moure o eliminar després d’optimitzar-lo."
+          }
+        }
+      }
+    },
+    "Its keys are removed from the Keychain too. Files already uploaded stay where they are.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "També se n’eliminen les claus del clauer. Els fitxers ja pujats es queden on són."
           }
         }
       }
@@ -3741,6 +4021,16 @@
         }
       }
     },
+    "New Upload Target": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Destí de pujada nou"
+          }
+        }
+      }
+    },
     "New files in a folder": {
       "localizations": {
         "ca": {
@@ -3997,6 +4287,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Encara no hi ha cap pas. Afegeix-ne un a sota."
+          }
+        }
+      }
+    },
+    "No upload targets yet. Add an S3-compatible bucket: AWS S3, Cloudflare R2, Backblaze B2 or MinIO.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encara no hi ha cap destí de pujada. Afegeix un bucket compatible amb S3: AWS S3, Cloudflare R2, Backblaze B2 o MinIO."
           }
         }
       }
@@ -4591,6 +4891,16 @@
         }
       }
     },
+    "Path tokens: %f name, %e extension, %y %m %d date, %r five random letters. In the public link, {path} is the uploaded path; leave it empty to use the endpoint's address.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marcadors del camí: %f nom, %e extensió, %y %m %d data, %r cinc lletres a l’atzar. A l’enllaç públic, {path} és el camí pujat; deixa’l buit per fer servir l’adreça del punt d’accés."
+          }
+        }
+      }
+    },
     "Pause": {
       "localizations": {
         "ca": {
@@ -4861,6 +5171,16 @@
         }
       }
     },
+    "Public link": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enllaç públic"
+          }
+        }
+      }
+    },
     "Put on a shelf": {
       "localizations": {
         "ca": {
@@ -5011,12 +5331,32 @@
         }
       }
     },
+    "Region": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regió"
+          }
+        }
+      }
+    },
     "Relative to": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Relatiu a"
+          }
+        }
+      }
+    },
+    "Remove": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elimina"
           }
         }
       }
@@ -5107,6 +5447,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Treu els passos per a %@"
+          }
+        }
+      }
+    },
+    "Remove the upload target “%@”?": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vols eliminar el destí de pujada «%@»?"
           }
         }
       }
@@ -5531,6 +5881,16 @@
         }
       }
     },
+    "Saved in the Keychain": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desat al clauer"
+          }
+        }
+      }
+    },
     "Scale": {
       "localizations": {
         "ca": {
@@ -5601,6 +5961,16 @@
         }
       }
     },
+    "Secret access key": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clau d’accés secreta"
+          }
+        }
+      }
+    },
     "Section `[%@]` appears twice; its steps are joined in order.": {
       "localizations": {
         "ca": {
@@ -5627,6 +5997,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Posa ${setting} a ${value}"
+          }
+        }
+      }
+    },
+    "Set Up Uploads…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configura les pujades…"
           }
         }
       }
@@ -6031,6 +6411,16 @@
         }
       }
     },
+    "Stop Uploading": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atura la pujada"
+          }
+        }
+      }
+    },
     "Stop Watching": {
       "localizations": {
         "ca": {
@@ -6221,6 +6611,16 @@
         }
       }
     },
+    "Test Upload": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prova la pujada"
+          }
+        }
+      }
+    },
     "Test the MCP server": {
       "localizations": {
         "ca": {
@@ -6271,6 +6671,16 @@
         }
       }
     },
+    "The Keychain refused: %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El clauer ho ha refusat: %@"
+          }
+        }
+      }
+    },
     "The MCP server checks every request from an agent against these switches, and the app checks it again. They start off, and agents cannot turn them on. The esclop command line acts for you and is not limited by them.": {
       "localizations": {
         "ca": {
@@ -6307,6 +6717,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "La versió actual es conserva com a %@."
+          }
+        }
+      }
+    },
+    "The endpoint is an address such as https://s3.eu-west-1.amazonaws.com.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El punt d’accés és una adreça com ara https://s3.eu-west-1.amazonaws.com."
+          }
+        }
+      }
+    },
+    "The endpoint must use https (http only for a server on this Mac).": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El punt d’accés ha de fer servir https (http només per a un servidor en aquest Mac)."
           }
         }
       }
@@ -6351,12 +6781,32 @@
         }
       }
     },
+    "The first in the list": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El primer de la llista"
+          }
+        }
+      }
+    },
     "The front matter opened here is never closed. Add a line with `---` after it.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "La capçalera que s’obre aquí no es tanca mai. Afegeix-hi una línia amb `---` després."
+          }
+        }
+      }
+    },
+    "The keys for “%@” are missing. Enter them in Settings › Uploads (esclop://settings/uploads).": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Falten les claus de «%@». Introdueix-les a Configuració › Pujades (esclop://settings/uploads)."
           }
         }
       }
@@ -6421,6 +6871,16 @@
         }
       }
     },
+    "The public link is an address with {path} where the file's path goes.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’enllaç públic és una adreça amb {path} on va el camí del fitxer."
+          }
+        }
+      }
+    },
     "The same pipeline as the form. Saving writes it in this layout; comments are not kept.": {
       "localizations": {
         "ca": {
@@ -6441,6 +6901,36 @@
         }
       }
     },
+    "The upload target did not answer.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El destí de pujada no ha respost."
+          }
+        }
+      }
+    },
+    "The upload target refused the file (%d).": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El destí de pujada ha refusat el fitxer (%d)."
+          }
+        }
+      }
+    },
+    "The upload target refused the file (%d): %@.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El destí de pujada ha refusat el fitxer (%d): %@."
+          }
+        }
+      }
+    },
     "There is already a pipeline named “%@”.": {
       "localizations": {
         "ca": {
@@ -6457,6 +6947,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "No hi ha cap pipeline que es digui «%@»."
+          }
+        }
+      }
+    },
+    "There is no upload target named “%@”. Targets: %@.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hi ha cap destí de pujada que es digui «%@». Destins: %@."
+          }
+        }
+      }
+    },
+    "There is no upload target yet. Add one in Settings › Uploads (esclop://settings/uploads).": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encara no hi ha cap destí de pujada. Afegeix-ne un a Configuració › Pujades (esclop://settings/uploads)."
           }
         }
       }
@@ -6901,12 +7411,112 @@
         }
       }
     },
+    "Upload Again": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Torna a pujar"
+          }
+        }
+      }
+    },
+    "Upload to": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puja a"
+          }
+        }
+      }
+    },
+    "Upload to %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puja a %@"
+          }
+        }
+      }
+    },
+    "Upload to a target": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puja a un destí"
+          }
+        }
+      }
+    },
     "Upload with %@": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Puja amb %@"
+          }
+        }
+      }
+    },
+    "Uploaded · link copied": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pujat · enllaç copiat"
+          }
+        }
+      }
+    },
+    "Uploaded: %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pujat: %@"
+          }
+        }
+      }
+    },
+    "Uploading a test file…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’està pujant un fitxer de prova…"
+          }
+        }
+      }
+    },
+    "Uploading…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pujant…"
+          }
+        }
+      }
+    },
+    "Uploading… %d %%": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pujant… %d %%"
+          }
+        }
+      }
+    },
+    "Uploads": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pujades"
           }
         }
       }
@@ -7661,6 +8271,16 @@
         }
       }
     },
+    "endpoint/bucket/file; off: bucket.endpoint/file": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "punt d’accés/bucket/fitxer; desactivat: bucket.punt d’accés/fitxer"
+          }
+        }
+      }
+    },
     "esclop settings schema lists them, esclop settings set and reset change them. The window follows.": {
       "localizations": {
         "ca": {
@@ -7701,6 +8321,16 @@
         }
       }
     },
+    "keys in the Keychain": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "claus al clauer"
+          }
+        }
+      }
+    },
     "macOS did not add L'Esclop to the login items: %@. Add it in System Settings → General → Login Items.": {
       "localizations": {
         "ca": {
@@ -7737,6 +8367,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "sense àudio"
+          }
+        }
+      }
+    },
+    "no keys yet": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "encara sense claus"
           }
         }
       }
@@ -7887,6 +8527,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Els agents poden canviar la configuració"
+          }
+        }
+      }
+    },
+    "setting.allowUploads.summary": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permet que els agents d’IA pugin fitxers als teus destins de pujada i executin pipelines amb passos de pujada."
+          }
+        }
+      }
+    },
+    "setting.allowUploads.title": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els agents poden pujar fitxers"
           }
         }
       }
@@ -9331,6 +9991,66 @@
         }
       }
     },
+    "setting.uploadAutomatically.summary": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fonts els resultats de les quals es pugen tan bon punt s’optimitzen, amb l’enllaç al porta-retalls."
+          }
+        }
+      }
+    },
+    "setting.uploadAutomatically.title": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puja automàticament"
+          }
+        }
+      }
+    },
+    "setting.uploadTarget.summary": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El destí que es fa servir quan no se n’indica cap. Buit fa servir el primer."
+          }
+        }
+      }
+    },
+    "setting.uploadTarget.title": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puja a"
+          }
+        }
+      }
+    },
+    "setting.uploadTargets.summary": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On es pugen els fitxers: emmagatzematge compatible amb S3 com AWS S3, Cloudflare R2, Backblaze B2 o MinIO. Les claus es guarden al clauer, mai aquí."
+          }
+        }
+      }
+    },
+    "setting.uploadTargets.title": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Destins de pujada"
+          }
+        }
+      }
+    },
     "setting.useAggressiveOptimisationGIF.summary": {
       "localizations": {
         "ca": {
@@ -10327,6 +11047,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Comprimeix i després redueix fins que el fitxer quedi per sota d’una mida."
+          }
+        }
+      }
+    },
+    "step.upload.summary": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puja el fitxer a un dels teus destins de pujada (Configuració › Pujades) i en copia l’enllaç. Cal l’app."
+          }
+        }
+      }
+    },
+    "step.upload.to": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "el nom del destí de pujada; si no hi és, el per defecte"
           }
         }
       }

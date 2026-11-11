@@ -15,6 +15,8 @@ public enum PipelineHostAction: Hashable, Codable, Sendable {
     case copyLinkForSending(expiration: TimeInterval?)
     case shelve(app: String)
     case upload(app: String)
+    /// Upload to one of the person's upload targets (nil: the default) and copy the link.
+    case uploadTo(target: String?)
     case open(app: String)
     /// Show this file as an extra result (the `fork` step).
     case presentFork

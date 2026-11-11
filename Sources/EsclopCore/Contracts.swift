@@ -244,11 +244,13 @@ public struct OptimisationResult: Codable, Identifiable, Sendable {
     public var startedAt: Date
     public var finishedAt: Date
     public var steps: [String]             // human-readable log of what was applied
+    /// Where the file can be fetched after an upload (its public link).
+    public var link: URL?
 
     public init(
         id: UUID = UUID(), source: URL, output: URL, backup: URL? = nil, kind: MediaKind,
         bytesBefore: Int, bytesAfter: Int, width: Int? = nil, height: Int? = nil, duration: TimeInterval? = nil,
-        startedAt: Date, finishedAt: Date, steps: [String] = []
+        startedAt: Date, finishedAt: Date, steps: [String] = [], link: URL? = nil
     ) {
         self.id = id
         self.source = source
@@ -263,6 +265,7 @@ public struct OptimisationResult: Codable, Identifiable, Sendable {
         self.startedAt = startedAt
         self.finishedAt = finishedAt
         self.steps = steps
+        self.link = link
     }
 
     public var savedBytes: Int { bytesBefore - bytesAfter }

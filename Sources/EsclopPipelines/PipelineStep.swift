@@ -188,6 +188,8 @@ public enum PipelineStep: Hashable, Codable, Sendable {
     case fork(location: OutputLocation? = nil)
     case shelveWith(app: String)
     case uploadWith(app: String)
+    /// Upload the file to one of the person's upload targets (nil: the default) and copy the link.
+    case upload(target: String? = nil)
     case openWith(app: String)
 
     /// The name written in the text language (`if` and `ifNot` for the filters).
@@ -219,6 +221,7 @@ public enum PipelineStep: Hashable, Codable, Sendable {
         case .fork: "fork"
         case .shelveWith: "shelveWith"
         case .uploadWith: "uploadWith"
+        case .upload: "upload"
         case .openWith: "openWith"
         }
     }

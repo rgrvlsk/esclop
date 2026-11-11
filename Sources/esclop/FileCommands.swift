@@ -174,6 +174,23 @@ struct Strip: AsyncParsableCommand {
     }
 }
 
+struct Upload: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "Upload files to an upload target set up in the app and print their links.",
+        discussion: "Targets (S3-compatible: AWS S3, Cloudflare R2, Backblaze B2, MinIO) are set up in L'Esclop Settings › Uploads, which keeps their keys in the Keychain. Only the app can read them, so the upload runs there; the app is started if it is not running. The last link is also put on the clipboard."
+    )
+
+    @Option(name: .customLong("to"), help: "The upload target's name. Left out: the default one.")
+    var target: String?
+
+    @OptionGroup var files: FileOptions
+    @OptionGroup var global: GlobalOptions
+
+    func run() async throws {
+        try await runFileJob(.upload(target: target), files: files, global: global)
+    }
+}
+
 func parseCrop(_ text: String) throws -> CropSize {
     do { return try AspectRatio.cropSize(text) } catch { throw ValidationError("\(error)") }
 }

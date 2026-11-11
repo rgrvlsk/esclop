@@ -27,6 +27,12 @@ public enum SettingControl: Equatable, Sendable {
     case clipboardRules
     /// A switch for each round button above a floating result.
     case hoverButtons
+    /// The upload targets, with Add, Edit and Remove; their keys go to the Keychain.
+    case uploadTargets
+    /// The default upload target, from the targets.
+    case uploadTarget
+    /// A switch for each source that can upload on its own.
+    case uploadSources
 
     public struct Choice: Equatable, Hashable, Sendable {
         public var value: JSONValue
@@ -63,6 +69,9 @@ public enum SettingPresentation {
         if key == EsclopSettings.clipboardIgnoredAppBundleIds.key { return .apps }
         if key == EsclopSettings.clipboardRules.key { return .clipboardRules }
         if key == EsclopSettings.hoverButtons.key { return .hoverButtons }
+        if key == EsclopSettings.uploadTargets.key { return .uploadTargets }
+        if key == EsclopSettings.uploadTarget.key { return .uploadTarget }
+        if key == EsclopSettings.uploadAutomatically.key { return .uploadSources }
         if key.hasPrefix("formatsToConvert") { return .extensions }
         switch descriptor.type {
         case .bool: return .toggle
@@ -142,6 +151,15 @@ public enum SettingPresentation {
         case .hoverButtons:
             let names = (value?.arrayValue ?? []).compactMap(\.stringValue)
             return names.isEmpty ? Strings.text("none") : names.map(CardPresentation.hoverButtonTitle).joined(separator: ", ")
+        case .uploadTargets:
+            let targets = UploadTarget.decode((value?.arrayValue ?? []).compactMap(\.stringValue))
+            return targets.isEmpty ? Strings.text("none") : targets.map(\.name).joined(separator: ", ")
+        case .uploadTarget:
+            let name = value?.stringValue ?? ""
+            return name.isEmpty ? Strings.text("The first in the list") : name
+        case .uploadSources:
+            let names = (value?.arrayValue ?? []).compactMap(\.stringValue)
+            return names.isEmpty ? Strings.text("none") : names.compactMap { RequestOrigin(rawValue: $0) }.map(UploadSourceSwitches.title).joined(separator: ", ")
 
         default:
             return text(for: value)

@@ -118,6 +118,27 @@ import Testing
         #expect(size.width > 0)
     }
 
+    /// Settings › Uploads with two targets, one with its keys saved, and automatic uploads from
+    /// the clipboard; then the editor sheet for the first.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func uploads(scheme: ColorScheme) async throws {
+        let model = model(TestSettings())
+        let keychain = MemoryCredentialStore(["R2": UploadCredentials(accessKeyID: "AKIDEXAMPLE", secret: "x")])
+        model.uploads = UploadSettingsSupport(credentials: keychain) { _, _ in URL(string: "https://files.example.com/x")! }
+        let targets = [
+            UploadTarget(name: "R2", endpoint: "https://account.r2.cloudflarestorage.com", bucket: "pictures", region: "auto", publicURL: "https://files.example.com/{path}"),
+            UploadTarget(name: "MinIO", endpoint: "http://127.0.0.1:9000", bucket: "test"),
+        ]
+        model.set("uploadTargets", to: .array(UploadTarget.encode(targets).map { .string($0) }))
+        model.set("uploadAutomatically", to: .array([.string("clipboard")]))
+        model.pane = .uploads
+        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-uploads", scheme: scheme)
+        var draft = UploadTargetDraft(targets[0], keysSaved: true)
+        draft.accessKeyID = ""
+        let editor = UploadTargetEditor(draft: draft, others: [targets[1]], model: model) {}
+        try await Self.renderWindow(editor, size: CGSize(width: 520, height: 720), name: "settings-upload-editor", scheme: scheme)
+    }
+
     @Test(arguments: [ColorScheme.light, .dark])
     func search(scheme: ColorScheme) async throws {
         let model = model(TestSettings())
