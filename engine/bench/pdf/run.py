@@ -303,6 +303,16 @@ def process(src, name, a):
     compared = {}
     if info["valid"] == "ok" and scored and not a.timing_only:
         c = judge("compare-many", src, *[r[2] for r in scored])
+        # A render of the original once came out wrong (every output, gs's too, scored 0.9665 on
+        # the same pages; 0.9998 on a rerun): an output under the gate is judged again once,
+        # and the second judgement stands. A real failure repeats.
+        low = any(
+            min((v for v in o.get("ssim", []) if v >= 0), default=1) < (0.95 if r[1] == "aggressive" else 0.98)
+            for r, o in zip(scored, c.get("outputs", []))
+        )
+        if low:
+            c = judge("compare-many", src, *[r[2] for r in scored])
+            info["judge_retried"] = True
         info["judge_rss_mb"] = c.get("judge_rss_mb", c.get("rss_mb"))
         if "outputs" in c:
             for r, o in zip(scored, c["outputs"]):
