@@ -593,3 +593,13 @@ fn a_reason_reaches_the_reply() {
         serde_json::to_value(crate::error_response(serde_json::json!("1"), EngineError::unsupported("x"))).unwrap();
     assert!(plain["error"].get("reason").is_none());
 }
+
+#[test]
+fn a_million_trailer_words_are_searched_once() {
+    // Uncompressed content holding "trailer" a million times, before the real trailer.
+    let mut objs = image_page(gray_image(16, 16));
+    objs[3] = stream("", &b"% trailer\n".repeat(1_000_000), false);
+    let (r, t) = rewrite_within(build(&objs), Some(150.0), Duration::from_secs(5)).expect("over 5 s");
+    assert!(r.is_ok(), "{r:?}");
+    eprintln!("a million trailer words: {t:?}");
+}

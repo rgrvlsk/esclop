@@ -174,7 +174,7 @@ pub fn rewrite(bytes: &[u8], settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>,
     // Whether the file is encrypted is read from its bytes too: lopdf can drop an `/Encrypt`
     // it does not follow (pdf.js issue7665, `/CF` given by reference) and hand back undecrypted
     // strings as if the file were plain; writing that out would lose the protection and the text.
-    if encryption.is_none() && names_encryption(bytes, &doc) {
+    if encryption.is_none() && names_encryption(bytes, &doc, ctx)? {
         return Err(EngineError::left_as_is(
             reasons::ENCRYPTION,
             "this PDF's encryption cannot be read and written again",
@@ -382,29 +382,31 @@ fn is_signed(doc: &Document) -> bool {
 
 /// Whether a trailer names an `/Encrypt` dictionary: the one lopdf read, a cross-reference
 /// stream's, or any `trailer` dictionary in the file (text that merely contains the word does not
-/// count).
-fn names_encryption(bytes: &[u8], doc: &Document) -> bool {
+/// count). One pass over the file: each region from a `trailer` to the next `startxref` is
+/// searched once, however many `trailer` words it holds.
+fn names_encryption(bytes: &[u8], doc: &Document, ctx: &Ctx) -> Result<bool> {
     if doc.trailer.has(b"Encrypt") {
-        return true;
+        return Ok(true);
     }
     let xref_stream = doc.objects.values().any(|o| {
         matches!(o, Object::Stream(s) if s.dict.get(b"Type").and_then(|t| t.as_name()).ok() == Some(b"XRef")
             && s.dict.has(b"Encrypt"))
     });
     if xref_stream {
-        return true;
+        return Ok(true);
     }
     let find = |hay: &[u8], needle: &[u8]| hay.windows(needle.len()).position(|w| w == needle);
     let mut at = 0;
     while let Some(p) = find(&bytes[at..], b"trailer") {
+        ctx.check()?;
         let start = at + p + 7;
         let end = find(&bytes[start..], b"startxref").map_or(bytes.len(), |e| start + e);
         if find(&bytes[start..end], b"/Encrypt").is_some() {
-            return true;
+            return Ok(true);
         }
-        at = start;
+        at = end;
     }
-    false
+    Ok(false)
 }
 
 fn is_encrypted(bytes: &[u8]) -> bool {
