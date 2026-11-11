@@ -27,6 +27,8 @@ public enum SettingControl: Equatable, Sendable {
     case clipboardRules
     /// A switch for each round button above a floating result.
     case hoverButtons
+    /// The preset zones: a switch for each pipeline that can be one, and its place in the order.
+    case presetZones
     /// The upload targets, with Add, Edit and Remove; their keys go to the Keychain.
     case uploadTargets
     /// The default upload target, from the targets.
@@ -69,6 +71,7 @@ public enum SettingPresentation {
         if key == EsclopSettings.clipboardIgnoredAppBundleIds.key { return .apps }
         if key == EsclopSettings.clipboardRules.key { return .clipboardRules }
         if key == EsclopSettings.hoverButtons.key { return .hoverButtons }
+        if key == EsclopSettings.presetZones.key { return .presetZones }
         if key == EsclopSettings.uploadTargets.key { return .uploadTargets }
         if key == EsclopSettings.uploadTarget.key { return .uploadTarget }
         if key == EsclopSettings.uploadAutomatically.key { return .uploadSources }
@@ -151,6 +154,9 @@ public enum SettingPresentation {
         case .hoverButtons:
             let names = (value?.arrayValue ?? []).compactMap(\.stringValue)
             return names.isEmpty ? Strings.text("none") : names.map(CardPresentation.hoverButtonTitle).joined(separator: ", ")
+        case .presetZones:
+            let names = (value?.arrayValue ?? []).compactMap(\.stringValue)
+            return names.isEmpty ? Strings.text("none") : names.joined(separator: ", ")
         case .uploadTargets:
             let targets = UploadTarget.decode((value?.arrayValue ?? []).compactMap(\.stringValue))
             return targets.isEmpty ? Strings.text("none") : targets.map(\.name).joined(separator: ", ")

@@ -149,7 +149,11 @@ holds the rest, in folders by feature:
   engines. Copy goes through `Strings`, which reads `Localizable.xcstrings` (English base,
   Catalan) by locale; `ESCLOP_LANGUAGE` overrides the system language.
 - `DropZone`: global mouse-drag monitors and the drag pasteboard (read off the main thread)
-  show a panel at the results corner; Command switches it to "optimise harder".
+  show a panel at the results corner; Command switches it to "optimise harder". `PresetZones`
+  is a pure function of the saved pipelines, the built-in templates and the `presetZones`
+  setting: every possible zone in order, and the four a drag of some kinds shows. The views
+  report each target's frame in a named space, and `DropTargetView` hit-tests the drag point
+  against them, so a drop goes to the zone drawn under it. `esclop://dropzone` pins the panel.
 - `Hotkeys`: KeyboardShortcuts names with Clop's default keys (⌃⇧P pause cycle, ⌃⇧C clipboard,
   ⌃⇧A harder).
 - `IPC/AppIPCHandler`: the `AppRequestHandler`; applies `AgentPolicy` again, then routes jobs

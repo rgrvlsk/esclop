@@ -7,6 +7,7 @@
 
 import EsclopCore
 import EsclopIPC
+import EsclopPipelines
 import Foundation
 import Observation
 
@@ -56,6 +57,8 @@ public final class SettingsViewModel {
     public private(set) var errors: [String: String] = [:]
 
     @ObservationIgnored let provider: any SettingsProvider
+    /// The saved pipelines, for the preset zones row (its switches attach the `presetZone` trigger).
+    @ObservationIgnored public var pipelines: PipelineStore?
     /// The Keychain and the test upload, for Settings › Uploads.
     @ObservationIgnored public var uploads: UploadSettingsSupport?
 

@@ -29,9 +29,9 @@ pipeline editor creates and runs pipelines without a text file, and a first-run 
 introduces the app. The CLI and the MCP server run their jobs through the app when it is open.
 
 It compares a result with its original, offers Finder Quick Actions and Shortcuts actions, and
-updates itself when a new release is published. It uploads results to your own S3-compatible
-storage and copies the link. Planned: preset zones. The app is in
-English and Catalan.
+updates itself when a new release is published. While files are dragged, preset zones beside the
+drop zone run a pipeline on them, and results can be uploaded to your own S3-compatible storage
+with the link copied. The app is in English and Catalan.
 See the [roadmap](docs/PLAN.md) and [architecture](docs/ARCHITECTURE.md).
 
 ## Build

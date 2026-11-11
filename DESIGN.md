@@ -129,7 +129,10 @@ Symbols; checkmarks are symbols, not text glyphs.
 - Radii are concentric: 12 pt thumbnail shell with a 9 pt picture inside, 24 pt detail card with
   12 pt picture, 22 pt popover. Controls use capsules or the system's control radius.
 - Drop zone: a single rounded glass shape at the cursor or screen edge, label "Drop to
-  optimise"; holding Command changes it to "Drop to optimise harder".
+  optimise"; holding Command changes it to "Drop to optimise harder". Preset zones sit beside
+  it, toward the screen, as a 2 × 2 grid of 92 × 64 pt dashed squares (symbol and name, two
+  lines at most); the one under the drag fills with the selected fill and its symbol turns
+  accent. Text and icons use the popover's inks on its near-opaque surface.
 - Settings: sidebar panes with the search at the top of the sidebar, grouped forms with native
   controls (switches, menus, sliders with their figure, fields with a stepper and unit). Each
   row has its title and a one-line explanation; a reset arrow appears beside the title while
