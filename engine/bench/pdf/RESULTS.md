@@ -106,3 +106,19 @@ which it cannot handle in memory). With 0.05 s polls the tool peak is 2.4 GB.
 Font oracle (`fontoracle.py`, v1 against f7f83b2 at 150 dpi): 358 outputs change, fonts save
 22.2 MB (5.8 % of v1's output), 347 render pixel-identical, 10 differ only by antialiasing
 (`diffpx_ink` 0 to 3), none loses or changes a glyph.
+
+## Engine at 1903caf (2026-11-11): no fidelity failures
+
+Real corpus, `run.py --jobs 2`: engine 0 failures at both settings (one judge flake, the
+original's render of govdocs/000187 scoring every output 0.9665, passes on rerun; run.py now
+re-judges once). Before (v5): 18 files at default, 12 aggressive. Synthetic: 0 failures.
+
+| setting | original | gs | engine | engine / gs, all | engine / gs, files gs passes |
+|---|---:|---:|---:|---:|---:|
+| default | 670.8 MB | 344.3 MB | 452.1 MB | 1.31 | 1.13 |
+| aggressive | 670.8 MB | 289.5 MB | 424.0 MB | 1.46 | 1.27 |
+
+gs fails a check on 474 / 470 files (text 372, fields 133, SSIM 99, permissions 38 at default).
+Gap on files gs passes, by cause (gap.py --clean, default): fonts kept whole 21.3 MB (mostly
+XFA forms' default fonts, kept on purpose), CFF fonts not subset 7.4, images 7.5, other 4.8,
+content 2.3. Peak RSS: judge 826 MB comparing, engine 1096 MB (p99 292), gs killed at its 2 GB cap.
