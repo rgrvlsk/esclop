@@ -307,7 +307,10 @@ struct S3TestServer {
         #expect(virtual.objectURL(key: "x/y.png")?.absoluteString == "https://pics.s3.eu-west-1.amazonaws.com/x/y.png")
     }
 
-    @Test func theKeychainStoreRoundTrips() throws {
+    /// The real login Keychain. Not on CI: a runner's keychain can be locked, and writing to it
+    /// then waits for a password prompt nobody answers.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["CI"] == nil, "the runner's keychain may be locked"))
+    func theKeychainStoreRoundTrips() throws {
         let store = KeychainCredentialStore(service: "dev.esclop.app-tests.\(UUID().uuidString)")
         defer { try? store.remove(for: "t") }
         #expect(try store.credentials(for: "t") == nil)
