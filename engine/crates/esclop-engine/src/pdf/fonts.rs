@@ -343,7 +343,8 @@ struct Usage {
     selected: HashSet<usize>,
     used: HashMap<ObjectId, BTreeSet<u16>>,
     keep_whole: HashSet<ObjectId>,
-    visited: HashSet<(ObjectId, usize)>,
+    /// Streams walked: (id, resources, font in effect when drawn).
+    visited: HashSet<(ObjectId, usize, usize)>,
     failed: bool,
     programs: Programs,
     cancel: Option<Arc<AtomicBool>>,
@@ -468,7 +469,8 @@ impl Usage {
                     else {
                         continue;
                     };
-                    self.form(doc, id, resources, depth);
+                    // A form starts with the graphics state of its `Do`, the current font included.
+                    self.form(doc, id, resources, *font, depth);
                 }
                 _ => {}
             }
@@ -476,18 +478,26 @@ impl Usage {
     }
 
     /// A form-like stream (form XObject, pattern, glyph procedure, appearance) by id, drawn
-    /// with its own resources or, lacking them, the caller's.
-    fn form<'a>(&mut self, doc: &'a Document, id: ObjectId, inherited: Option<&'a Dictionary>, depth: usize) {
+    /// with its own resources or, lacking them, the caller's, and `font` as the current font
+    /// (a form XObject inherits it from its `Do`; the others start without one).
+    fn form<'a>(
+        &mut self,
+        doc: &'a Document,
+        id: ObjectId,
+        inherited: Option<&'a Dictionary>,
+        font: Option<&'a Dictionary>,
+        depth: usize,
+    ) {
         let Ok(Object::Stream(s)) = doc.get_object(id) else { return };
         if name(doc, &s.dict, b"Subtype") == Some(b"Image") {
             return;
         }
         let res = get(doc, &s.dict, b"Resources").and_then(|o| dict(doc, o)).or(inherited);
-        if !self.visited.insert((id, res.map_or(0, key))) {
+        if !self.visited.insert((id, res.map_or(0, key), font.map_or(0, key))) {
             return;
         }
         match s.decompressed_content_with_limit(MAX_CONTENT) {
-            Ok(data) => self.walk(doc, &data, res, depth + 1, &mut (None, Vec::new())),
+            Ok(data) => self.walk(doc, &data, res, depth + 1, &mut (font, Vec::new())),
             Err(_) => self.failed = true,
         }
     }
@@ -498,7 +508,7 @@ impl Usage {
         let sub = |k: &[u8]| get(doc, r, k).and_then(|o| dict(doc, o));
         for (_, p) in sub(b"Pattern").into_iter().flat_map(|d| d.iter()) {
             if let Ok(id) = p.as_reference() {
-                self.form(doc, id, Some(r), depth);
+                self.form(doc, id, Some(r), None, depth);
             }
         }
         for (_, f) in sub(b"Font").into_iter().flat_map(|d| d.iter()) {
@@ -509,14 +519,14 @@ impl Usage {
             let res = get(doc, f, b"Resources").and_then(|o| dict(doc, o)).or(Some(r));
             for (_, g) in get(doc, f, b"CharProcs").and_then(|o| dict(doc, o)).into_iter().flat_map(|d| d.iter()) {
                 if let Ok(id) = g.as_reference() {
-                    self.form(doc, id, res, depth);
+                    self.form(doc, id, res, None, depth);
                 }
             }
         }
         for (_, s) in sub(b"ExtGState").into_iter().flat_map(|d| d.iter()) {
             let mask = dict(doc, s).and_then(|s| get(doc, s, b"SMask")).and_then(|m| m.as_dict().ok());
             if let Some(Ok(id)) = mask.and_then(|m| m.get(b"G").ok()).map(|g| g.as_reference()) {
-                self.form(doc, id, Some(r), depth);
+                self.form(doc, id, Some(r), None, depth);
             }
         }
     }
@@ -617,12 +627,12 @@ fn collect(
             for (_, look) in ap.into_iter().flat_map(|d| d.iter()) {
                 match look {
                     Object::Reference(id) if matches!(doc.get_object(*id), Ok(Object::Stream(_))) => {
-                        u.form(doc, *id, None, 0)
+                        u.form(doc, *id, None, None, 0)
                     }
                     o => {
                         for (_, s) in dict(doc, o).into_iter().flat_map(|d| d.iter()) {
                             if let Ok(id) = s.as_reference() {
-                                u.form(doc, id, None, 0);
+                                u.form(doc, id, None, None, 0);
                             }
                         }
                     }
