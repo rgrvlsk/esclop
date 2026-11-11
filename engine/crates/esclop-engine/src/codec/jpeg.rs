@@ -54,6 +54,8 @@ pub struct EncodeOptions<'a> {
     /// Progressive with the standard scan script instead of mozjpeg's scan search: within a few
     /// percent of the final size at a fraction of the memory (used by `fit`'s probes).
     pub fast_scans: bool,
+    /// No chroma subsampling (4:4:4): colour edges between saturated areas stay sharp.
+    pub chroma_full: bool,
     /// APPn/COM markers written after the JFIF header: (marker code, payload).
     pub markers: &'a [(u8, Vec<u8>)],
 }
@@ -328,6 +330,13 @@ unsafe fn encode_unchecked(
             jpeg_set_colorspace(&mut c.cinfo, J_COLOR_SPACE::JCS_YCCK);
         }
         jpeg_set_quality(&mut c.cinfo, opts.quality.clamp(1, 100) as c_int, 1);
+        if opts.chroma_full && layout != Layout::Gray {
+            for i in 0..c.cinfo.num_components as usize {
+                let ci = &mut *c.cinfo.comp_info.add(i);
+                ci.h_samp_factor = 1;
+                ci.v_samp_factor = 1;
+            }
+        }
         c.set_scans(opts.progressive, !opts.fast_scans);
         jpeg_start_compress(&mut c.cinfo, 1);
         c.write_markers(opts.markers);
@@ -449,7 +458,7 @@ mod tests {
                     64,
                     48,
                     Layout::Rgb,
-                    &EncodeOptions { quality: q, progressive: true, fast_scans: false, markers: &[] },
+                    &EncodeOptions { quality: q, progressive: true, fast_scans: false, chroma_full: false, markers: &[] },
                 )
                 .unwrap();
             let parts = crate::meta::JpegParts::parse(&out).unwrap();
@@ -492,7 +501,7 @@ mod tests {
                 80,
                 60,
                 Layout::Rgb,
-                &EncodeOptions { quality: 90, progressive: false, fast_scans: false, markers: &[] },
+                &EncodeOptions { quality: 90, progressive: false, fast_scans: false, chroma_full: false, markers: &[] },
             )
             .unwrap();
         let t = codec().transcode(&base, &TranscodeOptions { progressive: true, markers: &[] }).unwrap();
