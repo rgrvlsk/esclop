@@ -70,7 +70,7 @@ pub fn rewrite_with(pdf: Vec<u8>, settings: Settings, limit: Duration) -> Option
     let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
         let t = Instant::now();
-        let r = rewrite(&pdf, &settings, &Ctx::silent());
+        let r = rewrite(pdf, &settings, &Ctx::silent());
         let _ = tx.send((r, t.elapsed()));
     });
     rx.recv_timeout(limit).ok()
@@ -223,10 +223,10 @@ fn every_stage_stops_when_cancelled() {
     assert!(is_cancel(&fonts::subset_fonts(&mut doc, &cancelled(), &Arc::new(budget::Held::new(0)))));
     assert!(is_cancel(&inline::move_inline_images(&mut doc, &cancelled())));
     assert!(is_cancel(&placement::image_resolutions(&doc, &cancelled()).map(|_| 0)));
-    let mut w = budget::CappedWriter::new(1 << 20, cancelled());
+    let mut w = budget::CappedWriter::new(Vec::new(), 1 << 20, cancelled());
     assert!(std::io::Write::write_all(&mut w, b"x").is_err());
     let ctx = Ctx::new(cancelled(), Arc::new(|_, _| {}));
-    assert!(is_cancel(&rewrite(&pdf, &Settings::new(30, None, false), &ctx).map(|_| 0)));
+    assert!(is_cancel(&rewrite(pdf, &Settings::new(30, None, false), &ctx).map(|_| 0)));
 }
 
 fn is_unsupported<T>(r: &Result<T>) -> bool {
@@ -602,4 +602,33 @@ fn a_million_trailer_words_are_searched_once() {
     let (r, t) = rewrite_within(build(&objs), Some(150.0), Duration::from_secs(5)).expect("over 5 s");
     assert!(r.is_ok(), "{r:?}");
     eprintln!("a million trailer words: {t:?}");
+}
+
+#[test]
+fn an_encrypted_input_shares_one_limit_between_its_object_streams() {
+    let ctx = Ctx::silent();
+    let encrypted = |body: &[u8]| {
+        let mut f = b"%PDF-1.7\n".to_vec();
+        f.extend(body);
+        f.extend(b"\ntrailer\n<< /Size 3 /Root 1 0 R /Encrypt 2 0 R >>\nstartxref\n0\n%%EOF\n");
+        f
+    };
+    // Not encrypted: the usual limit.
+    assert_eq!(
+        load_stream_limit(b"%PDF-1.7\n/ObjStm /ObjStm\ntrailer << /Root 1 0 R >>", &ctx).unwrap(),
+        budget::MAX_LOAD_STREAM
+    );
+    // 100 object streams, one written with a #-escape: 32 MB / 100 each.
+    let mut names = b"<< /Type /ObjStm >> ".repeat(99);
+    names.extend(b"<< /Type /Obj#53tm >>");
+    assert_eq!(load_stream_limit(&encrypted(&names), &ctx).unwrap(), (32 << 20) / 100);
+    // Never under 64 KB, never over 16 MB.
+    assert_eq!(load_stream_limit(&encrypted(&b"/ObjStm ".repeat(10_000)), &ctx).unwrap(), 64 << 10);
+    assert_eq!(load_stream_limit(&encrypted(b"/ObjStm"), &ctx).unwrap(), budget::MAX_LOAD_STREAM);
+    // Over 64 MB, left as it is.
+    let mut big = vec![b' '; MAX_ENCRYPTED_INPUT + 1];
+    big.extend(encrypted(b""));
+    let e = load_stream_limit(&big, &ctx).unwrap_err();
+    assert_eq!(e.reason, Some(reasons::ENCRYPTED_LARGE));
+    assert_eq!(names_count(b"/ObjStm/ObjStmX /Obj#53tm (/ObjStm)", b"ObjStm"), 3);
 }

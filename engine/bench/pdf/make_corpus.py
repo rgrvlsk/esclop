@@ -865,10 +865,19 @@ def main():
         "inline-images-masks": lambda p: doc_inline_and_masks(p, R(28)),
         "sixteen-bit-image": lambda p: doc_sixteen_bit(p, R(29)),
         "png-predictor-image": lambda p: doc_predictor_png(p, R(30)),
+        # A scanned book of about 330 MB: more stream data than the engine's 256 MB memory
+        # budget, which must not count it (every page a different scan).
+        "scan-book-color-jpeg-300dpi": lambda p: doc_scans(p, R(31), 140, 300, "jpeg", quality=92),
     }
+    # `make_corpus.py OUT NAME...` makes only those files.
+    only = set(sys.argv[2:])
     for name, make in jobs.items():
+        if only and name not in only:
+            continue
         make(out / f"{name}.pdf")
         print(name, flush=True)
+    if only:
+        return
     doc_object_streams(out / "object-streams-xref-stream.pdf", out / "mixed-report.pdf")
     # Linearised: gs with lossless settings, so the images stay as they are.
     env = dict(os.environ, SOURCE_DATE_EPOCH="1700000000")
