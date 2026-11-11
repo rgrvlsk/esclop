@@ -122,7 +122,7 @@ pub fn recompress(doc: &Document, stream: &Stream, plan: &ImagePlan, budget: &Bu
     let cost = (w as usize) * (h as usize) * comps_est * (bpc.max(8) as usize / 8) * 5 + stream.content.len() * 2;
     let Some(_hold) = budget.hold(cost)? else { return Ok(None) };
     let scale = match (plan.dpi, plan.drawn_dpi) {
-        (Some(target), Some(drawn)) if drawn > target * 1.05 => target / drawn,
+        (Some(target), Some(drawn)) if drawn > target * DOWNSAMPLE_THRESHOLD => target / drawn,
         _ => 1.0,
     };
 
@@ -151,10 +151,13 @@ pub fn recompress(doc: &Document, stream: &Stream, plan: &ImagePlan, budget: &Bu
             let raw = jpeg::decode_samples(original, u64::from(w) * u64::from(h))?;
             if raw.width == w && raw.height == h && space == Some(Space::Jpegable(raw.layout.components())) {
                 let comps = raw.layout.components();
-                let scale = checked_scale(&raw.pixels, w, h, comps, scale, plan)?;
+                let Some(r) = view_ref(&raw.pixels, w, h, comps, plan)? else {
+                    return Ok(best.map(|b| (Stream::new(d.clone(), b), false)));
+                };
+                let scale = checked_scale(&raw.pixels, w, h, comps, scale, plan, &r)?;
                 let (px, nw, nh) = resample(raw.pixels, w, h, comps, scale)?;
                 let limit = best.as_ref().map_or(original.len(), |b| b.len());
-                if let Some(enc) = encode_checked(&px, nw, nh, raw.layout, plan, scale, limit)? {
+                if let Some(enc) = encode_checked(&px, nw, nh, raw.layout, plan, &r, limit)? {
                     return Ok(Some((with_jpeg(d, enc, nw, nh), true)));
                 }
             }
@@ -186,12 +189,17 @@ pub fn recompress(doc: &Document, stream: &Stream, plan: &ImagePlan, budget: &Bu
     let jpegable = matches!(space, Space::Jpegable(_)) && lossy_ok && (bpc == 8 || bpc == 16);
     let mut out_bpc = bpc;
     let (mut px, mut nw, mut nh) = (samples, w, h);
+    let mut reference = None;
     if jpegable {
         if bpc == 16 {
             px = px.as_chunks::<2>().0.iter().map(|c| c[0]).collect();
             out_bpc = 8;
         }
-        let scale = checked_scale(&px, w, h, comps, scale, plan)?;
+        reference = view_ref(&px, w, h, comps, plan)?;
+        let scale = match &reference {
+            Some(r) => checked_scale(&px, w, h, comps, scale, plan, r)?,
+            None => 1.0,
+        };
         (px, nw, nh) = resample(px, w, h, comps, scale)?;
     }
     let out_row = (nw as usize * comps * out_bpc as usize).div_ceil(8);
@@ -210,7 +218,8 @@ pub fn recompress(doc: &Document, stream: &Stream, plan: &ImagePlan, budget: &Bu
         };
         let limit = original_len.min(strong.len() * 3 / 4);
         if probe.len() < limit
-            && let Some(enc) = encode_checked(&px, nw, nh, layout(comps), plan, scale, limit)?
+            && let Some(r) = &reference
+            && let Some(enc) = encode_checked(&px, nw, nh, layout(comps), plan, r, limit)?
         {
             return Ok(Some((with_jpeg(d, enc, nw, nh), true)));
         }
@@ -253,11 +262,11 @@ fn jpx_image(
     let d = &stream.dict;
     let Some(Space::Jpegable(comps @ (1 | 3))) = space else { return Ok(None) };
     let smask_in_data = d.get(b"SMaskInData").and_then(|o| o.as_i64()).unwrap_or(0) != 0;
-    if !lossy_ok || smask_in_data || d.has(b"Decode") {
+    if !lossy_ok || smask_in_data || d.has(b"Decode") || !jpx_full_sampling(&stream.content) {
         return Ok(None);
     }
     let scale = match (plan.dpi, plan.drawn_dpi) {
-        (Some(target), Some(drawn)) if drawn > target * 1.05 => target / drawn,
+        (Some(target), Some(drawn)) if drawn > target * DOWNSAMPLE_THRESHOLD => target / drawn,
         _ => 1.0,
     };
     // Decode at the larger of the target and the 150 dpi view the fidelity check compares at.
@@ -281,10 +290,21 @@ fn jpx_image(
     // From here the decoded image stands in for the original: its own resolution as drawn.
     let local = ImagePlan { drawn_dpi: plan.drawn_dpi.map(|d| d * f64::from(iw) / f64::from(w)), ..*plan };
     let s = ((w as f64 * scale) / f64::from(iw)).min(1.0);
-    let s = checked_scale(&px, iw, ih, comps, s, &local)?;
+    let Some(r) = view_ref(&px, iw, ih, comps, &local)? else { return Ok(None) };
+    let s = checked_scale(&px, iw, ih, comps, s, &local, &r)?;
     let (px, nw, nh) = resample(px, iw, ih, comps, s)?;
     let layout = if comps == 1 { Layout::Gray } else { Layout::Rgb };
-    Ok(encode_checked(&px, nw, nh, layout, &local, s, stream.content.len())?.map(|enc| (with_jpeg(d, enc, nw, nh), true)))
+    Ok(encode_checked(&px, nw, nh, layout, &local, &r, stream.content.len())?.map(|enc| (with_jpeg(d, enc, nw, nh), true)))
+}
+
+/// Whether every component of a JPEG 2000 codestream is sampled at full resolution (the SIZ
+/// marker's XRsiz and YRsiz are 1): subsampled components decode at their own sizes, and
+/// interleaving them as if they were full gave pdf.js jpx_subsampling SSIM 0.92.
+fn jpx_full_sampling(data: &[u8]) -> bool {
+    let Some(soc) = data.windows(4).position(|w| w == [0xFF, 0x4F, 0xFF, 0x51]) else { return false };
+    let siz = soc + 2;
+    let Some(n) = data.get(siz + 38..siz + 40).map(|b| u16::from_be_bytes([b[0], b[1]]) as usize) else { return false };
+    (0..n).all(|k| data.get(siz + 41 + 3 * k) == Some(&1) && data.get(siz + 42 + 3 * k) == Some(&1))
 }
 
 /// An image's decoded bytes, Flate (with or without PNG predictors) decoded here strictly: lopdf
@@ -446,31 +466,62 @@ fn encode_jpeg(px: &[u8], w: u32, h: u32, layout: Layout, quality: u8, chroma_fu
     jpeg::codec().encode(px, w, h, layout, &EncodeOptions { quality, progressive: true, fast_scans: true, chroma_full, markers: &[] })
 }
 
-/// The smallest JPEG under `limit` bytes whose SSIM against `px` reaches the plan's minimum,
-/// both seen at `VIEW_DPI` (`scale` is how far `px` was already downsampled from the drawn
-/// image): the ceiling quality, then without chroma subsampling, then 10, 20 and 40 points
-/// higher (at most 92). `None` when none does: the caller keeps a lossless form.
+/// The source image as a viewer shows it at `VIEW_DPI`: what every lossy step (downsampling,
+/// then JPEG) is judged against, so their losses add up in one score instead of passing one
+/// by one (pdf.js issue17289: each step alone scored 0.98, the page 0.970).
+struct ViewRef {
+    px: Vec<u8>,
+    w: u32,
+    h: u32,
+    comps: usize,
+    smoothed: bool,
+}
+
+/// A viewer draws an image through its interpolation filter, which smooths pixel noise a JPEG
+/// drops. Drawn denser than the view, area-averaging to it is that filter; drawn at or below it,
+/// one [1 2 1] pass stands in for it (a noisy 150 dpi scan scored SSIM 0.873 on raw pixels,
+/// 0.981 after the pass, and 0.987 as CoreGraphics renders the page).
+fn view_ref(px: &[u8], w: u32, h: u32, comps: usize, plan: &ImagePlan) -> Result<Option<ViewRef>> {
+    let view = plan.drawn_dpi.filter(|d| *d > 0.0).map_or(1.0, |d| (VIEW_DPI / d).min(1.0));
+    if view >= 1.0 {
+        if !matches!(comps, 1 | 3 | 4) {
+            return Ok(None);
+        }
+        return Ok(Some(ViewRef { px: smooth(px, w as usize, h as usize, comps), w, h, comps, smoothed: true }));
+    }
+    let (vw, vh) = (((w as f64 * view).round() as u32).max(1), ((h as f64 * view).round() as u32).max(1));
+    Ok(view_resample(px, w, h, comps, vw, vh)?.map(|p| ViewRef { px: p, w: vw, h: vh, comps, smoothed: false }))
+}
+
+impl ViewRef {
+    /// SSIM of `px` (`w` x `h`: the source downsampled, or its encode decoded) against the source,
+    /// both as a viewer shows them.
+    fn score(&self, px: &[u8], w: u32, h: u32) -> Result<f64> {
+        let seen = if (w, h) == (self.w, self.h) {
+            px.to_vec()
+        } else {
+            match view_resample(px, w, h, self.comps, self.w, self.h)? {
+                Some(p) => p,
+                None => return Ok(0.0),
+            }
+        };
+        let seen = if self.smoothed { smooth(&seen, self.w as usize, self.h as usize, self.comps) } else { seen };
+        Ok(ssim(&self.px, &seen, self.w as usize, self.h as usize, self.comps))
+    }
+}
+
+/// The smallest JPEG of `px` under `limit` bytes that keeps the plan's SSIM against the source
+/// `r`: the ceiling quality, then without chroma subsampling, then 10, 20 and 40 points higher
+/// (at most 92). `None` when none does: the caller keeps a lossless form.
 fn encode_checked(
     px: &[u8],
     w: u32,
     h: u32,
     layout: Layout,
     plan: &ImagePlan,
-    scale: f64,
+    r: &ViewRef,
     limit: usize,
 ) -> Result<Option<Vec<u8>>> {
-    let comps = layout.components();
-    // At the view: an image drawn denser than VIEW_DPI is compared as a viewer shows it.
-    let view = plan.drawn_dpi.filter(|d| *d > 0.0).map_or(1.0, |d| (VIEW_DPI / (d * scale)).min(1.0));
-    let (vw, vh) = (((w as f64 * view).round() as u32).max(1), ((h as f64 * view).round() as u32).max(1));
-    // A viewer draws an image through its interpolation filter, which smooths pixel noise a
-    // JPEG drops: one [1 2 1] pass stands in for it (a noisy 150 dpi scan scored SSIM 0.873
-    // on raw pixels, 0.981 after the pass, and 0.987 as CoreGraphics renders the page).
-    let at_view = |p: &[u8]| -> Result<Option<Vec<u8>>> {
-        let seen = if view >= 1.0 { Some(p.to_vec()) } else { resample_to(p, w, h, comps, vw, vh)? };
-        Ok(seen.map(|s| smooth(&s, vw as usize, vh as usize, comps)))
-    };
-    let Some(reference) = at_view(px)? else { return Ok(None) };
     let q = plan.jpeg_quality;
     let up = |n: u8| q.saturating_add(n).min(92).max(q);
     for (quality, full) in [(q, false), (q, true), (up(10), true), (up(20), true), (up(40), true)] {
@@ -482,8 +533,7 @@ fn encode_checked(
         if back.pixels.len() != px.len() {
             return Ok(None);
         }
-        let Some(seen) = at_view(&back.pixels)? else { return Ok(None) };
-        if ssim(&reference, &seen, vw as usize, vh as usize, comps) >= plan.min_ssim {
+        if r.score(&back.pixels, w, h)? >= plan.min_ssim {
             return Ok(Some(enc));
         }
     }
@@ -585,6 +635,40 @@ fn resample(px: Vec<u8>, w: u32, h: u32, comps: usize, scale: f64) -> Result<(Ve
 
 /// `px` resized to `nw` x `nh` (Catmull-Rom); `None` for a pixel layout it does not handle.
 fn resample_to(px: &[u8], w: u32, h: u32, comps: usize, nw: u32, nh: u32) -> Result<Option<Vec<u8>>> {
+    resample_with(px, w, h, comps, nw, nh, fr::FilterType::CatmullRom)
+}
+
+/// `px` as a viewer draws it smaller: halved by area averaging while still at least twice too
+/// large (what JPEG's DCT scaling, JPEG 2000's resolution levels and mipmaps amount to), then
+/// bilinear to the view, which aliases a reduction of less than half. Measured against
+/// CoreGraphics' render: pdf.js issue17289 page 4 scores 0.966 here and 0.970 in the judge (a
+/// plain Catmull-Rom resize said 0.99 and passed a failing JPEG); a q97 photo book 0.982 here
+/// and 0.9975 there.
+fn view_resample(px: &[u8], w: u32, h: u32, comps: usize, nw: u32, nh: u32) -> Result<Option<Vec<u8>>> {
+    let (mut cur, mut cw, mut ch) = (None::<Vec<u8>>, w, h);
+    // Two pixels of slack: a 2403-pixel image drawn 1202 wide is a 2:1 reduction.
+    while cw + 2 >= 2 * nw && ch + 2 >= 2 * nh && cw > nw && ch > nh {
+        let (hw, hh) = ((cw / 2).max(nw), (ch / 2).max(nh));
+        let Some(half) = resample_with(cur.as_deref().unwrap_or(px), cw, ch, comps, hw, hh, fr::FilterType::Box)? else {
+            return Ok(None);
+        };
+        (cur, cw, ch) = (Some(half), hw, hh);
+    }
+    if (cw, ch) == (nw, nh) {
+        return Ok(Some(cur.unwrap_or_else(|| px.to_vec())));
+    }
+    resample_with(cur.as_deref().unwrap_or(px), cw, ch, comps, nw, nh, fr::FilterType::Bilinear)
+}
+
+fn resample_with(
+    px: &[u8],
+    w: u32,
+    h: u32,
+    comps: usize,
+    nw: u32,
+    nh: u32,
+    filter: fr::FilterType,
+) -> Result<Option<Vec<u8>>> {
     let pt = match comps {
         1 => fr::PixelType::U8,
         3 => fr::PixelType::U8x3,
@@ -596,10 +680,16 @@ fn resample_to(px: &[u8], w: u32, h: u32, comps: usize, nw: u32, nh: u32) -> Res
     let mut dst = fr::images::Image::new(nw, nh, pt);
     // CMYK is four colour channels, not RGBA: no alpha handling.
     let opts =
-        fr::ResizeOptions::new().resize_alg(fr::ResizeAlg::Convolution(fr::FilterType::CatmullRom)).use_alpha(false);
+        fr::ResizeOptions::new().resize_alg(fr::ResizeAlg::Convolution(filter)).use_alpha(false);
     fr::Resizer::new().resize(&src, &mut dst, &opts).map_err(|e| err(&e))?;
     Ok(Some(dst.into_vec()))
 }
+
+/// Images are downsampled only when drawn at more than this many times the target resolution
+/// (Ghostscript's default `DownsampleThreshold`): a mild, non-integer reduction (300 to 250 dpi)
+/// saves little and changes how a viewer then resamples text edges (pdf.js issue17289: a page
+/// scored 0.970 while each step scored 0.98).
+const DOWNSAMPLE_THRESHOLD: f64 = 1.05;
 
 /// Resolution, in pixels per inch on the page, at which downsampling is judged: what the
 /// benchmark renders pages at, and about what a screen shows at 100 to 150 % zoom.
@@ -608,20 +698,17 @@ const VIEW_DPI: f64 = 150.0;
 /// The downsampling scale to use: `scale` when the image, downsampled and drawn back at
 /// `VIEW_DPI`, keeps the plan's SSIM against the full image drawn at `VIEW_DPI`; else the first
 /// of 72, 100 and 150 dpi that does (150 dpi loses nothing at that view).
-fn checked_scale(px: &[u8], w: u32, h: u32, comps: usize, scale: f64, plan: &ImagePlan) -> Result<f64> {
+fn checked_scale(px: &[u8], w: u32, h: u32, comps: usize, scale: f64, plan: &ImagePlan, r: &ViewRef) -> Result<f64> {
     let Some(drawn) = plan.drawn_dpi.filter(|d| *d > 0.0) else { return Ok(scale) };
     let view = (VIEW_DPI / drawn).min(1.0);
     if scale >= view {
         return Ok(scale);
     }
-    let (vw, vh) = (((w as f64 * view).round() as u32).max(1), ((h as f64 * view).round() as u32).max(1));
-    let Some(reference) = resample_to(px, w, h, comps, vw, vh)? else { return Ok(scale) };
     let candidates = [72.0, 100.0].into_iter().map(|d| d / drawn).filter(|s| *s > scale && *s < view);
     for s in std::iter::once(scale).chain(candidates) {
         let (sw, sh) = (((w as f64 * s).round() as u32).max(1), ((h as f64 * s).round() as u32).max(1));
         let Some(small) = resample_to(px, w, h, comps, sw, sh)? else { return Ok(scale) };
-        let Some(back) = resample_to(&small, sw, sh, comps, vw, vh)? else { return Ok(scale) };
-        if ssim(&reference, &back, vw as usize, vh as usize, comps) >= plan.min_ssim {
+        if r.score(&small, sw, sh)? >= plan.min_ssim {
             return Ok(s);
         }
     }
