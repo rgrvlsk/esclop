@@ -20,6 +20,9 @@ setvbuf(stdout, nil, _IOLBF, 0)
 let outputLock = NSLock()
 let stateLock = NSLock()
 var cancelled = Set<String>()
+/// Each request's stage: 0 queued, 1 running, 2 answered while queued (by a cancel).
+var stages: [String: Int] = [:]
+let workers = DispatchSemaphore(value: Int(ProcessInfo.processInfo.environment["FAKE_ENGINE_WORKERS"] ?? "") ?? 1000)
 let work = DispatchQueue(label: "fake-engine", attributes: .concurrent)
 let canWriteAVIF = (CGImageDestinationCopyTypeIdentifiers() as? [String] ?? []).contains("public.avif")
 
@@ -230,13 +233,37 @@ while let line = readLine() {
             emit(["id": id, "ok": true, "result": caps])
         }
     case "cancel":
+        // A request still queued is answered at once; a running one gets the flag.
         stateLock.lock()
-        cancelled.insert(id)
-        stateLock.unlock()
+        if stages[id] == 0 {
+            stages[id] = 2
+            stateLock.unlock()
+            fail(id, "cancelled", "cancelled")
+        } else {
+            cancelled.insert(id)
+            stateLock.unlock()
+        }
     default:
         let input = message["input"] as? String
         let output = message["output"] as? String
         let params = message["params"] as? [String: Any] ?? [:]
-        work.async { handle(id, op, input, output, params) }
+        stateLock.lock()
+        stages[id] = 0
+        stateLock.unlock()
+        work.async {
+            // FAKE_ENGINE_WORKERS: at most that many run at once, like the engine's pool.
+            workers.wait()
+            defer { workers.signal() }
+            stateLock.lock()
+            let answered = stages[id] == 2
+            stages[id] = answered ? nil : 1
+            stateLock.unlock()
+            if answered { return }
+            emit(["id": id, "event": "started", "fraction": 0.0])
+            handle(id, op, input, output, params)
+            stateLock.lock()
+            stages[id] = nil
+            stateLock.unlock()
+        }
     }
 }

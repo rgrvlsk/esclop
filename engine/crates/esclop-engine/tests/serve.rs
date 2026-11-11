@@ -81,6 +81,7 @@ fn concurrent_requests_progress_and_out_of_order_answers() {
     let mut responses: HashMap<String, Value> = HashMap::new();
     let mut order = Vec::new();
     let mut progress: Vec<(String, f64)> = Vec::new();
+    let mut started: Vec<String> = Vec::new();
     while responses.len() < 5 {
         let v = s.next();
         let id = match &v["id"] {
@@ -88,9 +89,15 @@ fn concurrent_requests_progress_and_out_of_order_answers() {
             Value::Null => "null".into(),
             other => other.to_string(),
         };
-        if v["event"] == json!("progress") {
+        if v["event"] == json!("started") {
+            started.push(id.clone());
+        } else if v["event"] == json!("progress") {
             progress.push((id, v["fraction"].as_f64().unwrap()));
         } else {
+            assert!(
+                !["big", "small"].contains(&id.as_str()) || started.contains(&id),
+                "{id} answered without a started event"
+            );
             order.push(id.clone());
             responses.insert(id, v);
         }
@@ -124,7 +131,7 @@ fn cancel_stops_a_running_request_and_writes_nothing() {
         if v["id"] == json!("slow") && v["event"] == json!("progress") {
             break;
         }
-        assert_ne!(v["id"], json!("slow"), "finished before it could be cancelled: {v}");
+        assert!(v["id"] != json!("slow") || v["event"].is_string(), "finished before it could be cancelled: {v}");
     }
     s.send(json!({"id": "slow", "op": "cancel"}));
     let mut got = HashMap::new();
@@ -168,4 +175,48 @@ fn duplicate_in_flight_ids_are_refused() {
     codes.sort();
     assert_eq!(codes, vec!["invalid_params", "ok"]);
     assert_eq!(s.finish(), 0);
+}
+
+#[test]
+fn a_queued_request_is_cancelled_at_once_and_a_started_event_marks_the_start() {
+    let d = Dir::new();
+    let src = d.write("p.jpg", &photo_jpeg(2400, 1800, 92));
+    let mut s = Session::start(1);
+    s.send(json!({"id": "slow", "op": "fit", "input": src, "output": d.path("a.webp"), "params": {"target_bytes": 3000, "format": "webp", "min_scale": 0.01}}));
+    s.send(json!({"id": "queued", "op": "fit", "input": src, "output": d.path("b.webp"), "params": {"target_bytes": 3000, "format": "webp", "min_scale": 0.01}}));
+    // `slow` starts (its event comes before its progress); `queued` waits for the one worker.
+    loop {
+        let v = s.next();
+        assert_ne!(v["id"], json!("queued"), "the queued request ran or answered early: {v}");
+        if v["id"] == json!("slow") && v["event"] == json!("started") {
+            break;
+        }
+        assert!(v["event"].is_string(), "slow finished before the test could cancel: {v}");
+    }
+    s.send(json!({"id": "queued", "op": "cancel"}));
+    // The queued request is answered now, while `slow` still runs.
+    loop {
+        let v = s.next();
+        if v["id"] == json!("queued") {
+            assert_eq!(v["error"]["code"], json!("cancelled"), "{v}");
+            break;
+        }
+        assert!(v["event"].is_string(), "slow finished before the queued request was answered: {v}");
+    }
+    s.send(json!({"id": "slow", "op": "cancel"}));
+    let mut answers = Vec::new();
+    loop {
+        let v = s.next();
+        if v.get("event").is_none() {
+            answers.push(v["id"].clone());
+            if v["id"] == json!("slow") {
+                break;
+            }
+        } else {
+            assert_ne!(v["id"], json!("queued"), "the cancelled queued request started: {v}");
+        }
+    }
+    assert_eq!(answers, vec![json!("slow")], "one answer per request");
+    assert_eq!(s.finish(), 0);
+    assert!(!d.path("b.webp").exists());
 }

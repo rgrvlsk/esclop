@@ -84,7 +84,8 @@ pub struct ErrorBody {
 pub struct ProgressEvent {
     #[schemars(with = "Option<String>")]
     pub id: serde_json::Value,
-    /// Always `"progress"`.
+    /// `"progress"`, or `"started"` (fraction 0) when a worker takes the request (`serve` only):
+    /// time spent queued ends there.
     pub event: String,
     /// 0..=1, non-decreasing for a request.
     pub fraction: f32,

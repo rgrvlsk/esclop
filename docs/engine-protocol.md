@@ -29,7 +29,13 @@ order; `id` ties them together. One-shot form for scripts and debugging:
 - Error codes: `unsupported`, `not_found`, `decode`, `encode`, `io`, `already_smaller`,
   `invalid_params`, `cancelled`, `internal`. `message` is for people and agents.
 - `{"id":"1","op":"cancel"}` cancels request `1` (best effort). `cancel` has no response of its
-  own; request `1` answers `cancelled`, or its result if it finished first.
+  own; request `1` answers `cancelled`, or its result if it finished first. A request still
+  queued behind the worker pool answers `cancelled` at once; a running one when it stops.
+- `serve` sends `{"id":"1","event":"started","fraction":0}` when a worker takes request `1`: time
+  spent queued ends there (the app's time limit for a PDF counts from it).
+- With `unsupported`, `error.reason` may say why the file is left as it is, in one sentence for
+  people (`pdf.optimise`: signed, password, encryption, memory, size); the app shows it as the
+  message.
 - `{"op":"hello"}` answers in the usual envelope, `{"id":null,"ok":true,"result":{"version",
   "protocol","ops":[...],"features":{...}}}`, so Swift can detect the engine's capabilities
   instead of assuming.
