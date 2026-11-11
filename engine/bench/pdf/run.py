@@ -89,7 +89,7 @@ REPEAT = 1
 # Memory and disk guards. The judge once took a 16 GB Mac down (four of them at 11 GB each):
 # every child now runs under a resident-memory cap, at most one judge runs at a time, files a
 # child writes are capped, and the run stops when free disk runs low.
-JUDGE_MEM_MB = 1400  # backstop: the judge stops itself at 1300 MB (JUDGE_SELF_MB)
+JUDGE_MEM_MB = 1400  # backstop: the judge stops itself at 1100 MB (JUDGE_SELF_MB)
 TOOL_MEM_MB = 2048  # the engine grows ~3 GB/s on pdf.js issue10880; 0.05 s polls hold it near 2.3 GB
 FILE_LIMIT = 2 << 30
 MIN_FREE_DISK = 10 << 30
