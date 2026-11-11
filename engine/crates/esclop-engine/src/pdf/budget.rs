@@ -17,8 +17,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Condvar, Mutex};
 
 pub const MAX_INPUT: usize = 1 << 30;
-pub const MAX_STREAM: usize = 512 << 20;
-pub const MAX_IN_FLIGHT: usize = 1 << 30;
+pub const MAX_STREAM: usize = 384 << 20;
+pub const MAX_IN_FLIGHT: usize = 256 << 20;
 pub const MAX_DECODED: u64 = 16 << 30;
 
 pub fn max_output(input: usize) -> usize {

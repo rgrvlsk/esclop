@@ -541,26 +541,30 @@ fn encode_checked(
 }
 
 /// One separable [1 2 1] / 4 pass over each channel of an interleaved image, edges clamped.
+/// Three horizontally filtered rows at a time: memory beyond the output is O(width).
 fn smooth(px: &[u8], w: usize, h: usize, comps: usize) -> Vec<u8> {
-    let at = |x: usize, y: usize, c: usize| u32::from(px[(y * w + x) * comps + c]);
-    let mut tmp = vec![0u32; px.len()];
-    for y in 0..h {
+    let n = w * comps;
+    let row = |y: usize, out: &mut Vec<u32>| {
+        out.clear();
+        let r = &px[y * n..(y + 1) * n];
         for x in 0..w {
-            let (l, r) = (x.saturating_sub(1), (x + 1).min(w - 1));
+            let (l, rr) = (x.saturating_sub(1), (x + 1).min(w - 1));
             for c in 0..comps {
-                tmp[(y * w + x) * comps + c] = at(l, y, c) + 2 * at(x, y, c) + at(r, y, c);
+                out.push(u32::from(r[l * comps + c]) + 2 * u32::from(r[x * comps + c]) + u32::from(r[rr * comps + c]));
             }
         }
-    }
+    };
     let mut out = vec![0u8; px.len()];
+    let (mut up, mut mid, mut down) = (Vec::with_capacity(n), Vec::with_capacity(n), Vec::with_capacity(n));
+    row(0, &mut mid);
+    up.clone_from(&mid);
     for y in 0..h {
-        let (u, d) = (y.saturating_sub(1), (y + 1).min(h - 1));
-        for x in 0..w {
-            for c in 0..comps {
-                let i = |yy: usize| tmp[(yy * w + x) * comps + c];
-                out[(y * w + x) * comps + c] = ((i(u) + 2 * i(y) + i(d) + 8) / 16) as u8;
-            }
+        row((y + 1).min(h - 1), &mut down);
+        for i in 0..n {
+            out[y * n + i] = ((up[i] + 2 * mid[i] + down[i] + 8) / 16) as u8;
         }
+        std::mem::swap(&mut up, &mut mid);
+        std::mem::swap(&mut mid, &mut down);
     }
     out
 }
@@ -717,7 +721,24 @@ fn checked_scale(px: &[u8], w: u32, h: u32, comps: usize, scale: f64, plan: &Ima
 
 #[cfg(test)]
 mod ssim_tests {
-    use super::ssim;
+    use super::{smooth, ssim};
+
+    #[test]
+    fn smooth_matches_direct() {
+        let (w, h, c) = (9usize, 7usize, 3usize);
+        let px: Vec<u8> = (0..w * h * c).map(|i| ((i * 53) % 256) as u8).collect();
+        let at = |x: usize, y: usize, ch: usize| u32::from(px[(y * w + x) * c + ch]);
+        let got = smooth(&px, w, h, c);
+        for y in 0..h {
+            for x in 0..w {
+                for ch in 0..c {
+                    let hz = |yy: usize| at(x.saturating_sub(1), yy, ch) + 2 * at(x, yy, ch) + at((x + 1).min(w - 1), yy, ch);
+                    let v = (hz(y.saturating_sub(1)) + 2 * hz(y) + hz((y + 1).min(h - 1)) + 8) / 16;
+                    assert_eq!(u32::from(got[(y * w + x) * c + ch]), v);
+                }
+            }
+        }
+    }
 
     #[test]
     fn ssim_bounds() {
