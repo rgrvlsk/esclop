@@ -34,6 +34,10 @@ use skera::{Plan, SubsetFlags, subset_font};
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 const MAX_DEPTH: usize = 32;
+use super::placement::MAX_CONTENT;
+
+/// The current font and the fonts saved by `q`.
+type TextState<'a> = (Option<&'a Dictionary>, Vec<Option<&'a Dictionary>>);
 const LIMIT: usize = 256 << 20;
 
 /// Layout and device tables a PDF viewer never reads: glyph positions come from the PDF.
@@ -316,7 +320,8 @@ impl Usage {
     }
 
     /// Walks one content stream drawn with `resources`, and the streams it draws.
-    fn walk<'a>(&mut self, doc: &'a Document, content: &[u8], resources: Option<&'a Dictionary>, depth: usize) {
+    /// `text` is the current font and its saved stack, carried across a page's content streams.
+    fn walk<'a>(&mut self, doc: &'a Document, content: &[u8], resources: Option<&'a Dictionary>, depth: usize, text: &mut TextState<'a>) {
         if depth > MAX_DEPTH {
             self.failed = true;
             return;
@@ -338,26 +343,25 @@ impl Usage {
         if let Some(r) = resources {
             self.side_streams(doc, r, depth);
         }
-        let mut font: Option<&Dictionary> = None;
-        let mut saved = Vec::new();
+        let (font, saved) = (&mut text.0, &mut text.1);
         for op in &ops.operations {
             let args = &op.operands;
             match op.operator.as_str() {
-                "q" => saved.push(font),
-                "Q" => font = saved.pop().unwrap_or(font),
+                "q" => saved.push(*font),
+                "Q" => *font = saved.pop().unwrap_or(*font),
                 "Tf" => {
                     let n = args.first().and_then(|o| o.as_name().ok());
-                    font = n.and_then(|n| fonts.and_then(|f| f.get(n).ok())).and_then(|o| dict(doc, o));
+                    *font = n.and_then(|n| fonts.and_then(|f| f.get(n).ok())).and_then(|o| dict(doc, o));
                 }
                 "gs" => {
                     let n = args.first().and_then(|o| o.as_name().ok());
                     let state = n.and_then(|n| states.and_then(|s| s.get(n).ok())).and_then(|o| dict(doc, o));
                     if let Some(Object::Array(a)) = state.and_then(|s| get(doc, s, b"Font")) {
-                        font = a.first().and_then(|o| dict(doc, o)).or(font);
+                        *font = a.first().and_then(|o| dict(doc, o)).or(*font);
                     }
                 }
                 "Tj" | "'" | "\"" | "TJ" => {
-                    let Some(f) = font else { continue };
+                    let Some(f) = *font else { continue };
                     let mut strings = Vec::new();
                     match args.last() {
                         Some(Object::String(s, _)) => strings.push(s),
@@ -394,8 +398,8 @@ impl Usage {
         if !self.visited.insert((id, res.map_or(0, key))) {
             return;
         }
-        match s.decompressed_content_with_limit(LIMIT) {
-            Ok(data) => self.walk(doc, &data, res, depth + 1),
+        match s.decompressed_content_with_limit(MAX_CONTENT) {
+            Ok(data) => self.walk(doc, &data, res, depth + 1, &mut (None, Vec::new())),
             Err(_) => self.failed = true,
         }
     }
@@ -509,9 +513,13 @@ fn collect(doc: &Document) -> (HashMap<ObjectId, BTreeSet<u16>>, Programs) {
     let mut u = Usage::default();
     for (_, page) in doc.get_pages() {
         let res = page_resources(doc, page);
-        match doc.get_page_content_with_limit(page, LIMIT) {
-            Ok(c) => u.walk(doc, &c, res, 0),
-            Err(_) => u.failed = true,
+        // Stream by stream, the text state carried across (see `placement::MAX_CONTENT`).
+        let mut text = (None, Vec::new());
+        for id in doc.get_page_contents(page) {
+            match doc.get_object(id).and_then(|o| o.as_stream()).map(|s| s.decompressed_content_with_limit(MAX_CONTENT)) {
+                Ok(Ok(data)) => u.walk(doc, &data, res, 0, &mut text),
+                _ => u.failed = true,
+            }
         }
         let annots = doc.get_dictionary(page).ok().and_then(|p| get(doc, p, b"Annots")).and_then(|a| a.as_array().ok());
         for a in annots.into_iter().flatten() {

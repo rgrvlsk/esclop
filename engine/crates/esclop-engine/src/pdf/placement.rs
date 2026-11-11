@@ -12,6 +12,10 @@ use std::collections::HashMap;
 type Matrix = [f64; 6];
 const IDENTITY: Matrix = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
 const MAX_DEPTH: usize = 12;
+/// Largest decoded content stream walked: lopdf's operator list takes about fifteen times the
+/// bytes (28.8 MB of content on one page took the engine to 590 MB, pdf.js issue21089). Pages
+/// are walked stream by stream; a stream over this leaves the walk incomplete.
+pub const MAX_CONTENT: usize = 8 << 20;
 
 fn mul(m: &Matrix, n: &Matrix) -> Matrix {
     [
@@ -60,14 +64,22 @@ pub struct Placed {
 }
 
 /// Every image drawn by page content, keyed by the image's object id.
+/// When some content cannot be walked within `MAX_CONTENT`, the map is empty: a draw left
+/// unseen could be larger than the ones found, so no image is downsampled.
 pub fn image_resolutions(doc: &Document) -> HashMap<ObjectId, Placed> {
     let mut dpi = HashMap::new();
     let mut allowance: HashMap<ObjectId, f64> = HashMap::new();
     for page in doc.page_iter() {
-        let Ok(content) = doc.get_page_content_with_limit(page, 256 << 20) else { continue };
         let resources = page_resources(doc, page);
         let mut draws = Vec::new();
-        walk(doc, &content, resources.as_ref(), IDENTITY, 0, &mut Vec::new(), &mut dpi, &mut draws);
+        let mut gs = State { ctm: IDENTITY, saved: Vec::new() };
+        for id in doc.get_page_contents(page) {
+            let Ok(s) = doc.get_object(id).and_then(|o| o.as_stream()) else { return HashMap::new() };
+            let Ok(data) = s.decompressed_content_with_limit(MAX_CONTENT) else { return HashMap::new() };
+            if !walk(doc, &data, resources.as_ref(), &mut gs, 0, &mut Vec::new(), &mut dpi, &mut draws) {
+                return HashMap::new();
+            }
+        }
         let covered: f64 = draws.iter().map(|(_, a)| a).sum();
         let factor = page_area(doc, page).map_or(1.0, |p| (p / covered.max(1e-6)).max(1.0));
         for (id, _) in draws {
@@ -115,31 +127,38 @@ fn page_resources(doc: &Document, page: ObjectId) -> Option<Dictionary> {
     None
 }
 
+/// The graphics state the walk tracks, carried from one content stream of a page to the next.
+struct State {
+    ctm: Matrix,
+    saved: Vec<Matrix>,
+}
+
+/// Walks one content stream; false when it, or a form it draws, cannot be read.
 #[allow(clippy::too_many_arguments)]
 fn walk(
     doc: &Document,
     content: &[u8],
     resources: Option<&Dictionary>,
-    base: Matrix,
+    gs: &mut State,
     depth: usize,
     stack: &mut Vec<ObjectId>,
     out: &mut HashMap<ObjectId, f64>,
     draws: &mut Vec<(ObjectId, f64)>,
-) {
+) -> bool {
     if depth > MAX_DEPTH {
-        return;
+        return false;
     }
-    let Ok(ops) = Content::decode(content) else { return };
+    let Ok(ops) = Content::decode(content) else { return false };
     let xobjects = resources.and_then(|r| r.get(b"XObject").ok()).and_then(|x| dict(doc, x));
-    let mut ctm = base;
-    let mut saved: Vec<Matrix> = Vec::new();
+    let base = gs.ctm;
     for op in &ops.operations {
+        let ctm = gs.ctm;
         match op.operator.as_str() {
-            "q" => saved.push(ctm),
-            "Q" => ctm = saved.pop().unwrap_or(base),
+            "q" => gs.saved.push(ctm),
+            "Q" => gs.ctm = gs.saved.pop().unwrap_or(base),
             "cm" => {
                 if let Some(m) = matrix(&op.operands) {
-                    ctm = mul(&m, &ctm);
+                    gs.ctm = mul(&m, &ctm);
                 }
             }
             "Do" => {
@@ -155,10 +174,14 @@ fn walk(
                         let m = stream.dict.get(b"Matrix").ok().and_then(|m| m.as_array().ok()).and_then(|a| matrix(a));
                         let local = mul(&m.unwrap_or(IDENTITY), &ctm);
                         let res = stream.dict.get(b"Resources").ok().and_then(|r| dict(doc, r)).or(resources);
-                        let Ok(data) = stream.decompressed_content_with_limit(256 << 20) else { continue };
+                        let Ok(data) = stream.decompressed_content_with_limit(MAX_CONTENT) else { return false };
                         stack.push(id);
-                        walk(doc, &data, res, local, depth + 1, stack, out, draws);
+                        let mut inner = State { ctm: local, saved: Vec::new() };
+                        let ok = walk(doc, &data, res, &mut inner, depth + 1, stack, out, draws);
                         stack.pop();
+                        if !ok {
+                            return false;
+                        }
                     }
                     _ => {}
                 }
@@ -166,6 +189,7 @@ fn walk(
             _ => {}
         }
     }
+    true
 }
 
 fn record(d: &Dictionary, id: ObjectId, ctm: &Matrix, out: &mut HashMap<ObjectId, f64>) {
