@@ -5,7 +5,8 @@
 //!
 //! - images are downsampled to `dpi` when drawn denser, and stored as the smaller of a JPEG at
 //!   the compression factor's ceiling (only where that is safe, see `images`) and Flate with PNG
-//!   predictors; JPEGs at or under the ceiling are only re-coded losslessly;
+//!   predictors; JPEGs are re-encoded only when downsampled or, with a `dpi`, above the ceiling,
+//!   and otherwise only re-coded losslessly; at compression 0 no image is touched;
 //! - every other Flate or uncompressed stream is recompressed with libdeflate's strongest level;
 //! - embedded TrueType and CFF fonts keep only the glyphs the document draws (see `fonts`);
 //! - large inline images are moved into image XObjects first (see `inline`);
@@ -53,10 +54,9 @@ pub fn optimise(req: &Request, ctx: &Ctx) -> Result<OpResult> {
         Some(_) => return Err(EngineError::invalid("`dpi` must be 0 or 48..=300")),
     };
     let (bytes, target) = open(req, &p.out)?;
-    let q = jpeg_quality(factor, dpi);
-    // The benchmark's page gate: SSIM 0.98 at default settings, 0.95 when aggressive.
-    let min_ssim = if factor <= 40 { 0.98 } else { 0.95 };
-    let (out, lossy) = rewrite(&bytes, dpi, q, min_ssim, p.out.strip, ctx)?;
+    let settings = Settings::new(factor, dpi, p.out.strip);
+    let (out, lossy) = rewrite(&bytes, &settings, ctx)?;
+    let q = settings.jpeg_quality;
     let enc =
         Encoded { bytes: out, format: Some(Format::Pdf), quality: lossy.then_some(q), lossy, ..Default::default() };
     finish(&target, bytes.len() as u64, enc, p.out.allow_larger.unwrap_or(false), ignored, ctx)
@@ -75,16 +75,35 @@ pub fn jpeg_quality(factor: u8, dpi: Option<f64>) -> u8 {
     quality::jpeg_max_quality(factor).min(cap)
 }
 
+/// What one rewrite does.
+#[derive(Clone, Copy)]
+pub struct Settings {
+    /// Downsample images drawn denser than this; `None` keeps every image's resolution.
+    pub dpi: Option<f64>,
+    pub jpeg_quality: u8,
+    /// The page gate: SSIM 0.98 at default settings, 0.95 when aggressive.
+    pub min_ssim: f64,
+    pub strip: bool,
+    /// False at compression 0: images stay exactly as stored.
+    pub images: bool,
+}
+
+impl Settings {
+    pub fn new(factor: u8, dpi: Option<f64>, strip: bool) -> Self {
+        Self {
+            dpi,
+            jpeg_quality: jpeg_quality(factor, dpi),
+            min_ssim: if factor <= 40 { 0.98 } else { 0.95 },
+            strip,
+            images: factor > 0,
+        }
+    }
+}
+
 /// The rewritten file and whether any image lost information. Without `dpi` (no downsampling)
 /// JPEG images are only re-coded losslessly, as Ghostscript passed them through.
-pub fn rewrite(
-    bytes: &[u8],
-    dpi: Option<f64>,
-    jpeg_quality: u8,
-    min_ssim: f64,
-    strip: bool,
-    ctx: &Ctx,
-) -> Result<(Vec<u8>, bool)> {
+pub fn rewrite(bytes: &[u8], settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>, bool)> {
+    let Settings { dpi, jpeg_quality, min_ssim, strip, images } = *settings;
     let head = &bytes[..bytes.len().min(1024)];
     if !head.windows(5).any(|w| w == b"%PDF-") {
         return Err(EngineError::unsupported("not a PDF"));
@@ -200,12 +219,16 @@ pub fn rewrite(
             }
             let Ok(Object::Stream(s)) = doc.get_object(*id) else { return Ok(None) };
             let new = if s.dict.get(b"Subtype").and_then(|t| t.as_name()).ok() == Some(b"Image") {
+                if !images {
+                    return Ok(None);
+                }
                 let plan = ImagePlan {
                     jpeg_quality,
                     dpi,
                     drawn_dpi: drawn.get(id).map(|p| p.dpi),
                     is_mask: masks.contains(id),
-                    reencode_jpeg: true,
+                    // Without downsampling a JPEG is passed through (re-coded losslessly).
+                    reencode_jpeg: dpi.is_some(),
                     // Each image may lose its share of the page's SSIM budget (see `placement`).
                     min_ssim: drawn.get(id).map_or(min_ssim, |p| 1.0 - (1.0 - min_ssim) * p.allowance).max(0.5),
                 };

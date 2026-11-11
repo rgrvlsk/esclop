@@ -57,7 +57,7 @@ order; `id` ties them together. One-shot form for scripts and debugging:
 | `metadata.strip` | `keep` list (icc, orientation) | |
 | `convert` | `format`, plus that format's params | decode anything, encode to png/jpeg/webp/avif/gif |
 | `fit` | `target_bytes`, `min_quality`, `max_quality`, `allow_resize`, `min_scale`, `format` | binary search inside the engine, returns the chosen `quality`/`scale` and `fitted` |
-| `pdf.optimise` | `dpi` 48..300 (0 or 300: keep resolution), `compression` 0..100, `strip` | streams recompressed, images re-encoded and downsampled under a fidelity check, fonts subset, unused objects dropped; encrypted files re-encrypted with the same keys or refused, damaged files refused |
+| `pdf.optimise` | `dpi` 48..300 (0 or 300: keep resolution, JPEGs passed through), `compression` 0..100 (0: images untouched), `strip` | streams recompressed, images re-encoded and downsampled under a fidelity check, fonts subset, unused objects dropped; encrypted files re-encrypted with the same keys or refused, damaged files refused |
 
 HEIC, JPEG XL decode, HDR gain maps and anything Apple-only stay in Swift (ImageIO).
 

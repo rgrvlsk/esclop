@@ -508,8 +508,9 @@ pub struct PdfParams {
     #[schemars(range(max = 300))]
     pub dpi: Option<u32>,
     /// Compression factor 0..=100 (30 normal, 64 aggressive): the JPEG ceiling images are
-    /// re-encoded at, as for `jpeg.optimise`. JPEGs already at or under it are only re-coded
-    /// losslessly unless they need downsampling. Default 30.
+    /// re-encoded at, as for `jpeg.optimise`. JPEGs are re-encoded only when downsampled or, with
+    /// a `dpi`, above the ceiling; otherwise they are only re-coded losslessly. At 0 no image is
+    /// touched (only streams, fonts and, with `strip`, metadata change). Default 30.
     #[schemars(range(max = 100))]
     pub compression: Option<u8>,
     /// `strip` removes the document information, the catalog's XMP, page thumbnails and
