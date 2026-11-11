@@ -672,6 +672,10 @@ fn cff_table(data: &[u8]) -> Option<&[u8]> {
 /// glyph's charstring.
 fn subset_cff(data: &[u8], gids: &BTreeSet<u16>) -> Result<Vec<u8>, String> {
     let table = cff_table(data).ok_or("no CFF")?;
+    // An accented glyph made with `seac` draws two other glyphs: they stay.
+    let mut gids = gids.clone();
+    gids.extend(cff::seac_components(table, &gids).ok_or("charstrings not evaluated")?);
+    let gids = &gids;
     let keep = |g: usize| g <= u16::MAX as usize && gids.contains(&(g as u16));
     let new = cff::subset(table, &keep).ok_or("CFF layout not handled")?;
     let (old_cs, new_cs) = (cff::charstrings(table).ok_or("CFF")?, cff::charstrings(&new).ok_or("CFF rewrite")?);
@@ -786,6 +790,60 @@ pub fn subset_fonts(doc: &mut Document, cancel: &Arc<AtomicBool>, held: &Arc<Hel
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A name-keyed CFF: .notdef, A, acute, and Aacute drawn as `seac` of A and acute.
+    fn seac_font() -> (Vec<u8>, [usize; 3]) {
+        use read_fonts::ps::Sid;
+        let sid = |n: &[u8]| (0..391u16).find(|s| Sid::new(*s).resolve_standard().ok() == Some(n)).unwrap();
+        let int5 = |v: usize| {
+            let b = (v as i32).to_be_bytes();
+            [29, b[0], b[1], b[2], b[3]]
+        };
+        let path: &[u8] = &[239, 239, 21, 189, 139, 5, 14]; // 100 100 rmoveto 50 0 rlineto endchar
+        let seac: &[u8] = &[139, 139, 204, 247, 86, 14]; // 0 0 65 194 endchar
+        let charstrings: Vec<&[u8]> = vec![&[14], path, path, seac];
+        let names = [&b"A"[..], b"acute", b"Aacute"];
+        let header = [1u8, 0, 4, 1];
+        let name_index = cff::test_index(&[b"X"]);
+        // Top DICT with five-byte offsets: charset, CharStrings, Private [0 offset].
+        let top_len = 5 + 1 + 5 + 1 + 1 + 5 + 1;
+        let top_index_len = 2 + 1 + 2 + top_len;
+        let charset_at = header.len() + name_index.len() + top_index_len + 2 + 2;
+        let charset: Vec<u8> = std::iter::once(0u8).chain(names.iter().flat_map(|n| sid(n).to_be_bytes())).collect();
+        let cs_at = charset_at + charset.len();
+        let cs_index = cff::test_index(&charstrings);
+        let private_at = cs_at + cs_index.len();
+        let mut top = Vec::new();
+        top.extend(int5(charset_at));
+        top.push(15);
+        top.extend(int5(cs_at));
+        top.push(17);
+        top.push(139);
+        top.extend(int5(private_at));
+        top.push(18);
+        assert_eq!(top.len(), top_len);
+        let mut out = header.to_vec();
+        out.extend(name_index);
+        out.extend(cff::test_index(&[&top]));
+        out.extend([0, 0, 0, 0]); // String and Global Subr INDEXes, empty
+        assert_eq!(out.len(), charset_at);
+        out.extend(charset);
+        out.extend(cs_index);
+        (out, [1, 2, 3])
+    }
+
+    #[test]
+    fn seac_components_are_kept() {
+        let (font, [a, acute, aacute]) = seac_font();
+        let kept: BTreeSet<u16> = [aacute as u16].into();
+        let out = subset(&font, &kept).unwrap();
+        let cs = cff::charstrings(&out).unwrap();
+        assert!(cs[a].len() > 1 && cs[acute].len() > 1, "a seac component was emptied");
+        assert_eq!(cs[aacute], cff::charstrings(&font).unwrap()[aacute]);
+        // Without the accented glyph, both go.
+        let out = subset(&font, &[a as u16].into()).unwrap();
+        assert_eq!(cff::charstrings(&out).unwrap()[acute], &[14][..]);
+    }
 
     #[test]
     fn text_tokens() {

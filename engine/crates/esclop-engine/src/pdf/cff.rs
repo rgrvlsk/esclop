@@ -43,6 +43,11 @@ fn index(data: &[u8], at: usize) -> Option<(Vec<std::ops::Range<usize>>, usize)>
     Some((items, end))
 }
 
+#[cfg(test)]
+pub fn test_index(items: &[&[u8]]) -> Vec<u8> {
+    write_index(items)
+}
+
 fn write_index(items: &[&[u8]]) -> Vec<u8> {
     let mut out = (items.len() as u16).to_be_bytes().to_vec();
     if items.is_empty() {
@@ -341,6 +346,155 @@ pub fn cids(data: &[u8]) -> Option<Vec<u16>> {
     if at <= 2 {
         return None;
     }
+    let u16_at = |i: usize| -> Option<u16> { Some(u16::from_be_bytes([*data.get(i)?, *data.get(i + 1)?])) };
+    let format = *data.get(at)?;
+    at += 1;
+    let mut out = vec![0u16];
+    while out.len() < n {
+        match format {
+            0 => {
+                out.push(u16_at(at)?);
+                at += 2;
+            }
+            1 | 2 => {
+                let first = u16_at(at)?;
+                let left = if format == 1 { u16::from(*data.get(at + 2)?) } else { u16_at(at + 2)? };
+                at += if format == 1 { 3 } else { 4 };
+                for k in 0..=left {
+                    out.push(first.checked_add(k)?);
+                }
+            }
+            _ => return None,
+        }
+    }
+    out.truncate(n);
+    Some(out)
+}
+
+/// The glyphs that the glyphs in `kept` draw through `seac` (an accented glyph built from a base
+/// and an accent named by StandardEncoding codes: `endchar` with four arguments, or Type 1's
+/// `seac`), found by running each kept charstring with its subroutines. Empty for a CID-keyed
+/// font, where `seac` does not apply. `None` when a kept charstring does not run or names a
+/// glyph the charset lacks: the caller then keeps the font whole.
+pub fn seac_components(data: &[u8], kept: &std::collections::BTreeSet<u16>) -> Option<std::collections::BTreeSet<u16>> {
+    use read_fonts::model::Error;
+    use read_fonts::ps::charstring::{CharstringContext, CharstringKind, NullSink, evaluate};
+    use read_fonts::ps::{PredefinedEncoding, Sid};
+    use std::cell::RefCell;
+    use std::collections::{BTreeSet, HashMap};
+
+    if is_cid(data) {
+        return Some(BTreeSet::new());
+    }
+    let hdr = *data.get(2)? as usize;
+    let (_, name_end) = index(data, hdr)?;
+    let (tops, top_end) = index(data, name_end)?;
+    let (_, strings_end) = index(data, top_end)?;
+    let (gsubrs, _) = index(data, strings_end)?;
+    let top = parse_dict(&data[tops.first()?.clone()])?;
+    let cs = charstrings(data)?;
+    // Local subroutines: the Private DICT's Subrs, relative to the Private DICT.
+    let subrs = match get(&top, PRIVATE) {
+        Some(p) => {
+            let (size, at) = ((*p.ints.first()?)? as usize, (*p.ints.get(1)?)? as usize);
+            let pd = parse_dict(data.get(at..at.checked_add(size)?)?)?;
+            match get(&pd, SUBRS).and_then(|e| *e.ints.first()?) {
+                Some(rel) => index(data, at.checked_add(rel as usize)?)?.0,
+                None => Vec::new(),
+            }
+        }
+        None => Vec::new(),
+    };
+    // Glyph by standard name, through the charset (0: ISOAdobe, glyph i is SID i).
+    let charset_at = get(&top, CHARSET).and_then(|e| *e.ints.first()?).unwrap_or(0) as usize;
+    let sids: Vec<u16> = match charset_at {
+        0 => (0..cs.len() as u16).collect(),
+        1 | 2 => return kept_without_seac(data, &cs, &gsubrs, &subrs, kept),
+        at => names_keyed_charset(data, at, cs.len())?,
+    };
+    let by_name: HashMap<&'static [u8], u16> =
+        sids.iter().enumerate().filter_map(|(g, s)| Some((Sid::new(*s).resolve_standard().ok()?, g as u16))).collect();
+
+    struct Context<'a> {
+        cs: &'a [&'a [u8]],
+        gsubrs: Vec<&'a [u8]>,
+        subrs: Vec<&'a [u8]>,
+        by_name: Option<HashMap<&'static [u8], u16>>,
+        found: RefCell<Vec<u16>>,
+    }
+    fn bias(n: usize) -> i32 {
+        if n < 1240 {
+            107
+        } else if n < 33900 {
+            1131
+        } else {
+            32768
+        }
+    }
+    impl CharstringContext for Context<'_> {
+        fn kind(&self) -> CharstringKind {
+            CharstringKind::Type2
+        }
+        fn seac_components(&self, base: i32, accent: i32) -> Result<[&[u8]; 2], Error> {
+            let by_name = self.by_name.as_ref().ok_or(Error::InvalidOperation)?;
+            let gid = |code: i32| -> Option<u16> {
+                let name = PredefinedEncoding::Standard.name(u8::try_from(code).ok()?);
+                by_name.get(name.as_bytes()).copied()
+            };
+            let (b, a) = (gid(base).ok_or(Error::InvalidOperation)?, gid(accent).ok_or(Error::InvalidOperation)?);
+            self.found.borrow_mut().extend([b, a]);
+            Ok([self.cs.get(b as usize).ok_or(Error::Malformed)?, self.cs.get(a as usize).ok_or(Error::Malformed)?])
+        }
+        fn global_subr(&self, i: i32) -> Result<&[u8], Error> {
+            usize::try_from(i + bias(self.gsubrs.len()))
+                .ok()
+                .and_then(|i| self.gsubrs.get(i).copied())
+                .ok_or(Error::Malformed)
+        }
+        fn subr(&self, i: i32) -> Result<&[u8], Error> {
+            usize::try_from(i + bias(self.subrs.len()))
+                .ok()
+                .and_then(|i| self.subrs.get(i).copied())
+                .ok_or(Error::Malformed)
+        }
+    }
+
+    /// For predefined Expert charsets (rare): fine as long as no kept glyph uses `seac`.
+    fn kept_without_seac(
+        data: &[u8],
+        cs: &[&[u8]],
+        gsubrs: &[std::ops::Range<usize>],
+        subrs: &[std::ops::Range<usize>],
+        kept: &BTreeSet<u16>,
+    ) -> Option<BTreeSet<u16>> {
+        let ctx = Context {
+            cs,
+            gsubrs: gsubrs.iter().map(|r| &data[r.clone()]).collect(),
+            subrs: subrs.iter().map(|r| &data[r.clone()]).collect(),
+            by_name: None,
+            found: RefCell::new(Vec::new()),
+        };
+        for g in kept {
+            evaluate(&ctx, None, cs.get(*g as usize)?, &mut NullSink).ok()?;
+        }
+        Some(BTreeSet::new())
+    }
+
+    let ctx = Context {
+        cs: &cs,
+        gsubrs: gsubrs.iter().map(|r| &data[r.clone()]).collect(),
+        subrs: subrs.iter().map(|r| &data[r.clone()]).collect(),
+        by_name: Some(by_name),
+        found: RefCell::new(Vec::new()),
+    };
+    for g in kept {
+        evaluate(&ctx, None, cs.get(*g as usize)?, &mut NullSink).ok()?;
+    }
+    Some(ctx.found.into_inner().into_iter().collect())
+}
+
+/// The SID of each glyph of a name-keyed font's charset at `at` (formats 0, 1 and 2).
+fn names_keyed_charset(data: &[u8], mut at: usize, n: usize) -> Option<Vec<u16>> {
     let u16_at = |i: usize| -> Option<u16> { Some(u16::from_be_bytes([*data.get(i)?, *data.get(i + 1)?])) };
     let format = *data.get(at)?;
     at += 1;

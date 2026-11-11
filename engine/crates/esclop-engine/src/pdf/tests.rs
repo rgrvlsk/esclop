@@ -59,11 +59,14 @@ pub fn gray_image(w: usize, h: usize) -> Vec<u8> {
 }
 
 /// Runs `rewrite` with default settings on another thread; `None` when it outlives `limit`.
-pub fn rewrite_within(pdf: Vec<u8>, dpi: Option<f64>, limit: Duration) -> Option<(Result<(Vec<u8>, bool)>, Duration)> {
+/// A rewrite's result and how long it took.
+type Timed = (Result<(Vec<u8>, bool)>, Duration);
+
+pub fn rewrite_within(pdf: Vec<u8>, dpi: Option<f64>, limit: Duration) -> Option<Timed> {
     rewrite_with(pdf, Settings::new(30, dpi, false), limit)
 }
 
-pub fn rewrite_with(pdf: Vec<u8>, settings: Settings, limit: Duration) -> Option<(Result<(Vec<u8>, bool)>, Duration)> {
+pub fn rewrite_with(pdf: Vec<u8>, settings: Settings, limit: Duration) -> Option<Timed> {
     let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
         let t = Instant::now();
