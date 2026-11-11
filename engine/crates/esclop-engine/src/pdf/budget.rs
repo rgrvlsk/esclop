@@ -264,3 +264,40 @@ mod tests {
         assert!(w.write_all(b"e").is_err());
     }
 }
+
+#[cfg(test)]
+mod load_tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    static THREADS: Mutex<Vec<std::thread::ThreadId>> = Mutex::new(Vec::new());
+
+    fn recording(id: (u32, u16), o: &mut Object) -> Option<((u32, u16), Object)> {
+        THREADS.lock().unwrap().push(std::thread::current().id());
+        load_filter(id, o)
+    }
+
+    /// `LOADED` is thread-local: it only adds up while lopdf calls the filter on the loading
+    /// thread, which it does as long as its `rayon` feature is off (with it, a file over 16
+    /// entries or 1 MB is parsed on rayon's pool). This fails if that ever changes.
+    #[test]
+    fn lopdf_loads_on_the_calling_thread() {
+        let mut objs = crate::pdf::tests::one_page("<< >>", b"q Q");
+        for i in 0..2000 {
+            objs.push(crate::pdf::tests::obj(&format!("<< /N {i} /Pad ({}) >>", "x".repeat(600))));
+        }
+        let pdf = crate::pdf::tests::build(&objs);
+        assert!(pdf.len() > 1 << 20 && objs.len() > 16, "big enough for a parallel load");
+        THREADS.lock().unwrap().clear();
+        start_load();
+        let options = lopdf::LoadOptions { filter: Some(recording), ..Default::default() };
+        let doc = lopdf::Document::load_mem_with_options(&pdf, options).unwrap();
+        let me = std::thread::current().id();
+        let threads = THREADS.lock().unwrap();
+        assert!(threads.len() >= objs.len(), "the filter saw {} of {} objects", threads.len(), objs.len());
+        assert!(threads.iter().all(|t| *t == me), "lopdf called the load filter from another thread");
+        // And the count saw every object.
+        let expected: usize = doc.objects.values().map(|o| held(o, 0)).sum();
+        assert!(loaded() >= expected, "{} < {expected}", loaded());
+    }
+}
