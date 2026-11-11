@@ -6,13 +6,15 @@
 //! - **One stream**: decoding a stream or an image may hold at most `MAX_STREAM` bytes; a stream
 //!   that needs more is left exactly as stored.
 //! - **In flight**: the streams recompressed in parallel hold at most `MAX_IN_FLIGHT` bytes
-//!   between them; a stream waits for room before it decodes.
-//! - **Decoded in total**: past `MAX_DECODED` the operation is refused (`unsupported`).
+//!   between them (less for an input over 128 MB, down to 64 MB); a stream waits for room
+//!   before it decodes.
+//! - **Decoded in total**: past `MAX_DECODED` (or 64 times the input) the operation is refused
+//!   (`unsupported`).
 //! - **Written**: the output may not pass `max_output` (twice the input plus 64 MB): the writer
 //!   stops and the operation is refused (`unsupported`).
-//! - **Held**: the objects lopdf parses (object streams included) and the font programs decoded
-//!   for subsetting stay in memory together; past `MAX_HELD` the operation is refused
-//!   (`unsupported`). Object and cross-reference streams decode to at most `MAX_LOAD_STREAM`
+//! - **Held**: the objects lopdf parses (object streams included; a stream's stored bytes are not
+//!   counted, they are the input's, held once) and the font programs decoded for subsetting stay
+//!   in memory together; past `MAX_HELD` the operation is refused (`unsupported`). Object and cross-reference streams decode to at most `MAX_LOAD_STREAM`
 //!   (the largest in the benchmark corpus is 12.4 MB): their objects parse into several times
 //!   their size before the filter sees them.
 
@@ -106,9 +108,8 @@ fn held(o: &Object, depth: usize) -> usize {
         Object::String(s, _) | Object::Name(s) => s.len(),
         Object::Array(a) => a.iter().map(|o| held(o, depth + 1)).sum(),
         Object::Dictionary(d) => d.iter().map(|(k, v)| k.len() + 16 + held(v, depth + 1)).sum(),
-        Object::Stream(s) => {
-            s.content.len() + s.dict.iter().map(|(k, v)| k.len() + 16 + held(v, depth + 1)).sum::<usize>()
-        }
+        // The stored bytes are the input's (dropped once loaded): only the dictionary counts.
+        Object::Stream(s) => s.dict.iter().map(|(k, v)| k.len() + 16 + held(v, depth + 1)).sum::<usize>(),
         _ => 0,
     }
 }
@@ -118,6 +119,11 @@ pub fn max_output(input: usize) -> usize {
 }
 
 pub struct Budget {
+    /// `MAX_IN_FLIGHT`, less for a large input (whose streams are held already).
+    max_in_flight: usize,
+    /// `MAX_DECODED`, or 64 times the input when that is more (a 340 MB scanned book decodes
+    /// 140 full pages).
+    max_decoded: u64,
     in_flight: Mutex<usize>,
     room: Condvar,
     decoded: AtomicU64,
@@ -139,8 +145,11 @@ impl Drop for Hold<'_> {
 }
 
 impl Budget {
-    pub fn new() -> Self {
+    /// For an input of `input` bytes.
+    pub fn new(input: usize) -> Self {
         Self {
+            max_in_flight: (384usize << 20).saturating_sub(input).clamp(64 << 20, MAX_IN_FLIGHT),
+            max_decoded: MAX_DECODED.max(input as u64 * 64),
             in_flight: Mutex::new(0),
             room: Condvar::new(),
             decoded: AtomicU64::new(0),
@@ -161,15 +170,15 @@ impl Budget {
             return Ok(None);
         }
         let total = self.decoded.fetch_add(bytes as u64, Ordering::Relaxed) + bytes as u64;
-        if total > MAX_DECODED {
+        if total > self.max_decoded {
             self.exhausted.store(true, Ordering::Relaxed);
-            return Err(EngineError::unsupported(format!(
-                "decoding this PDF needs more than {} GB",
-                MAX_DECODED >> 30
-            )));
+            return Err(EngineError::left_as_is(
+                super::reasons::MEMORY,
+                format!("decoding this PDF needs more than {} GB", self.max_decoded >> 30),
+            ));
         }
         let mut used = self.in_flight.lock().unwrap_or_else(|e| e.into_inner());
-        while *used > 0 && *used + bytes > MAX_IN_FLIGHT {
+        while *used > 0 && *used + bytes > self.max_in_flight {
             used = self.room.wait(used).unwrap_or_else(|e| e.into_inner());
         }
         *used += bytes;
@@ -177,34 +186,67 @@ impl Budget {
     }
 }
 
-/// A `Vec` writer that fails past `limit` bytes, or once `cancel` is set.
-pub struct CappedWriter {
-    pub buf: Vec<u8>,
+/// A buffered writer over `W` that fails past `limit` bytes, or once `cancel` is set.
+pub struct CappedWriter<W: Write> {
+    out: std::io::BufWriter<W>,
+    written: usize,
     limit: usize,
     cancel: Arc<AtomicBool>,
 }
 
-impl CappedWriter {
-    pub fn new(limit: usize, cancel: Arc<AtomicBool>) -> Self {
-        Self { buf: Vec::new(), limit, cancel }
+impl<W: Write> CappedWriter<W> {
+    pub fn new(out: W, limit: usize, cancel: Arc<AtomicBool>) -> Self {
+        Self { out: std::io::BufWriter::with_capacity(1 << 20, out), written: 0, limit, cancel }
+    }
+
+    pub fn written(&self) -> usize {
+        self.written
     }
 }
 
-impl Write for CappedWriter {
+impl CappedWriter<std::fs::File> {
+    /// Everything written, read back from the file.
+    pub fn into_bytes(self) -> std::io::Result<Vec<u8>> {
+        use std::io::{Read, Seek};
+        let mut file = self.out.into_inner().map_err(|e| e.into_error())?;
+        file.rewind()?;
+        let mut out = Vec::with_capacity(self.written);
+        file.read_to_end(&mut out)?;
+        Ok(out)
+    }
+}
+
+impl<W: Write> Write for CappedWriter<W> {
     fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
-        if self.buf.len() + data.len() > self.limit {
+        if self.written + data.len() > self.limit {
             return Err(std::io::Error::other("output limit reached"));
         }
         if self.cancel.load(Ordering::Relaxed) {
             return Err(std::io::Error::other("cancelled"));
         }
-        self.buf.extend_from_slice(data);
+        self.out.write_all(data)?;
+        self.written += data.len();
         Ok(data.len())
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
+        self.out.flush()
     }
+}
+
+/// A load filter keeping every object but no stream's data: enough to count pages and read
+/// the encryption. (lopdf keeps the returned object for those of object streams, which are
+/// never streams, and the one it passed in for the others: see `load_filter`.)
+pub fn drop_stream_data(id: (u32, u16), o: &mut Object) -> Option<((u32, u16), Object)> {
+    if let Object::Stream(s) = o {
+        // lopdf unpacks object streams after the filter has seen them: their data stays.
+        // One byte, not none: lopdf reads an empty stream's data again from the file.
+        if !matches!(s.dict.get(b"Type").and_then(|t| t.as_name()).ok(), Some(b"ObjStm" | b"XRef")) {
+            s.content = vec![0];
+        }
+        return Some((id, Object::Null));
+    }
+    Some((id, o.clone()))
 }
 
 #[cfg(test)]
@@ -213,11 +255,11 @@ mod tests {
 
     #[test]
     fn limits() {
-        let b = Budget::new();
+        let b = Budget::new(0);
         assert!(b.hold(MAX_STREAM + 1).unwrap().is_none());
         let a = b.hold(MAX_STREAM).unwrap().unwrap();
         drop(a);
-        let mut w = CappedWriter::new(4, Arc::new(AtomicBool::new(false)));
+        let mut w = CappedWriter::new(Vec::new(), 4, Arc::new(AtomicBool::new(false)));
         assert!(w.write_all(b"abcd").is_ok());
         assert!(w.write_all(b"e").is_err());
     }

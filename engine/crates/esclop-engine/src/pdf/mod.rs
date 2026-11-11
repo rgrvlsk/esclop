@@ -56,16 +56,20 @@ pub fn optimise(req: &Request, ctx: &Ctx) -> Result<OpResult> {
     };
     let (bytes, target) = open(req, &p.out)?;
     let settings = Settings::new(factor, dpi, p.out.strip);
-    let (out, lossy) = rewrite(&bytes, &settings, ctx)?;
+    let before = bytes.len() as u64;
+    let (out, lossy) = rewrite(bytes, &settings, ctx)?;
     let q = settings.jpeg_quality;
     let enc =
         Encoded { bytes: out, format: Some(Format::Pdf), quality: lossy.then_some(q), lossy, ..Default::default() };
-    finish(&target, bytes.len() as u64, enc, p.out.allow_larger.unwrap_or(false), ignored, ctx)
+    finish(&target, before, enc, p.out.allow_larger.unwrap_or(false), ignored, ctx)
 }
 
 /// JPEG quality for images: the compression factor's ceiling, capped where L'Esclop's
 /// Ghostscript settings capped it (`/QFactor` 0.68 above 100 dpi, 0.76 at 100, 1.0 at 72 and 1.3
 /// at 48, which are libjpeg qualities 66, 62, 50 and 38).
+/// Stored stream data recompressed per batch (see `rewrite`).
+const BATCH: usize = 64 << 20;
+
 pub fn jpeg_quality(factor: u8, dpi: Option<f64>) -> u8 {
     let cap = match dpi {
         Some(d) if d <= 48.0 => 38,
@@ -108,7 +112,10 @@ impl Settings {
 
 /// The rewritten file and whether any image lost information. Without `dpi` (no downsampling)
 /// JPEG images are only re-coded losslessly, as Ghostscript passed them through.
-pub fn rewrite(bytes: &[u8], settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>, bool)> {
+/// The input is dropped once the checks that read its raw bytes are done: from then on lopdf's
+/// copy of its streams is the only one.
+pub fn rewrite(input: Vec<u8>, settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>, bool)> {
+    let bytes = input.as_slice();
     let Settings { dpi, jpeg_quality, min_ssim, image_floor, strip, images } = *settings;
     let head = &bytes[..bytes.len().min(1024)];
     if !head.windows(5).any(|w| w == b"%PDF-") {
@@ -121,8 +128,9 @@ pub fn rewrite(bytes: &[u8], settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>,
         ));
     }
     ctx.progress(0.02, "decode");
+    let stream_limit = load_stream_limit(bytes, ctx)?;
     let options = LoadOptions {
-        max_decompressed_size: Some(budget::MAX_LOAD_STREAM),
+        max_decompressed_size: Some(stream_limit),
         filter: Some(budget::load_filter),
         ..Default::default()
     };
@@ -157,7 +165,7 @@ pub fn rewrite(bytes: &[u8], settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>,
         Err(lopdf::Error::Decompress(lopdf::DecompressError::MemoryLimitExceeded { .. })) => {
             return Err(EngineError::left_as_is(
                 reasons::MEMORY,
-                format!("this PDF has an object stream over {} MB", budget::MAX_LOAD_STREAM >> 20),
+                format!("this PDF has an object or cross-reference stream over {} KB", stream_limit >> 10),
             ));
         }
         Err(e) if is_encrypted(bytes) => {
@@ -230,6 +238,8 @@ pub fn rewrite(bytes: &[u8], settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>,
     }
     ctx.check()?;
     integrity::check(bytes, &doc, &ctx.cancel_flag())?;
+    let input_len = bytes.len();
+    drop(input);
     let pages = check_complete(&doc, ctx)?;
     ctx.check()?;
 
@@ -247,61 +257,80 @@ pub fn rewrite(bytes: &[u8], settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>,
     let masks = mask_ids(&doc);
     let matted = matte_parents(&doc);
 
-    // Recompress every stream in parallel from the unchanged document, then apply.
+    // Recompress the streams in parallel, a batch at a time (about 64 MB of stored data): each
+    // batch's results replace their originals before the next starts, so the document never
+    // holds old and new streams of more than one batch.
     let ids: Vec<ObjectId> =
         doc.objects.iter().filter(|(_, o)| matches!(o, Object::Stream(_))).map(|(id, _)| *id).collect();
     let done = AtomicUsize::new(0);
     let lossy = AtomicUsize::new(0);
     let cancel = ctx.cancel_flag();
     let total = ids.len().max(1);
-    let budget = budget::Budget::new();
-    let replaced: Vec<(ObjectId, Stream)> = ids
-        .par_iter()
-        .map(|id| -> Result<Option<(ObjectId, Stream)>> {
-            if cancel.load(Ordering::Relaxed) {
-                return Err(EngineError::cancelled());
-            }
-            let Ok(Object::Stream(s)) = doc.get_object(*id) else { return Ok(None) };
-            let new = if s.dict.get(b"Subtype").and_then(|t| t.as_name()).ok() == Some(b"Image") {
-                if !images {
-                    return Ok(None);
+    let budget = budget::Budget::new(input_len);
+    let stored = |id: &ObjectId| match doc.objects.get(id) {
+        Some(Object::Stream(s)) => s.content.len(),
+        _ => 0,
+    };
+    let mut batches: Vec<Vec<ObjectId>> = vec![Vec::new()];
+    let mut size = 0;
+    for id in ids {
+        let n = stored(&id);
+        if size + n > BATCH && !batches.last().is_some_and(Vec::is_empty) {
+            batches.push(Vec::new());
+            size = 0;
+        }
+        size += n;
+        batches.last_mut().expect("one batch").push(id);
+    }
+    for batch in batches {
+        let replaced: Vec<(ObjectId, Stream)> = batch
+            .par_iter()
+            .map(|id| -> Result<Option<(ObjectId, Stream)>> {
+                if cancel.load(Ordering::Relaxed) {
+                    return Err(EngineError::cancelled());
                 }
-                let plan = ImagePlan {
-                    jpeg_quality,
-                    // Masks are never resampled, and a /Matte mask must keep its image's size.
-                    dpi: dpi.filter(|_| !matted.contains(id)),
-                    drawn_dpi: drawn.get(id).map(|p| p.dpi),
-                    is_mask: masks.contains(id),
-                    // Without downsampling a JPEG is passed through (re-coded losslessly).
-                    reencode_jpeg: dpi.is_some(),
-                    // Each image may lose its share of the page's SSIM budget (see `placement`).
-                    min_ssim: image_gate(min_ssim, image_floor, drawn.get(id).map(|p| p.allowance)),
+                let Ok(Object::Stream(s)) = doc.get_object(*id) else { return Ok(None) };
+                let new = if s.dict.get(b"Subtype").and_then(|t| t.as_name()).ok() == Some(b"Image") {
+                    if !images {
+                        return Ok(None);
+                    }
+                    let plan = ImagePlan {
+                        jpeg_quality,
+                        // Masks are never resampled, and a /Matte mask must keep its image's size.
+                        dpi: dpi.filter(|_| !matted.contains(id)),
+                        drawn_dpi: drawn.get(id).map(|p| p.dpi),
+                        is_mask: masks.contains(id),
+                        // Without downsampling a JPEG is passed through (re-coded losslessly).
+                        reencode_jpeg: dpi.is_some(),
+                        // Each image may lose its share of the page's SSIM budget (see `placement`).
+                        min_ssim: image_gate(min_ssim, image_floor, drawn.get(id).map(|p| p.allowance)),
+                    };
+                    let new = match images::recompress(&doc, s, &plan, &budget) {
+                        Ok(n) => n,
+                        Err(e) if budget.exhausted() => return Err(e),
+                        Err(_) => None,
+                    };
+                    if new.as_ref().is_some_and(|(n, changed)| *changed && n.content.len() < s.content.len()) {
+                        lossy.fetch_add(1, Ordering::Relaxed);
+                    }
+                    new.map(|(n, _)| n)
+                } else {
+                    recompress_stream(s, &budget)?
                 };
-                let new = match images::recompress(&doc, s, &plan, &budget) {
-                    Ok(n) => n,
-                    Err(e) if budget.exhausted() => return Err(e),
-                    Err(_) => None,
-                };
-                if new.as_ref().is_some_and(|(n, changed)| *changed && n.content.len() < s.content.len()) {
-                    lossy.fetch_add(1, Ordering::Relaxed);
+                let n = done.fetch_add(1, Ordering::Relaxed) + 1;
+                if n.is_multiple_of(16) {
+                    ctx.progress(0.05 + 0.85 * n as f32 / total as f32, "compress");
                 }
-                new.map(|(n, _)| n)
-            } else {
-                recompress_stream(s, &budget)?
-            };
-            let n = done.fetch_add(1, Ordering::Relaxed) + 1;
-            if n.is_multiple_of(16) {
-                ctx.progress(0.05 + 0.85 * n as f32 / total as f32, "compress");
-            }
-            Ok(new.filter(|n| n.content.len() < s.content.len()).map(|n| (*id, n)))
-        })
-        .collect::<Result<Vec<_>>>()?
-        .into_iter()
-        .flatten()
-        .collect();
-    ctx.check()?;
-    for (id, s) in replaced {
-        doc.objects.insert(id, Object::Stream(s));
+                Ok(new.filter(|n| n.content.len() < s.content.len()).map(|n| (*id, n)))
+            })
+            .collect::<Result<Vec<_>>>()?
+            .into_iter()
+            .flatten()
+            .collect();
+        ctx.check()?;
+        for (id, s) in replaced {
+            doc.objects.insert(id, Object::Stream(s));
+        }
     }
 
     ctx.check()?;
@@ -315,25 +344,31 @@ pub fn rewrite(bytes: &[u8], settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>,
         doc.encrypt(state).map_err(|e| EngineError::encode(format!("encrypting the PDF again: {e}")))?;
     }
     ctx.progress(0.92, "write");
-    let mut writer = budget::CappedWriter::new(budget::max_output(bytes.len()), ctx.cancel_flag());
+    // Written to a temporary file, not memory: the document and its serialisation are not held
+    // together. Read back once the document is gone.
+    let spool = tempfile::tempfile().map_err(|e| EngineError::internal(format!("temporary file: {e}")))?;
+    let mut writer = budget::CappedWriter::new(spool, budget::max_output(input_len), ctx.cancel_flag());
     // Strings inside an object stream are not encrypted one by one (the stream is): lopdf
     // packs objects after encrypting them, so an encrypted file keeps every object on its own.
     let packed = encryption.is_none();
     let save = SaveOptions::builder().use_object_streams(packed).use_xref_streams(packed).compression_level(9).build();
     if let Err(e) = doc.save_with_options(&mut writer, save) {
         ctx.check()?;
-        return Err(if writer.buf.len() + (1 << 20) > budget::max_output(bytes.len()) {
+        return Err(if writer.written() + (1 << 20) > budget::max_output(input_len) {
             EngineError::unsupported("the rewritten PDF would be more than twice the size of the original")
         } else {
             EngineError::encode(format!("writing the PDF: {e}"))
         });
     }
-    let out = writer.buf;
+    drop(doc);
+    let out = writer.into_bytes().map_err(|e| EngineError::internal(format!("reading the rewritten PDF: {e}")))?;
 
     ctx.check()?;
-    // The result must read back with every page.
-    let back =
-        Document::load_mem(&out).map_err(|e| EngineError::internal(format!("rewritten PDF does not load: {e}")))?;
+    // The result must read back with every page (its streams' data is not kept: the page tree
+    // and the encryption are what is compared).
+    let light = LoadOptions { filter: Some(budget::drop_stream_data), ..Default::default() };
+    let back = Document::load_mem_with_options(&out, light)
+        .map_err(|e| EngineError::internal(format!("rewritten PDF does not load: {e}")))?;
     if back.get_pages().len() != pages {
         return Err(EngineError::internal("rewritten PDF lost pages"));
     }
@@ -395,6 +430,12 @@ fn names_encryption(bytes: &[u8], doc: &Document, ctx: &Ctx) -> Result<bool> {
     if xref_stream {
         return Ok(true);
     }
+    trailer_names_encrypt(bytes, ctx)
+}
+
+/// Whether any `trailer` dictionary of the raw file names `/Encrypt`: each region from a
+/// `trailer` to the next `startxref` is searched once.
+fn trailer_names_encrypt(bytes: &[u8], ctx: &Ctx) -> Result<bool> {
     let find = |hay: &[u8], needle: &[u8]| hay.windows(needle.len()).position(|w| w == needle);
     let mut at = 0;
     while let Some(p) = find(&bytes[at..], b"trailer") {
@@ -407,6 +448,60 @@ fn names_encryption(bytes: &[u8], doc: &Document, ctx: &Ctx) -> Result<bool> {
         at = end;
     }
     Ok(false)
+}
+
+/// Encrypted inputs over this are left as they are (see `load_stream_limit`).
+const MAX_ENCRYPTED_INPUT: usize = 64 << 20;
+
+/// The most one object or cross-reference stream may decode to while loading. lopdf loads an
+/// encrypted file without `budget::load_filter`, parsing each object stream whole (several
+/// times its size in memory): there the decoded bytes of all of them share 32 MB, so each gets
+/// 32 MB over the number of `/ObjStm` names in the file, between 64 KB and `MAX_LOAD_STREAM`, and
+/// encrypted inputs over 64 MB are left as they are.
+fn load_stream_limit(bytes: &[u8], ctx: &Ctx) -> Result<usize> {
+    if !(is_encrypted(bytes) || trailer_names_encrypt(bytes, ctx)?) {
+        return Ok(budget::MAX_LOAD_STREAM);
+    }
+    if bytes.len() > MAX_ENCRYPTED_INPUT {
+        return Err(EngineError::left_as_is(
+            reasons::ENCRYPTED_LARGE,
+            format!("an encrypted PDF of {} MB", bytes.len() >> 20),
+        ));
+    }
+    let n = names_count(bytes, b"ObjStm").max(1);
+    Ok(((32usize << 20) / n).clamp(64 << 10, budget::MAX_LOAD_STREAM))
+}
+
+/// How many PDF names in the raw bytes read `name` once `#xx` escapes are decoded.
+fn names_count(bytes: &[u8], name: &[u8]) -> usize {
+    let delimiter = |b: u8| b.is_ascii_whitespace() || b"()<>[]{}/%".contains(&b) || b == 0;
+    let hex = |b: u8| (b as char).to_digit(16).map(|d| d as u8);
+    let (mut n, mut i) = (0, 0);
+    while i < bytes.len() {
+        if bytes[i] != b'/' {
+            i += 1;
+            continue;
+        }
+        i += 1;
+        let mut decoded = Vec::with_capacity(name.len() + 1);
+        while i < bytes.len() && !delimiter(bytes[i]) {
+            let b = match (bytes[i], bytes.get(i + 1).and_then(|b| hex(*b)), bytes.get(i + 2).and_then(|b| hex(*b))) {
+                (b'#', Some(h), Some(l)) => {
+                    i += 2;
+                    h << 4 | l
+                }
+                (b, _, _) => b,
+            };
+            if decoded.len() <= name.len() {
+                decoded.push(b);
+            }
+            i += 1;
+        }
+        if decoded == name {
+            n += 1;
+        }
+    }
+    n
 }
 
 fn is_encrypted(bytes: &[u8]) -> bool {
