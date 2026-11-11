@@ -25,10 +25,12 @@ public final class AppIPCHandler: AppRequestHandler {
     public func perform(_ job: OptimisationJob, events: @escaping @Sendable (JobEvent) -> Void) async throws {
         let policy = AgentPolicy(origin: job.request.origin, permissions: settings)
         var usesScripts = false
-        if case let .pipeline(pipeline) = job.operation {
-            usesScripts = try await model.executor(for: job.request.origin).pipelineRunner?.usesScripts(pipeline) ?? false
+        var uploads = false
+        if case let .pipeline(pipeline) = job.operation, let runner = await model.executor(for: job.request.origin).pipelineRunner {
+            usesScripts = try runner.usesScripts(pipeline)
+            uploads = try runner.usesUploads(pipeline)
         }
-        try policy.check(job, pipelineUsesScripts: usesScripts)
+        try policy.check(job, pipelineUsesScripts: usesScripts, pipelineUploads: uploads)
         await model.run(job, events: events)
         try Task.checkCancellation()
     }

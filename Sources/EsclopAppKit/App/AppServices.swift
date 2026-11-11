@@ -46,6 +46,7 @@ public final class AppServices {
             if key == EsclopSettings.hoverButtons.key { model?.hoverButtonsChanged() }
         }
         self.settingsModel = settingsModel
+        settingsModel.uploads = .live()
         settingsWindow = SettingsWindowController(model: settingsModel, agents: AgentsModel(), actions: SettingsActions(
             reveal: { [weak model] in model?.reveal([$0]) },
             copy: { text in

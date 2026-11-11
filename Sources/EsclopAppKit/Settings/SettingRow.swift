@@ -104,6 +104,12 @@ struct SettingRow: View {
             ClipboardRuleList(descriptor: descriptor, model: model, label: AnyView(label))
         case .hoverButtons:
             HoverButtonSwitches(descriptor: descriptor, model: model, label: AnyView(label))
+        case .uploadTargets:
+            UploadTargetList(descriptor: descriptor, model: model, label: AnyView(label))
+        case .uploadTarget:
+            UploadTargetPicker(descriptor: descriptor, model: model, label: AnyView(label))
+        case .uploadSources:
+            UploadSourceSwitches(descriptor: descriptor, model: model, label: AnyView(label))
         }
     }
 

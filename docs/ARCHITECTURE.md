@@ -63,7 +63,7 @@ universal with `lipo` and placed in `Contents/Resources/bin`.
   `optimise(...)`, `downscale(factor:)`, `convert(to:)`, `crop(...)`, `targetSize(bytes:)`,
   `stripExif`, `watermark(...)`, `copy/move/rename/delete`, `filterIf/filterIfNot`,
   `removeAudio`, `changeSpeed`, `capFps`, `normalize(lufs:)`, `runScript`, `runShortcut`,
-  `copyToClipboard`, `fork`, `shelveWith`, `uploadWith`, `openWith`.
+  `copyToClipboard`, `fork`, `shelveWith`, `uploadWith`, `upload`, `openWith`.
 - Executor: runs steps on an engine, tracks the working file, writes a run log.
 - Store: pipelines persist as `.pipeline` text files under Application Support so people
   can edit them in any editor and agents can write them.
@@ -81,7 +81,7 @@ universal with `lipo` and placed in `Contents/Resources/bin`.
 - Built on the official MCP Swift SDK, stdio transport. Also holds `EsclopService`, the layer
   the CLI and the MCP server share (routing to the app or in-process, pipelines, settings).
 - Tools (names mirror the CLI): `esclop_optimise`, `esclop_convert`, `esclop_downscale`,
-  `esclop_crop`, `esclop_fit_under_size`, `esclop_strip_metadata`, `esclop_crop_pdf`,
+  `esclop_crop`, `esclop_fit_under_size`, `esclop_strip_metadata`, `esclop_upload`, `esclop_crop_pdf`,
   `esclop_uncrop_pdf`, `esclop_pipeline_list/show/write/delete/run/attach/detach/preset`,
   `esclop_settings_schema/get/set`, `esclop_status`, `esclop_start_app`, `esclop_stop_app`,
   `esclop_recent_results`, `esclop_restore_backup`, `esclop_logs`.
@@ -201,6 +201,14 @@ holds the rest, in folders by feature:
   read, so a row read in the update where its step, section or filter went away does not trap.
   A try's folder is removed by the next try, a new selection and the window closing, and
   leftovers at launch.
+- `Uploads`: `UploadTarget` (an S3-compatible bucket, from the `uploadTargets` setting; its
+  path template uses the pipeline tokens), `S3Signer` (SigV4, unsigned payload), `S3Uploader`
+  (one PUT with progress and cancellation), `KeychainCredentialStore` (the keys, one Keychain
+  item per target, service `dev.esclop.upload`) and `AppUploader`, the `FileUploading` the job
+  executor gets for `JobOperation.upload` (the CLI's `esclop upload` and MCP's `esclop_upload`
+  route there, starting the app if needed) and `AppPipelineHost` uses for `upload` steps. Cards
+  carry an `UploadState` (uploading, uploaded, failed) shown in their capsule; uploads take a
+  turn at the work gate. `UploadSettings` is the Settings pane.
 - `Onboarding`: `OnboardingModel` (steps, the `finishedOnboarding` flag in the app's defaults,
   clipboard access from `NSPasteboard.accessBehavior`, open at login through `SMAppService`),
   `OnboardingView` (its pages reuse `SettingRow` and the Agents pane's section) and

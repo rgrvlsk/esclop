@@ -264,6 +264,11 @@ would overwrite it. With a `location` a copy is saved there.
 
 `uploadWith(app)` uploads with an upload app; `app` is `dropshare`.
 
+`upload(to?)` uploads the file to one of your upload targets (Settings › Uploads: S3-compatible
+storage) and copies its link; without `to`, the default target. It needs the app, which holds
+the keys: from the command line without the app it is skipped with a note. For agents it needs
+`allowUploads`. `optimise -> upload(to: "R2")`.
+
 `openWith(app)`. open the file in the app named by `app`: `openWith(app: Preview)`.
 
 The CLI supports opening files and copying paths or Markdown with `pbcopy`. Image-data

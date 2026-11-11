@@ -406,6 +406,8 @@ extension PipelineLanguage {
             return "put it on the \(app.capitalized) shelf"
         case let .uploadWith(app):
             return "upload it with \(app.capitalized)"
+        case let .upload(target):
+            return "upload it to \(target.map { "“\($0)”" } ?? "the default upload target") and copy the link"
         case let .openWith(app):
             return "open it in \(app)"
         }

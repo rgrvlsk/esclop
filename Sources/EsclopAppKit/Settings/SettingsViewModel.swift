@@ -56,6 +56,13 @@ public final class SettingsViewModel {
     public private(set) var errors: [String: String] = [:]
 
     @ObservationIgnored let provider: any SettingsProvider
+    /// The Keychain and the test upload, for Settings › Uploads.
+    @ObservationIgnored public var uploads: UploadSettingsSupport?
+
+    /// The upload targets in the setting.
+    public var uploadTargets: [UploadTarget] {
+        UploadTarget.decode((value(EsclopSettings.uploadTargets.key)?.arrayValue ?? []).compactMap(\.stringValue))
+    }
     @ObservationIgnored let extraRows: [ExtraRow]
     @ObservationIgnored let onChange: (String, JSONValue) -> Void
     @ObservationIgnored private var observer: DefaultsObserver?

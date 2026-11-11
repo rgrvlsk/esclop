@@ -432,6 +432,8 @@ struct FileRun {
             return try await host(.shelve(app: app))
         case let .uploadWith(app):
             return try await host(.upload(app: app))
+        case let .upload(target):
+            return try await host(.uploadTo(target: target))
         case let .openWith(app):
             return try await host(.open(app: app))
 

@@ -33,6 +33,7 @@ struct Terminal {
         let saved = result.savedBytes >= 0
         let percent = saved ? "−\(ResultSummary.percentText(result.savedPercent))%" : "+\(ResultSummary.percentText(-result.savedPercent))%"
         var text = "\(green("✓")) \(bold(name)) \(ByteSize.format(result.bytesBefore)) \(dim("→")) \(ByteSize.format(result.bytesAfter)) \(saved ? green(percent) : yellow(percent))"
+        if let link = result.link { return "\(green("✓")) \(bold(name)) \(dim("→")) \(cyan(link))" }
         if result.output != result.source { text += " \(dim("→")) \(cyan(PathInput.abbreviate(result.output)))" }
         return text
     }

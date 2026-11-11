@@ -798,6 +798,7 @@ struct Parser {
         case "fork": return .fork(location: loc("location"))
         case "shelveWith": return .shelveWith(app: canonical("app")!.lowercased())
         case "uploadWith": return .uploadWith(app: canonical("app")!.lowercased())
+        case "upload": return .upload(target: s("to"))
         case "openWith": return .openWith(app: s("app")!)
         default: return nil
         }

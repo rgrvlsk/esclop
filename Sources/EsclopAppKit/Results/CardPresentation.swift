@@ -25,6 +25,11 @@ public struct CardPresentation: Equatable, Sendable {
         case reveal
         case copy
         case dismiss
+        /// Uploads the result to the default upload target.
+        case upload
+        case cancelUpload
+        case retryUpload
+        case copyLink
 
         /// The label on a button in the detail card.
         public var title: String {
@@ -41,6 +46,10 @@ public struct CardPresentation: Equatable, Sendable {
             case .reveal: return Strings.text("Show in Finder")
             case .copy: return Strings.text("Copy")
             case .dismiss: return Strings.text("Dismiss")
+            case .upload: return Strings.text("Upload")
+            case .cancelUpload: return Strings.text("Stop Uploading")
+            case .retryUpload: return Strings.text("Upload Again")
+            case .copyLink: return Strings.text("Copy Link")
             }
         }
 
@@ -79,6 +88,9 @@ public struct CardPresentation: Equatable, Sendable {
             case .retry: return "arrow.clockwise"
             case .reveal: return "folder"
             case .copy: return "doc.on.doc"
+            case .upload, .retryUpload: return "icloud.and.arrow.up"
+            case .cancelUpload: return "xmark.circle"
+            case .copyLink: return "link"
             }
         }
     }
@@ -118,6 +130,8 @@ public struct CardPresentation: Equatable, Sendable {
     public var detailActions: [Action]
 
     public var accessibilityLabel: String
+    /// The line under an error capsule's message: what was kept and what a click does.
+    public var errorFooter = Strings.text("Original kept · Try again")
 
     @MainActor
     public init(card: ResultCard, locale: Locale = Strings.locale) {
@@ -211,6 +225,39 @@ public struct CardPresentation: Equatable, Sendable {
             tone = .neutral
             actions = [.dismiss]
             accessibilityLabel = "\(title). \(message)"
+        }
+        applyUpload(card, name: fileName, t: t, f: f)
+    }
+
+    /// The upload's state over the result's: progress and Stop while it goes, the link once it is
+    /// on the clipboard, the reason and Upload Again when it fails (the file stays put).
+    @MainActor private mutating func applyUpload(_ card: ResultCard, name: String, t: (String) -> String, f: (String, any CVarArg...) -> String) {
+        switch card.upload {
+        case let .uploading(fraction):
+            capsule = .working(f("Uploading… %d %%", Int((min(1, max(0, fraction)) * 100).rounded())))
+            progress = min(1, max(0, fraction))
+            detailActions = [.cancelUpload] + detailActions
+            actions = [.cancelUpload] + actions.filter { $0 != .dismiss } + [.dismiss]
+            accessibilityLabel = f("%@, uploading", name)
+        case .uploaded:
+            capsule = .status(symbol: "link", text: t("Uploaded · link copied"))
+            tone = .saving
+            detailActions = [.copyLink] + detailActions
+            actions = [.copyLink] + actions
+            accessibilityLabel = f("%@, uploaded, the link is on the clipboard", name)
+        case let .failed(message):
+            capsule = .error(title: t("Couldn’t upload"), message: message)
+            errorFooter = t("File kept · Upload again")
+            tone = .error
+            detailActions = [.retryUpload] + detailActions
+            actions = [.retryUpload] + actions
+            accessibilityLabel = f("%@, not uploaded: %@ The file is kept.", name, message)
+        case nil:
+            if card.result?.link != nil {
+                capsule = .status(symbol: "link", text: t("Uploaded · link copied"))
+                detailActions = [.copyLink] + detailActions
+                actions = [.copyLink] + actions
+            }
         }
     }
 

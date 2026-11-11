@@ -393,6 +393,12 @@ extension PipelineLanguage {
             positional: "app", example: "shelveWith(app: yoink)"
         ),
         StepSpec(
+            "upload", .action, kinds: allKinds,
+            summary: "Upload the file to one of your upload targets (Settings › Uploads) and copy its link. Needs the app.",
+            params: [ParamSpec("to", .text, "the upload target's name; left out, the default one")],
+            positional: "to", example: "optimise -> upload(to: \"R2\")"
+        ),
+        StepSpec(
             "uploadWith", .action, kinds: allKinds,
             summary: "Upload the file with an upload app.",
             params: [ParamSpec("app", .choice(uploadApps), required: true, "the upload app")],
@@ -440,7 +446,7 @@ extension PipelineLanguage {
         "strip": "stripExif", "stripMetadata": "stripExif", "removeMetadata": "stripExif", "stripexif": "stripExif",
         "mute": "removeAudio", "speed": "changeSpeed", "fps": "capFps",
         "fitUnder": "targetSize", "fit": "targetSize", "maxSize": "targetSize",
-        "open": "openWith", "upload": "uploadWith", "shelve": "shelveWith", "shortcut": "runShortcut", "script": "runScript",
+        "open": "openWith", "share": "upload", "shelve": "shelveWith", "shortcut": "runShortcut", "script": "runScript",
         "clipboard": "copyToClipboard", "duplicate": "copy", "trash": "delete", "remove": "delete",
     ]
 }

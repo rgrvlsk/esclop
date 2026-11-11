@@ -119,6 +119,7 @@ public enum AgentPermission: String, CaseIterable, Codable, Sendable {
     case allowDeleteBackups
     case allowRunScripts
     case allowSettingsChanges
+    case allowUploads
 
     public var title: String {
         switch self {
@@ -126,6 +127,7 @@ public enum AgentPermission: String, CaseIterable, Codable, Sendable {
         case .allowDeleteBackups: return "Let agents delete backups"
         case .allowRunScripts: return "Let agents run script and Shortcut steps"
         case .allowSettingsChanges: return "Let agents change settings and automations"
+        case .allowUploads: return "Let agents upload files"
         }
     }
 
@@ -139,6 +141,8 @@ public enum AgentPermission: String, CaseIterable, Codable, Sendable {
             return "MCP tools may save or run pipelines with runScript or runShortcut steps."
         case .allowSettingsChanges:
             return "MCP tools may change settings, replace pipelines and attach pipelines to the clipboard, drop zone or folders."
+        case .allowUploads:
+            return "MCP tools may upload files to the upload targets set in L'Esclop, and run pipelines with upload steps."
         }
     }
 

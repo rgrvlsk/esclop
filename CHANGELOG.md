@@ -7,7 +7,18 @@ into the body of its GitHub release.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+- Uploads: after optimising, upload the result to your own S3-compatible storage (AWS S3,
+  Cloudflare R2, Backblaze B2, MinIO) and get its link on the clipboard. From a result's Share
+  tab ("Upload to …"), from a pipeline step (`upload(to: "R2")`), automatically for the sources
+  you choose (copied files, the drop zone, watched folders, Finder's Quick Actions), with
+  `esclop upload` and with the MCP tool `esclop_upload`. Targets are set up in Settings ›
+  Uploads (endpoint, bucket, region, path template, public link template, Test Upload); their
+  keys are kept in the Keychain only, never in the settings, logs, `esclop settings` or MCP
+  output, and only the app reads them: the command line and agents upload through it. An upload
+  takes its turn with the other jobs, shows its progress on the result, can be stopped, and on
+  failure keeps the file, says why and offers Upload Again. Agents may upload only when "Agents
+  may upload files" (`allowUploads`, off by default) is on.
 
 ## [0.1.0] - 2026-11-10
 

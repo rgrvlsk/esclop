@@ -31,13 +31,17 @@ in a floating card and restore the original. CLI and MCP workflows already run w
 - Automatic updates with Sparkle: signed DMGs, a signed appcast on the `appcast` branch, two
   settings and "Check for Updates…".
 
+- Uploads to S3-compatible targets with Keychain keys, from the Share tab, a pipeline step,
+  automatic sources, `esclop upload` and MCP.
+
 ## Next
 
 - A crop window for files that are not on screen as a floating result.
 
 ## Later
 
-- Preset zones, uploads and shelf integrations.
+- Preset zones and shelf integrations.
+- More upload targets (WebDAV, a custom command) if they are asked for.
 - App release validation, notarisation, a beta update channel and a Homebrew cask.
 
 ## Quality targets

@@ -33,8 +33,16 @@ public struct AgentPolicy: Sendable {
         allowed(.allowOverwriteOriginals) ? .inPlace : .sameFolder
     }
 
-    public func check(_ job: OptimisationJob, pipelineUsesScripts: Bool = false) throws {
+    public func check(_ job: OptimisationJob, pipelineUsesScripts: Bool = false, pipelineUploads: Bool = false) throws {
         guard applies else { return }
+        if case .upload = job.operation {
+            // An upload writes nothing on disk: only its own switch applies.
+            guard permissions.isAllowed(.allowUploads) else { throw refusal(.allowUploads, "Uploading files is off for agents") }
+            return
+        }
+        if pipelineUploads, !permissions.isAllowed(.allowUploads) {
+            throw refusal(.allowUploads, "This pipeline has an upload step, and uploading files is off for agents")
+        }
         if job.request.location == .inPlace, !permissions.isAllowed(.allowOverwriteOriginals) {
             throw refusal(.allowOverwriteOriginals, "Overwriting originals is off for agents. Leave location out (or pass \"sameFolder\") to write next to the original")
         }
