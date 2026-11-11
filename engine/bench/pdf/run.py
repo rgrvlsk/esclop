@@ -82,7 +82,8 @@ def gs_args(inp, out, dpi):
 
 
 TIMEOUT = 120  # seconds per tool run; Swift gave Ghostscript 1800, a hang shows long before
-JUDGE_TIMEOUT = 900
+JUDGE_TIMEOUT = 600  # compare-many: a 352-page file takes minutes at 150 dpi
+INFO_TIMEOUT = 120  # judge info: PDFKit once slept for minutes on one file
 REPEAT = 1
 
 
@@ -278,13 +279,15 @@ def evaluate(src, out, rec, info, compared, aggressive):
 
 
 def process(src, name, a):
-    info = judge("info", src, timeout=300)
+    info = judge("info", src, timeout=INFO_TIMEOUT)
     if info.get("opens") and not info.get("locked"):
         info["valid"] = "ok"
     elif info.get("locked"):
         info["valid"] = "locked"
     elif info.get("judge_error") == "memory":
         info["valid"] = "judge-limit"  # the judge could not read it within its memory cap
+    elif info.get("judge_timeout"):
+        info["valid"] = "judge-timeout"  # the judge, not the tools: listed, not scored
     else:
         info["valid"] = "gs-only" if gs_opens(src) else "invalid"
     entry = {"info": info}
