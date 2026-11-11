@@ -113,6 +113,7 @@ pub struct Budget {
     in_flight: Mutex<usize>,
     room: Condvar,
     decoded: AtomicU64,
+    exhausted: AtomicBool,
 }
 
 /// Bytes held until dropped.
@@ -131,7 +132,18 @@ impl Drop for Hold<'_> {
 
 impl Budget {
     pub fn new() -> Self {
-        Self { in_flight: Mutex::new(0), room: Condvar::new(), decoded: AtomicU64::new(0) }
+        Self {
+            in_flight: Mutex::new(0),
+            room: Condvar::new(),
+            decoded: AtomicU64::new(0),
+            exhausted: AtomicBool::new(false),
+        }
+    }
+
+    /// Whether the operation decoded more than `MAX_DECODED` (the one image error that stops
+    /// the whole file; any other leaves that image as stored).
+    pub fn exhausted(&self) -> bool {
+        self.exhausted.load(Ordering::Relaxed)
     }
 
     /// Room for decoding `bytes`: `Ok(None)` when one stream may not hold that much (leave it
@@ -142,6 +154,7 @@ impl Budget {
         }
         let total = self.decoded.fetch_add(bytes as u64, Ordering::Relaxed) + bytes as u64;
         if total > MAX_DECODED {
+            self.exhausted.store(true, Ordering::Relaxed);
             return Err(EngineError::unsupported(format!(
                 "decoding this PDF needs more than {} GB",
                 MAX_DECODED >> 30
