@@ -1,0 +1,162 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//! `rewrite` on small crafted files: shapes that once hung, exhausted memory or broke what the
+//! file must keep.
+
+use super::*;
+use std::sync::mpsc;
+use std::time::{Duration, Instant};
+
+/// A PDF from object bodies: object `n` is `objs[n - 1]`; object 1 must be the catalog.
+pub fn build(objs: &[Vec<u8>]) -> Vec<u8> {
+    let mut out = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offsets.push(out.len());
+        out.extend(format!("{} 0 obj\n", i + 1).as_bytes());
+        out.extend(o);
+        out.extend(b"\nendobj\n");
+    }
+    let xref = out.len();
+    out.extend(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+    for o in offsets {
+        out.extend(format!("{o:010} 00000 n \n").as_bytes());
+    }
+    out.extend(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objs.len() + 1).as_bytes());
+    out
+}
+
+pub fn obj(s: &str) -> Vec<u8> {
+    s.as_bytes().to_vec()
+}
+
+/// A stream object: `dict` without `/Length`, the data Flate-compressed when `flate`.
+pub fn stream(dict: &str, data: &[u8], flate: bool) -> Vec<u8> {
+    let (data, filter) = if flate { (deflate::zlib(data, 6), " /Filter /FlateDecode") } else { (data.to_vec(), "") };
+    let mut o = format!("<< {dict}{filter} /Length {} >>\nstream\n", data.len()).into_bytes();
+    o.extend(&data);
+    o.extend(b"\nendstream");
+    o
+}
+
+/// Catalog, page tree and one page with `resources` and `content` (objects 1 to 4).
+pub fn one_page(resources: &str, content: &[u8]) -> Vec<Vec<u8>> {
+    vec![
+        obj("<< /Type /Catalog /Pages 2 0 R >>"),
+        obj("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+        obj(&format!("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources {resources} /Contents 4 0 R >>")),
+        stream("", content, true),
+    ]
+}
+
+/// A gray image `w` x `h` with some detail, Flate-compressed.
+pub fn gray_image(w: usize, h: usize) -> Vec<u8> {
+    let px: Vec<u8> = (0..w * h).map(|i| ((i % w) * 255 / w.max(1)) as u8 ^ ((i / w) as u8 & 0x10)).collect();
+    stream(
+        &format!("/Type /XObject /Subtype /Image /Width {w} /Height {h} /ColorSpace /DeviceGray /BitsPerComponent 8"),
+        &px,
+        true,
+    )
+}
+
+/// Runs `rewrite` with default settings on another thread; `None` when it outlives `limit`.
+pub fn rewrite_within(pdf: Vec<u8>, dpi: Option<f64>, limit: Duration) -> Option<(Result<(Vec<u8>, bool)>, Duration)> {
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        let t = Instant::now();
+        let r = rewrite(&pdf, dpi, 66, 0.98, false, &Ctx::silent());
+        let _ = tx.send((r, t.elapsed()));
+    });
+    rx.recv_timeout(limit).ok()
+}
+
+#[test]
+fn a_form_drawn_a_million_times_finishes() {
+    let content = b"/F0 Do\n".repeat(1_000_000);
+    let mut objs = one_page("<< /XObject << /F0 5 0 R >> >>", &content);
+    objs.push(stream(
+        "/Type /XObject /Subtype /Form /BBox [0 0 1 1] /Resources << /XObject << /Im0 6 0 R >> >>",
+        b"q 1 0 0 1 0 0 cm /Im0 Do Q",
+        true,
+    ));
+    objs.push(gray_image(64, 64));
+    let (r, t) = rewrite_within(build(&objs), Some(150.0), Duration::from_secs(5)).expect("over 5 s");
+    assert!(r.is_ok(), "{:?}", r.err());
+    eprintln!("a million draws: {t:?}");
+}
+
+#[test]
+fn forms_nested_ten_wide_twelve_deep_finish() {
+    // Form k draws form k + 1 ten times; the last one draws an image: 10^12 draws in all.
+    let mut objs = one_page("<< /XObject << /X 5 0 R >> >>", b"/X Do");
+    let depth = 12;
+    for k in 0..depth {
+        let next = 5 + k + 1;
+        let (res, body) = if k + 1 < depth {
+            (format!("<< /XObject << /X {next} 0 R >> >>"), b"/X Do\n".repeat(10))
+        } else {
+            (format!("<< /XObject << /Im {next} 0 R >> >>"), b"/Im Do".to_vec())
+        };
+        objs.push(stream(&format!("/Type /XObject /Subtype /Form /BBox [0 0 1 1] /Resources {res}"), &body, true));
+    }
+    objs.push(gray_image(64, 64));
+    let (r, t) = rewrite_within(build(&objs), Some(150.0), Duration::from_secs(5)).expect("over 5 s");
+    assert!(r.is_ok(), "{:?}", r.err());
+    eprintln!("10 x 12 nested forms: {t:?}");
+}
+
+fn resolutions(pdf: &[u8]) -> HashMap<ObjectId, placement::Placed> {
+    let doc = Document::load_mem(pdf).unwrap();
+    placement::image_resolutions(&doc, &std::sync::atomic::AtomicBool::new(false)).unwrap()
+}
+
+#[test]
+fn a_form_places_its_images_at_their_drawn_size() {
+    // A 144 px image, drawn 1 x 1 in a form scaled by 2 (its /Matrix), rotated 90 degrees and
+    // scaled by 36 on the page: 72 pt wide, so 144 dpi; drawn again directly at 144 pt: 72 dpi.
+    let mut objs = one_page(
+        "<< /XObject << /F 5 0 R /Im 6 0 R >> >>",
+        b"q 0 36 -36 0 0 0 cm /F Do Q q 144 0 0 144 0 0 cm /Im Do Q",
+    );
+    objs.push(stream(
+        "/Type /XObject /Subtype /Form /BBox [0 0 1 1] /Matrix [2 0 0 2 0 0] /Resources << /XObject << /Im 6 0 R >> >>",
+        b"/Im Do",
+        true,
+    ));
+    objs.push(gray_image(144, 144));
+    let r = resolutions(&build(&objs));
+    assert!((r[&(6, 0)].dpi - 72.0).abs() < 1e-6, "{:?}", r);
+    // Only through the form: 144 dpi.
+    let mut objs = one_page("<< /XObject << /F 5 0 R >> >>", b"q 0 36 -36 0 0 0 cm /F Do Q");
+    objs.push(stream(
+        "/Type /XObject /Subtype /Form /BBox [0 0 1 1] /Matrix [2 0 0 2 0 0] /Resources << /XObject << /Im 6 0 R >> >>",
+        b"/Im Do",
+        true,
+    ));
+    objs.push(gray_image(144, 144));
+    let r = resolutions(&build(&objs));
+    assert!((r[&(6, 0)].dpi - 144.0).abs() < 1e-6, "{:?}", r);
+}
+
+#[test]
+fn past_the_operator_cap_no_image_is_placed() {
+    // A form placing 1000 images, drawn 100,000 times: 10^8 placements, over `MAX_OPS`.
+    let images = 1000;
+    let names: String = (0..images).map(|i| format!("/I{i} {} 0 R ", 6 + i)).collect();
+    let body: String = (0..images).map(|i| format!("/I{i} Do\n")).collect();
+    let mut objs = one_page("<< /XObject << /F 5 0 R >> >>", &b"/F Do\n".repeat(100_000));
+    objs.push(stream(
+        &format!("/Type /XObject /Subtype /Form /BBox [0 0 1 1] /Resources << /XObject << {names}>> >>"),
+        body.as_bytes(),
+        true,
+    ));
+    for _ in 0..images {
+        objs.push(gray_image(2, 2));
+    }
+    let pdf = build(&objs);
+    let t = Instant::now();
+    assert!(resolutions(&pdf).is_empty());
+    assert!(t.elapsed() < Duration::from_secs(5));
+    // The file is still rewritten, its images at full size.
+    let (r, _) = rewrite_within(pdf, Some(72.0), Duration::from_secs(20)).expect("over 20 s");
+    assert!(r.is_ok(), "{:?}", r.err());
+}
