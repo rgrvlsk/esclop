@@ -170,6 +170,7 @@ Swift code reads typed values: `EsclopSettings.stripMetadata.value` (or `.value(
 | `stripMetadata` | Bool | `true` | general | Strip metadata |
 | `preserveDates` | Bool | `true` | general | Keep file dates |
 | `keepHDR` | Bool | `true` | general | Keep HDR |
+| `presetZones` | [String] | `[]` | interface | Preset zones |
 | `imageCompression` | Int | `30` | images | Image compression |
 | `imageAggressiveCompression` | Int | `64` | images | Aggressive image compression |
 | `useAggressiveOptimisationJPEG` | Bool | `false` | images | Always optimise JPEG aggressively |

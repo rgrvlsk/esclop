@@ -43,9 +43,12 @@ final class FakeDrag: NSObject, NSDraggingInfo {
         let file = temp.file("a.png")
         let view = DropTargetView(frame: .zero)
         let state = DropZoneState(fileCount: 1)
+        // The plain target under the drag's point (a frameless view: the origin).
+        state.frames[DropZoneState.plainTarget] = CGRect(x: -1, y: -1, width: 2, height: 2)
         view.state = state
         var dropped: [URL] = []
-        view.onDrop = { urls, _ in dropped = urls }
+        var zone: String? = "unset"
+        view.onDrop = { urls, _, target in dropped = urls; zone = target }
         let drag = FakeDrag([file])
         defer { drag.draggingPasteboard.releaseGlobally() }
         #expect(view.draggingEntered(drag) == .copy)
@@ -54,14 +57,17 @@ final class FakeDrag: NSObject, NSDraggingInfo {
         #expect(!state.hovering)
         #expect(view.performDragOperation(drag))
         #expect(dropped.map(\.lastPathComponent) == ["a.png"])
-        #expect(DropZoneController.mediaFileCount(on: drag.draggingPasteboard) == 1)
+        #expect(zone == nil, "the plain target optimises")
+        #expect(DropZoneController.media(on: drag.draggingPasteboard).count == 1)
     }
 
     @Test func dragsWithoutMediaDoNotCount() throws {
         let temp = TempDir()
         let drag = FakeDrag([temp.file("notes.txt"), temp.file("b.mov")])
         defer { drag.draggingPasteboard.releaseGlobally() }
-        #expect(DropZoneController.mediaFileCount(on: drag.draggingPasteboard) == 1)
+        let media = DropZoneController.media(on: drag.draggingPasteboard)
+        #expect(media.count == 1)
+        #expect(media.kinds == [.video])
     }
 
     @Test func panelsAnchorToTheirCorner() {

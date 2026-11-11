@@ -27,6 +27,8 @@ public enum SettingControl: Equatable, Sendable {
     case clipboardRules
     /// A switch for each round button above a floating result.
     case hoverButtons
+    /// The preset zones: a switch for each pipeline that can be one, and its place in the order.
+    case presetZones
 
     public struct Choice: Equatable, Hashable, Sendable {
         public var value: JSONValue
@@ -63,6 +65,7 @@ public enum SettingPresentation {
         if key == EsclopSettings.clipboardIgnoredAppBundleIds.key { return .apps }
         if key == EsclopSettings.clipboardRules.key { return .clipboardRules }
         if key == EsclopSettings.hoverButtons.key { return .hoverButtons }
+        if key == EsclopSettings.presetZones.key { return .presetZones }
         if key.hasPrefix("formatsToConvert") { return .extensions }
         switch descriptor.type {
         case .bool: return .toggle
@@ -142,6 +145,9 @@ public enum SettingPresentation {
         case .hoverButtons:
             let names = (value?.arrayValue ?? []).compactMap(\.stringValue)
             return names.isEmpty ? Strings.text("none") : names.map(CardPresentation.hoverButtonTitle).joined(separator: ", ")
+        case .presetZones:
+            let names = (value?.arrayValue ?? []).compactMap(\.stringValue)
+            return names.isEmpty ? Strings.text("none") : names.joined(separator: ", ")
 
         default:
             return text(for: value)
