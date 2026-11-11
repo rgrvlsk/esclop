@@ -157,3 +157,25 @@ when the gate refuses the planned scale) judged again and merged.
 Totals: original 671.3 MB; default gs 344.4, engine 428.7 MB; aggressive gs 289.6, engine
 400.4 MB. Ghostscript fails 506 files at the default setting and 502 at the aggressive one.
 Synthetic corpus: 0 failures; 17.2 MB default (gs 50.5), 8.1 MB aggressive (gs 10.5).
+
+## Engine after the PR #32 review (2026-11-11)
+
+Real corpus judged again in full (the engine; gs's results from the run above), synthetic too.
+Changes that move sizes: JPEGs pass through when nothing is downsampled (as Ghostscript did at
+300 dpi), an image's own SSIM floor (0.90 default, 0.85 aggressive), signed and Reader-extended
+PDFs left as they are, images that annotations, patterns, soft masks or Type 3 glyphs draw kept
+at full size, CFF `seac` components kept.
+
+| check | default | aggressive | target |
+|---|---:|---:|---:|
+| engine failures, real corpus (1539 judged) | 0 | 0 | 0 |
+| engine fillability failures | 0 | 0 | 0 |
+| engine / gs size, files gs passes (1033 / 1037) | 0.975 | 1.007 | 1.10 |
+| engine / gs size, all files | 1.328 | 1.437 | |
+| engine peak RSS | 494 MB | | 512 MB |
+
+Totals: default engine 457.5 MB (gs 344.4), aggressive 416.0 MB (gs 289.6). Signed or
+Reader-extended: 39 files, left as stored. The SSIM floor costs 0.62 MB at the default setting
+(32 files) and 1.22 MB aggressive (42 files), 0.001 on either ratio; JPEG pass-through accounts
+for most of the default ratio's rise from 0.926. Synthetic corpus: 0 failures; 47.5 MB default
+(gs 50.5), 8.3 MB aggressive (gs 10.5).
