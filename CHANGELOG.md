@@ -22,12 +22,15 @@ into the body of its GitHub release.
   recompressed, images re-encoded and downsampled only where a fidelity check (SSIM at 150 dpi)
   passes, embedded TrueType and CFF fonts subset with their glyph ids kept (fonts a form field
   types with stay whole), large inline images moved to shared objects, unused objects dropped.
-  Text, links, outlines, form fields and permissions stay as they were; encrypted PDFs are
-  re-encrypted with the same keys and permissions or left alone, and damaged files are left
-  alone. On 1,576 real PDFs (the pdf.js test files and GovDocs) the engine failed none of the
-  checks, where Ghostscript failed 506 at the default setting; on the files Ghostscript handled
-  cleanly, the engine's output is 0.93x Ghostscript's at the default setting and 1.005x at the
-  aggressive one. Its memory stays under 512 MB per file. See `engine/bench/pdf/RESULTS.md`.
+  Text, links, outlines, form fields and permissions stay as they were; JPEGs are re-encoded
+  only when downsampled, and "Strip metadata" touches no image. Encrypted PDFs are re-encrypted
+  with the same keys and permissions or left alone; signed and Reader-extended PDFs, damaged
+  files and ones that would need more than 256 MB of memory are left as they are, and a PDF
+  that takes more than 30 minutes is stopped. On 1,576 real PDFs (the pdf.js test files and
+  GovDocs) the engine failed none of the checks, where Ghostscript failed 506 at the default
+  setting; on the files Ghostscript handled cleanly, the engine's output is 0.98x
+  Ghostscript's at the default setting and 1.01x at the aggressive one. Its memory stays under
+  512 MB per file. See `engine/bench/pdf/RESULTS.md`.
 
 ### Removed
 - Ghostscript is no longer bundled (32 MB): the bundled tools go from 96 MB to 76 MB
