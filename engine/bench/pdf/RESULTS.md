@@ -81,3 +81,28 @@ Ratio is engine size / gs size. `kept`: the result was not smaller, so the app k
 | vector-flate-level1 | 1.12 MB | 870 kB | 952 kB | 1.09 | 1.0000 | 1.0000 | 0.24 | 0.06 |
 | vector-uncompressed | 2.06 MB | 690 kB | 756 kB | 1.10 | 1.0000 | 1.0000 | 0.16 | 0.04 |
 | **total / median** | | **13.36 MB** | **13.44 MB** | **1.006** | | | 0.153 | 0.070 |
+## With TrueType subsetting (2026-11-11)
+
+Synthetic corpus, engine at f7f83b2: no failures at either setting. Totals: default 15.06 MB
+(gs 53.32 MB, engine before subsetting 16.32 MB), aggressive 12.18 MB (gs 13.36 MB, before
+13.44 MB). `text-full-embedded-fonts` drops from 587 kB to 80 kB (gs 137 kB).
+
+## Real corpus (1576 files: pdf.js test PDFs and GovDocs1 thread 0)
+
+`run.py .data/real --jobs 2 --repeat 1`, engine at f7f83b2. 1538 files open in the judge; 24
+only in gs, 11 locked, 2 unreadable, 1 beyond the judge's memory cap (a decompression bomb).
+
+| setting | original | gs | engine | files failing a check: gs | engine |
+|---|---:|---:|---:|---:|---:|
+| default | 670.8 MB | 344.3 MB | 426.4 MB | 456 | 18 |
+| aggressive | 670.8 MB | 289.5 MB | 412.8 MB | 451 | 12 |
+
+gs failures are mostly the text hash (372), form fields (133) and SSIM (103). Engine failures
+(SSIM 15, text 4, memory 1 at default) all predate font subsetting: the same files fail with
+the engine before it. Peak RSS: judge 776 MB comparing, 1315 MB when it stopped itself on the
+bomb; gs 2395 MB and engine 3037 MB, both killed at the cap (the engine on pdf.js issue10880,
+which it cannot handle in memory). With 0.05 s polls the tool peak is 2.4 GB.
+
+Font oracle (`fontoracle.py`, v1 against f7f83b2 at 150 dpi): 358 outputs change, fonts save
+22.2 MB (5.8 % of v1's output), 347 render pixel-identical, 10 differ only by antialiasing
+(`diffpx_ink` 0 to 3), none loses or changes a glyph.

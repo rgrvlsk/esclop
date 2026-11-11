@@ -90,7 +90,7 @@ REPEAT = 1
 # every child now runs under a resident-memory cap, at most one judge runs at a time, files a
 # child writes are capped, and the run stops when free disk runs low.
 JUDGE_MEM_MB = 1400  # backstop: the judge stops itself at 1300 MB (JUDGE_SELF_MB)
-TOOL_MEM_MB = 2304  # the engine grew ~750 MB between 0.25 s polls once; polls are now 0.1 s
+TOOL_MEM_MB = 2048  # the engine grows ~3 GB/s on pdf.js issue10880; 0.05 s polls hold it near 2.3 GB
 FILE_LIMIT = 2 << 30
 MIN_FREE_DISK = 10 << 30
 JUDGE_SLOTS = threading.Semaphore(1)
@@ -129,7 +129,7 @@ def child(cmd, timeout, mem_mb, kind):
     reader.start()
     deadline, killed, peak_kb = time.monotonic() + timeout, None, 0
     while reader.is_alive():
-        reader.join(0.1)
+        reader.join(0.05)
         if not reader.is_alive():
             break
         kb = _group_rss(p.pid)
