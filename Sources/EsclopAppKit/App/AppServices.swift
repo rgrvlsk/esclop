@@ -46,6 +46,7 @@ public final class AppServices {
             if key == EsclopSettings.hoverButtons.key { model?.hoverButtonsChanged() }
         }
         self.settingsModel = settingsModel
+        settingsModel.pipelines = model.service.context.pipelines
         settingsModel.uploads = .live()
         settingsWindow = SettingsWindowController(model: settingsModel, agents: AgentsModel(), actions: SettingsActions(
             reveal: { [weak model] in model?.reveal([$0]) },
@@ -70,7 +71,8 @@ public final class AppServices {
         model.onCompare = { [weak compareWindow] result in compareWindow?.show(result) }
         let panels = FloatingPanelController(model: model)
         self.panels = panels
-        dropZone = DropZoneController(model: model) { [weak panels] in panels?.visibleFrame }
+        let pipelineStore = model.service.context.pipelines
+        dropZone = DropZoneController(model: model, pipelines: { (try? pipelineStore.list()) ?? [] }) { [weak panels] in panels?.visibleFrame }
         watcher = ClipboardWatcher(
             policy: ClipboardPolicy(factory: model.factory),
             onPauseChange: { [weak model] paused in
@@ -139,7 +141,7 @@ public final class AppServices {
 
     /// Handles `esclop://` links: `esclop://settings/...` opens the Settings window there.
     public func open(_ urls: [URL]) {
-        for url in urls where !settingsWindow.open(url) && !pipelinesWindow.open(url) && !compareWindow.open(url) {
+        for url in urls where !settingsWindow.open(url) && !pipelinesWindow.open(url) && !compareWindow.open(url) && !dropZone.open(url) {
 
             log.info("Ignored a link L'Esclop does not handle: \(url.absoluteString, privacy: .public)")
         }

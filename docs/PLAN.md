@@ -30,6 +30,7 @@ in a floating card and restore the original. CLI and MCP workflows already run w
   get and change a setting, pause or resume.
 - Automatic updates with Sparkle: signed DMGs, a signed appcast on the `appcast` branch, two
   settings and "Check for Updates…".
+- Preset zones beside the drop zone, from pipelines and built-in templates, ordered in Settings.
 
 - Uploads to S3-compatible targets with Keychain keys, from the Share tab, a pipeline step,
   automatic sources, `esclop upload` and MCP.
@@ -40,7 +41,7 @@ in a floating card and restore the original. CLI and MCP workflows already run w
 
 ## Later
 
-- Preset zones and shelf integrations.
+- Shelf integrations.
 - More upload targets (WebDAV, a custom command) if they are asked for.
 - App release validation, notarisation, a beta update channel and a Homebrew cask.
 

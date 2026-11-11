@@ -9,6 +9,7 @@ import AppKit
 import EsclopCore
 import EsclopIPC
 import EsclopMCP
+import EsclopPipelines
 @testable import EsclopAppKit
 import SwiftUI
 import Testing
@@ -116,6 +117,22 @@ import Testing
         model.open(SettingsRoute(pane: .general, row: "installUpdatesAutomatically"))
         let size = try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-updates", scheme: scheme, settle: .milliseconds(600))
         #expect(size.width > 0)
+    }
+
+    /// Floating results › Preset zones: a saved pipeline and a template on, the rest off.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func presetZones(scheme: ColorScheme) async throws {
+        let temp = TempDir()
+        let store = PipelineStore(directory: temp.url, useTrash: false)
+        var mine = try PipelineParser.parse("optimise", name: "Screenshots for the blog")
+        mine.icon = "camera.viewfinder"
+        mine.triggers = [.presetZone]
+        try store.save(mine)
+        let model = model(TestSettings())
+        model.pipelines = store
+        model.set("presetZones", to: .array([.string("to WebP")]))
+        model.open(SettingsRoute(pane: .floatingResults, row: "presetZones"))
+        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-preset-zones", scheme: scheme, settle: .milliseconds(600))
     }
 
     /// Settings › Uploads with two targets, one with its keys saved, and automatic uploads from

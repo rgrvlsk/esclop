@@ -8,6 +8,14 @@ into the body of its GitHub release.
 ## [Unreleased]
 
 ### Added
+- Preset zones: while files are dragged, up to four targets beside the drop zone, in a 2 × 2
+  grid facing the screen, each running a pipeline on what is dropped on it, through the usual
+  floating results or the batch window. A saved pipeline is one when its triggers include "A
+  preset zone while dragging"; the built-in templates are turned on in Settings › Floating
+  results › Preset zones, which also orders them all. A drag shows the first four that do
+  something for every kind of file in it. `esclop://dropzone` shows the drop zone without a drag
+  for a minute (`?kind=image|video|pdf|audio` for that kind's zones, `?hide` to hide it). The
+  drop zone's text and icons now use the popover's explicit inks.
 - Uploads: after optimising, upload the result to your own S3-compatible storage (AWS S3,
   Cloudflare R2, Backblaze B2, MinIO) and get its link on the clipboard. From a result's Share
   tab ("Upload to …"), from a pipeline step (`upload(to: "R2")`), automatically for the sources

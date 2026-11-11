@@ -100,6 +100,11 @@ public enum EsclopSettings {
         description: "The round buttons above a floating result, in order: undo, convert, downscale, crop. \"…\" is always last.",
         section: .interface
     )
+    public static let presetZones = Setting<[String]>(
+        "presetZones", default: [], title: "Preset zones",
+        description: "The targets beside the drop zone that run a pipeline on what you drop, in order. Saved pipelines whose triggers include a preset zone are always shown; the built-in templates named here are added.",
+        section: .interface
+    )
     public static let enableDragAndDrop = Setting<Bool>(
         "enableDragAndDrop", default: true, title: "Show the drop zone",
         description: "Show a drop zone while dragging files, to optimise whatever is dropped on it.", section: .interface
@@ -505,7 +510,7 @@ public enum EsclopSettings {
     public static let all: [AnySetting] = [
         stripMetadata.erased, preserveDates.erased, keepHDR.erased,
         floatingResultsCorner.erased, followCursorScreen.erased, autoHideFloatingResults.erased,
-        autoHideFloatingResultsAfter.erased, autoHideClipboardResultAfter.erased, batchWindowFrom.erased, hoverButtons.erased, enableDragAndDrop.erased,
+        autoHideFloatingResultsAfter.erased, autoHideClipboardResultAfter.erased, batchWindowFrom.erased, hoverButtons.erased, enableDragAndDrop.erased, presetZones.erased,
         imageCompression.erased, imageAggressiveCompression.erased,
         useAggressiveOptimisationJPEG.erased, useAggressiveOptimisationPNG.erased, useAggressiveOptimisationGIF.erased,
         adaptiveImageSize.erased, formatsToConvertToJPEG.erased, formatsToConvertToPNG.erased,
