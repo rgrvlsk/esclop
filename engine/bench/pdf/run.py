@@ -272,6 +272,11 @@ def evaluate(src, out, rec, info, compared, aggressive):
                 fails += [k for k, ok in rec["checks"].items() if not ok]
                 if rec["min_ssim"] is not None and rec["min_ssim"] < (0.95 if aggressive else 0.98):
                     fails.append(f"ssim {rec['min_ssim']:.3f}")
+                if "first_judgement" in compared:
+                    rec["first_judgement"] = compared["first_judgement"]
+                    rec["ssim_first"] = compared.get("ssim_first", [])
+                    if compared["first_judgement"] == "fail":
+                        fails.append("first judgement")
             # Savings count only for outputs with at least one judged page.
             rec["bytes"] = rec["raw_bytes"] if rec["opens"] and rec["min_ssim"] is not None else before
     rec["fails"] = fails
@@ -304,15 +309,29 @@ def process(src, name, a):
     if info["valid"] == "ok" and scored and not a.timing_only:
         c = judge("compare-many", src, *[r[2] for r in scored])
         # A render of the original once came out wrong (every output, gs's too, scored 0.9665 on
-        # the same pages; 0.9998 on a rerun): an output under the gate is judged again once,
-        # and the second judgement stands. A real failure repeats.
-        low = any(
-            min((v for v in o.get("ssim", []) if v >= 0), default=1) < (0.95 if r[1] == "aggressive" else 0.98)
-            for r, o in zip(scored, c.get("outputs", []))
-        )
-        if low:
-            c = judge("compare-many", src, *[r[2] for r in scored])
+        # the same pages; 0.9998 on a rerun). When an output misses the gate the file is judged
+        # again and both judgements are kept: an output passes only if both pass, or if its first
+        # failure is a proven glitch, every failing page scoring the same for every output of
+        # the file, gs's included. (`first_judgement`: pass, glitch or fail.)
+        def gate(r):
+            return 0.95 if r[1] == "aggressive" else 0.98
+
+        def failing(o, r):
+            return [i for i, v in enumerate(o.get("ssim", [])) if 0 <= v < gate(r)]
+
+        first = c.get("outputs", [])
+        if any(failing(o, r) for r, o in zip(scored, first)):
+            c2 = judge("compare-many", src, *[r[2] for r in scored])
             info["judge_retried"] = True
+            for r, o1, o2 in zip(scored, first, c2.get("outputs", [])):
+                pages = failing(o1, r)
+                same = all(
+                    all(len(x.get("ssim", [])) > p and x["ssim"][p] == o1["ssim"][p] for x in first) for p in pages
+                )
+                o2["ssim_first"] = o1.get("ssim", [])
+                o2["first_judgement"] = "pass" if not pages else ("glitch" if same else "fail")
+            if "outputs" in c2:
+                c = c2
         info["judge_rss_mb"] = c.get("judge_rss_mb", c.get("rss_mb"))
         if "outputs" in c:
             for r, o in zip(scored, c["outputs"]):
