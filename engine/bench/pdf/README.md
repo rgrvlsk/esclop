@@ -5,7 +5,7 @@ shipping Ghostscript? It runs both on a generated corpus at the default and aggr
 and judges every output against its original.
 
 ```sh
-python3 engine/bench/pdf/make_corpus.py /tmp/pdf-corpus         # 34 files, about 30 s
+python3 engine/bench/pdf/make_corpus.py /tmp/pdf-corpus         # 35 files (one a 340 MB scanned book), about 2 min
 cargo build --release --manifest-path engine/Cargo.toml
 python3 engine/bench/pdf/run.py /tmp/pdf-corpus --out /tmp/pdf-bench   # gs and engine, 3 runs each
 ```

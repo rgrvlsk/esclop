@@ -41,7 +41,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 const MAX_DEPTH: usize = 32;
-use super::placement::MAX_CONTENT;
+use super::placement::{MAX_CONTENT, MAX_OPS};
 
 /// The current font and the fonts saved by `q`.
 type TextState<'a> = (Option<&'a Dictionary>, Vec<Option<&'a Dictionary>>);
@@ -427,7 +427,7 @@ impl Usage {
         depth: usize,
         text: &mut TextState<'a>,
     ) {
-        if depth > MAX_DEPTH {
+        if depth > MAX_DEPTH || self.ops > MAX_OPS {
             self.failed = true;
             return;
         }
@@ -453,6 +453,11 @@ impl Usage {
             self.ops += 1;
             if self.ops.is_multiple_of(4096) && self.cancel.as_ref().is_some_and(|c| c.load(Ordering::Relaxed)) {
                 self.cancelled = true;
+                self.failed = true;
+                return;
+            }
+            // As many operators as the image placement walk allows: past it, no font is subset.
+            if self.ops > MAX_OPS {
                 self.failed = true;
                 return;
             }
@@ -511,6 +516,9 @@ impl Usage {
         font: Option<&'a Dictionary>,
         depth: usize,
     ) {
+        if self.failed {
+            return;
+        }
         let Ok(Object::Stream(s)) = doc.get_object(id) else { return };
         if name(doc, &s.dict, b"Subtype") == Some(b"Image") {
             return;
