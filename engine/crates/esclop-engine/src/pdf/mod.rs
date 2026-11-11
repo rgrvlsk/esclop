@@ -456,10 +456,11 @@ const MAX_ENCRYPTED_INPUT: usize = 64 << 20;
 /// The most one object or cross-reference stream may decode to while loading. lopdf loads an
 /// encrypted file without `budget::load_filter`, parsing each object stream whole (several
 /// times its size in memory): there the decoded bytes of all of them share 32 MB, so each gets
-/// 32 MB over the number of `/ObjStm` names in the file, between 64 KB and `MAX_LOAD_STREAM`, and
-/// encrypted inputs over 64 MB are left as they are.
+/// 32 MB over the number of `/ObjStm` names in the file (at most `MAX_LOAD_STREAM`). Past 512 of
+/// them each would get under 64 KB, too little for a real object stream: such files, and
+/// encrypted inputs over 64 MB, are left as they are.
 fn load_stream_limit(bytes: &[u8], ctx: &Ctx) -> Result<usize> {
-    if !(is_encrypted(bytes) || trailer_names_encrypt(bytes, ctx)?) {
+    if !(is_encrypted(bytes) || trailer_names_encrypt(bytes, ctx)? || xref_stream_names_encrypt(bytes)) {
         return Ok(budget::MAX_LOAD_STREAM);
     }
     if bytes.len() > MAX_ENCRYPTED_INPUT {
@@ -469,19 +470,28 @@ fn load_stream_limit(bytes: &[u8], ctx: &Ctx) -> Result<usize> {
         ));
     }
     let n = names_count(bytes, b"ObjStm").max(1);
-    Ok(((32usize << 20) / n).clamp(64 << 10, budget::MAX_LOAD_STREAM))
+    if n > 512 {
+        return Err(EngineError::left_as_is(reasons::MEMORY, format!("an encrypted PDF with {n} object streams")));
+    }
+    Ok(((32usize << 20) / n).min(budget::MAX_LOAD_STREAM))
 }
 
 /// How many PDF names in the raw bytes read `name` once `#xx` escapes are decoded.
 fn names_count(bytes: &[u8], name: &[u8]) -> usize {
+    name_positions(bytes, name).len()
+}
+
+/// Where each PDF name of the raw bytes that reads `name` (escapes decoded) starts.
+fn name_positions(bytes: &[u8], name: &[u8]) -> Vec<usize> {
     let delimiter = |b: u8| b.is_ascii_whitespace() || b"()<>[]{}/%".contains(&b) || b == 0;
     let hex = |b: u8| (b as char).to_digit(16).map(|d| d as u8);
-    let (mut n, mut i) = (0, 0);
+    let (mut n, mut i) = (Vec::new(), 0);
     while i < bytes.len() {
         if bytes[i] != b'/' {
             i += 1;
             continue;
         }
+        let at = i;
         i += 1;
         let mut decoded = Vec::with_capacity(name.len() + 1);
         while i < bytes.len() && !delimiter(bytes[i]) {
@@ -498,10 +508,39 @@ fn names_count(bytes: &[u8], name: &[u8]) -> usize {
             i += 1;
         }
         if decoded == name {
-            n += 1;
+            n.push(at);
         }
     }
     n
+}
+
+/// Whether a cross-reference stream's dictionary names `/Encrypt`: each `/Encrypt` name is
+/// checked against the object around it (from its `obj` to its `stream` or `endobj`), each
+/// object once. Its trailer keys are not near the end of the file when the stream is long.
+fn xref_stream_names_encrypt(bytes: &[u8]) -> bool {
+    let marks = |needle: &[u8]| -> Vec<usize> {
+        let mut out = Vec::new();
+        let mut i = 0;
+        while let Some(p) = bytes[i..].windows(needle.len()).position(|w| w == needle) {
+            out.push(i + p);
+            i += p + needle.len();
+        }
+        out
+    };
+    let (objs, ends) = (marks(b"obj"), marks(b"stream"));
+    let mut seen = None;
+    for p in name_positions(bytes, b"Encrypt") {
+        let Some(start) = objs.partition_point(|o| *o < p).checked_sub(1).map(|i| objs[i]) else { continue };
+        if seen == Some(start) {
+            continue;
+        }
+        seen = Some(start);
+        let end = ends.get(ends.partition_point(|e| *e < p)).copied().unwrap_or(bytes.len());
+        if names_count(&bytes[start..end], b"XRef") > 0 {
+            return true;
+        }
+    }
+    false
 }
 
 fn is_encrypted(bytes: &[u8]) -> bool {

@@ -623,8 +623,8 @@ fn an_encrypted_input_shares_one_limit_between_its_object_streams() {
     let mut names = b"<< /Type /ObjStm >> ".repeat(99);
     names.extend(b"<< /Type /Obj#53tm >>");
     assert_eq!(load_stream_limit(&encrypted(&names), &ctx).unwrap(), (32 << 20) / 100);
-    // Never under 64 KB, never over 16 MB.
-    assert_eq!(load_stream_limit(&encrypted(&b"/ObjStm ".repeat(10_000)), &ctx).unwrap(), 64 << 10);
+    // Never over 16 MB; past 512 object streams, left as it is (see the test below).
+    assert!(load_stream_limit(&encrypted(&b"/ObjStm ".repeat(10_000)), &ctx).is_err());
     assert_eq!(load_stream_limit(&encrypted(b"/ObjStm"), &ctx).unwrap(), budget::MAX_LOAD_STREAM);
     // Over 64 MB, left as it is.
     let mut big = vec![b' '; MAX_ENCRYPTED_INPUT + 1];
@@ -649,4 +649,39 @@ fn the_font_scan_stops_at_the_operator_cap() {
     let t = Instant::now();
     fonts::subset_fonts(&mut doc, &Ctx::silent().cancel_flag(), &held).unwrap();
     assert!(t.elapsed() < limit(5), "{:?}", t.elapsed());
+}
+
+#[test]
+fn an_encrypted_input_with_more_than_512_object_streams_is_left_as_it_is() {
+    // 20,000 object streams in an encrypted file: 64 KB each would be 1.3 GB decoded in all.
+    let mut f = b"%PDF-1.7\n".to_vec();
+    for i in 0..20_000 {
+        f.extend(
+            format!("{} 0 obj << /Type /ObjStm /N 1 /First 4 /Length 0 >> stream\nendstream endobj\n", 10 + i).bytes(),
+        );
+    }
+    f.extend(b"trailer\n<< /Size 3 /Root 1 0 R /Encrypt 2 0 R >>\nstartxref\n0\n%%EOF\n");
+    let e = load_stream_limit(&f, &Ctx::silent()).unwrap_err();
+    assert_eq!(e.reason, Some(reasons::MEMORY));
+    // 512 still share the 32 MB: 64 KB each.
+    let mut f = b"%PDF-1.7\n".to_vec();
+    f.extend(b"<< /Type /ObjStm >> ".repeat(512));
+    f.extend(b"trailer\n<< /Size 3 /Root 1 0 R /Encrypt 2 0 R >>\nstartxref\n0\n%%EOF\n");
+    assert_eq!(load_stream_limit(&f, &Ctx::silent()).unwrap(), 64 << 10);
+}
+
+#[test]
+fn an_encrypt_key_far_from_the_end_in_a_cross_reference_stream_is_found() {
+    // The xref stream's dictionary names /Encrypt, then 200 KB of stream data follow it.
+    let mut f = b"%PDF-1.7\n".to_vec();
+    f.extend(b"<< /Type /ObjStm >> ".repeat(600));
+    f.extend(b"9 0 obj << /Type /XRef /Size 10 /Root 1 0 R /Encrypt 2 0 R /Length 204800 >> stream\n");
+    f.extend(vec![b'x'; 200 << 10]);
+    f.extend(b"\nendstream endobj\nstartxref\n0\n%%EOF\n");
+    assert!(!is_encrypted(&f), "the tail check alone misses it");
+    assert_eq!(load_stream_limit(&f, &Ctx::silent()).unwrap_err().reason, Some(reasons::MEMORY));
+    // A plain file whose text names /Encrypt outside any xref stream is not encrypted.
+    let plain = b"%PDF-1.7\n4 0 obj << /Length 9 >> stream\n(/Encrypt)\nendstream endobj\ntrailer << /Root 1 0 R >>";
+    assert!(!xref_stream_names_encrypt(plain));
+    assert_eq!(load_stream_limit(plain, &Ctx::silent()).unwrap(), budget::MAX_LOAD_STREAM);
 }
