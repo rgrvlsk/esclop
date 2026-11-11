@@ -27,6 +27,7 @@
 //! - if any content stream fails to parse, no font in the document is subset.
 
 use super::{cff, deflate};
+use crate::error::{EngineError, Result};
 use lopdf::content::Content;
 use lopdf::{Dictionary, Document, Object, ObjectId, Stream};
 use rayon::prelude::*;
@@ -35,6 +36,8 @@ use read_fonts::types::{GlyphId, NameId, Tag};
 use read_fonts::{FontRef, TableProvider};
 use skera::{Plan, SubsetFlags, subset_font};
 use std::collections::{BTreeSet, HashMap, HashSet};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 const MAX_DEPTH: usize = 32;
 use super::placement::MAX_CONTENT;
@@ -310,6 +313,9 @@ struct Usage {
     visited: HashSet<(ObjectId, usize)>,
     failed: bool,
     programs: Programs,
+    cancel: Option<Arc<AtomicBool>>,
+    cancelled: bool,
+    ops: usize,
 }
 
 impl Usage {
@@ -387,6 +393,12 @@ impl Usage {
         }
         let (font, saved) = (&mut text.0, &mut text.1);
         for op in &ops.operations {
+            self.ops += 1;
+            if self.ops.is_multiple_of(4096) && self.cancel.as_ref().is_some_and(|c| c.load(Ordering::Relaxed)) {
+                self.cancelled = true;
+                self.failed = true;
+                return;
+            }
             let args = &op.operands;
             match op.operator.as_str() {
                 "q" => saved.push(*font),
@@ -552,8 +564,8 @@ fn unscanned_programs(doc: &Document, usage: &Usage) -> HashSet<ObjectId> {
 }
 
 /// Glyph ids each TrueType program must keep, for the programs that can be subset.
-fn collect(doc: &Document) -> (HashMap<ObjectId, BTreeSet<u16>>, Programs) {
-    let mut u = Usage::default();
+fn collect(doc: &Document, cancel: &Arc<AtomicBool>) -> Result<(HashMap<ObjectId, BTreeSet<u16>>, Programs)> {
+    let mut u = Usage { cancel: Some(cancel.clone()), ..Default::default() };
     for (_, page) in doc.get_pages() {
         let res = page_resources(doc, page);
         // The page's streams joined, within `placement::MAX_CONTENT`.
@@ -579,14 +591,17 @@ fn collect(doc: &Document) -> (HashMap<ObjectId, BTreeSet<u16>>, Programs) {
                 }
             }
         }
+        if u.cancelled {
+            return Err(EngineError::cancelled());
+        }
         if u.failed {
-            return (HashMap::new(), u.programs);
+            return Ok((HashMap::new(), u.programs));
         }
     }
     let mut skip = unscanned_programs(doc, &u);
     skip.extend(&u.keep_whole);
     let used = u.used.into_iter().filter(|(p, _)| !skip.contains(p)).collect();
-    (used, u.programs)
+    Ok((used, u.programs))
 }
 
 /// The program holding only `gids` (plus `.notdef`), glyph ids unchanged.
@@ -676,19 +691,25 @@ fn subset(data: &[u8], gids: &BTreeSet<u16>) -> Result<Vec<u8>, String> {
 
 /// Replaces each embedded TrueType program the document can spare glyphs of with its subset,
 /// where that is smaller. Returns how many were replaced.
-pub fn subset_fonts(doc: &mut Document) -> usize {
-    let (used, mut programs) = collect(doc);
+pub fn subset_fonts(doc: &mut Document, cancel: &Arc<AtomicBool>) -> Result<usize> {
+    let (used, mut programs) = collect(doc, cancel)?;
     let jobs: Vec<(ObjectId, Vec<u8>, BTreeSet<u16>)> =
         used.into_iter().filter_map(|(id, gids)| Some((id, programs.bytes(doc, id)?.to_vec(), gids))).collect();
     drop(programs);
     let done: Vec<(ObjectId, Vec<u8>, usize)> = jobs
         .into_par_iter()
         .filter_map(|(id, data, gids)| {
+            if cancel.load(Ordering::Relaxed) {
+                return None;
+            }
             let out = subset(&data, &gids).ok()?;
             let n = out.len();
             Some((id, deflate::zlib(&out, 9), n))
         })
         .collect();
+    if cancel.load(Ordering::Relaxed) {
+        return Err(EngineError::cancelled());
+    }
     let mut count = 0;
     for (id, packed, raw) in done {
         let Ok(Object::Stream(s)) = doc.get_object_mut(id) else { continue };
@@ -704,7 +725,7 @@ pub fn subset_fonts(doc: &mut Document) -> usize {
         *s = Stream::new(d, packed);
         count += 1;
     }
-    count
+    Ok(count)
 }
 
 #[cfg(test)]

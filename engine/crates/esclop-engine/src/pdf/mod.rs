@@ -94,6 +94,7 @@ pub fn rewrite(
     }
     ctx.progress(0.02, "decode");
     let options = LoadOptions { max_decompressed_size: Some(budget::MAX_STREAM), ..Default::default() };
+    ctx.check()?;
     let mut doc = match Document::load_mem_with_options(bytes, options) {
         Ok(d) => d,
         Err(e) if is_encrypted(bytes) => return Err(EngineError::unsupported(format!("encrypted PDF: {e}"))),
@@ -144,19 +145,20 @@ pub fn rewrite(
         }
         None => None,
     };
-    integrity::check(bytes, &doc)?;
-    let pages = check_complete(&doc)?;
+    ctx.check()?;
+    integrity::check(bytes, &doc, &ctx.cancel_flag())?;
+    let pages = check_complete(&doc, ctx)?;
     ctx.check()?;
 
     if strip {
         strip_metadata(&mut doc);
     }
     // Before the placement walk, so the moved images get their drawn size.
-    inline::move_inline_images(&mut doc);
+    inline::move_inline_images(&mut doc, &ctx.cancel_flag())?;
     // Unreachable fonts would otherwise count as used by something the font scan cannot see.
     doc.prune_objects();
     ctx.progress(0.03, "fonts");
-    fonts::subset_fonts(&mut doc);
+    fonts::subset_fonts(&mut doc, &ctx.cancel_flag())?;
     ctx.check()?;
     let drawn = placement::image_resolutions(&doc, &ctx.cancel_flag())?;
     let masks = mask_ids(&doc);
@@ -213,6 +215,7 @@ pub fn rewrite(
         doc.objects.insert(id, Object::Stream(s));
     }
 
+    ctx.check()?;
     dedupe_streams(&mut doc);
     doc.prune_objects();
     doc.renumber_objects();
@@ -223,12 +226,13 @@ pub fn rewrite(
         doc.encrypt(state).map_err(|e| EngineError::encode(format!("encrypting the PDF again: {e}")))?;
     }
     ctx.progress(0.92, "write");
-    let mut writer = budget::CappedWriter::new(budget::max_output(bytes.len()));
+    let mut writer = budget::CappedWriter::new(budget::max_output(bytes.len()), ctx.cancel_flag());
     // Strings inside an object stream are not encrypted one by one (the stream is): lopdf
     // packs objects after encrypting them, so an encrypted file keeps every object on its own.
     let packed = encryption.is_none();
     let save = SaveOptions::builder().use_object_streams(packed).use_xref_streams(packed).compression_level(9).build();
     if let Err(e) = doc.save_with_options(&mut writer, save) {
+        ctx.check()?;
         return Err(if writer.buf.len() + (1 << 20) > budget::max_output(bytes.len()) {
             EngineError::unsupported("the rewritten PDF would be more than twice the size of the original")
         } else {
@@ -237,6 +241,7 @@ pub fn rewrite(
     }
     let out = writer.buf;
 
+    ctx.check()?;
     // The result must read back with every page.
     let back =
         Document::load_mem(&out).map_err(|e| EngineError::internal(format!("rewritten PDF does not load: {e}")))?;
@@ -264,7 +269,7 @@ fn is_encrypted(bytes: &[u8]) -> bool {
 
 /// Every page resolves and its content decodes, and the page tree's count agrees. Returns the
 /// page count.
-fn check_complete(doc: &Document) -> Result<usize> {
+fn check_complete(doc: &Document, ctx: &Ctx) -> Result<usize> {
     let pages = doc.get_pages();
     if pages.is_empty() {
         return Err(EngineError::decode("the PDF has no readable pages"));
@@ -281,6 +286,7 @@ fn check_complete(doc: &Document) -> Result<usize> {
         return Err(EngineError::decode("the page tree is incomplete"));
     }
     for id in pages.values() {
+        ctx.check()?;
         let page = doc.get_dictionary(*id).map_err(|e| EngineError::decode(format!("page {id:?}: {e}")))?;
         let refs: Vec<ObjectId> = match page.get(b"Contents") {
             Ok(Object::Reference(r)) => match doc.get_object(*r) {

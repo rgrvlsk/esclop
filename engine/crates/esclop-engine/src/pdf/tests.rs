@@ -160,3 +160,64 @@ fn past_the_operator_cap_no_image_is_placed() {
     let (r, _) = rewrite_within(pdf, Some(72.0), Duration::from_secs(20)).expect("over 20 s");
     assert!(r.is_ok(), "{:?}", r.err());
 }
+
+/// `n` small stream objects written without `endobj`, which lopdf reads all the same.
+fn streams_without_endobj(n: usize) -> Vec<u8> {
+    let mut out = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    let mut add = |out: &mut Vec<u8>, body: &[u8], end: bool| {
+        offsets.push(out.len());
+        out.extend(format!("{} 0 obj\n", offsets.len()).as_bytes());
+        out.extend(body);
+        out.extend(if end { &b"\nendobj\n"[..] } else { b"\n" });
+    };
+    add(&mut out, b"<< /Type /Catalog /Pages 2 0 R >>", true);
+    add(&mut out, b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>", true);
+    add(&mut out, b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] >>", true);
+    for _ in 0..n {
+        add(&mut out, b"<< /Length 4 >>\nstream\nabcd\nendstream", false);
+    }
+    let xref = out.len();
+    out.extend(format!("xref\n0 {}\n0000000000 65535 f \n", offsets.len() + 1).as_bytes());
+    for o in &offsets {
+        out.extend(format!("{o:010} 00000 n \n").as_bytes());
+    }
+    out.extend(
+        format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", offsets.len() + 1).as_bytes(),
+    );
+    out
+}
+
+#[test]
+fn the_integrity_check_is_linear() {
+    let pdf = streams_without_endobj(100_000);
+    let doc = Document::load_mem(&pdf).unwrap();
+    assert!(doc.objects.len() > 100_000);
+    let t = Instant::now();
+    let r = integrity::check(&pdf, &doc, &std::sync::atomic::AtomicBool::new(false));
+    assert!(t.elapsed() < Duration::from_secs(5), "{:?}", t.elapsed());
+    assert!(r.is_ok(), "{r:?}");
+}
+
+#[test]
+fn every_stage_stops_when_cancelled() {
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
+    let cancelled = || Arc::new(AtomicBool::new(true));
+    let is_cancel = |r: &Result<_>| matches!(r, Err(e) if e.code == crate::error::ErrorCode::Cancelled);
+    let pdf = streams_without_endobj(10_000);
+    let doc = Document::load_mem(&pdf).unwrap();
+    assert!(is_cancel(&integrity::check(&pdf, &doc, &cancelled()).map(|_| 0)));
+    // Content with more than 4096 operators reaches the font walk's check.
+    let mut objs = one_page("<< /XObject << /Im 5 0 R >> >>", &b"q 1 0 0 1 0 0 cm /Im Do Q\n".repeat(70_000));
+    objs.push(gray_image(8, 8));
+    let pdf = build(&objs);
+    let mut doc = Document::load_mem(&pdf).unwrap();
+    assert!(is_cancel(&fonts::subset_fonts(&mut doc, &cancelled())));
+    assert!(is_cancel(&inline::move_inline_images(&mut doc, &cancelled())));
+    assert!(is_cancel(&placement::image_resolutions(&doc, &cancelled()).map(|_| 0)));
+    let mut w = budget::CappedWriter::new(1 << 20, cancelled());
+    assert!(std::io::Write::write_all(&mut w, b"x").is_err());
+    let ctx = Ctx::new(cancelled(), Arc::new(|_, _| {}));
+    assert!(is_cancel(&rewrite(&pdf, None, 66, 0.98, false, &ctx).map(|_| 0)));
+}

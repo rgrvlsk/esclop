@@ -13,7 +13,8 @@
 
 use crate::error::{EngineError, Result};
 use std::io::Write;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Condvar, Mutex};
 
 pub const MAX_INPUT: usize = 1 << 30;
@@ -72,15 +73,16 @@ impl Budget {
     }
 }
 
-/// A `Vec` writer that fails past `limit` bytes.
+/// A `Vec` writer that fails past `limit` bytes, or once `cancel` is set.
 pub struct CappedWriter {
     pub buf: Vec<u8>,
     limit: usize,
+    cancel: Arc<AtomicBool>,
 }
 
 impl CappedWriter {
-    pub fn new(limit: usize) -> Self {
-        Self { buf: Vec::new(), limit }
+    pub fn new(limit: usize, cancel: Arc<AtomicBool>) -> Self {
+        Self { buf: Vec::new(), limit, cancel }
     }
 }
 
@@ -88,6 +90,9 @@ impl Write for CappedWriter {
     fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
         if self.buf.len() + data.len() > self.limit {
             return Err(std::io::Error::other("output limit reached"));
+        }
+        if self.cancel.load(Ordering::Relaxed) {
+            return Err(std::io::Error::other("cancelled"));
         }
         self.buf.extend_from_slice(data);
         Ok(data.len())
@@ -108,7 +113,7 @@ mod tests {
         assert!(b.hold(MAX_STREAM + 1).unwrap().is_none());
         let a = b.hold(MAX_STREAM).unwrap().unwrap();
         drop(a);
-        let mut w = CappedWriter::new(4);
+        let mut w = CappedWriter::new(4, Arc::new(AtomicBool::new(false)));
         assert!(w.write_all(b"abcd").is_ok());
         assert!(w.write_all(b"e").is_err());
     }

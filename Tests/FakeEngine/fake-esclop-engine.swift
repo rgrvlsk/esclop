@@ -192,7 +192,8 @@ func handle(_ id: String, _ op: String, _ input: String?, _ output: String?, _ p
             stateLock.lock()
             let stop = cancelled.contains(id)
             stateLock.unlock()
-            if stop { return fail(id, "cancelled", "cancelled") }
+            // `stuck`: a step that never looks at the cancel flag.
+            if stop, params["stuck"] as? Bool != true { return fail(id, "cancelled", "cancelled") }
             Thread.sleep(forTimeInterval: 0.02)
         }
         emit(["id": id, "ok": true, "result": ["slept": seconds]])

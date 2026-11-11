@@ -78,6 +78,9 @@ struct PDFEngine: Sendable {
         return Produced(url: output, width: nil, height: nil, duration: nil, steps: steps, allowLarger: plan.crop != nil)
     }
 
+    /// How long one `pdf.optimise` may take (what Ghostscript was given).
+    static let timeout: TimeInterval = 1800
+
     /// `pdf.optimise`: 300 dpi means no downsampling. A result that is not smaller comes back
     /// as the engine's `already_smaller`, which the caller treats like any other optimiser's.
     func engine(_ input: URL, to output: URL, dpi: Int, factor: Int, strip: Bool, progress: ProgressSink) async throws {
@@ -86,7 +89,7 @@ struct PDFEngine: Sendable {
             "compression": .int(factor),
             "strip": .bool(strip),
             "allow_larger": true,
-        ], progress: { progress($0) })
+        ], timeout: Self.timeout, progress: { progress($0) })
         guard PDFDocument(url: output) != nil else {
             throw EsclopError.toolFailed(tool: Tool.esclopEngine.rawValue, exitCode: 0, stderr: "esclop-engine wrote an unreadable PDF")
         }
