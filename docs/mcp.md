@@ -95,7 +95,7 @@ to overwrite originals and `sameFolder` otherwise.
 | `esclop_crop` | Exact `width`/`height`, `longEdge`, or `aspectRatio` (16:9), `smart` to keep the subject. | `{"paths": ["card.png"], "width": 1200, "height": 630}` |
 | `esclop_fit_under_size` | Shrink until each file is under `maxSize` (2MB, 500KB, bytes). | `{"paths": ["video.mp4"], "maxSize": "25MB"}` |
 | `esclop_strip_metadata` | Remove EXIF, GPS and other metadata; re-encoding depends on the format. | `{"paths": ["photo.jpg"]}` |
-| `esclop_upload` | Upload files to one of the person's upload targets and return their links (needs `allowUploads`; runs in the app, which holds the keys). | `{"paths": ["photo.png"], "target": "R2"}` |
+| `esclop_upload` | Upload images, videos, PDFs and audio to one of the person's upload targets and return their links (needs `allowUploads`; other files are refused; runs in the app, which holds the keys). | `{"paths": ["photo.png"], "target": "R2"}` |
 | `esclop_crop_pdf` | Set every page's crop box to `aspectRatio` (3:4, or A4, Letter, iPad, Kindle Paperwhite, reMarkable 2, ...); `extend` pads instead of cutting. Reversible. | `{"paths": ["paper.pdf"], "aspectRatio": "Kindle Paperwhite"}` |
 | `esclop_uncrop_pdf` | Reset every page to its full size. | `{"paths": ["paper-cropped.pdf"]}` |
 | `esclop_pipeline_list` | Saved pipelines (what they do, triggers, problems) and built-in presets. | `{}` |
@@ -142,7 +142,7 @@ through MCP. Refusals name the switch and its link, such as
 | `allowDeleteBackups` | `esclop_restore_backup` keeps the backup. | `deleteBackup: true` is allowed. |
 | `allowRunScripts` | Pipelines with `runScript` or `runShortcut` steps are refused (saving, running, attaching). | They may be saved and run. |
 | `allowSettingsChanges` | Settings, triggers and preset zones stay as they are; replacing a pipeline or deleting one that has triggers is refused. | Agents may change them. |
-| `allowUploads` | `esclop_upload` and pipelines with `upload` steps are refused. | Files may be uploaded to the person's upload targets. The keys stay in the app's Keychain either way. |
+| `allowUploads` | `esclop_upload` and pipelines with `upload` steps are refused. | Images, videos, PDFs and audio files (judged after following links) may be uploaded to the person's upload targets; anything else is refused. Anyone with a link can open the file if the bucket is public. The keys stay in the app's Keychain either way. |
 
 An `output` path never lands on a file that exists, or on one file for several sources, unless
 overwriting is allowed; pipeline `copy`, `move` and `rename` steps do not replace existing files

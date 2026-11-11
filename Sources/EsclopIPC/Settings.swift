@@ -142,7 +142,7 @@ public enum AgentPermission: String, CaseIterable, Codable, Sendable {
         case .allowSettingsChanges:
             return "MCP tools may change settings, replace pipelines and attach pipelines to the clipboard, drop zone or folders."
         case .allowUploads:
-            return "MCP tools may upload files to the upload targets set in L'Esclop, and run pipelines with upload steps."
+            return "MCP tools may upload images, videos, PDFs and audio to the upload targets set in L'Esclop, and get their links; anyone with a link can open the file if the bucket is public."
         }
     }
 

@@ -296,7 +296,9 @@ public enum ToolCatalog {
                 Settings › Uploads) and return each file's public link; the last link also goes on the clipboard. \
                 target names the upload target; left out, the default one. Only the L'Esclop app holds the keys, \
                 so the upload runs there (the app is started if needed); this tool never sees them. Allowed only \
-                when the person turned on "Agents may upload files" (setting allowUploads). Nothing is optimised \
+                when the person turned on "Agents may upload files" (setting allowUploads), and only for images, \
+                videos, PDFs and audio files (followed through links); anything else is refused. A link may be \
+                public: anyone who has it can open the file if the bucket is public. Nothing is optimised \
                 or changed on disk. Returns one line per file with its link, and JSON with results[] (source, link) \
                 and failures[] (source, error, code).
                 """,
