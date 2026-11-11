@@ -122,3 +122,19 @@ gs fails a check on 474 / 470 files (text 372, fields 133, SSIM 99, permissions 
 Gap on files gs passes, by cause (gap.py --clean, default): fonts kept whole 21.3 MB (mostly
 XFA forms' default fonts, kept on purpose), CFF fonts not subset 7.4, images 7.5, other 4.8,
 content 2.3. Peak RSS: judge 826 MB comparing, engine 1096 MB (p99 292), gs killed at its 2 GB cap.
+
+## Engine at 03e9f8b (2026-11-11): CFF subsetting, inline images, 512 MB
+
+| check | default | aggressive | target |
+|---|---:|---:|---:|
+| engine failures, real corpus (1539 judged) | 0 | 0 | 0 |
+| engine first-judgement failures (100 re-judged files, 190 outputs) | 0 | 0 | 0 |
+| engine / gs size, files gs passes | 1.092 | 1.224 | 1.10 |
+| engine / gs size, all files | 1.255 | 1.395 | |
+| engine peak RSS | 487 MB | | 512 MB |
+
+Synthetic corpus: 0 failures; 17.2 MB default (gs 50.5), 8.1 MB aggressive (gs 10.5).
+CFF subsetting against the same engine with CFF off: 14.4 MB saved, 73 changed outputs, all
+pixel-identical. Aggressive gap on files gs passes (29.2 MB): fonts kept whole 21.6 MB (XFA
+forms' default fonts, kept for filling fields), gs downsamples more 8.3, other 6.2,
+recompression 3.9, OpenType fonts 2.3.
