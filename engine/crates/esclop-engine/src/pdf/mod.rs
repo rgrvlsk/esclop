@@ -42,7 +42,6 @@ use rayon::prelude::*;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-
 pub fn optimise(req: &Request, ctx: &Ctx) -> Result<OpResult> {
     let (p, ignored) = parse_params::<PdfParams>(&req.params)?;
     let factor = compression(p.compression)?;
@@ -76,7 +75,14 @@ pub fn jpeg_quality(factor: u8, dpi: Option<f64>) -> u8 {
 
 /// The rewritten file and whether any image lost information. Without `dpi` (no downsampling)
 /// JPEG images are only re-coded losslessly, as Ghostscript passed them through.
-pub fn rewrite(bytes: &[u8], dpi: Option<f64>, jpeg_quality: u8, min_ssim: f64, strip: bool, ctx: &Ctx) -> Result<(Vec<u8>, bool)> {
+pub fn rewrite(
+    bytes: &[u8],
+    dpi: Option<f64>,
+    jpeg_quality: u8,
+    min_ssim: f64,
+    strip: bool,
+    ctx: &Ctx,
+) -> Result<(Vec<u8>, bool)> {
     let head = &bytes[..bytes.len().min(1024)];
     if !head.windows(5).any(|w| w == b"%PDF-") {
         return Err(EngineError::unsupported("not a PDF"));
@@ -124,9 +130,10 @@ pub fn rewrite(bytes: &[u8], dpi: Option<f64>, jpeg_quality: u8, min_ssim: f64, 
             // Per-stream crypt filters (`/Crypt` in a stream's filters) and a separate filter for
             // embedded files are not reproduced: lopdf would encrypt those streams with the
             // default filter (pdf.js crypt_filters lost the text of two forms).
-            let per_stream = doc.objects.values().any(|o| {
-                matches!(o, Object::Stream(s) if s.filters().is_ok_and(|f| f.iter().any(|n| *n == b"Crypt")))
-            });
+            let per_stream = doc
+                .objects
+                .values()
+                .any(|o| matches!(o, Object::Stream(s) if s.filters().is_ok_and(|f| f.iter().any(|n| *n == b"Crypt"))));
             let eff = dict.get(b"EFF").and_then(|n| n.as_name()).ok();
             if per_stream || eff.is_some_and(|e| Some(e) != dict.get(b"StmF").and_then(|n| n.as_name()).ok()) {
                 return Err(EngineError::unsupported("this PDF's per-stream encryption is not reproduced"));
@@ -236,7 +243,10 @@ pub fn rewrite(bytes: &[u8], dpi: Option<f64>, jpeg_quality: u8, min_ssim: f64, 
     }
     // Encrypted again exactly as it was: same handler dictionary, same file key.
     if let (Some(before), Some(state)) = (&handler, &encryption) {
-        let after = back.encryption_state.as_ref().ok_or_else(|| EngineError::internal("the rewritten PDF lost its encryption"))?;
+        let after = back
+            .encryption_state
+            .as_ref()
+            .ok_or_else(|| EngineError::internal("the rewritten PDF lost its encryption"))?;
         let same_dict = after.encode().ok().as_ref() == Some(before);
         if !same_dict || after.file_encryption_key() != state.file_encryption_key() {
             return Err(EngineError::internal("the rewritten PDF's encryption differs from the original's"));

@@ -101,7 +101,8 @@ fn parse_dict(data: &[u8]) -> Option<Vec<Entry>> {
                 i += 3;
             }
             29 => {
-                let v = i32::from_be_bytes([*data.get(i + 1)?, *data.get(i + 2)?, *data.get(i + 3)?, *data.get(i + 4)?]);
+                let v =
+                    i32::from_be_bytes([*data.get(i + 1)?, *data.get(i + 2)?, *data.get(i + 3)?, *data.get(i + 4)?]);
                 raw.extend_from_slice(data.get(i..i + 5)?);
                 ints.push(Some(i64::from(v)));
                 i += 5;
@@ -259,8 +260,11 @@ pub fn subset(data: &[u8], keep: &dyn Fn(usize) -> bool) -> Option<Vec<u8>> {
     let draft = write_dict(&top, &fixed, &|_, _, v| v)?;
     let head = head_len(&draft);
     let new_cs_at = head + tail_len;
-    let charstrings: Vec<&[u8]> =
-        glyphs.iter().enumerate().map(|(g, r)| if g == 0 || keep(g) { &data[r.clone()] } else { &[ENDCHAR][..] }).collect();
+    let charstrings: Vec<&[u8]> = glyphs
+        .iter()
+        .enumerate()
+        .map(|(g, r)| if g == 0 || keep(g) { &data[r.clone()] } else { &[ENDCHAR][..] })
+        .collect();
     let cs_index = write_index(&charstrings);
     let new_fd_at = new_cs_at + cs_index.len();
     let moved = |op: u16, k: usize, v: i64| -> i64 {
@@ -408,4 +412,3 @@ mod tests {
         assert_eq!(write_dict(&e, &[], &|_, _, v| v).unwrap(), d.to_vec());
     }
 }
-

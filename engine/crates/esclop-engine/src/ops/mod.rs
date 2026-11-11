@@ -194,7 +194,8 @@ pub fn encode_content(content: &Content, fmt: Format, p: &EncodeParams, carry: &
                 quality,
                 progressive: p.progressive.unwrap_or(true),
                 fast_scans: p.jpeg_fast_scans,
-                chroma_full: false, markers: &markers,
+                chroma_full: false,
+                markers: &markers,
             };
             let still = content.first_frame();
             e.bytes = match &*still {

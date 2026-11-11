@@ -70,7 +70,9 @@ fn expand_filter(o: &Object) -> Option<Object> {
     };
     match o {
         Object::Name(n) => name(n),
-        Object::Array(a) => a.iter().map(|x| x.as_name().ok().and_then(name)).collect::<Option<Vec<_>>>().map(Object::Array),
+        Object::Array(a) => {
+            a.iter().map(|x| x.as_name().ok().and_then(name)).collect::<Option<Vec<_>>>().map(Object::Array)
+        }
         _ => None,
     }
 }
@@ -275,7 +277,8 @@ pub fn move_inline_images(doc: &mut Document) -> usize {
             continue;
         }
         // Names in the page's own XObject resources (a copy when they were inherited).
-        let mut xobjects = resources.get(b"XObject").ok().and_then(|o| resolve_dict(doc, o)).cloned().unwrap_or_default();
+        let mut xobjects =
+            resources.get(b"XObject").ok().and_then(|o| resolve_dict(doc, o)).cloned().unwrap_or_default();
         if names.iter().any(|(n, _)| xobjects.has(n)) {
             continue;
         }
@@ -337,4 +340,3 @@ mod tests {
         assert_eq!(&c[e..], b" Q");
     }
 }
-

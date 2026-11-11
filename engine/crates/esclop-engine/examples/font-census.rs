@@ -79,7 +79,8 @@ fn main() {
                     }
                 };
                 let n = s.content.len() as u64;
-                let is_subset = font_name.len() > 7 && font_name[6] == b'+' && font_name[..6].iter().all(u8::is_ascii_uppercase);
+                let is_subset =
+                    font_name.len() > 7 && font_name[6] == b'+' && font_name[..6].iter().all(u8::is_ascii_uppercase);
                 let t = kinds.entry(kind.clone()).or_default();
                 t.count += 1;
                 t.bytes += n;
@@ -104,13 +105,28 @@ fn main() {
         }
     }
     let mb = |b: u64| b as f64 / 1e6;
-    println!("{} PDFs, {} readable, {:.1} MB; image streams {:.1} MB ({:.0}%)", files.len(), read, mb(total), mb(images), 100.0 * images as f64 / total as f64);
+    println!(
+        "{} PDFs, {} readable, {:.1} MB; image streams {:.1} MB ({:.0}%)",
+        files.len(),
+        read,
+        mb(total),
+        mb(images),
+        100.0 * images as f64 / total as f64
+    );
     println!("| font program | files | programs | MB | % of all bytes | subset already | MB in subset ones |");
     println!("|---|---:|---:|---:|---:|---:|---:|");
     let mut all = 0;
     for (k, t) in &kinds {
         all += t.bytes;
-        println!("| {k} | {} | {} | {:.1} | {:.1} | {} | {:.1} |", t.files, t.count, mb(t.bytes), 100.0 * t.bytes as f64 / total as f64, t.subset, mb(t.subset_bytes));
+        println!(
+            "| {k} | {} | {} | {:.1} | {:.1} | {} | {:.1} |",
+            t.files,
+            t.count,
+            mb(t.bytes),
+            100.0 * t.bytes as f64 / total as f64,
+            t.subset,
+            mb(t.subset_bytes)
+        );
     }
     println!("| all fonts | | | {:.1} | {:.1} | | |", mb(all), 100.0 * all as f64 / total as f64);
     println!("same-name copies within a file (merge candidates): {dup_programs} programs, {:.1} MB", mb(dup_bytes));

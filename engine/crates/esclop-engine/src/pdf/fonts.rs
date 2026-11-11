@@ -210,8 +210,10 @@ impl Programs {
         let f = FontRef::new(data).ok()?;
         let glyphs = f.maxp().ok()?.num_glyphs();
         let cmap = f.cmap().ok();
-        let subtables: Vec<_> =
-            cmap.iter().flat_map(|c| c.encoding_records().iter().filter_map(|r| r.subtable(c.offset_data()).ok())).collect();
+        let subtables: Vec<_> = cmap
+            .iter()
+            .flat_map(|c| c.encoding_records().iter().filter_map(|r| r.subtable(c.offset_data()).ok()))
+            .collect();
         // Glyphs by `post` name, and each glyph's name. CoreGraphics picks glyphs by name, so a
         // font with two glyphs of one name can draw either: both are kept.
         let mut by_name: HashMap<String, Vec<u16>> = HashMap::new();
@@ -284,7 +286,10 @@ fn differences(doc: &Document, font: &Dictionary) -> Vec<Option<String>> {
 
 /// `uniXXXX` and `uXXXX[XX]` names.
 fn unicode_of_name(n: &str) -> Option<u32> {
-    let hex = n.strip_prefix("uni").filter(|h| h.len() == 4).or_else(|| n.strip_prefix('u').filter(|h| (4..=6).contains(&h.len())))?;
+    let hex = n
+        .strip_prefix("uni")
+        .filter(|h| h.len() == 4)
+        .or_else(|| n.strip_prefix('u').filter(|h| (4..=6).contains(&h.len())))?;
     u32::from_str_radix(hex, 16).ok()
 }
 
@@ -337,7 +342,9 @@ impl Usage {
                             set.insert(m.as_ref().map_or(cid, |m| m.get(cid as usize).copied().unwrap_or(0)));
                             // CFF outlines: a viewer may also go through the charset (CID-keyed
                             // fonts); both glyphs are kept, and the charset itself never changes.
-                            if let Some(g) = charset.as_ref().and_then(|cs| cs.get(cid as usize)).filter(|g| **g != u16::MAX) {
+                            if let Some(g) =
+                                charset.as_ref().and_then(|cs| cs.get(cid as usize)).filter(|g| **g != u16::MAX)
+                            {
                                 set.insert(*g);
                             }
                         }
@@ -349,7 +356,14 @@ impl Usage {
 
     /// Walks one content stream drawn with `resources`, and the streams it draws.
     /// `text` is the current font and its saved stack, carried across a page's content streams.
-    fn walk<'a>(&mut self, doc: &'a Document, content: &[u8], resources: Option<&'a Dictionary>, depth: usize, text: &mut TextState<'a>) {
+    fn walk<'a>(
+        &mut self,
+        doc: &'a Document,
+        content: &[u8],
+        resources: Option<&'a Dictionary>,
+        depth: usize,
+        text: &mut TextState<'a>,
+    ) {
         if depth > MAX_DEPTH {
             self.failed = true;
             return;
@@ -405,7 +419,8 @@ impl Usage {
                 }
                 "Do" => {
                     let n = args.first().and_then(|o| o.as_name().ok());
-                    let Some(Ok(id)) = n.and_then(|n| xobjects.and_then(|x| x.get(n).ok())).map(|o| o.as_reference()) else {
+                    let Some(Ok(id)) = n.and_then(|n| xobjects.and_then(|x| x.get(n).ok())).map(|o| o.as_reference())
+                    else {
                         continue;
                     };
                     self.form(doc, id, resources, depth);
@@ -551,7 +566,9 @@ fn collect(doc: &Document) -> (HashMap<ObjectId, BTreeSet<u16>>, Programs) {
             let ap = dict(doc, a).and_then(|a| get(doc, a, b"AP")).and_then(|o| o.as_dict().ok());
             for (_, look) in ap.into_iter().flat_map(|d| d.iter()) {
                 match look {
-                    Object::Reference(id) if matches!(doc.get_object(*id), Ok(Object::Stream(_))) => u.form(doc, *id, None, 0),
+                    Object::Reference(id) if matches!(doc.get_object(*id), Ok(Object::Stream(_))) => {
+                        u.form(doc, *id, None, 0)
+                    }
                     o => {
                         for (_, s) in dict(doc, o).into_iter().flat_map(|d| d.iter()) {
                             if let Ok(id) = s.as_reference() {
@@ -589,7 +606,9 @@ fn subset_cff(data: &[u8], gids: &BTreeSet<u16>) -> Result<Vec<u8>, String> {
     let keep = |g: usize| g <= u16::MAX as usize && gids.contains(&(g as u16));
     let new = cff::subset(table, &keep).ok_or("CFF layout not handled")?;
     let (old_cs, new_cs) = (cff::charstrings(table).ok_or("CFF")?, cff::charstrings(&new).ok_or("CFF rewrite")?);
-    if old_cs.len() != new_cs.len() || old_cs.iter().zip(&new_cs).enumerate().any(|(g, (a, b))| (g == 0 || keep(g)) && a != b) {
+    if old_cs.len() != new_cs.len()
+        || old_cs.iter().zip(&new_cs).enumerate().any(|(g, (a, b))| (g == 0 || keep(g)) && a != b)
+    {
         return Err("charstrings changed".into());
     }
     if cff::cids(table) != cff::cids(&new) {
@@ -642,7 +661,8 @@ fn subset(data: &[u8], gids: &BTreeSet<u16>) -> Result<Vec<u8>, String> {
         | SubsetFlags::SUBSET_FLAGS_NOTDEF_OUTLINE
         | SubsetFlags::SUBSET_FLAGS_NAME_LEGACY;
     let empty_tags = IntSet::<Tag>::empty();
-    let mut plan = Plan::new(&input, &IntSet::empty(), &font, flags, &drop, &empty_tags, &empty_tags, &names, &languages);
+    let mut plan =
+        Plan::new(&input, &IntSet::empty(), &font, flags, &drop, &empty_tags, &empty_tags, &names, &languages);
     plan.set_no_subset_tables(&keep);
     let out = subset_font(&font, &plan).map_err(|e| format!("subset: {e}"))?;
     // The subset must read back with the same number of glyphs, or ids would shift.
@@ -658,10 +678,8 @@ fn subset(data: &[u8], gids: &BTreeSet<u16>) -> Result<Vec<u8>, String> {
 /// where that is smaller. Returns how many were replaced.
 pub fn subset_fonts(doc: &mut Document) -> usize {
     let (used, mut programs) = collect(doc);
-    let jobs: Vec<(ObjectId, Vec<u8>, BTreeSet<u16>)> = used
-        .into_iter()
-        .filter_map(|(id, gids)| Some((id, programs.bytes(doc, id)?.to_vec(), gids)))
-        .collect();
+    let jobs: Vec<(ObjectId, Vec<u8>, BTreeSet<u16>)> =
+        used.into_iter().filter_map(|(id, gids)| Some((id, programs.bytes(doc, id)?.to_vec(), gids))).collect();
     drop(programs);
     let done: Vec<(ObjectId, Vec<u8>, usize)> = jobs
         .into_par_iter()
