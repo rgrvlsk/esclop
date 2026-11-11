@@ -36,8 +36,13 @@ public struct AgentPolicy: Sendable {
     public func check(_ job: OptimisationJob, pipelineUsesScripts: Bool = false, pipelineUploads: Bool = false) throws {
         guard applies else { return }
         if case .upload = job.operation {
-            // An upload writes nothing on disk: only its own switch applies.
             guard permissions.isAllowed(.allowUploads) else { throw refusal(.allowUploads, "Uploading files is off for agents") }
+            // Only files of a kind L'Esclop handles, judged where a link points, so an agent cannot
+            // publish a key or a keychain through an upload. An upload writes nothing on disk, so
+            // the overwrite checks below do not apply.
+            for source in job.request.sources where !Self.isUploadable(source) {
+                throw EsclopError.notPermitted("Agents may upload only images, videos, PDFs and audio files, and \(source.path) is not one. Ask the person to upload anything else themselves")
+            }
             return
         }
         if pipelineUploads, !permissions.isAllowed(.allowUploads) {
@@ -104,6 +109,11 @@ public struct AgentPolicy: Sendable {
         if deleteBackup, !permissions.isAllowed(.allowDeleteBackups) {
             throw refusal(.allowDeleteBackups, "Deleting backups is off for agents. Restore without deleteBackup")
         }
+    }
+
+    /// An image, video, PDF or audio file, after following symbolic links.
+    public static func isUploadable(_ file: URL) -> Bool {
+        MediaKind.of(file.resolvingSymlinksInPath()) != nil
     }
 
     private func refusal(_ permission: AgentPermission, _ why: String) -> EsclopError {

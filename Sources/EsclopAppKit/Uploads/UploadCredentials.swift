@@ -45,7 +45,11 @@ public struct KeychainCredentialStore: UploadCredentialStore {
         let status = SecItemCopyMatching(query as CFDictionary, &item)
         if status == errSecItemNotFound { return nil }
         guard status == errSecSuccess, let data = item as? Data else { throw Self.error(status) }
-        return try? JSONDecoder().decode(UploadCredentials.self, from: data)
+        guard let keys = try? JSONDecoder().decode(UploadCredentials.self, from: data) else {
+            // Not "no keys": the person should know the saved ones are there but unreadable.
+            throw EsclopError.other(Strings.format("The keys saved for “%@” in the Keychain cannot be read. Enter them again in Settings › Uploads.", target))
+        }
+        return keys
     }
 
     public func save(_ credentials: UploadCredentials, for target: String) throws {

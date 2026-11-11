@@ -479,7 +479,7 @@ public enum EsclopSettings {
     )
     public static let allowUploads = Setting<Bool>(
         "allowUploads", default: false, title: "Agents may upload files",
-        description: "Let AI agents upload files to your upload targets and run pipelines with upload steps.", section: .agents
+        description: "Let AI agents upload images, videos, PDFs and audio to your upload targets, and get their links. Anyone with a link can open the file if the bucket is public.", section: .agents
     )
 
     // MARK: Uploads

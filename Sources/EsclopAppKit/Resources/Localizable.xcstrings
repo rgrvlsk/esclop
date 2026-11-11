@@ -4551,6 +4551,16 @@
         }
       }
     },
+    "Only images, videos, PDFs and audio files are uploaded.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Només es pugen imatges, vídeos, PDF i fitxers d’àudio."
+          }
+        }
+      }
+    },
     "Only some files": {
       "localizations": {
         "ca": {
@@ -6921,6 +6931,16 @@
         }
       }
     },
+    "The keys saved for “%@” in the Keychain cannot be read. Enter them again in Settings › Uploads.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les claus desades al clauer per a «%@» no es poden llegir. Torna-les a introduir a Configuració › Pujades."
+          }
+        }
+      }
+    },
     "The optimised file is not there": {
       "localizations": {
         "ca": {
@@ -8646,7 +8666,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Permet que els agents d’IA pugin fitxers als teus destins de pujada i executin pipelines amb passos de pujada."
+            "value": "Permet que els agents d’IA pugin imatges, vídeos, PDF i àudio als teus destins de pujada i n’obtinguin els enllaços. Si el bucket és públic, qualsevol amb un enllaç pot obrir el fitxer."
           }
         }
       }

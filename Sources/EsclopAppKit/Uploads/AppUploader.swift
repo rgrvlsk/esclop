@@ -42,6 +42,10 @@ public struct AppPipelineHost: PipelineHost {
 
     public func perform(_ action: PipelineHostAction, file: URL, options: PipelineRunOptions) async throws -> PipelineHostOutcome {
         guard case let .uploadTo(target) = action else { return try await NoopPipelineHost().perform(action, file: file, options: options) }
+        // Pipelines run on media files only; an upload step holds to that whatever runs it.
+        guard AgentPolicy.isUploadable(file) else {
+            return .unavailable(Strings.text("Only images, videos, PDFs and audio files are uploaded."))
+        }
         let link = try await uploader.upload(file, to: target) { _ in }
         await copyLink(link)
         return .handled(link.absoluteString)
