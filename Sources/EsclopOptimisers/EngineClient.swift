@@ -92,6 +92,8 @@ public actor EngineClient {
         let continuation: CheckedContinuation<[String: JSONValue], Error>
         let progress: (@Sendable (Double) -> Void)?
         let generation: ObjectIdentifier
+        /// The input's kind, for a `decode` refusal (a damaged file of that kind).
+        let kind: MediaKind?
     }
 
     /// The child process went away while a request was in flight.
@@ -230,7 +232,10 @@ public actor EngineClient {
                     continuation.resume(throwing: EsclopError.cancelled)
                     return
                 }
-                pending[id] = Pending(continuation: continuation, progress: progress, generation: ObjectIdentifier(child))
+                pending[id] = Pending(
+                    continuation: continuation, progress: progress, generation: ObjectIdentifier(child),
+                    kind: input.flatMap(MediaKind.of)
+                )
                 do {
                     try child.send(line)
                 } catch {
@@ -357,7 +362,8 @@ public actor EngineClient {
                 let error = object["error"]?.objectValue ?? [:]
                 entry.continuation.resume(throwing: Self.mapError(
                     code: error["code"]?.stringValue ?? "internal",
-                    message: error["message"]?.stringValue ?? "esclop-engine failed"
+                    message: error["message"]?.stringValue ?? "esclop-engine failed",
+                    kind: entry.kind
                 ))
             }
         } else {
@@ -366,7 +372,13 @@ public actor EngineClient {
         }
     }
 
-    static func mapError(code: String, message: String) -> EsclopError {
+    /// `kind` is the input's: the engine's `decode` (it could not read the file) is a damaged
+    /// file of that kind, its message going to the log.
+    static func mapError(code: String, message: String, kind: MediaKind? = nil) -> EsclopError {
+        if code == "decode", let kind {
+            Log.engine.info("esclop-engine could not read the input: \(message, privacy: .public)")
+            return .unreadable(kind: kind)
+        }
         switch code {
         case "unsupported": return .unsupportedFile(message)
         case "not_found": return .fileNotFound(message)
