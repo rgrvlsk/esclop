@@ -1,4 +1,4 @@
-# Usage: python3 fontoracle.py ENGINE_NAME OUT_DIR. Binaries (engine-v1, ENGINE_NAME, judge-new built from judge.swift) and the real/ corpus live in bench/pdf/.data.
+# Usage: python3 fontoracle.py ENGINE_NAME OUT_DIR [BASELINE_ENGINE]. Binaries (engine-v1, ENGINE_NAME, judge-new built from judge.swift) and the real/ corpus live in bench/pdf/.data.
 """Font oracle: v1 and a font-subsetting engine differ only in font programs, so their outputs
 must render identically. Judges v1's output against the new one's on every real file."""
 import json, sys, shutil, threading, concurrent.futures as cf
@@ -8,6 +8,7 @@ import run
 D = Path(__file__).resolve().parent / ".data"
 run.JUDGE = D / "judge-new"
 new, out = sys.argv[1], D / sys.argv[2]
+base = sys.argv[3] if len(sys.argv) > 3 else "engine-v1"  # the same engine without the font change under test
 out.mkdir(exist_ok=True)
 files = sorted((D / "real").rglob("*.pdf"))
 res_path = out / "oracle.json"
@@ -26,7 +27,7 @@ def one(src):
     if name in res: return
     work = out / "w" / name.replace("/", "__"); work.mkdir(parents=True, exist_ok=True)
     a, b = work / "v1.pdf", work / "new.pdf"
-    sa, sb = eng("engine-v1", src, a), eng(new, src, b)
+    sa, sb = eng(base, src, a), eng(new, src, b)
     rec = {"v1": sa, "new": sb}
     if sa == "ok" and sb == "ok":
         rec["bytes"] = [src.stat().st_size, a.stat().st_size, b.stat().st_size]

@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Subsetting of embedded TrueType fonts (`/FontFile2`) to the glyphs the document draws.
+//! Subsetting of embedded TrueType and CFF fonts (`/FontFile2`, `/FontFile3`) to the glyphs the
+//! document draws. TrueType goes through skera with glyph ids retained; CFF (bare, or in an
+//! OpenType wrapper) through `cff`, which only empties the charstrings of glyphs no page uses
+//! and keeps the charset, FDSelect, Private dicts and subroutines byte for byte.
 //!
 //! The method is the one Ghostscript's pdfwrite follows, reimplemented from its description:
 //! find every glyph each embedded font paints, then store a font program that holds only those.
@@ -23,7 +26,7 @@
 //!   later) and fonts used through a CMap other than Identity keep their whole program;
 //! - if any content stream fails to parse, no font in the document is subset.
 
-use super::deflate;
+use super::{cff, deflate};
 use lopdf::content::Content;
 use lopdf::{Dictionary, Document, Object, ObjectId, Stream};
 use rayon::prelude::*;
@@ -90,7 +93,7 @@ enum Map {
     /// this module does not follow: the font is kept whole).
     Simple(Box<[Option<Vec<u16>>]>),
     /// Two-byte CIDs (Identity-H or -V) through `/CIDToGIDMap`; `None` is Identity.
-    Cid(Option<Vec<u16>>),
+    Cid(Option<Vec<u16>>, Option<Vec<u16>>),
 }
 
 struct Font {
@@ -98,11 +101,11 @@ struct Font {
     map: Map,
 }
 
-/// The `/FontFile2` stream of a font dictionary, its own or its descendant's.
+/// The `/FontFile2` or `/FontFile3` stream of a font dictionary, its own or its descendant's.
 fn program_of(doc: &Document, font: &Dictionary) -> Option<ObjectId> {
     let own = |d: &Dictionary| {
         let desc = dict(doc, d.get(b"FontDescriptor").ok()?)?;
-        desc.get(b"FontFile2").ok()?.as_reference().ok()
+        desc.get(b"FontFile2").or_else(|_| desc.get(b"FontFile3")).ok()?.as_reference().ok()
     };
     own(font).or_else(|| {
         let first = get(doc, font, b"DescendantFonts")?.as_array().ok()?.first()?;
@@ -122,8 +125,12 @@ fn is_font(doc: &Document, d: &Dictionary) -> bool {
 fn resolve(doc: &Document, font: &Dictionary, programs: &mut Programs) -> Option<Result<Font, ObjectId>> {
     let program = program_of(doc, font)?;
     let map = match name(doc, font, b"Subtype") {
+        // A simple font with CFF outlines may be read through the CFF charset's glyph names,
+        // which `simple_map` does not follow (pdf.js issue215, an OpenType-CFF Pagella in a
+        // TrueType font, lost glyphs): kept whole.
+        Some(b"TrueType") if programs.bytes(doc, program).is_some_and(|d| cff_table(d).is_some()) => None,
         Some(b"TrueType") => programs.simple_map(doc, font, program).map(Map::Simple),
-        Some(b"Type0") => cid_map(doc, font).map(Map::Cid),
+        Some(b"Type0") => cid_map(doc, font).map(|m| Map::Cid(m, programs.cff_cids(doc, program))),
         _ => None,
     };
     Some(map.map(|map| Font { program, map }).ok_or(program))
@@ -134,8 +141,11 @@ fn cid_map(doc: &Document, font: &Dictionary) -> Option<Option<Vec<u16>>> {
         return None;
     }
     let desc = dict(doc, get(doc, font, b"DescendantFonts")?.as_array().ok()?.first()?)?;
-    if name(doc, desc, b"Subtype") != Some(b"CIDFontType2") {
-        return None;
+    match name(doc, desc, b"Subtype") {
+        Some(b"CIDFontType2") => {}
+        // CFF outlines: CIDs reach glyphs through the CFF charset (added in `show`).
+        Some(b"CIDFontType0") => return Some(None),
+        _ => return None,
     }
     match get(doc, desc, b"CIDToGIDMap") {
         None => Some(None),
@@ -171,6 +181,19 @@ impl Programs {
                 declared.is_none_or(|l| l as usize == data.len()).then_some(data)
             })
             .as_deref()
+    }
+
+    /// For a program with CFF outlines (bare or in an sfnt), the glyph of each CID in the CFF
+    /// charset (`u16::MAX` where none).
+    fn cff_cids(&mut self, doc: &Document, program: ObjectId) -> Option<Vec<u16>> {
+        let data = self.bytes(doc, program)?;
+        // read-fonts reads no charset from a bare CID-keyed CFF: parsed here.
+        let cids = cff::cids(cff_table(data)?)?;
+        let mut out = vec![u16::MAX; 65536];
+        for (g, cid) in cids.iter().enumerate().take(65535) {
+            out[*cid as usize] = g as u16;
+        }
+        Some(out)
     }
 
     /// For each one-byte code, every glyph of the program a viewer might draw for it.
@@ -308,10 +331,15 @@ impl Usage {
                             }
                         }
                     }
-                    Map::Cid(m) => {
+                    Map::Cid(m, charset) => {
                         for c in text.as_chunks::<2>().0 {
                             let cid = u16::from_be_bytes([c[0], c[1]]);
                             set.insert(m.as_ref().map_or(cid, |m| m.get(cid as usize).copied().unwrap_or(0)));
+                            // CFF outlines: a viewer may also go through the charset (CID-keyed
+                            // fonts); both glyphs are kept, and the charset itself never changes.
+                            if let Some(g) = charset.as_ref().and_then(|cs| cs.get(cid as usize)).filter(|g| **g != u16::MAX) {
+                                set.insert(*g);
+                            }
                         }
                     }
                 }
@@ -513,13 +541,10 @@ fn collect(doc: &Document) -> (HashMap<ObjectId, BTreeSet<u16>>, Programs) {
     let mut u = Usage::default();
     for (_, page) in doc.get_pages() {
         let res = page_resources(doc, page);
-        // Stream by stream, the text state carried across (see `placement::MAX_CONTENT`).
-        let mut text = (None, Vec::new());
-        for id in doc.get_page_contents(page) {
-            match doc.get_object(id).and_then(|o| o.as_stream()).map(|s| s.decompressed_content_with_limit(MAX_CONTENT)) {
-                Ok(Ok(data)) => u.walk(doc, &data, res, 0, &mut text),
-                _ => u.failed = true,
-            }
+        // The page's streams joined, within `placement::MAX_CONTENT`.
+        match doc.get_page_content_with_limit(page, MAX_CONTENT) {
+            Ok(data) => u.walk(doc, &data, res, 0, &mut (None, Vec::new())),
+            Err(_) => u.failed = true,
         }
         let annots = doc.get_dictionary(page).ok().and_then(|p| get(doc, p, b"Annots")).and_then(|a| a.as_array().ok());
         for a in annots.into_iter().flatten() {
@@ -548,7 +573,55 @@ fn collect(doc: &Document) -> (HashMap<ObjectId, BTreeSet<u16>>, Programs) {
 }
 
 /// The program holding only `gids` (plus `.notdef`), glyph ids unchanged.
+/// The CFF data of a program: the program itself (bare CFF) or its sfnt's `CFF ` table.
+fn cff_table(data: &[u8]) -> Option<&[u8]> {
+    if data.first() == Some(&1) {
+        return Some(data);
+    }
+    FontRef::new(data).ok()?.table_data(Tag::new(b"CFF ")).map(|d| d.as_bytes())
+}
+
+/// A CFF program (bare, or the `CFF ` table of an sfnt) with the glyphs not in `gids` reduced
+/// to `endchar`; checked to keep the glyph count, every glyph's charset entry and every kept
+/// glyph's charstring.
+fn subset_cff(data: &[u8], gids: &BTreeSet<u16>) -> Result<Vec<u8>, String> {
+    let table = cff_table(data).ok_or("no CFF")?;
+    let keep = |g: usize| g <= u16::MAX as usize && gids.contains(&(g as u16));
+    let new = cff::subset(table, &keep).ok_or("CFF layout not handled")?;
+    let (old_cs, new_cs) = (cff::charstrings(table).ok_or("CFF")?, cff::charstrings(&new).ok_or("CFF rewrite")?);
+    if old_cs.len() != new_cs.len() || old_cs.iter().zip(&new_cs).enumerate().any(|(g, (a, b))| (g == 0 || keep(g)) && a != b) {
+        return Err("charstrings changed".into());
+    }
+    if cff::cids(table) != cff::cids(&new) {
+        return Err("charset changed".into());
+    }
+    // A CID-keyed font must have had its charset read: glyphs were chosen through it.
+    if cff::is_cid(table) && cff::cids(table).is_none() {
+        return Err("CID-keyed charset not read".into());
+    }
+    if data.first() == Some(&1) {
+        return Ok(new);
+    }
+    // An sfnt: the same tables with the new `CFF `, layout tables dropped.
+    let font = FontRef::new(data).map_err(|e| format!("read: {e}"))?;
+    let mut b = write_fonts::FontBuilder::new();
+    b.add_raw(Tag::new(b"CFF "), new);
+    for rec in font.table_directory.table_records() {
+        let tag = rec.tag();
+        if tag == Tag::new(b"CFF ") || DROP.iter().any(|t| Tag::new(t) == tag) {
+            continue;
+        }
+        if let Some(d) = font.table_data(tag) {
+            b.add_raw(tag, d.as_bytes().to_vec());
+        }
+    }
+    Ok(b.build())
+}
+
 fn subset(data: &[u8], gids: &BTreeSet<u16>) -> Result<Vec<u8>, String> {
+    if cff_table(data).is_some() {
+        return subset_cff(data, gids);
+    }
     let font = FontRef::new(data).map_err(|e| format!("read: {e}"))?;
     font.glyf().map_err(|e| format!("glyf: {e}"))?;
     let total = font.maxp().map_err(|e| format!("maxp: {e}"))?.num_glyphs();
