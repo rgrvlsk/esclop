@@ -113,6 +113,10 @@ pub fn recompress(
     let colour_key = matches!(d.get(b"Mask"), Ok(Object::Array(_)));
     let has_decode_parms = d.has(b"DecodeParms");
     let bpc = if stencil { 1 } else { int(d, b"BitsPerComponent").unwrap_or(8) };
+    // Only the depths PDF defines; anything else (a crafted 2^62) stays as stored.
+    if !matches!(bpc, 1 | 2 | 4 | 8 | 16) {
+        return Ok(None);
+    }
     let space = if stencil { Some(Space::Other(1)) } else { space(doc, d.get(b"ColorSpace").ok()) };
     let lossy_ok = !plan.is_mask && !colour_key && !stencil;
     if filters.len() == 1 && filters[0] == b"JPXDecode" {
@@ -124,7 +128,13 @@ pub fn recompress(
         Some(Space::Jpegable(n) | Space::Other(n)) => n.max(1),
         None => 4,
     };
-    let cost = (w as usize) * (h as usize) * comps_est * (bpc.max(8) as usize / 8) * 5 + stream.content.len() * 2;
+    let cost = (w as usize)
+        .checked_mul(h as usize)
+        .and_then(|p| p.checked_mul(comps_est))
+        .and_then(|p| p.checked_mul(bpc.max(8) as usize / 8))
+        .and_then(|p| p.checked_mul(5))
+        .and_then(|p| p.checked_add(stream.content.len().checked_mul(2)?));
+    let Some(cost) = cost else { return Ok(None) };
     let Some(_hold) = budget.hold(cost)? else { return Ok(None) };
     let scale = match (plan.dpi, plan.drawn_dpi) {
         (Some(target), Some(drawn)) if drawn > target * DOWNSAMPLE_THRESHOLD => target / drawn,
