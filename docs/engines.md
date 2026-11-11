@@ -96,7 +96,7 @@ app that wants one `EngineClient`).
 | Video to GIF | ffmpeg frames + `esclop-engine gif.from_frames` (gifski); ffmpeg palette + gifsicle when the engine cannot |
 | Animated GIF to MP4/WebM/MOV | ffmpeg |
 | Audio | ffmpeg: `aac_at` (falls back to `aac`), `libmp3lame` VBR, `libopus`, FLAC, PCM |
-| PDF | esclop-engine `pdf.optimise` (30 min at most; signed, Reader-extended, password-protected and damaged files, and ones that would need more than 256 MB, are left as they are); PDFKit for crop/uncrop/pages; images become PDFs with PDFKit |
+| PDF | esclop-engine `pdf.optimise` (30 min at most from when a worker starts it; signed, Reader-extended, password-protected and damaged files, encrypted ones over 64 MB, and ones that would need more than 256 MB besides their own size, are left as they are, with the reason as the message); PDFKit for crop/uncrop/pages; images become PDFs with PDFKit |
 
 ## Image engine client
 
