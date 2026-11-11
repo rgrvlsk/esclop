@@ -60,10 +60,14 @@ pub fn gray_image(w: usize, h: usize) -> Vec<u8> {
 
 /// Runs `rewrite` with default settings on another thread; `None` when it outlives `limit`.
 pub fn rewrite_within(pdf: Vec<u8>, dpi: Option<f64>, limit: Duration) -> Option<(Result<(Vec<u8>, bool)>, Duration)> {
+    rewrite_with(pdf, Settings::new(30, dpi, false), limit)
+}
+
+pub fn rewrite_with(pdf: Vec<u8>, settings: Settings, limit: Duration) -> Option<(Result<(Vec<u8>, bool)>, Duration)> {
     let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
         let t = Instant::now();
-        let r = rewrite(&pdf, dpi, 66, 0.98, false, &Ctx::silent());
+        let r = rewrite(&pdf, &settings, &Ctx::silent());
         let _ = tx.send((r, t.elapsed()));
     });
     rx.recv_timeout(limit).ok()
@@ -219,7 +223,7 @@ fn every_stage_stops_when_cancelled() {
     let mut w = budget::CappedWriter::new(1 << 20, cancelled());
     assert!(std::io::Write::write_all(&mut w, b"x").is_err());
     let ctx = Ctx::new(cancelled(), Arc::new(|_, _| {}));
-    assert!(is_cancel(&rewrite(&pdf, None, 66, 0.98, false, &ctx).map(|_| 0)));
+    assert!(is_cancel(&rewrite(&pdf, &Settings::new(30, None, false), &ctx).map(|_| 0)));
 }
 
 fn is_unsupported<T>(r: &Result<T>) -> bool {
@@ -315,12 +319,12 @@ fn an_impossible_bit_depth_keeps_the_image() {
     .into_bytes();
     o.extend(&jpg);
     o.extend(b"\nendstream");
-    let (r, _) = rewrite_within(build(&image_page(o)), Some(72.0), Duration::from_secs(20)).expect("over 20 s");
+    let (r, _) = rewrite_within(build(&image_page(o)), Some(150.0), Duration::from_secs(20)).expect("over 20 s");
     let (_, lossy) = r.unwrap();
     assert!(!lossy, "an image with a crafted depth was re-encoded");
     // The same image at depth 8 is re-encoded.
     let (r, _) =
-        rewrite_within(build(&image_page(jpeg_image(&jpg, 600, 600, ""))), Some(72.0), Duration::from_secs(20))
+        rewrite_within(build(&image_page(jpeg_image(&jpg, 600, 600, ""))), Some(150.0), Duration::from_secs(20))
             .expect("over 20 s");
     assert!(r.unwrap().1);
 }
@@ -356,4 +360,49 @@ fn signed_and_reader_extended_pdfs_are_left_as_they_are() {
     empty.push(obj("<< /FT /Sig /T (Sig1) /Type /Annot /Subtype /Widget /Rect [0 0 0 0] /P 3 0 R >>"));
     let (r, _) = rewrite_within(build(&empty), Some(72.0), Duration::from_secs(20)).expect("over 20 s");
     assert!(r.is_ok(), "{r:?}");
+}
+
+/// The image streams of a rewritten file, by their `/Width`.
+fn images_of(pdf: &[u8]) -> Vec<Stream> {
+    let doc = Document::load_mem(pdf).unwrap();
+    doc.objects
+        .values()
+        .filter_map(|o| o.as_stream().ok())
+        .filter(|s| s.dict.get(b"Subtype").and_then(|t| t.as_name()).ok() == Some(b"Image"))
+        .cloned()
+        .collect()
+}
+
+#[test]
+fn without_downsampling_a_jpeg_keeps_its_pixels() {
+    let jpg = jpeg(600, 600, 95);
+    let original = image::load_from_memory(&jpg).unwrap().to_rgb8();
+    // No dpi (300 in the app): the JPEG is only re-coded losslessly.
+    let (r, _) = rewrite_with(
+        build(&image_page(jpeg_image(&jpg, 600, 600, ""))),
+        Settings::new(64, None, false),
+        Duration::from_secs(20),
+    )
+    .expect("over 20 s");
+    let (out, lossy) = r.unwrap();
+    assert!(!lossy);
+    let im = &images_of(&out)[0];
+    assert_eq!(image::load_from_memory(&im.content).unwrap().to_rgb8(), original);
+    // Compression 0 (strip only): no image is touched, JPEG or Flate.
+    let flate = gray_image(300, 300);
+    let mut objs = one_page(
+        "<< /XObject << /Im 5 0 R /G 6 0 R >> >>",
+        b"q 300 0 0 300 0 0 cm /Im Do Q q 300 0 0 300 300 0 cm /G Do Q",
+    );
+    objs.push(jpeg_image(&jpg, 600, 600, ""));
+    objs.push(flate.clone());
+    let before = images_of(&build(&objs));
+    let (r, _) = rewrite_with(build(&objs), Settings::new(0, None, true), Duration::from_secs(20)).expect("over 20 s");
+    let (out, lossy) = r.unwrap();
+    assert!(!lossy);
+    let mut after: Vec<Vec<u8>> = images_of(&out).into_iter().map(|s| s.content).collect();
+    let mut before: Vec<Vec<u8>> = before.into_iter().map(|s| s.content).collect();
+    after.sort();
+    before.sort();
+    assert_eq!(after, before);
 }

@@ -13,7 +13,7 @@
       "default": null
     },
     "compression": {
-      "description": "Compression factor 0..=100 (30 normal, 64 aggressive): the JPEG ceiling images are\nre-encoded at, as for `jpeg.optimise`. JPEGs already at or under it are only re-coded\nlosslessly unless they need downsampling. Default 30.",
+      "description": "Compression factor 0..=100 (30 normal, 64 aggressive): the JPEG ceiling images are\nre-encoded at, as for `jpeg.optimise`. JPEGs are re-encoded only when downsampled or, with\na `dpi`, above the ceiling; otherwise they are only re-coded losslessly. At 0 no image is\ntouched (only streams, fonts and, with `strip`, metadata change). Default 30.",
       "type": [
         "integer",
         "null"
