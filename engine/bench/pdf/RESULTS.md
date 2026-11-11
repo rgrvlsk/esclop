@@ -138,3 +138,22 @@ CFF subsetting against the same engine with CFF off: 14.4 MB saved, 73 changed o
 pixel-identical. Aggressive gap on files gs passes (29.2 MB): fonts kept whole 21.6 MB (XFA
 forms' default fonts, kept for filling fields), gs downsamples more 8.3, other 6.2,
 recompression 3.9, OpenType fonts 2.3.
+
+## Engine at the Ghostscript removal (2026-11-11): fillability checked
+
+Real corpus at 0ee066c (`formcheck.py` on every output with form fields), then the 31 files
+whose engine output changed with the image-scale fix (JPEG also tried at 150 dpi and full size
+when the gate refuses the planned scale) judged again and merged.
+
+| check | default | aggressive | target |
+|---|---:|---:|---:|
+| engine failures, real corpus (1539 judged) | 0 | 0 | 0 |
+| engine fillability failures | 0 | 0 | 0 |
+| gs fillability failures | 53 | 54 | |
+| engine / gs size, files gs passes (1033 / 1037) | 0.926 | 1.005 | 1.10 |
+| engine / gs size, all files | 1.245 | 1.383 | |
+| engine peak RSS | 488 MB | | 512 MB |
+
+Totals: original 671.3 MB; default gs 344.4, engine 428.7 MB; aggressive gs 289.6, engine
+400.4 MB. Ghostscript fails 506 files at the default setting and 502 at the aggressive one.
+Synthetic corpus: 0 failures; 17.2 MB default (gs 50.5), 8.1 MB aggressive (gs 10.5).
