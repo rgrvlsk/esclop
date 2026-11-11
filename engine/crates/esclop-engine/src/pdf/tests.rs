@@ -6,6 +6,12 @@ use super::*;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
+/// `secs` in a release build; six times that in a debug one (`cargo test` in CI), where the
+/// engine runs several times slower. The limits catch blowups (minutes or hours), not speed.
+pub fn limit(secs: u64) -> Duration {
+    Duration::from_secs(if cfg!(debug_assertions) { secs * 6 } else { secs })
+}
+
 /// A PDF from object bodies: object `n` is `objs[n - 1]`; object 1 must be the catalog.
 pub fn build(objs: &[Vec<u8>]) -> Vec<u8> {
     let mut out = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n".to_vec();
@@ -86,7 +92,7 @@ fn a_form_drawn_a_million_times_finishes() {
         true,
     ));
     objs.push(gray_image(64, 64));
-    let (r, t) = rewrite_within(build(&objs), Some(150.0), Duration::from_secs(5)).expect("over 5 s");
+    let (r, t) = rewrite_within(build(&objs), Some(150.0), limit(5)).expect("over 5 s");
     assert!(r.is_ok(), "{:?}", r.err());
     eprintln!("a million draws: {t:?}");
 }
@@ -106,7 +112,7 @@ fn forms_nested_ten_wide_twelve_deep_finish() {
         objs.push(stream(&format!("/Type /XObject /Subtype /Form /BBox [0 0 1 1] /Resources {res}"), &body, true));
     }
     objs.push(gray_image(64, 64));
-    let (r, t) = rewrite_within(build(&objs), Some(150.0), Duration::from_secs(5)).expect("over 5 s");
+    let (r, t) = rewrite_within(build(&objs), Some(150.0), limit(5)).expect("over 5 s");
     assert!(r.is_ok(), "{:?}", r.err());
     eprintln!("10 x 12 nested forms: {t:?}");
 }
@@ -162,9 +168,9 @@ fn past_the_operator_cap_no_image_is_placed() {
     let pdf = build(&objs);
     let t = Instant::now();
     assert!(resolutions(&pdf).is_empty());
-    assert!(t.elapsed() < Duration::from_secs(5));
+    assert!(t.elapsed() < limit(5));
     // The file is still rewritten, its images at full size.
-    let (r, _) = rewrite_within(pdf, Some(72.0), Duration::from_secs(20)).expect("over 20 s");
+    let (r, _) = rewrite_within(pdf, Some(72.0), limit(20)).expect("over 20 s");
     assert!(r.is_ok(), "{:?}", r.err());
 }
 
@@ -202,7 +208,7 @@ fn the_integrity_check_is_linear() {
     assert!(doc.objects.len() > 100_000);
     let t = Instant::now();
     let r = integrity::check(&pdf, &doc, &std::sync::atomic::AtomicBool::new(false));
-    assert!(t.elapsed() < Duration::from_secs(5), "{:?}", t.elapsed());
+    assert!(t.elapsed() < limit(5), "{:?}", t.elapsed());
     assert!(r.is_ok(), "{r:?}");
 }
 
@@ -259,7 +265,7 @@ fn fonts_that_inflate_past_the_budget_are_refused() {
         o.extend(b"\nendstream");
         objs.push(o);
     }
-    let (r, _) = rewrite_within(build(&objs), None, Duration::from_secs(30)).expect("over 30 s");
+    let (r, _) = rewrite_within(build(&objs), None, limit(30)).expect("over 30 s");
     assert!(is_unsupported(&r), "{:?}", r.map(|r| r.0.len()));
 }
 
@@ -273,13 +279,13 @@ fn object_streams_that_parse_past_the_budget_are_refused() {
         let data = format!("{head}{body}");
         objs.push(stream(&format!("/Type /ObjStm /N 1 /First {}", head.len()), data.as_bytes(), true));
     }
-    let (r, _) = rewrite_within(build(&objs), None, Duration::from_secs(30)).expect("over 30 s");
+    let (r, _) = rewrite_within(build(&objs), None, limit(30)).expect("over 30 s");
     assert!(is_unsupported(&r), "{:?}", r.map(|r| r.0.len()));
     // One over `MAX_LOAD_STREAM` is refused before it is parsed.
     let body = format!("[{}]", "1 0 R ".repeat((40 << 20) / 6));
     let mut objs = one_page("<< >>", b"");
     objs.push(stream("/Type /ObjStm /N 1 /First 7", format!("1000 0 {body}").as_bytes(), true));
-    let (r, _) = rewrite_within(build(&objs), None, Duration::from_secs(30)).expect("over 30 s");
+    let (r, _) = rewrite_within(build(&objs), None, limit(30)).expect("over 30 s");
     assert!(is_unsupported(&r), "{:?}", r.map(|r| r.0.len()));
 }
 
@@ -322,13 +328,12 @@ fn an_impossible_bit_depth_keeps_the_image() {
     .into_bytes();
     o.extend(&jpg);
     o.extend(b"\nendstream");
-    let (r, _) = rewrite_within(build(&image_page(o)), Some(150.0), Duration::from_secs(20)).expect("over 20 s");
+    let (r, _) = rewrite_within(build(&image_page(o)), Some(150.0), limit(20)).expect("over 20 s");
     let (_, lossy) = r.unwrap();
     assert!(!lossy, "an image with a crafted depth was re-encoded");
     // The same image at depth 8 is re-encoded.
     let (r, _) =
-        rewrite_within(build(&image_page(jpeg_image(&jpg, 600, 600, ""))), Some(150.0), Duration::from_secs(20))
-            .expect("over 20 s");
+        rewrite_within(build(&image_page(jpeg_image(&jpg, 600, 600, ""))), Some(150.0), limit(20)).expect("over 20 s");
     assert!(r.unwrap().1);
 }
 
@@ -348,7 +353,7 @@ fn signed_and_reader_extended_pdfs_are_left_as_they_are() {
     ur3[0] = obj("<< /Type /Catalog /Pages 2 0 R /Perms << /UR3 6 0 R >> >>");
     ur3.push(obj("<< /Type /Sig /Filter /Adobe.PPKLite /ByteRange [0 1 2 3] /Contents <00> >>"));
     for (name, objs) in [("signature field", signed), ("DocMDP", mdp), ("UR3", ur3)] {
-        let (r, _) = rewrite_within(build(&objs), Some(72.0), Duration::from_secs(20)).expect("over 20 s");
+        let (r, _) = rewrite_within(build(&objs), Some(72.0), limit(20)).expect("over 20 s");
         match r {
             Err(e) => assert!(
                 e.code == crate::error::ErrorCode::Unsupported && e.reason == Some(reasons::SIGNED),
@@ -361,7 +366,7 @@ fn signed_and_reader_extended_pdfs_are_left_as_they_are() {
     let mut empty = image_page(image());
     empty[0] = obj("<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [6 0 R] >> >>");
     empty.push(obj("<< /FT /Sig /T (Sig1) /Type /Annot /Subtype /Widget /Rect [0 0 0 0] /P 3 0 R >>"));
-    let (r, _) = rewrite_within(build(&empty), Some(72.0), Duration::from_secs(20)).expect("over 20 s");
+    let (r, _) = rewrite_within(build(&empty), Some(72.0), limit(20)).expect("over 20 s");
     assert!(r.is_ok(), "{r:?}");
 }
 
@@ -381,12 +386,9 @@ fn without_downsampling_a_jpeg_keeps_its_pixels() {
     let jpg = jpeg(600, 600, 95);
     let original = image::load_from_memory(&jpg).unwrap().to_rgb8();
     // No dpi (300 in the app): the JPEG is only re-coded losslessly.
-    let (r, _) = rewrite_with(
-        build(&image_page(jpeg_image(&jpg, 600, 600, ""))),
-        Settings::new(64, None, false),
-        Duration::from_secs(20),
-    )
-    .expect("over 20 s");
+    let (r, _) =
+        rewrite_with(build(&image_page(jpeg_image(&jpg, 600, 600, ""))), Settings::new(64, None, false), limit(20))
+            .expect("over 20 s");
     let (out, lossy) = r.unwrap();
     assert!(!lossy);
     let im = &images_of(&out)[0];
@@ -400,7 +402,7 @@ fn without_downsampling_a_jpeg_keeps_its_pixels() {
     objs.push(jpeg_image(&jpg, 600, 600, ""));
     objs.push(flate.clone());
     let before = images_of(&build(&objs));
-    let (r, _) = rewrite_with(build(&objs), Settings::new(0, None, true), Duration::from_secs(20)).expect("over 20 s");
+    let (r, _) = rewrite_with(build(&objs), Settings::new(0, None, true), limit(20)).expect("over 20 s");
     let (out, lossy) = r.unwrap();
     assert!(!lossy);
     let mut after: Vec<Vec<u8>> = images_of(&out).into_iter().map(|s| s.content).collect();
@@ -515,8 +517,7 @@ fn an_image_with_a_matte_soft_mask_keeps_the_mask_size() {
         let mut mask = gray_image(600, 600);
         mask.splice(at..at, format!(" {matte}").bytes());
         objs.push(mask);
-        let (r, _) = rewrite_with(build(&objs), Settings::new(30, Some(72.0), false), Duration::from_secs(20))
-            .expect("over 20 s");
+        let (r, _) = rewrite_with(build(&objs), Settings::new(30, Some(72.0), false), limit(20)).expect("over 20 s");
         let out = r.unwrap().0;
         let widths: Vec<i64> =
             images_of(&out).iter().map(|s| s.dict.get(b"Width").unwrap().as_i64().unwrap()).collect();
@@ -529,7 +530,7 @@ fn text_that_names_encrypt_is_not_encryption() {
     // Uncompressed content showing the string "/Encrypt": the file is not encrypted.
     let mut objs = image_page(gray_image(64, 64));
     objs[3] = stream("", b"BT /F1 12 Tf ((/Encrypt) is a key) Tj ET q 64 0 0 64 0 0 cm /Im Do Q", false);
-    let (r, _) = rewrite_within(build(&objs), Some(150.0), Duration::from_secs(20)).expect("over 20 s");
+    let (r, _) = rewrite_within(build(&objs), Some(150.0), limit(20)).expect("over 20 s");
     assert!(r.is_ok(), "{r:?}");
 }
 
@@ -561,7 +562,7 @@ fn a_jpeg_the_decoder_cannot_take_is_kept_and_the_rest_rewritten() {
     );
     objs.push(im);
     objs.push(gray_image(300, 300));
-    let (r, _) = rewrite_within(build(&objs), Some(150.0), Duration::from_secs(20)).expect("over 20 s");
+    let (r, _) = rewrite_within(build(&objs), Some(150.0), limit(20)).expect("over 20 s");
     let out = r.unwrap().0;
     assert!(images_of(&out).iter().any(|s| s.content == two), "the JPEG was not kept as stored");
 }
@@ -578,7 +579,7 @@ fn a_page_tree_the_xref_misplaces_is_rebuilt_as_lopdf_would() {
     let mut broken = pdf[..xref].to_vec();
     broken.extend(table.replacen(two, four, 1).bytes());
     assert!(Document::load_mem(&broken).is_ok());
-    let (r, _) = rewrite_within(broken, Some(150.0), Duration::from_secs(20)).expect("over 20 s");
+    let (r, _) = rewrite_within(broken, Some(150.0), limit(20)).expect("over 20 s");
     let out = r.unwrap().0;
     assert_eq!(Document::load_mem(&out).unwrap().get_pages().len(), 1);
 }
@@ -599,7 +600,7 @@ fn a_million_trailer_words_are_searched_once() {
     // Uncompressed content holding "trailer" a million times, before the real trailer.
     let mut objs = image_page(gray_image(16, 16));
     objs[3] = stream("", &b"% trailer\n".repeat(1_000_000), false);
-    let (r, t) = rewrite_within(build(&objs), Some(150.0), Duration::from_secs(5)).expect("over 5 s");
+    let (r, t) = rewrite_within(build(&objs), Some(150.0), limit(5)).expect("over 5 s");
     assert!(r.is_ok(), "{r:?}");
     eprintln!("a million trailer words: {t:?}");
 }
@@ -647,5 +648,5 @@ fn the_font_scan_stops_at_the_operator_cap() {
     let held = std::sync::Arc::new(budget::Held::new(0));
     let t = Instant::now();
     fonts::subset_fonts(&mut doc, &Ctx::silent().cancel_flag(), &held).unwrap();
-    assert!(t.elapsed() < Duration::from_secs(5), "{:?}", t.elapsed());
+    assert!(t.elapsed() < limit(5), "{:?}", t.elapsed());
 }
