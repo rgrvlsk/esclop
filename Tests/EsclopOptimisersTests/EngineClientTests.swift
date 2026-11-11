@@ -85,7 +85,7 @@ import Testing
     }
 
     @Test func aTimedOutRequestFailsAndAStuckWorkerIsFreed() async throws {
-        let client = EngineClient(executable: try await FakeEngine.shared.executable(), cancelGrace: 1)
+        let client = EngineClient(executable: try await FakeEngine.shared.executable(), cancelGrace: 1, watchedOps: ["sleep"])
         defer { Task { await client.shutdown() } }
         _ = try await client.call("sleep", params: ["seconds": 0.0])
         let first = await client.childProcessIdentifier
@@ -112,7 +112,7 @@ import Testing
     @Test func timeQueuedDoesNotCountAndNothingRunningIsKilled() async throws {
         // Two workers, six jobs of 0.6 s, each allowed 1 s once started: the last ones wait
         // 1.2 s in the queue and must still finish, with the same child throughout.
-        let client = EngineClient(executable: try await FakeEngine.shared.executable(), environment: ["FAKE_ENGINE_WORKERS": "2"], cancelGrace: 1)
+        let client = EngineClient(executable: try await FakeEngine.shared.executable(), environment: ["FAKE_ENGINE_WORKERS": "2"], cancelGrace: 1, watchedOps: ["sleep"])
         defer { Task { await client.shutdown() } }
         _ = try await client.call("sleep", params: ["seconds": 0.0])
         let pid = await client.childProcessIdentifier
@@ -128,7 +128,7 @@ import Testing
     @Test func cancellingAQueuedRequestRestartsNothing() async throws {
         // One worker, held by a request that ignores cancels; a queued one is cancelled. The
         // engine answers it at once, so the child is not restarted for it.
-        let client = EngineClient(executable: try await FakeEngine.shared.executable(), environment: ["FAKE_ENGINE_WORKERS": "1"], cancelGrace: 1)
+        let client = EngineClient(executable: try await FakeEngine.shared.executable(), environment: ["FAKE_ENGINE_WORKERS": "1"], cancelGrace: 1, watchedOps: ["sleep"])
         defer { Task { await client.shutdown() } }
         _ = try await client.call("sleep", params: ["seconds": 0.0])
         let pid = await client.childProcessIdentifier
@@ -141,6 +141,24 @@ import Testing
         try await Task.sleep(nanoseconds: 1_500_000_000)
         #expect(await client.childProcessIdentifier == pid, "restarted for a request that never ran")
         busy.cancel()
+    }
+
+    @Test func cancellingAnOpThatDoesNotCheckForItRestartsNothing() async throws {
+        // A long encode (here a request that ignores cancels) of an op outside the watched set,
+        // like AVIF: cancelled, it fails at once, and the engine keeps running for the others.
+        let client = EngineClient(executable: try await FakeEngine.shared.executable(), cancelGrace: 1)
+        defer { Task { await client.shutdown() } }
+        _ = try await client.call("sleep", params: ["seconds": 0.0])
+        let pid = await client.childProcessIdentifier
+        let slow = Task { try await client.call("sleep", params: ["seconds": 30, "stuck": true]) }
+        try await Task.sleep(nanoseconds: 300_000_000)
+        slow.cancel()
+        await #expect(throws: EsclopError.cancelled) { try await slow.value }
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        #expect(await client.childProcessIdentifier == pid, "the engine was restarted for an op that does not check for cancellation")
+        let reply = try await client.call("sleep", params: ["seconds": 0.01])
+        #expect(reply.raw["slept"] != nil)
+        #expect(EngineClient.opsThatStopWhenCancelled == ["pdf.optimise"])
     }
 
     @Test func aCrashFailsTheRequestAndTheNextCallRestarts() async throws {
