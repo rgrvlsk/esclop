@@ -93,10 +93,26 @@ pub fn rewrite(
         return Err(EngineError::unsupported(format!("PDFs over {} MB are not rewritten", budget::MAX_INPUT >> 20)));
     }
     ctx.progress(0.02, "decode");
-    let options = LoadOptions { max_decompressed_size: Some(budget::MAX_STREAM), ..Default::default() };
+    let options = LoadOptions {
+        max_decompressed_size: Some(budget::MAX_LOAD_STREAM),
+        filter: Some(budget::load_filter),
+        ..Default::default()
+    };
     ctx.check()?;
-    let mut doc = match Document::load_mem_with_options(bytes, options) {
+    budget::start_load();
+    let loaded = Document::load_mem_with_options(bytes, options);
+    if budget::loaded() > budget::MAX_HELD {
+        return Err(budget::too_much());
+    }
+    let held = std::sync::Arc::new(budget::Held::new(budget::loaded()));
+    let mut doc = match loaded {
         Ok(d) => d,
+        Err(lopdf::Error::Decompress(lopdf::DecompressError::MemoryLimitExceeded { .. })) => {
+            return Err(EngineError::unsupported(format!(
+                "this PDF has an object stream over {} MB",
+                budget::MAX_LOAD_STREAM >> 20
+            )));
+        }
         Err(e) if is_encrypted(bytes) => return Err(EngineError::unsupported(format!("encrypted PDF: {e}"))),
         Err(e) => return Err(EngineError::decode(format!("unreadable PDF: {e}"))),
     };
@@ -158,7 +174,7 @@ pub fn rewrite(
     // Unreachable fonts would otherwise count as used by something the font scan cannot see.
     doc.prune_objects();
     ctx.progress(0.03, "fonts");
-    fonts::subset_fonts(&mut doc, &ctx.cancel_flag())?;
+    fonts::subset_fonts(&mut doc, &ctx.cancel_flag(), &held)?;
     ctx.check()?;
     let drawn = placement::image_resolutions(&doc, &ctx.cancel_flag())?;
     let masks = mask_ids(&doc);

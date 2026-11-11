@@ -213,11 +213,65 @@ fn every_stage_stops_when_cancelled() {
     objs.push(gray_image(8, 8));
     let pdf = build(&objs);
     let mut doc = Document::load_mem(&pdf).unwrap();
-    assert!(is_cancel(&fonts::subset_fonts(&mut doc, &cancelled())));
+    assert!(is_cancel(&fonts::subset_fonts(&mut doc, &cancelled(), &Arc::new(budget::Held::new(0)))));
     assert!(is_cancel(&inline::move_inline_images(&mut doc, &cancelled())));
     assert!(is_cancel(&placement::image_resolutions(&doc, &cancelled()).map(|_| 0)));
     let mut w = budget::CappedWriter::new(1 << 20, cancelled());
     assert!(std::io::Write::write_all(&mut w, b"x").is_err());
     let ctx = Ctx::new(cancelled(), Arc::new(|_, _| {}));
     assert!(is_cancel(&rewrite(&pdf, None, 66, 0.98, false, &ctx).map(|_| 0)));
+}
+
+fn is_unsupported<T>(r: &Result<T>) -> bool {
+    matches!(r, Err(e) if e.code == crate::error::ErrorCode::Unsupported)
+}
+
+#[test]
+fn fonts_that_inflate_past_the_budget_are_refused() {
+    // 100 TrueType fonts, each drawn, whose programs inflate to 200 MB of zeros.
+    let n = 100;
+    let zeros = deflate::zlib(&vec![0u8; 200 << 20], 9);
+    let fonts: String = (0..n).map(|i| format!("/F{i} {} 0 R ", 5 + i)).collect();
+    let content: String = (0..n).map(|i| format!("BT /F{i} 12 Tf (abc) Tj ET\n")).collect();
+    let mut objs = one_page(&format!("<< /Font << {fonts}>> >>"), content.as_bytes());
+    for i in 0..n {
+        objs.push(obj(&format!(
+            "<< /Type /Font /Subtype /TrueType /BaseFont /X{i} /FontDescriptor {} 0 R >>",
+            5 + n + i
+        )));
+    }
+    for i in 0..n {
+        objs.push(obj(&format!(
+            "<< /Type /FontDescriptor /FontName /X{i} /Flags 32 /FontBBox [0 0 1 1] /ItalicAngle 0 /Ascent 1 /Descent 0 /CapHeight 1 /StemV 1 /FontFile2 {} 0 R >>",
+            5 + 2 * n + i
+        )));
+    }
+    for _ in 0..n {
+        let mut o = format!("<< /Filter /FlateDecode /Length {} >>\nstream\n", zeros.len()).into_bytes();
+        o.extend(&zeros);
+        o.extend(b"\nendstream");
+        objs.push(o);
+    }
+    let (r, _) = rewrite_within(build(&objs), None, Duration::from_secs(30)).expect("over 30 s");
+    assert!(is_unsupported(&r), "{:?}", r.map(|r| r.0.len()));
+}
+
+#[test]
+fn object_streams_that_parse_past_the_budget_are_refused() {
+    // 20 object streams of 15 MB, each one array of references (parsed, several times that).
+    let body = format!("[{}]", "1 0 R ".repeat((15 << 20) / 6));
+    let mut objs = one_page("<< >>", b"");
+    for i in 0..20 {
+        let head = format!("{} 0 ", 1000 + i);
+        let data = format!("{head}{body}");
+        objs.push(stream(&format!("/Type /ObjStm /N 1 /First {}", head.len()), data.as_bytes(), true));
+    }
+    let (r, _) = rewrite_within(build(&objs), None, Duration::from_secs(30)).expect("over 30 s");
+    assert!(is_unsupported(&r), "{:?}", r.map(|r| r.0.len()));
+    // One over `MAX_LOAD_STREAM` is refused before it is parsed.
+    let body = format!("[{}]", "1 0 R ".repeat((40 << 20) / 6));
+    let mut objs = one_page("<< >>", b"");
+    objs.push(stream("/Type /ObjStm /N 1 /First 7", format!("1000 0 {body}").as_bytes(), true));
+    let (r, _) = rewrite_within(build(&objs), None, Duration::from_secs(30)).expect("over 30 s");
+    assert!(is_unsupported(&r), "{:?}", r.map(|r| r.0.len()));
 }

@@ -10,17 +10,100 @@
 //! - **Decoded in total**: past `MAX_DECODED` the operation is refused (`unsupported`).
 //! - **Written**: the output may not pass `max_output` (twice the input plus 64 MB): the writer
 //!   stops and the operation is refused (`unsupported`).
+//! - **Held**: the objects lopdf parses (object streams included) and the font programs decoded
+//!   for subsetting stay in memory together; past `MAX_HELD` the operation is refused
+//!   (`unsupported`). Object and cross-reference streams decode to at most `MAX_LOAD_STREAM`
+//!   (the largest in the benchmark corpus is 12.4 MB): their objects parse into several times
+//!   their size before the filter sees them.
 
 use crate::error::{EngineError, Result};
+use lopdf::Object;
 use std::io::Write;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Condvar, Mutex};
 
 pub const MAX_INPUT: usize = 1 << 30;
 pub const MAX_STREAM: usize = 384 << 20;
 pub const MAX_IN_FLIGHT: usize = 256 << 20;
 pub const MAX_DECODED: u64 = 16 << 30;
+pub const MAX_HELD: usize = 256 << 20;
+pub const MAX_LOAD_STREAM: usize = 16 << 20;
+
+/// What a document may still hold (see `MAX_HELD`), shared by the stages that keep decoded data.
+pub struct Held(AtomicUsize);
+
+impl Held {
+    pub fn new(used: usize) -> Self {
+        Self(AtomicUsize::new(used))
+    }
+
+    /// What is left.
+    pub fn room(&self) -> usize {
+        MAX_HELD.saturating_sub(self.0.load(Ordering::Relaxed))
+    }
+
+    /// Takes `bytes` more; an error once the document would hold more than `MAX_HELD`.
+    pub fn take(&self, bytes: usize) -> Result<()> {
+        if self.0.fetch_add(bytes, Ordering::Relaxed).saturating_add(bytes) > MAX_HELD {
+            return Err(too_much());
+        }
+        Ok(())
+    }
+}
+
+pub fn too_much() -> EngineError {
+    EngineError::unsupported(format!("rewriting this PDF would hold more than {} MB in memory", MAX_HELD >> 20))
+}
+
+thread_local! {
+    /// Bytes the objects parsed so far by `load_filter` hold, on this thread's load.
+    static LOADED: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// Starts counting a load on this thread.
+pub fn start_load() {
+    LOADED.with(|l| l.set(0));
+}
+
+/// What the load counted: the bytes its objects hold, more than `MAX_HELD` when it stopped
+/// keeping them.
+pub fn loaded() -> usize {
+    LOADED.with(|l| l.get())
+}
+
+/// lopdf's load filter: counts what each object holds and drops objects past `MAX_HELD`, so a
+/// file whose object streams parse into gigabytes stops growing (the load is then refused).
+/// lopdf ignores the returned object for top-level objects and keeps it for those of object
+/// streams, which never hold streams.
+pub fn load_filter(id: (u32, u16), o: &mut Object) -> Option<((u32, u16), Object)> {
+    let total = LOADED.with(|l| {
+        let t = l.get().saturating_add(held(o, 0));
+        l.set(t);
+        t
+    });
+    if total > MAX_HELD {
+        return None;
+    }
+    Some((id, if matches!(o, Object::Stream(_)) { Object::Null } else { o.clone() }))
+}
+
+/// Roughly what an object holds in memory.
+fn held(o: &Object, depth: usize) -> usize {
+    const NODE: usize = std::mem::size_of::<Object>();
+    if depth > 64 {
+        return NODE;
+    }
+    NODE + match o {
+        Object::String(s, _) | Object::Name(s) => s.len(),
+        Object::Array(a) => a.iter().map(|o| held(o, depth + 1)).sum(),
+        Object::Dictionary(d) => d.iter().map(|(k, v)| k.len() + 16 + held(v, depth + 1)).sum(),
+        Object::Stream(s) => {
+            s.content.len() + s.dict.iter().map(|(k, v)| k.len() + 16 + held(v, depth + 1)).sum::<usize>()
+        }
+        _ => 0,
+    }
+}
 
 pub fn max_output(input: usize) -> usize {
     input.saturating_mul(2).saturating_add(64 << 20)
