@@ -458,7 +458,13 @@ mod tests {
                     64,
                     48,
                     Layout::Rgb,
-                    &EncodeOptions { quality: q, progressive: true, fast_scans: false, chroma_full: false, markers: &[] },
+                    &EncodeOptions {
+                        quality: q,
+                        progressive: true,
+                        fast_scans: false,
+                        chroma_full: false,
+                        markers: &[],
+                    },
                 )
                 .unwrap();
             let parts = crate::meta::JpegParts::parse(&out).unwrap();

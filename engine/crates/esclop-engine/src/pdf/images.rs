@@ -96,7 +96,12 @@ fn layout(comps: usize) -> Layout {
 }
 
 /// The new stream for an image and whether its pixels changed, or None to keep it as it is.
-pub fn recompress(doc: &Document, stream: &Stream, plan: &ImagePlan, budget: &Budget) -> Result<Option<(Stream, bool)>> {
+pub fn recompress(
+    doc: &Document,
+    stream: &Stream,
+    plan: &ImagePlan,
+    budget: &Budget,
+) -> Result<Option<(Stream, bool)>> {
     let d = &stream.dict;
     let (Some(w), Some(h)) = (int(d, b"Width"), int(d, b"Height")) else { return Ok(None) };
     if w <= 0 || h <= 0 || (w as u64) * (h as u64) > MAX_PIXELS {
@@ -231,7 +236,9 @@ pub fn recompress(doc: &Document, stream: &Stream, plan: &ImagePlan, budget: &Bu
         };
         let limit = original_len.min(strong.len() * 3 / 4);
         let mut chosen = match &reference {
-            Some(r) if probe.len() < limit => encode_checked(&px, nw, nh, layout(comps), plan, r, limit)?.map(|e| (e, nw, nh)),
+            Some(r) if probe.len() < limit => {
+                encode_checked(&px, nw, nh, layout(comps), plan, r, limit)?.map(|e| (e, nw, nh))
+            }
             _ => None,
         };
         if let (Some(src), Some(r)) = (src.take(), &reference)
@@ -313,7 +320,8 @@ fn jpx_image(
     let s = checked_scale(&px, iw, ih, comps, s, &local, &r)?;
     let (px, nw, nh) = resample(px, iw, ih, comps, s)?;
     let layout = if comps == 1 { Layout::Gray } else { Layout::Rgb };
-    Ok(encode_checked(&px, nw, nh, layout, &local, &r, stream.content.len())?.map(|enc| (with_jpeg(d, enc, nw, nh), true)))
+    Ok(encode_checked(&px, nw, nh, layout, &local, &r, stream.content.len())?
+        .map(|enc| (with_jpeg(d, enc, nw, nh), true)))
 }
 
 /// Whether every component of a JPEG 2000 codestream is sampled at full resolution (the SIZ
@@ -343,7 +351,9 @@ fn strict_samples(doc: &Document, stream: &Stream, filters: &[Vec<u8>], limit: u
         },
         Ok(_) => return None,
     };
-    let get = |k: &[u8], default: i64| parms.and_then(|p| p.get(k).ok()).map(|o| resolve(doc, o)).and_then(|o| o.as_i64().ok()).unwrap_or(default);
+    let get = |k: &[u8], default: i64| {
+        parms.and_then(|p| p.get(k).ok()).map(|o| resolve(doc, o)).and_then(|o| o.as_i64().ok()).unwrap_or(default)
+    };
     let predictor = get(b"Predictor", 1);
     match filters {
         [] => Some(stream.content.clone()),
@@ -353,7 +363,10 @@ fn strict_samples(doc: &Document, stream: &Stream, filters: &[Vec<u8>], limit: u
                 1 => Some(inflated),
                 10..=15 => {
                     let (colors, bpc, columns) = (get(b"Colors", 1), get(b"BitsPerComponent", 8), get(b"Columns", 1));
-                    if !(1..=32).contains(&colors) || !matches!(bpc, 1 | 2 | 4 | 8 | 16) || !(1..=1 << 20).contains(&columns) {
+                    if !(1..=32).contains(&colors)
+                        || !matches!(bpc, 1 | 2 | 4 | 8 | 16)
+                        || !(1..=1 << 20).contains(&columns)
+                    {
                         return None;
                     }
                     let row = (colors * bpc * columns) as usize;
@@ -482,7 +495,13 @@ fn with_jpeg(d: &Dictionary, data: Vec<u8>, w: u32, h: u32) -> Stream {
 }
 
 fn encode_jpeg(px: &[u8], w: u32, h: u32, layout: Layout, quality: u8, chroma_full: bool) -> Result<Vec<u8>> {
-    jpeg::codec().encode(px, w, h, layout, &EncodeOptions { quality, progressive: true, fast_scans: true, chroma_full, markers: &[] })
+    jpeg::codec().encode(
+        px,
+        w,
+        h,
+        layout,
+        &EncodeOptions { quality, progressive: true, fast_scans: true, chroma_full, markers: &[] },
+    )
 }
 
 /// The source image as a viewer shows it at `VIEW_DPI`: what every lossy step (downsampling,
@@ -706,7 +725,8 @@ fn view_resample(px: &[u8], w: u32, h: u32, comps: usize, nw: u32, nh: u32) -> R
     // Two pixels of slack: a 2403-pixel image drawn 1202 wide is a 2:1 reduction.
     while cw + 2 >= 2 * nw && ch + 2 >= 2 * nh && cw > nw && ch > nh {
         let (hw, hh) = ((cw / 2).max(nw), (ch / 2).max(nh));
-        let Some(half) = resample_with(cur.as_deref().unwrap_or(px), cw, ch, comps, hw, hh, fr::FilterType::Box)? else {
+        let Some(half) = resample_with(cur.as_deref().unwrap_or(px), cw, ch, comps, hw, hh, fr::FilterType::Box)?
+        else {
             return Ok(None);
         };
         (cur, cw, ch) = (Some(half), hw, hh);
@@ -736,8 +756,7 @@ fn resample_with(
     let src = fr::images::ImageRef::new(w, h, px, pt).map_err(|e| err(&e))?;
     let mut dst = fr::images::Image::new(nw, nh, pt);
     // CMYK is four colour channels, not RGBA: no alpha handling.
-    let opts =
-        fr::ResizeOptions::new().resize_alg(fr::ResizeAlg::Convolution(filter)).use_alpha(false);
+    let opts = fr::ResizeOptions::new().resize_alg(fr::ResizeAlg::Convolution(filter)).use_alpha(false);
     fr::Resizer::new().resize(&src, &mut dst, &opts).map_err(|e| err(&e))?;
     Ok(Some(dst.into_vec()))
 }
@@ -785,7 +804,9 @@ mod ssim_tests {
         for y in 0..h {
             for x in 0..w {
                 for ch in 0..c {
-                    let hz = |yy: usize| at(x.saturating_sub(1), yy, ch) + 2 * at(x, yy, ch) + at((x + 1).min(w - 1), yy, ch);
+                    let hz = |yy: usize| {
+                        at(x.saturating_sub(1), yy, ch) + 2 * at(x, yy, ch) + at((x + 1).min(w - 1), yy, ch)
+                    };
                     let v = (hz(y.saturating_sub(1)) + 2 * hz(y) + hz((y + 1).min(h - 1)) + 8) / 16;
                     assert_eq!(u32::from(got[(y * w + x) * c + ch]), v);
                 }
@@ -804,4 +825,3 @@ mod ssim_tests {
         assert!(sb < 1.0 && sb > sc, "{sb} {sc}");
     }
 }
-
