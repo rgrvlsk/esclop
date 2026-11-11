@@ -50,6 +50,36 @@ pub fn png_filter(data: &[u8], bytes_per_row: usize, bpp: usize) -> Vec<u8> {
     out
 }
 
+/// Reverses PNG row filters (predictors 10 to 15): `rows` rows of `row` bytes, each stored
+/// after a filter-type byte. `None` when the data is short or a filter type is unknown.
+pub fn png_unfilter(data: &[u8], row: usize, bpp: usize, rows: usize) -> Option<Vec<u8>> {
+    if data.len() < rows * (row + 1) {
+        return None;
+    }
+    let mut out = vec![0u8; rows * row];
+    for y in 0..rows {
+        let ty = data[y * (row + 1)];
+        let src = &data[y * (row + 1) + 1..(y + 1) * (row + 1)];
+        let (done, cur) = out.split_at_mut(y * row);
+        let prev = if y > 0 { &done[(y - 1) * row..] } else { &[][..] };
+        let cur = &mut cur[..row];
+        for x in 0..row {
+            let a = if x >= bpp { cur[x - bpp] } else { 0 };
+            let b = prev.get(x).copied().unwrap_or(0);
+            let c = if x >= bpp { prev.get(x - bpp).copied().unwrap_or(0) } else { 0 };
+            cur[x] = src[x].wrapping_add(match ty {
+                0 => 0,
+                1 => a,
+                2 => b,
+                3 => ((u16::from(a) + u16::from(b)) / 2) as u8,
+                4 => paeth(a, b, c),
+                _ => return None,
+            });
+        }
+    }
+    Some(out)
+}
+
 fn paeth(a: u8, b: u8, c: u8) -> u8 {
     let p = a as i16 + b as i16 - c as i16;
     let (pa, pb, pc) = ((p - a as i16).abs(), (p - b as i16).abs(), (p - c as i16).abs());
@@ -64,6 +94,15 @@ fn paeth(a: u8, b: u8, c: u8) -> u8 {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn unfilter_reverses_filter() {
+        let (row, bpp, rows) = (12, 3, 5);
+        let raw: Vec<u8> = (0..row * rows).map(|i| ((i * 29) % 256) as u8).collect();
+        let filtered = super::png_filter(&raw, row, bpp);
+        assert_eq!(super::png_unfilter(&filtered, row, bpp, rows), Some(raw));
+        assert_eq!(super::png_unfilter(&filtered[1..], row, bpp, rows), None);
+    }
+
     use super::*;
 
     #[test]

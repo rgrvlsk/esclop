@@ -46,7 +46,9 @@ pub fn optimise(req: &Request, ctx: &Ctx) -> Result<OpResult> {
     };
     let (bytes, target) = open(req, &p.out)?;
     let q = jpeg_quality(factor, dpi);
-    let (out, lossy) = rewrite(&bytes, dpi, q, p.out.strip, ctx)?;
+    // The benchmark's page gate: SSIM 0.98 at default settings, 0.95 when aggressive.
+    let min_ssim = if factor <= 40 { 0.98 } else { 0.95 };
+    let (out, lossy) = rewrite(&bytes, dpi, q, min_ssim, p.out.strip, ctx)?;
     let enc =
         Encoded { bytes: out, format: Some(Format::Pdf), quality: lossy.then_some(q), lossy, ..Default::default() };
     finish(&target, bytes.len() as u64, enc, p.out.allow_larger.unwrap_or(false), ignored, ctx)
@@ -67,7 +69,7 @@ pub fn jpeg_quality(factor: u8, dpi: Option<f64>) -> u8 {
 
 /// The rewritten file and whether any image lost information. Without `dpi` (no downsampling)
 /// JPEG images are only re-coded losslessly, as Ghostscript passed them through.
-pub fn rewrite(bytes: &[u8], dpi: Option<f64>, jpeg_quality: u8, strip: bool, ctx: &Ctx) -> Result<(Vec<u8>, bool)> {
+pub fn rewrite(bytes: &[u8], dpi: Option<f64>, jpeg_quality: u8, min_ssim: f64, strip: bool, ctx: &Ctx) -> Result<(Vec<u8>, bool)> {
     let head = &bytes[..bytes.len().min(1024)];
     if !head.windows(5).any(|w| w == b"%PDF-") {
         return Err(EngineError::unsupported("not a PDF"));
@@ -122,6 +124,7 @@ pub fn rewrite(bytes: &[u8], dpi: Option<f64>, jpeg_quality: u8, strip: bool, ct
                     drawn_dpi: drawn.get(id).copied(),
                     is_mask: masks.contains(id),
                     reencode_jpeg: true,
+                    min_ssim,
                 };
                 let new = match images::recompress(&doc, s, &plan, &budget) {
                     Ok(n) => n,
@@ -257,13 +260,21 @@ fn recompress_stream(s: &Stream, budget: &budget::Budget) -> Result<Option<Strea
     let Some(_hold) = budget.hold(room * 2)? else { return Ok(None) };
     // No filter (or an empty `/Filter []`, which lopdf decodes to nothing): the stored bytes are
     // the data.
+    // Strict inflate, not lopdf's: lopdf stopped 5 kB short of a valid 165 kB font program
+    // (pdf.js issue13316) without an error, and the rewrite stored the truncated font.
     let data = if filters.is_empty() {
         s.content.clone()
     } else {
-        let Ok(data) = s.decompressed_content_with_limit(room) else { return Ok(None) };
-        data
+        match miniz_oxide::inflate::decompress_to_vec_zlib_with_limit(&s.content, room) {
+            Ok(d) => d,
+            Err(_) => return Ok(None),
+        }
     };
     if data.is_empty() && !s.content.is_empty() {
+        return Ok(None);
+    }
+    // Font programs declare their decoded length.
+    if d.get(b"Length1").and_then(|l| l.as_i64()).is_ok_and(|l| l as usize != data.len()) && !d.has(b"Length2") {
         return Ok(None);
     }
     // libdeflate's level 12 runs at a few MB/s; large streams (fonts, big drawings) get 9.

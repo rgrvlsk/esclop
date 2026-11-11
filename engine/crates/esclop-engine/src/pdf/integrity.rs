@@ -105,7 +105,7 @@ fn raw_stream_len(obj: &[u8]) -> Option<usize> {
     }
     let end = start + find(&obj[start..], b"endstream")?;
     let mut len = end - start;
-    for eol in [b'\n', b'\r'] {
+    for eol in *b"\n\r" {
         if len > 0 && obj[start + len - 1] == eol {
             len -= 1;
         }

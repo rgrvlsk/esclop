@@ -152,7 +152,20 @@ impl Programs {
     fn bytes(&mut self, doc: &Document, id: ObjectId) -> Option<&[u8]> {
         self.0
             .entry(id)
-            .or_insert_with(|| doc.get_object(id).ok()?.as_stream().ok()?.decompressed_content_with_limit(LIMIT).ok())
+            .or_insert_with(|| {
+                let s = doc.get_object(id).ok()?.as_stream().ok()?;
+                // Strictly decoded and of the declared length: a short read would be subset into
+                // a font missing glyphs.
+                let data = match s.filters().unwrap_or_default().as_slice() {
+                    [] => s.content.clone(),
+                    [b"FlateDecode"] if !s.dict.has(b"DecodeParms") => {
+                        miniz_oxide::inflate::decompress_to_vec_zlib_with_limit(&s.content, LIMIT).ok()?
+                    }
+                    _ => s.decompressed_content_with_limit(LIMIT).ok()?,
+                };
+                let declared = s.dict.get(b"Length1").and_then(|l| l.as_i64()).ok();
+                declared.is_none_or(|l| l as usize == data.len()).then_some(data)
+            })
             .as_deref()
     }
 
