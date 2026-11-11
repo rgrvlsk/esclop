@@ -88,6 +88,12 @@ public actor EngineClient {
     /// is answered at once by the engine, so it is never watched.)
     private var abandoned: [String: ObjectIdentifier] = [:]
     private let cancelGrace: TimeInterval
+    /// The ops that check for cancellation all the way through, so one still running long after
+    /// a cancel is stuck. The others (the AVIF and WebP encoders, `convert`, `gif.from_frames`)
+    /// finish what they started whatever the cancel: restarting the engine for them would only
+    /// kill the other requests it runs.
+    private let watchedOps: Set<String>
+    public static let opsThatStopWhenCancelled: Set<String> = ["pdf.optimise"]
 
     private struct Pending {
         let continuation: CheckedContinuation<[String: JSONValue], Error>
@@ -101,6 +107,8 @@ public actor EngineClient {
         let label: String
         /// A worker took it: a cancel then has to stop it, rather than drop it from the queue.
         var started = false
+        /// The op checks for cancellation (see `watchedOps`).
+        let watched: Bool
     }
 
     /// The child process went away while a request was in flight.
@@ -113,13 +121,14 @@ public actor EngineClient {
     /// added to the child's.
     public init(
         locator: ToolLocator = .shared, executable: URL? = nil, arguments: [String] = ["serve"], environment: [String: String] = [:],
-        cancelGrace: TimeInterval = 30
+        cancelGrace: TimeInterval = 30, watchedOps: Set<String> = EngineClient.opsThatStopWhenCancelled
     ) {
         self.locator = locator
         self.executable = executable
         self.arguments = arguments
         self.environment = environment
         self.cancelGrace = cancelGrace
+        self.watchedOps = watchedOps
     }
 
     /// The running child's process id (tests).
@@ -219,7 +228,8 @@ public actor EngineClient {
                 }
                 pending[id] = Pending(
                     continuation: continuation, progress: progress, generation: ObjectIdentifier(child),
-                    kind: input.flatMap(MediaKind.of), timeout: timeout, label: input?.lastPathComponent ?? op
+                    kind: input.flatMap(MediaKind.of), timeout: timeout, label: input?.lastPathComponent ?? op,
+                    watched: watchedOps.contains(op)
                 )
                 do {
                     try child.send(line)
@@ -245,7 +255,7 @@ public actor EngineClient {
     /// Tells the engine to stop `id`; a running one is watched until its reply comes back.
     private func stop(_ id: String, _ entry: Pending) {
         try? running?.send(JSONValue.object(["id": .string(id), "op": "cancel"]).jsonString())
-        guard entry.started else { return }
+        guard entry.started, entry.watched else { return }
         abandoned[id] = entry.generation
         let grace = cancelGrace
         Task { [weak self] in
