@@ -123,7 +123,13 @@ pub fn jpeg(req: &Request, ctx: &Ctx) -> Result<OpResult> {
             w,
             h,
             layout,
-            &codec::jpeg::EncodeOptions { quality: q, progressive, fast_scans: false, markers: &markers },
+            &codec::jpeg::EncodeOptions {
+                quality: q,
+                progressive,
+                fast_scans: false,
+                chroma_full: false,
+                markers: &markers,
+            },
         )?;
         best = Some(Encoded {
             bytes: out,

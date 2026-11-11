@@ -44,7 +44,7 @@ func scratchFolder(_ name: String = #function) throws -> URL {
     }
 
     @Test func toolSetIsTheBundledOne() {
-        #expect(Set(Tool.allCases.map(\.rawValue)) == ["esclop-engine", "ffmpeg", "ffprobe", "gs", "gifsicle"])
+        #expect(Set(Tool.allCases.map(\.rawValue)) == ["esclop-engine", "ffmpeg", "ffprobe", "gifsicle"])
     }
 }
 

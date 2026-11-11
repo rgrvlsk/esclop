@@ -45,6 +45,13 @@ import Testing
         #expect(EngineClient.mapError(code: "already_smaller", message: "") == .alreadySmaller)
         #expect(EngineClient.mapError(code: "invalid_params", message: "bad") == .invalidArgument("bad"))
         #expect(EngineClient.mapError(code: "decode", message: "broken file") == .toolFailed(tool: "esclop-engine", exitCode: -1, stderr: "decode: broken file"))
+        // With the input's kind known, a file the engine cannot read is a damaged file of that kind.
+        #expect(EngineClient.mapError(code: "decode", message: "the cross-reference table misplaces object 5", kind: .pdf) == .unreadable(kind: .pdf))
+        #expect(EngineClient.mapError(code: "decode", message: "bad", kind: .image) == .unreadable(kind: .image))
+        // The engine's reason for leaving a file as it is becomes the message.
+        let signed = "Signed PDFs are left as they are, so their signatures stay valid."
+        #expect(EngineClient.mapError(code: "unsupported", message: "signed: /ByteRange", kind: .pdf, reason: signed) == .leftAsIs(signed))
+        #expect(EngineClient.mapError(code: "unsupported", message: "not a PDF") == .unsupportedFile("not a PDF"))
     }
 
     @Test func progressEventsReachTheCaller() async throws {
@@ -75,6 +82,83 @@ import Testing
         #expect(Date().timeIntervalSince(started) < 15)
         let reply = try await client.call("sleep", params: ["seconds": 0.01])
         #expect(reply.raw["slept"] != nil)
+    }
+
+    @Test func aTimedOutRequestFailsAndAStuckWorkerIsFreed() async throws {
+        let client = EngineClient(executable: try await FakeEngine.shared.executable(), cancelGrace: 1, watchedOps: ["sleep"])
+        defer { Task { await client.shutdown() } }
+        _ = try await client.call("sleep", params: ["seconds": 0.0])
+        let first = await client.childProcessIdentifier
+        let started = Date()
+        // A request that times out but stops when cancelled keeps the child.
+        await #expect(throws: EsclopError.self) { try await client.call("sleep", params: ["seconds": 30], timeout: 0.3) }
+        #expect(Date().timeIntervalSince(started) < 5)
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        #expect(await client.childProcessIdentifier == first)
+        // One that ignores the cancel holds its worker: after the grace the child is replaced.
+        do {
+            try await client.call("sleep", params: ["seconds": 30, "stuck": true], timeout: 0.3)
+            Issue.record("no timeout")
+        } catch let EsclopError.toolFailed(_, _, stderr) {
+            #expect(stderr.contains("within 0.3 s"))
+        }
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        #expect(await client.childProcessIdentifier == nil)
+        let reply = try await client.call("sleep", params: ["seconds": 0.01])
+        #expect(reply.raw["slept"] != nil)
+        #expect(await client.childProcessIdentifier != first)
+    }
+
+    @Test func timeQueuedDoesNotCountAndNothingRunningIsKilled() async throws {
+        // Two workers, six jobs of 0.6 s, each allowed 1 s once started: the last ones wait
+        // 1.2 s in the queue and must still finish, with the same child throughout.
+        let client = EngineClient(executable: try await FakeEngine.shared.executable(), environment: ["FAKE_ENGINE_WORKERS": "2"], cancelGrace: 1, watchedOps: ["sleep"])
+        defer { Task { await client.shutdown() } }
+        _ = try await client.call("sleep", params: ["seconds": 0.0])
+        let pid = await client.childProcessIdentifier
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for _ in 0 ..< 6 {
+                group.addTask { _ = try await client.call("sleep", params: ["seconds": 0.6], timeout: 1) }
+            }
+            try await group.waitForAll()
+        }
+        #expect(await client.childProcessIdentifier == pid)
+    }
+
+    @Test func cancellingAQueuedRequestRestartsNothing() async throws {
+        // One worker, held by a request that ignores cancels; a queued one is cancelled. The
+        // engine answers it at once, so the child is not restarted for it.
+        let client = EngineClient(executable: try await FakeEngine.shared.executable(), environment: ["FAKE_ENGINE_WORKERS": "1"], cancelGrace: 1, watchedOps: ["sleep"])
+        defer { Task { await client.shutdown() } }
+        _ = try await client.call("sleep", params: ["seconds": 0.0])
+        let pid = await client.childProcessIdentifier
+        let busy = Task { try await client.call("sleep", params: ["seconds": 30, "stuck": true]) }
+        try await Task.sleep(nanoseconds: 300_000_000)
+        let queued = Task { try await client.call("sleep", params: ["seconds": 0.1]) }
+        try await Task.sleep(nanoseconds: 300_000_000)
+        queued.cancel()
+        await #expect(throws: EsclopError.cancelled) { try await queued.value }
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        #expect(await client.childProcessIdentifier == pid, "restarted for a request that never ran")
+        busy.cancel()
+    }
+
+    @Test func cancellingAnOpThatDoesNotCheckForItRestartsNothing() async throws {
+        // A long encode (here a request that ignores cancels) of an op outside the watched set,
+        // like AVIF: cancelled, it fails at once, and the engine keeps running for the others.
+        let client = EngineClient(executable: try await FakeEngine.shared.executable(), cancelGrace: 1)
+        defer { Task { await client.shutdown() } }
+        _ = try await client.call("sleep", params: ["seconds": 0.0])
+        let pid = await client.childProcessIdentifier
+        let slow = Task { try await client.call("sleep", params: ["seconds": 30, "stuck": true]) }
+        try await Task.sleep(nanoseconds: 300_000_000)
+        slow.cancel()
+        await #expect(throws: EsclopError.cancelled) { try await slow.value }
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        #expect(await client.childProcessIdentifier == pid, "the engine was restarted for an op that does not check for cancellation")
+        let reply = try await client.call("sleep", params: ["seconds": 0.01])
+        #expect(reply.raw["slept"] != nil)
+        #expect(EngineClient.opsThatStopWhenCancelled == ["pdf.optimise"])
     }
 
     @Test func aCrashFailsTheRequestAndTheNextCallRestarts() async throws {

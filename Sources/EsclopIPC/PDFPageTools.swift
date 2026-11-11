@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // PDF operations that need no external tool: non-destructive crop (setting each page's crop box),
-// uncrop, and exporting pages as images. They run through PDFKit, so they work before the bundled
-// ghostscript exists and never re-encode the document's content.
+// uncrop, and exporting pages as images. They run through PDFKit, so they need no engine and
+// never re-encode the document's content.
 
 import CoreGraphics
 import EsclopCore
