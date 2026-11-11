@@ -30,6 +30,8 @@ mod inline;
 mod integrity;
 mod mono;
 mod placement;
+#[cfg(test)]
+mod tests;
 
 use crate::ctx::Ctx;
 use crate::error::{EngineError, Result};
@@ -156,7 +158,7 @@ pub fn rewrite(
     ctx.progress(0.03, "fonts");
     fonts::subset_fonts(&mut doc);
     ctx.check()?;
-    let drawn = placement::image_resolutions(&doc);
+    let drawn = placement::image_resolutions(&doc, &ctx.cancel_flag())?;
     let masks = mask_ids(&doc);
 
     // Recompress every stream in parallel from the unchanged document, then apply.
