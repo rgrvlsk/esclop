@@ -161,6 +161,11 @@ pub fn rewrite(
         }
         None => None,
     };
+    // A rewrite moves every byte a signature's /ByteRange covers, and Reader usage rights
+    // (/Perms /UR3) are a signature too.
+    if is_signed(&doc) {
+        return Err(EngineError::unsupported("Signed PDFs are left as they are, so their signatures stay valid"));
+    }
     ctx.check()?;
     integrity::check(bytes, &doc, &ctx.cancel_flag())?;
     let pages = check_complete(&doc, ctx)?;
@@ -276,6 +281,29 @@ pub fn rewrite(
         }
     }
     Ok((out, lossy.load(Ordering::Relaxed) > 0))
+}
+
+/// A catalog `/Perms` (DocMDP, UR3), or any signature value (a dictionary with `/ByteRange`).
+fn is_signed(doc: &Document) -> bool {
+    fn has_byte_range(o: &Object, depth: usize) -> bool {
+        if depth > 32 {
+            return false;
+        }
+        match o {
+            Object::Dictionary(d) => d.has(b"ByteRange") || d.iter().any(|(_, v)| has_byte_range(v, depth + 1)),
+            Object::Stream(s) => s.dict.iter().any(|(_, v)| has_byte_range(v, depth + 1)),
+            Object::Array(a) => a.iter().any(|v| has_byte_range(v, depth + 1)),
+            _ => false,
+        }
+    }
+    let perms = doc.catalog().ok().and_then(|c| c.get(b"Perms").ok()).map(|p| match p {
+        Object::Reference(r) => doc.get_object(*r).unwrap_or(p),
+        p => p,
+    });
+    if perms.and_then(|p| p.as_dict().ok()).is_some_and(|d| !d.is_empty()) {
+        return true;
+    }
+    doc.objects.values().any(|o| has_byte_range(o, 0))
 }
 
 fn is_encrypted(bytes: &[u8]) -> bool {
