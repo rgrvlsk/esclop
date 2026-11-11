@@ -198,6 +198,14 @@ impl<'a> JpegParts<'a> {
         self.sof().is_some_and(|s| matches!(s.marker, 0xC2 | 0xC6 | 0xCA | 0xCE))
     }
 
+    /// Width and height from the start-of-frame segment.
+    pub fn dimensions(&self) -> Option<(u32, u32)> {
+        let d = self.sof()?.data;
+        let h = u16::from_be_bytes([*d.get(1)?, *d.get(2)?]);
+        let w = u16::from_be_bytes([*d.get(3)?, *d.get(4)?]);
+        Some((u32::from(w), u32::from(h)))
+    }
+
     pub fn components(&self) -> u8 {
         self.sof().and_then(|s| s.data.get(5).copied()).unwrap_or(3)
     }

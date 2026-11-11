@@ -108,11 +108,15 @@ func pageDPI(_ page: CGPDFPage) -> Double {
     return px > maxPagePixels ? 150 * (maxPagePixels / px).squareRoot() : 150
 }
 
-func render(_ page: CGPDFPage, dpi: Double = 150) -> Raster {
+/// Renders at `dpi`, or at `like`'s pixel size when the page's own size is within a pixel of it:
+/// a box rewritten with float rounding (598.32001 to 598.32 points) must not tip the raster by
+/// a pixel and score as a different page.
+func render(_ page: CGPDFPage, dpi: Double = 150, like: Raster? = nil) -> Raster {
     let box = page.getBoxRect(.cropBox)
     let rot = page.rotationAngle % 180 != 0
-    let w = max(1, Int((Double(rot ? box.height : box.width) * dpi / 72).rounded()))
-    let h = max(1, Int((Double(rot ? box.width : box.height) * dpi / 72).rounded()))
+    var w = max(1, Int((Double(rot ? box.height : box.width) * dpi / 72).rounded()))
+    var h = max(1, Int((Double(rot ? box.width : box.height) * dpi / 72).rounded()))
+    if let like, abs(like.w - w) <= 1, abs(like.h - h) <= 1 { (w, h) = (like.w, like.h) }
     var px = [UInt8](repeating: 255, count: w * h * 4)
     px.withUnsafeMutableBytes { buf in
         let ctx = CGContext(data: buf.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
@@ -310,7 +314,7 @@ func compare(_ a: URL, _ b: URL) -> [String: Any] {
         autoreleasepool {
             guard let pa = da.page(at: i + 1), let pb = db.page(at: i + 1) else { return }
             buffer[i] = -1
-            judgedPage(pa) { dpi in buffer[i] = ssim(render(pa, dpi: dpi), render(pb, dpi: dpi)) }
+            judgedPage(pa) { dpi in buffer[i] = { let ra = render(pa, dpi: dpi); return ssim(ra, render(pb, dpi: dpi, like: ra)) }() }
         }
     }
     let values = Array(buffer)
@@ -342,7 +346,7 @@ func compareMany(_ a: URL, _ outs: [URL]) -> [String: Any] {
                     for (k, d) in docs.enumerated() where usable[k] {
                         autoreleasepool {
                             if let pb = d?.page(at: i + 1) {
-                                let rb = render(pb, dpi: dpi)
+                                let rb = render(pb, dpi: dpi, like: ra)
                                 buffer[k * n + i] = ssim(ra, rb)
                                 diffs[k * n + i] = diffPixels(ra, rb)
                                 shifted[k * n + i] = diffs[k * n + i] == 0 ? 0 : inkDiffPixels(ra, rb)
