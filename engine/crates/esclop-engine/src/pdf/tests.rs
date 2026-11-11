@@ -455,3 +455,46 @@ fn a_form_inherits_the_font_set_before_it_is_drawn() {
     }
     assert!(!has_outline(&program, 'q'), "the font was not subset");
 }
+
+#[test]
+fn an_image_also_drawn_outside_page_content_keeps_its_size() {
+    // The page draws the image small; an annotation's appearance, a tiling pattern, a soft mask
+    // group or a Type 3 glyph draws it too, at a size the walk does not see.
+    let page = |resources: &str, extra: &str| {
+        vec![
+            obj("<< /Type /Catalog /Pages 2 0 R >>"),
+            obj("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+            obj(&format!(
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources {resources} /Contents 4 0 R {extra} >>"
+            )),
+            stream("", b"q 50 0 0 50 0 0 cm /Im Do Q", true),
+            gray_image(600, 600),
+            stream(
+                "/Type /XObject /Subtype /Form /BBox [0 0 612 792] /Resources << /XObject << /Im 5 0 R >> >>",
+                b"q 600 0 0 600 0 0 cm /Im Do Q",
+                true,
+            ),
+        ]
+    };
+    let cases = [
+        (
+            "annotation",
+            page(
+                "<< /XObject << /Im 5 0 R >> >>",
+                "/Annots [<< /Type /Annot /Subtype /Stamp /Rect [0 0 600 600] /AP << /N 6 0 R >> >>]",
+            ),
+        ),
+        ("pattern", page("<< /XObject << /Im 5 0 R >> /Pattern << /P 7 0 R >> >>", "")),
+        (
+            "soft mask",
+            page("<< /XObject << /Im 5 0 R >> /ExtGState << /G << /SMask << /S /Luminosity /G 6 0 R >> >> >> >>", ""),
+        ),
+    ];
+    for (name, mut objs) in cases {
+        objs.push(stream("/PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 600 600] /XStep 600 /YStep 600 /Resources << /XObject << /Im 5 0 R >> >>", b"q 600 0 0 600 0 0 cm /Im Do Q", true));
+        assert!(!resolutions(&build(&objs)).contains_key(&(5, 0)), "{name}: the image would be downsampled");
+    }
+    // Drawn by page content only, it is placed.
+    let objs = page("<< /XObject << /Im 5 0 R >> >>", "");
+    assert!(resolutions(&build(&objs)).contains_key(&(5, 0)));
+}

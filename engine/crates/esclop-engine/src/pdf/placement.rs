@@ -3,13 +3,14 @@
 //! tracking the transformation matrix, and records each image's lowest effective resolution
 //! over all the places it is painted, and how much of the page its page's images cover. Each
 //! form is walked once and its images placed through a summary on every draw (see `Walker`). An
-//! image that is never found this way (only in a pattern, an annotation appearance or a soft
-//! mask) gets no entry and is never downsampled.
+//! image that annotation appearances, tiling patterns, soft-mask groups or Type 3 glyphs can
+//! draw (`side_images`) gets no entry and is never downsampled, even when page content draws it
+//! too: those draws are not measured.
 
 use crate::error::{EngineError, Result};
 use lopdf::content::Content;
 use lopdf::{Dictionary, Document, Object, ObjectId, Stream};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -111,10 +112,82 @@ pub fn image_resolutions(doc: &Document, cancel: &AtomicBool) -> Result<HashMap<
             *e = e.min(factor);
         }
     }
+    let side = side_images(doc);
     Ok(dpi
         .into_iter()
+        .filter(|(id, _)| !side.contains(id))
         .map(|(id, d)| (id, Placed { dpi: d, allowance: allowance.get(&id).copied().unwrap_or(1.0).min(1e3) }))
         .collect())
+}
+
+/// Images reachable from the streams the page walk does not measure: annotation appearances,
+/// tiling patterns, soft-mask groups and Type 3 glyph procedures, through their resources and the
+/// forms those draw.
+fn side_images(doc: &Document) -> HashSet<ObjectId> {
+    fn deref<'a>(doc: &'a Document, o: &'a Object) -> &'a Object {
+        match o {
+            Object::Reference(r) => doc.get_object(*r).unwrap_or(o),
+            o => o,
+        }
+    }
+    // Resource dictionaries of those streams, found anywhere in the document.
+    fn roots<'a>(doc: &'a Document, o: &'a Object, out: &mut Vec<&'a Object>, depth: usize) {
+        if depth > 32 {
+            return;
+        }
+        let d = match o {
+            Object::Dictionary(d) => d,
+            Object::Stream(s) => &s.dict,
+            Object::Array(a) => return a.iter().for_each(|o| roots(doc, o, out, depth + 1)),
+            _ => return,
+        };
+        let stream_resources = |o: &'a Object| match deref(doc, o) {
+            Object::Stream(s) => s.dict.get(b"Resources").ok(),
+            _ => None,
+        };
+        if d.has(b"PatternType") || d.get(b"Subtype").and_then(|s| s.as_name()).ok() == Some(b"Type3") {
+            out.extend(d.get(b"Resources").ok());
+        }
+        if let Ok(g) = d.get(b"G")
+            && d.has(b"S")
+        {
+            out.extend(stream_resources(g));
+        }
+        if let Some(ap) = d.get(b"AP").ok().map(|a| deref(doc, a)).and_then(|a| a.as_dict().ok()) {
+            for (_, look) in ap.iter() {
+                match deref(doc, look) {
+                    Object::Stream(_) => out.extend(stream_resources(look)),
+                    Object::Dictionary(states) => out.extend(states.iter().filter_map(|(_, s)| stream_resources(s))),
+                    _ => {}
+                }
+            }
+        }
+        d.iter().filter(|(_, v)| !matches!(v, Object::Reference(_))).for_each(|(_, v)| roots(doc, v, out, depth + 1));
+    }
+    let mut found = Vec::new();
+    for o in doc.objects.values() {
+        roots(doc, o, &mut found, 0);
+    }
+    let mut images = HashSet::new();
+    let mut seen = HashSet::new();
+    let mut queue: Vec<&Object> = found;
+    while let Some(r) = queue.pop() {
+        let Some(xobjects) = dict(doc, r).and_then(|r| r.get(b"XObject").ok()).and_then(|x| dict(doc, x)) else {
+            continue;
+        };
+        for (_, x) in xobjects.iter() {
+            let Ok(id) = x.as_reference() else { continue };
+            let Ok(s) = doc.get_object(id).and_then(|o| o.as_stream()) else { continue };
+            match s.dict.get(b"Subtype").and_then(|t| t.as_name()) {
+                Ok(b"Image") => {
+                    images.insert(id);
+                }
+                Ok(b"Form") if seen.insert(id) => queue.extend(s.dict.get(b"Resources").ok()),
+                _ => {}
+            }
+        }
+    }
+    images
 }
 
 /// The image's resolution at its largest draw: pixels per inch along its less dense side.
