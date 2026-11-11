@@ -369,9 +369,9 @@ func compareMany(_ a: URL, _ outs: [URL]) -> [String: Any] {
     return result
 }
 
-/// Exits with code 75 once resident memory passes JUDGE_SELF_MB (1300): some files (decompression
+/// Exits with code 75 once resident memory passes JUDGE_SELF_MB (1100): some files (decompression
 /// bombs) make PDFKit or CoreGraphics allocate faster than an outside watchdog can poll.
-let selfLimit = UInt64((Int(ProcessInfo.processInfo.environment["JUDGE_SELF_MB"] ?? "") ?? 1300) << 20)
+let selfLimit = UInt64((Int(ProcessInfo.processInfo.environment["JUDGE_SELF_MB"] ?? "") ?? 1100) << 20)
 let guardThread = Thread {
     while true {
         var info = mach_task_basic_info()
