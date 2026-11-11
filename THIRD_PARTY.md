@@ -12,7 +12,6 @@ them. Licence texts are written to `Binaries/LICENSES/` by the build script.
 | Opus (libopus) | static in `ffmpeg` | 1.6.1 | BSD-3-Clause | https://downloads.xiph.org/releases/opus/opus-1.6.1.tar.gz | 6ffcb593207be92584df15b32466ed64bbec99109f007c82205f0194572411a1 |
 | libvpx | static in `ffmpeg` | 1.17.0 | BSD-3-Clause | https://github.com/webmproject/libvpx/archive/refs/tags/v1.17.0.tar.gz | 1020f184046187baa2985dbde38e0691f49c44088bca7a1842b0236c6081dc0a |
 | SVT-AV1 | static in `ffmpeg` | 4.3.0 | BSD-3-Clause-Clear | https://gitlab.com/AOMediaCodec/SVT-AV1/-/archive/v4.3.0/SVT-AV1-v4.3.0.tar.gz | 95ce8fc2381ba707e65ac8b9b2e165915bfbe9cd4d2f7b0f58d64ce31bd98f6d |
-| Ghostscript | `gs` | 10.08.0 | AGPL-3.0-or-later | https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10080/ghostscript-10.08.0.tar.xz | c20492bc8ebb96c87fa2e52a0926e1cda8cde95d66145e018ac713fed5da38cf |
 | gifsicle | `gifsicle` | 1.98 | GPL-2.0-only | https://www.lcdf.org/gifsicle/gifsicle-1.98.tar.gz | e9d4cc0816db95c64d32e79f778836db0f1f7eb15868490bd330104e5146b66e |
 
 ## How each tool is used
@@ -23,12 +22,6 @@ them. Licence texts are written to `Binaries/LICENSES/` by the build script.
   and statically linked into the ffmpeg executables, so the corresponding
   source (the pinned tarballs above and any patches under `Binaries/patches/`)
   must be made available with the application.
-- **gs**: separate process, AGPL-3.0-or-later. Statically contains the
-  third-party libraries bundled in the Ghostscript tarball (FreeType 2.14.2,
-  libpng 1.6.58, zlib 1.3.2, IJG JPEG 10, jbig2dec 0.20, OpenJPEG 2.5.x,
-  Brotli 1.2.0, lcms2mt), each under its own licence; their
-  licence files are appended to `Binaries/LICENSES/ghostscript.txt`.
-  Configure flags: `--without-x --disable-cups --disable-gtk --disable-dbus --disable-fontconfig --without-libidn --without-tesseract --without-libpaper --without-ijs --without-libtiff --without-urf --without-so --without-pdftoraster --disable-contrib --with-drivers=pdfwrite,txtwrite,png16m,pngalpha,pnggray --enable-compile-inits`.
 - **gifsicle**: separate process, GPL-2.0-only. It is only ever executed, never
   linked into esclop. Configure flags: `--disable-gifview --disable-gifdiff`.
 

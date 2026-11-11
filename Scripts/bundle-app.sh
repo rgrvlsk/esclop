@@ -30,7 +30,7 @@ if ! swift package dump-package 2>/dev/null | grep -q "\"$EXEC\""; then
   exit 0
 fi
 
-for t in esclop-engine ffmpeg ffprobe gs gifsicle; do
+for t in esclop-engine ffmpeg ffprobe gifsicle; do
   [ -x "Binaries/$t" ] || { echo "bundle-app: Binaries/$t is missing (Scripts/build-tools.sh, Scripts/build-engine.sh)" >&2; exit 1; }
 done
 
@@ -65,7 +65,7 @@ done
 
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
-for t in esclop-engine ffmpeg ffprobe gs gifsicle; do cp "Binaries/$t" "$APP/Contents/Resources/bin/"; done
+for t in esclop-engine ffmpeg ffprobe gifsicle; do cp "Binaries/$t" "$APP/Contents/Resources/bin/"; done
 Scripts/stage-notices.sh "$APP/Contents/Resources/LICENSES"
 
 # SwiftPM resource bundles (Bundle.module), for the app and its dependencies (KeyboardShortcuts).

@@ -3,7 +3,7 @@
 L'Esclop's image engine: one Rust executable that does the PNG, JPEG, WebP, AVIF and GIF work
 behind a JSON-lines protocol on stdio ([`PROTOCOL.md`](PROTOCOL.md)). The Swift media layer runs it as a
 separate process, so a file that crashes a decoder never takes the app down. It ships in
-`Contents/Resources/bin` next to ffmpeg, Ghostscript and gifsicle.
+`Contents/Resources/bin` next to ffmpeg and gifsicle.
 
 | Work | Library | Licence |
 |---|---|---|

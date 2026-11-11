@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Runs the bundled tools. One-shot runs (`run`) capture stdout and the tail of stderr, stream
-// lines to optional handlers (ffmpeg's `-progress pipe:1` output, Ghostscript's page counter),
+// lines to optional handlers (ffmpeg's `-progress pipe:1` output, for instance),
 // honour Swift task cancellation by killing the child, and time out. Long-lived children
 // (`launch`, used for `esclop-engine serve`) expose stdin writes and an ordered stream of
 // stdout lines.

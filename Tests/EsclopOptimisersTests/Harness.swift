@@ -14,7 +14,6 @@ import UniformTypeIdentifiers
 
 enum Harness {
     static var hasFFmpeg: Bool { ToolLocator.shared.locate(.ffmpeg) != nil && ToolLocator.shared.locate(.ffprobe) != nil }
-    static var hasGhostscript: Bool { ToolLocator.shared.locate(.gs) != nil }
     static var hasGifsicle: Bool { ToolLocator.shared.locate(.gifsicle) != nil }
     /// A real Rust engine, for the integration suite.
     static var hasRealEngine: Bool { ToolLocator.shared.locate(.esclopEngine) != nil }

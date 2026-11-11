@@ -154,10 +154,17 @@ pub fn recompress(doc: &Document, stream: &Stream, plan: &ImagePlan, budget: &Bu
                 let Some(r) = view_ref(&raw.pixels, w, h, comps, plan)? else {
                     return Ok(best.map(|b| (Stream::new(d.clone(), b), false)));
                 };
-                let scale = checked_scale(&raw.pixels, w, h, comps, scale, plan, &r)?;
-                let (px, nw, nh) = resample(raw.pixels, w, h, comps, scale)?;
+                let checked = checked_scale(&raw.pixels, w, h, comps, scale, plan, &r)?;
+                let src = (checked < 1.0).then(|| raw.pixels.clone());
+                let (px, nw, nh) = resample(raw.pixels, w, h, comps, checked)?;
                 let limit = best.as_ref().map_or(original.len(), |b| b.len());
-                if let Some(enc) = encode_checked(&px, nw, nh, raw.layout, plan, &r, limit)? {
+                let mut chosen = encode_checked(&px, nw, nh, raw.layout, plan, &r, limit)?.map(|e| (e, nw, nh));
+                if let Some(src) = src
+                    && (chosen.is_none() || checked > scale)
+                {
+                    chosen = larger_scales(&src, w, h, raw.layout, plan, &r, checked, chosen, limit, above)?;
+                }
+                if let Some((enc, nw, nh)) = chosen {
                     return Ok(Some((with_jpeg(d, enc, nw, nh), true)));
                 }
             }
@@ -190,17 +197,23 @@ pub fn recompress(doc: &Document, stream: &Stream, plan: &ImagePlan, budget: &Bu
     let mut out_bpc = bpc;
     let (mut px, mut nw, mut nh) = (samples, w, h);
     let mut reference = None;
+    // The samples before downsampling, for `larger_scales`.
+    let mut src = None;
+    let mut checked = 1.0;
     if jpegable {
         if bpc == 16 {
             px = px.as_chunks::<2>().0.iter().map(|c| c[0]).collect();
             out_bpc = 8;
         }
         reference = view_ref(&px, w, h, comps, plan)?;
-        let scale = match &reference {
+        checked = match &reference {
             Some(r) => checked_scale(&px, w, h, comps, scale, plan, r)?,
             None => 1.0,
         };
-        (px, nw, nh) = resample(px, w, h, comps, scale)?;
+        if checked < 1.0 {
+            src = Some(px.clone());
+        }
+        (px, nw, nh) = resample(px, w, h, comps, checked)?;
     }
     let out_row = (nw as usize * comps * out_bpc as usize).div_ceil(8);
     let bpp = (comps * out_bpc as usize).div_ceil(8).max(1);
@@ -217,10 +230,16 @@ pub fn recompress(doc: &Document, stream: &Stream, plan: &ImagePlan, budget: &Bu
             deflate::zlib(&filtered, if filtered.len() > 1 << 20 { 9 } else { 12 })
         };
         let limit = original_len.min(strong.len() * 3 / 4);
-        if probe.len() < limit
-            && let Some(r) = &reference
-            && let Some(enc) = encode_checked(&px, nw, nh, layout(comps), plan, r, limit)?
+        let mut chosen = match &reference {
+            Some(r) if probe.len() < limit => encode_checked(&px, nw, nh, layout(comps), plan, r, limit)?.map(|e| (e, nw, nh)),
+            _ => None,
+        };
+        if let (Some(src), Some(r)) = (src.take(), &reference)
+            && (chosen.is_none() || checked > scale)
         {
+            chosen = larger_scales(&src, w, h, layout(comps), plan, r, checked, chosen, limit, true)?;
+        }
+        if let Some((enc, nw, nh)) = chosen {
             return Ok(Some((with_jpeg(d, enc, nw, nh), true)));
         }
         lossless = Some(strong);
@@ -538,6 +557,40 @@ fn encode_checked(
         }
     }
     Ok(None)
+}
+
+/// JPEG at the scales above `checked`, for when JPEG at `checked` failed the gate (`chosen` is
+/// `None`) or the gate refused the planned downsampling (`checked` above it): 150 dpi, then full
+/// size when `full` (a JPEG source already at or under the ceiling stays as it is instead). A
+/// downsampled JPEG is judged at its own size, a larger one through the viewer's downsampling,
+/// which hides more of its error: on noise the larger image can pass at a lower quality and come
+/// out smaller. Keeps whichever passing JPEG is smallest, `chosen` included.
+#[allow(clippy::too_many_arguments)]
+fn larger_scales(
+    src: &[u8],
+    w: u32,
+    h: u32,
+    layout: Layout,
+    plan: &ImagePlan,
+    r: &ViewRef,
+    checked: f64,
+    mut chosen: Option<(Vec<u8>, u32, u32)>,
+    limit: usize,
+    full: bool,
+) -> Result<Option<(Vec<u8>, u32, u32)>> {
+    let comps = layout.components();
+    let view = plan.drawn_dpi.filter(|d| *d > 0.0).map_or(1.0, |d| (VIEW_DPI / d).min(1.0));
+    if chosen.is_none() && view > checked && view < 1.0 {
+        let (px, vw, vh) = resample(src.to_vec(), w, h, comps, view)?;
+        chosen = encode_checked(&px, vw, vh, layout, plan, r, limit)?.map(|e| (e, vw, vh));
+    }
+    if full {
+        let lim = chosen.as_ref().map_or(limit, |c| c.0.len());
+        if let Some(e) = encode_checked(src, w, h, layout, plan, r, lim)? {
+            chosen = Some((e, w, h));
+        }
+    }
+    Ok(chosen)
 }
 
 /// One separable [1 2 1] / 4 pass over each channel of an interleaved image, edges clamped.
