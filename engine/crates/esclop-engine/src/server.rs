@@ -3,8 +3,11 @@
 //!
 //! The reader thread parses requests and handles `hello` and `cancel` itself; everything else
 //! queues for a fixed pool of workers, so at most `workers` requests run at once and the rest
-//! wait in arrival order. Responses may come back out of order; `id` ties them together. On end
-//! of input the engine finishes what it started and exits.
+//! wait in arrival order. A worker taking a request sends a `started` event first (a client's
+//! time limit counts from there). A `cancel` for a request still queued is answered at once;
+//! one already running gets its cancel flag and answers when it stops. Every request is answered
+//! exactly once. Responses may come back out of order; `id` ties them together. On end of input
+//! the engine finishes what it started and exits.
 
 use crate::ctx::Ctx;
 use crate::error::EngineError;
@@ -12,17 +15,28 @@ use crate::protocol::{ProgressEvent, Request, Response};
 use crate::{WORKERS, error_response, log, respond};
 use std::collections::HashMap;
 use std::io::{BufRead, Write};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-type Inflight = Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>;
+/// A request's stage: queued, running, or answered by a `cancel` while it was queued.
+const QUEUED: u8 = 0;
+const RUNNING: u8 = 1;
+const ANSWERED: u8 = 2;
+
+#[derive(Clone)]
+struct Slot {
+    cancel: Arc<AtomicBool>,
+    stage: Arc<AtomicU8>,
+}
+
+type Inflight = Arc<Mutex<HashMap<String, Slot>>>;
 
 struct Job {
     req: Request,
     key: String,
-    cancel: Arc<AtomicBool>,
+    slot: Slot,
 }
 
 /// Default pool size: half the cores, between 1 and 4. Every op is itself multithreaded.
@@ -89,13 +103,26 @@ pub fn serve(workers: usize) -> i32 {
         };
         let key = id_key(&req.id);
         match req.op.as_str() {
-            "cancel" => match inflight.lock().unwrap_or_else(|e| e.into_inner()).get(&key) {
-                Some(flag) => flag.store(true, Ordering::Relaxed),
-                None => log::debug(&format!("cancel: no request {key} in flight")),
-            },
+            "cancel" => {
+                let mut map = inflight.lock().unwrap_or_else(|e| e.into_inner());
+                match map.get(&key).cloned() {
+                    Some(slot)
+                        if slot
+                            .stage
+                            .compare_exchange(QUEUED, ANSWERED, Ordering::AcqRel, Ordering::Acquire)
+                            .is_ok() =>
+                    {
+                        map.remove(&key);
+                        drop(map);
+                        send(&out, &error_response(req.id.clone(), EngineError::cancelled()));
+                    }
+                    Some(slot) => slot.cancel.store(true, Ordering::Relaxed),
+                    None => log::debug(&format!("cancel: no request {key} in flight")),
+                }
+            }
             "hello" => send(&out, &respond(&req, &Ctx::silent())),
             _ => {
-                let cancel = Arc::new(AtomicBool::new(false));
+                let slot = Slot { cancel: Arc::new(AtomicBool::new(false)), stage: Arc::new(AtomicU8::new(QUEUED)) };
                 {
                     let mut map = inflight.lock().unwrap_or_else(|e| e.into_inner());
                     if !key.is_empty() && map.contains_key(&key) {
@@ -109,10 +136,10 @@ pub fn serve(workers: usize) -> i32 {
                         continue;
                     }
                     if !key.is_empty() {
-                        map.insert(key.clone(), cancel.clone());
+                        map.insert(key.clone(), slot.clone());
                     }
                 }
-                if tx.send(Job { req, key, cancel }).is_err() {
+                if tx.send(Job { req, key, slot }).is_err() {
                     break;
                 }
             }
@@ -126,7 +153,12 @@ pub fn serve(workers: usize) -> i32 {
 }
 
 fn run_job(job: Job, out: &Arc<Mutex<std::io::Stdout>>, inflight: &Inflight) {
+    // Answered already: cancelled while it waited.
+    if job.slot.stage.compare_exchange(QUEUED, RUNNING, Ordering::AcqRel, Ordering::Acquire).is_err() {
+        return;
+    }
     let id = job.req.id.clone();
+    send(out, &ProgressEvent { id: id.clone(), event: "started".into(), fraction: 0.0, stage: None });
     let progress_out = out.clone();
     let state = Mutex::new((0.0f32, Instant::now() - Duration::from_secs(1)));
     let progress = move |fraction: f32, stage: &str| {
@@ -142,9 +174,9 @@ fn run_job(job: Job, out: &Arc<Mutex<std::io::Stdout>>, inflight: &Inflight) {
             &ProgressEvent { id: id.clone(), event: "progress".into(), fraction, stage: Some(stage.to_string()) },
         );
     };
-    let ctx = Ctx::new(job.cancel.clone(), Arc::new(progress));
+    let ctx = Ctx::new(job.slot.cancel.clone(), Arc::new(progress));
     let started = Instant::now();
-    let resp: Response = if job.cancel.load(Ordering::Relaxed) {
+    let resp: Response = if job.slot.cancel.load(Ordering::Relaxed) {
         error_response(job.req.id.clone(), EngineError::cancelled())
     } else {
         respond(&job.req, &ctx)

@@ -33,13 +33,19 @@ pub enum ErrorCode {
 pub struct EngineError {
     pub code: ErrorCode,
     pub message: String,
+    /// Why the file is left as it is, for people (see `ErrorBody::reason`).
+    pub reason: Option<&'static str>,
 }
 
 pub type Result<T, E = EngineError> = std::result::Result<T, E>;
 
 impl EngineError {
     pub fn new(code: ErrorCode, message: impl Into<String>) -> Self {
-        Self { code, message: message.into() }
+        Self { code, message: message.into(), reason: None }
+    }
+    /// `unsupported`, with `reason` for people and `detail` for logs.
+    pub fn left_as_is(reason: &'static str, detail: impl Into<String>) -> Self {
+        Self { reason: Some(reason), ..Self::unsupported(detail) }
     }
     pub fn unsupported(m: impl Into<String>) -> Self {
         Self::new(ErrorCode::Unsupported, m)

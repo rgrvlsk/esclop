@@ -29,6 +29,25 @@ import Testing
         return out
     }()
 
+    /// Why the engine leaves a PDF as it is (engine/.../pdf/reasons.rs): shown as the message.
+    @Test func everyEngineReasonHasCatalanAndIsTheMessage() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let source = try String(contentsOf: root.appendingPathComponent("engine/crates/esclop-engine/src/pdf/reasons.rs"), encoding: .utf8)
+        let reasons = source.split(separator: "\n").filter { $0.hasPrefix("pub const") }.compactMap { line -> String? in
+            guard let open = line.firstIndex(of: "\""), let close = line.lastIndex(of: "\""), open < close else { return nil }
+            return String(line[line.index(after: open) ..< close])
+        }
+        #expect(reasons.count >= 6)
+        for reason in reasons {
+            #expect(Self.catalan[reason] != nil, "no Catalan for \(reason)")
+            #expect(CardPresentation.message(for: EsclopError.leftAsIs(reason)) == reason, "the English card says the reason")
+            #expect(EsclopError.leftAsIs(reason).description == reason, "the CLI and MCP say the reason")
+            #expect(EsclopError.leftAsIs(reason).code == "unsupportedFile")
+        }
+        #expect(Strings.text("Signed PDFs are left as they are, so their signatures stay valid.", locale: ca)
+            == "Els PDF signats es deixen tal com estan, perquè les signatures continuïn sent vàlides.")
+    }
+
     @Test func everySettingHasACatalanTitleAndDescription() {
         let descriptors = RegistrySettingsProvider(store: TestSettings().store).descriptors()
         #expect(descriptors.count > 80)

@@ -10,10 +10,9 @@
 import Foundation
 
 public enum Tool: String, CaseIterable, Codable, Sendable {
-    /// The Rust image engine (docs/engine-protocol.md).
+    /// The Rust image and PDF engine (docs/engine-protocol.md).
     case esclopEngine = "esclop-engine"
     case ffmpeg, ffprobe
-    case gs
     /// GPL-2.0-only: only ever run as a separate process, never linked.
     case gifsicle
 
@@ -23,10 +22,9 @@ public enum Tool: String, CaseIterable, Codable, Sendable {
     /// What the tool is for, for error messages and `esclop status`.
     public var purpose: String {
         switch self {
-        case .esclopEngine: return "image optimisation"
+        case .esclopEngine: return "image and PDF optimisation"
         case .ffmpeg: return "video and audio encoding"
         case .ffprobe: return "video and audio inspection"
-        case .gs: return "PDF compression (Ghostscript)"
         case .gifsicle: return "GIF optimisation"
         }
     }
@@ -100,7 +98,7 @@ public struct ToolLocator: Sendable {
             var dir = start
             for _ in 0 ..< 8 {
                 if fm.fileExists(atPath: dir.appendingPathComponent("Package.swift").path) {
-                    // Binaries/ holds ffmpeg, gs and gifsicle; the Rust engine builds into engine/target.
+                    // Binaries/ holds ffmpeg and gifsicle; the Rust engine builds into engine/target.
                     for sub in ["Binaries", "engine/target/release"] {
                         let candidate = dir.appendingPathComponent(sub, isDirectory: true)
                         if !found.contains(candidate) { found.append(candidate) }

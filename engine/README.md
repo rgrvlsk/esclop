@@ -3,7 +3,7 @@
 L'Esclop's image engine: one Rust executable that does the PNG, JPEG, WebP, AVIF and GIF work
 behind a JSON-lines protocol on stdio ([`PROTOCOL.md`](PROTOCOL.md)). The Swift media layer runs it as a
 separate process, so a file that crashes a decoder never takes the app down. It ships in
-`Contents/Resources/bin` next to ffmpeg, Ghostscript and gifsicle.
+`Contents/Resources/bin` next to ffmpeg and gifsicle.
 
 | Work | Library | Licence |
 |---|---|---|
@@ -69,8 +69,9 @@ lipo -archs Binaries/esclop-engine
 A Homebrew `rust` without rustup has only the host's standard library, so the script then
 builds the host slice and says which target it skipped. CI must use rustup.
 
-The script fails when a slice is larger than 15 MB or when `otool -L` shows a library outside
-`/usr/lib` and `/System/Library/Frameworks` (today: libSystem and libiconv only).
+The script fails when a slice is larger than 22 MB (the x86_64 slice is about 20 MB, arm64 about
+14 MB) or when `otool -L` shows a library outside `/usr/lib` and `/System/Library/Frameworks`
+(today: libSystem and libiconv only).
 
 ## Test
 

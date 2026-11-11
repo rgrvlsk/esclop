@@ -50,7 +50,7 @@ import Testing
     }
 
     static let errors: [EsclopError] = [
-        .unsupportedFile("x"), .fileNotFound("y"), .toolMissing("ffmpeg"), .toolFailed(tool: "gs", exitCode: 3, stderr: "boom"),
+        .unsupportedFile("x"), .fileNotFound("y"), .toolMissing("ffmpeg"), .toolFailed(tool: "ffmpeg", exitCode: 3, stderr: "boom"),
         .alreadySmaller, .cancelled, .notPermitted("no"), .invalidPipeline("bad"), .invalidArgument("arg"), .appNotRunning, .other("x"),
     ]
 

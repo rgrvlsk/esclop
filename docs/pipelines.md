@@ -233,7 +233,7 @@ streaming services, -23 broadcast.
 
 `runScript(path?, code?)` runs a shell script with the file as `$1` (also in
 `$ESCLOP_INPUT_FILE`). `code` is one line of zsh; `path` is a script file (run directly when
-executable, through zsh otherwise). The bundled tools (ffmpeg, gs, exiftool...) are in
+executable, through zsh otherwise). The bundled tools (ffmpeg, gifsicle, esclop-engine) are in
 `$ESCLOP_BIN`. When the script prints the path of an existing file of the same kind, the pipeline
 continues with that file. A non-zero exit fails the file and the log shows its error output.
 Scripts only run where the setting that allows them is on; agents cannot run them unless you

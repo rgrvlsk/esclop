@@ -121,17 +121,26 @@
   "$defs": {
     "Format": {
       "description": "Image formats the engine recognises. Decodable: png, jpeg, gif, webp, tiff, bmp.\nEncodable: png, jpeg, webp, avif, gif. heic, avif and jxl are recognised by `probe` only.",
-      "type": "string",
-      "enum": [
-        "png",
-        "jpeg",
-        "gif",
-        "webp",
-        "avif",
-        "tiff",
-        "bmp",
-        "heic",
-        "jxl"
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "png",
+            "jpeg",
+            "gif",
+            "webp",
+            "avif",
+            "tiff",
+            "bmp",
+            "heic",
+            "jxl"
+          ]
+        },
+        {
+          "description": "Only `pdf.optimise` reads and writes it.",
+          "type": "string",
+          "const": "pdf"
+        }
       ]
     },
     "ProbeInfo": {

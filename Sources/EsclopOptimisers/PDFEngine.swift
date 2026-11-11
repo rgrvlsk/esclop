@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// PDFs: Ghostscript (`-dSAFER`) recompresses and downsamples images at one of the DPI stops;
+// PDFs: esclop-engine's `pdf.optimise` recompresses and downsamples images at one of the DPI
+// stops, subsets fonts and recompresses streams, refusing what it cannot rewrite faithfully;
 // PDFKit crops pages to an aspect ratio, uncrops them and renders pages to images.
 
 import AppKit
@@ -11,7 +12,7 @@ import PDFKit
 struct PDFEngine: Sendable {
     let env: EngineEnvironment
 
-    static var dpiStops: [Int] { Ghostscript.dpiStops }
+    static var dpiStops: [Int] { PDFResolution.dpiStops }
 
     private func document(_ source: URL) throws -> PDFDocument {
         guard let document = PDFDocument(url: source), document.pageCount > 0 else {
@@ -32,20 +33,20 @@ struct PDFEngine: Sendable {
             dpi = requested
         } else {
             let setting = env.value(EsclopSettings.pdfDPI)
-            if setting == Ghostscript.adaptiveDPI {
-                let analysis = Ghostscript.adaptiveDPI(for: source)
+            if setting == PDFResolution.adaptiveDPI {
+                let analysis = PDFResolution.adaptiveDPI(for: source)
                 dpi = analysis.dpi
                 sourceMax = analysis.sourceMax
             } else {
                 dpi = setting
             }
             let aggressive = plan.isAggressive || (plan.request.quality.tier == .normal && env.value(EsclopSettings.useAggressiveOptimisationPDF))
-            if aggressive { dpi = Ghostscript.stepDown(from: dpi) }
+            if aggressive { dpi = PDFResolution.stepDown(from: dpi) }
         }
         if let factor = plan.downscale {
-            dpi = Ghostscript.snap(Int(Double(dpi) * factor))
+            dpi = PDFResolution.snap(Int(Double(dpi) * factor))
         }
-        return (min(max(dpi, Ghostscript.minDPI), Ghostscript.maxDPI), sourceMax)
+        return (min(max(dpi, PDFResolution.minDPI), PDFResolution.maxDPI), sourceMax)
     }
 
     func process(_ source: URL, plan: Plan, work: WorkFolder, progress: ProgressSink) async throws -> Produced {
@@ -66,10 +67,10 @@ struct PDFEngine: Sendable {
         }
         let (dpi, sourceMax) = resolveDPI(for: input, plan: plan)
         let output = work.file(stem: "optimised", ext: "pdf")
-        try await ghostscript(input, to: output, dpi: dpi, pages: document.pageCount, progress: progress)
+        try await engine(input, to: output, dpi: dpi, factor: plan.factor(for: .pdf, format: .pdf, env: env), strip: plan.strip, progress: progress)
         if let sourceMax, dpi < sourceMax {
             steps.append("Downsampled images from \(sourceMax) to \(dpi) dpi")
-        } else if dpi < Ghostscript.noDownsampleDPI {
+        } else if dpi < PDFResolution.noDownsampleDPI {
             steps.append("Images at most \(dpi) dpi")
         } else {
             steps.append("Recompressed without downsampling")
@@ -77,43 +78,49 @@ struct PDFEngine: Sendable {
         return Produced(url: output, width: nil, height: nil, duration: nil, steps: steps, allowLarger: plan.crop != nil)
     }
 
-    func ghostscript(_ input: URL, to output: URL, dpi: Int, pages: Int, progress: ProgressSink) async throws {
-        let args = Ghostscript.arguments(input: input.path, output: output.path, lossy: dpi < Ghostscript.noDownsampleDPI, dpi: dpi)
-        let handler: @Sendable (String) -> Void = { line in
-            // "Page 3" lines count up through the document.
-            guard pages > 0, line.hasPrefix("Page "), let page = Int(line.dropFirst(5).trimmingCharacters(in: .whitespaces)) else { return }
-            progress(min(0.99, Double(page) / Double(pages)), "Page \(page) of \(pages)")
-        }
-        try await ProcessRunner.run(.gs, args, options: ProcessOptions(timeout: 1800, onStdoutLine: handler), locator: env.tools)
+    /// How long one `pdf.optimise` may take (what Ghostscript was given).
+    static let timeout: TimeInterval = 1800
+
+    /// `pdf.optimise`: 300 dpi means no downsampling. A result that is not smaller comes back
+    /// as the engine's `already_smaller`, which the caller treats like any other optimiser's.
+    func engine(_ input: URL, to output: URL, dpi: Int, factor: Int, strip: Bool, progress: ProgressSink) async throws {
+        _ = try await env.images.call("pdf.optimise", input: input, output: output, params: [
+            "dpi": .int(dpi < PDFResolution.noDownsampleDPI ? dpi : 0),
+            "compression": .int(factor),
+            "strip": .bool(strip),
+            "allow_larger": true,
+        ], timeout: Self.timeout, progress: { progress($0) })
         guard PDFDocument(url: output) != nil else {
-            throw EsclopError.toolFailed(tool: Tool.gs.rawValue, exitCode: 0, stderr: "Ghostscript wrote an unreadable PDF")
+            throw EsclopError.toolFailed(tool: Tool.esclopEngine.rawValue, exitCode: 0, stderr: "esclop-engine wrote an unreadable PDF")
         }
     }
 
     /// Walks down the DPI stops until the file fits.
     func fit(_ source: URL, under target: Int, plan: Plan, work: WorkFolder, progress: ProgressSink) async throws -> Produced {
-        let document = try document(source)
+        _ = try document(source)
         let start = resolveDPI(for: source, plan: plan).dpi
-        var stops = Ghostscript.dpiStops.filter { $0 <= start }
-        if stops.isEmpty { stops = [Ghostscript.minDPI] }
+        var stops = PDFResolution.dpiStops.filter { $0 <= start }
+        if stops.isEmpty { stops = [PDFResolution.minDPI] }
         var smallest = Int.max
         for (index, dpi) in stops.enumerated() {
             let output = work.file(stem: "fit-\(dpi)", ext: "pdf")
-            try await ghostscript(source, to: output, dpi: dpi, pages: document.pageCount, progress: progress.scaled(Double(index) / Double(stops.count) ... Double(index + 1) / Double(stops.count)))
+            try await engine(source, to: output, dpi: dpi, factor: plan.factor(for: .pdf, format: .pdf, env: env), strip: plan.strip,
+                             progress: progress.scaled(Double(index) / Double(stops.count) ... Double(index + 1) / Double(stops.count)))
             let size = fileSize(output)
             smallest = min(smallest, size)
             if size <= target {
                 return Produced(url: output, width: nil, height: nil, duration: nil, steps: ["Fit under \(ByteFormat.string(target)) at \(dpi) dpi"], allowLarger: true)
             }
         }
-        throw EsclopError.other("Could not fit under \(ByteFormat.string(target)); the smallest attempt was \(ByteFormat.string(smallest)) at \(stops.last ?? Ghostscript.minDPI) dpi")
+        throw EsclopError.other("Could not fit under \(ByteFormat.string(target)); the smallest attempt was \(ByteFormat.string(smallest)) at \(stops.last ?? PDFResolution.minDPI) dpi")
     }
 
-    /// Ghostscript without downsampling drops the document info and XMP.
+    /// `pdf.optimise` without downsampling, at the lightest compression, drops the document
+    /// info, the XMP, thumbnails and application data.
     func stripMetadata(_ source: URL, work: WorkFolder) async throws -> Produced {
-        let document = try document(source)
+        _ = try document(source)
         let output = work.file(stem: "stripped", ext: "pdf")
-        try await ghostscript(source, to: output, dpi: Ghostscript.noDownsampleDPI, pages: document.pageCount, progress: .none)
+        try await engine(source, to: output, dpi: PDFResolution.noDownsampleDPI, factor: 0, strip: true, progress: .none)
         return Produced(url: output, width: nil, height: nil, duration: nil, steps: ["Removed document metadata"], allowLarger: true)
     }
 
