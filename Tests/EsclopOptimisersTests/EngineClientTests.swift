@@ -77,6 +77,31 @@ import Testing
         #expect(reply.raw["slept"] != nil)
     }
 
+    @Test func aTimedOutRequestFailsAndAStuckWorkerIsFreed() async throws {
+        let client = EngineClient(executable: try await FakeEngine.shared.executable(), cancelGrace: 1)
+        defer { Task { await client.shutdown() } }
+        _ = try await client.call("sleep", params: ["seconds": 0.0])
+        let first = await client.childProcessIdentifier
+        let started = Date()
+        // A request that times out but stops when cancelled keeps the child.
+        await #expect(throws: EsclopError.self) { try await client.call("sleep", params: ["seconds": 30], timeout: 0.3) }
+        #expect(Date().timeIntervalSince(started) < 5)
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        #expect(await client.childProcessIdentifier == first)
+        // One that ignores the cancel holds its worker: after the grace the child is replaced.
+        do {
+            try await client.call("sleep", params: ["seconds": 30, "stuck": true], timeout: 0.3)
+            Issue.record("no timeout")
+        } catch let EsclopError.toolFailed(_, _, stderr) {
+            #expect(stderr.contains("within 0.3 s"))
+        }
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        #expect(await client.childProcessIdentifier == nil)
+        let reply = try await client.call("sleep", params: ["seconds": 0.01])
+        #expect(reply.raw["slept"] != nil)
+        #expect(await client.childProcessIdentifier != first)
+    }
+
     @Test func aCrashFailsTheRequestAndTheNextCallRestarts() async throws {
         let client = try await client()
         defer { Task { await client.shutdown() } }

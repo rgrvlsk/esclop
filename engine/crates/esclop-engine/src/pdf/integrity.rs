@@ -7,13 +7,19 @@
 use crate::error::{EngineError, Result};
 use lopdf::xref::XrefEntry;
 use lopdf::{Document, Object};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Every in-use cross-reference entry of an object lopdf loaded must point at `id gen obj`, and
 /// every stream lopdf loaded
-/// must hold all the bytes up to its `endstream`.
-pub fn check(bytes: &[u8], doc: &Document) -> Result<()> {
+/// must hold all the bytes up to its `endstream`. Linear in the file: `endobj` and `endstream`
+/// are located once (`Marks`), not searched for from each object.
+pub fn check(bytes: &[u8], doc: &Document, cancel: &AtomicBool) -> Result<()> {
     let referenced = referenced_ids(doc);
-    for (&id, entry) in &doc.reference_table.entries {
+    let marks = Marks::new(bytes);
+    for (n, (&id, entry)) in doc.reference_table.entries.iter().enumerate() {
+        if n % 4096 == 0 && cancel.load(Ordering::Relaxed) {
+            return Err(EngineError::cancelled());
+        }
         let XrefEntry::Normal { offset, generation } = *entry else { continue };
         // Entry 0 is the free list's head even when a writer marks it in use; an entry for an
         // object lopdf could not load matters only when something refers to it (a viewer may
@@ -34,7 +40,7 @@ pub fn check(bytes: &[u8], doc: &Document) -> Result<()> {
         // 16 bytes of padding (lopdf also rewrites `/Length` to the decrypted size).
         let slack = if doc.was_encrypted() { 32 } else { 0 };
         if let Some(Object::Stream(s)) = doc.objects.get(&(id, generation))
-            && let Some(raw) = raw_stream_len(&bytes[after..])
+            && let Some(raw) = raw_stream_len(bytes, after, &marks)
             && s.content.len() + slack < raw
         {
             return Err(EngineError::decode(format!(
@@ -91,25 +97,60 @@ fn object_header(bytes: &[u8], offset: usize, id: u32, generation: u16) -> Optio
     bytes.get(p..p + 3).filter(|k| *k == b"obj").map(|_| p + 3)
 }
 
+/// Where every `endobj` and `endstream` of the file starts, in order.
+struct Marks {
+    endobj: Vec<usize>,
+    endstream: Vec<usize>,
+}
+
+impl Marks {
+    fn new(bytes: &[u8]) -> Self {
+        let (mut endobj, mut endstream) = (Vec::new(), Vec::new());
+        let mut i = 0;
+        while let Some(p) = bytes.get(i..).and_then(|b| memchr_e(b)) {
+            let at = i + p;
+            if bytes[at..].starts_with(b"endobj") {
+                endobj.push(at);
+            } else if bytes[at..].starts_with(b"endstream") {
+                endstream.push(at);
+            }
+            i = at + 1;
+        }
+        Self { endobj, endstream }
+    }
+
+    /// The first mark at or after `from`.
+    fn next(marks: &[usize], from: usize) -> Option<usize> {
+        marks.get(marks.partition_point(|m| *m < from)).copied()
+    }
+}
+
+/// The offset of the next `e`.
+fn memchr_e(b: &[u8]) -> Option<usize> {
+    b.iter().position(|c| *c == b'e')
+}
+
 /// Bytes between the `stream` keyword's line end and the first `endstream` (its line end
-/// excluded), when the object is a stream.
-fn raw_stream_len(obj: &[u8]) -> Option<usize> {
-    let end_obj = find(obj, b"endobj").unwrap_or(obj.len());
-    let kw = find(&obj[..end_obj], b"stream")?;
-    if kw >= 3 && &obj[kw - 3..kw] == b"end" {
+/// excluded), when the object starting its body at `after` is a stream.
+fn raw_stream_len(bytes: &[u8], after: usize, marks: &Marks) -> Option<usize> {
+    let end_obj = Marks::next(&marks.endobj, after).unwrap_or(bytes.len());
+    // The first `stream` of the object: the keyword after its dictionary, or the start of an
+    // `endstream` when it has none.
+    let kw = after + find(&bytes[after..end_obj], b"stream")?;
+    if kw >= after + 3 && &bytes[kw - 3..kw] == b"end" {
         return None;
     }
     let mut start = kw + 6;
-    if obj.get(start) == Some(&b'\r') {
+    if bytes.get(start) == Some(&b'\r') {
         start += 1;
     }
-    if obj.get(start) == Some(&b'\n') {
+    if bytes.get(start) == Some(&b'\n') {
         start += 1;
     }
-    let end = start + find(&obj[start..], b"endstream")?;
+    let end = Marks::next(&marks.endstream, start)?;
     let mut len = end - start;
     for eol in *b"\n\r" {
-        if len > 0 && obj[start + len - 1] == eol {
+        if len > 0 && bytes[start + len - 1] == eol {
             len -= 1;
         }
     }
@@ -129,7 +170,8 @@ mod tests {
         let f = b"%PDF-1.4\n 5 0 obj\n<< >>\nstream\nBT ET\r\nendstream\nendobj\n";
         assert_eq!(object_header(f, 9, 5, 0), Some(17));
         assert_eq!(object_header(f, 9, 4, 0), None);
-        assert_eq!(raw_stream_len(&f[17..]), Some(5));
-        assert_eq!(raw_stream_len(b" << >> endobj"), None);
+        assert_eq!(raw_stream_len(f, 17, &Marks::new(f)), Some(5));
+        let g = b" << >> endobj";
+        assert_eq!(raw_stream_len(g, 0, &Marks::new(g)), None);
     }
 }

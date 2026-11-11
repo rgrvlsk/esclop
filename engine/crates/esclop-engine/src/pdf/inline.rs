@@ -12,8 +12,10 @@
 //! keys or colour space are not ones this module expands.
 
 use super::placement::MAX_CONTENT;
+use crate::error::{EngineError, Result};
 use lopdf::content::Content;
 use lopdf::{Dictionary, Document, Object, ObjectId, Stream};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 const MIN_BYTES: usize = 4096;
 /// Largest content stream this pass decodes, and the most memory its operator list may take,
@@ -195,7 +197,7 @@ fn text_ops(c: &Content) -> usize {
 
 /// Moves the large inline images of every page's content streams into XObjects; returns how
 /// many it moved.
-pub fn move_inline_images(doc: &mut Document) -> usize {
+pub fn move_inline_images(doc: &mut Document, cancel: &AtomicBool) -> Result<usize> {
     let mut moved = 0;
     let mut serial = 0usize;
     let pages: Vec<ObjectId> = doc.get_pages().values().copied().collect();
@@ -208,6 +210,9 @@ pub fn move_inline_images(doc: &mut Document) -> usize {
         }
     }
     for page in pages {
+        if cancel.load(Ordering::Relaxed) {
+            return Err(EngineError::cancelled());
+        }
         let Some(resources) = page_resources(doc, page) else { continue };
         let spaces = resources.get(b"ColorSpace").ok().and_then(|o| resolve_dict(doc, o)).cloned();
         let mut names: Vec<(Vec<u8>, Stream)> = Vec::new();
@@ -301,7 +306,7 @@ pub fn move_inline_images(doc: &mut Document) -> usize {
             }
         }
     }
-    moved
+    Ok(moved)
 }
 
 fn resolve_dict<'a>(doc: &'a Document, o: &'a Object) -> Option<&'a Dictionary> {
