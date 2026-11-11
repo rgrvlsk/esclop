@@ -12,6 +12,7 @@ pub mod fsio;
 pub mod log;
 pub mod meta;
 pub mod ops;
+pub mod pdf;
 pub mod pixels;
 pub mod protocol;
 pub mod quality;
@@ -67,6 +68,7 @@ pub fn handle(req: &Request, ctx: &Ctx) -> Result<serde_json::Value> {
         "crop" => ops::geometry::crop(req, ctx),
         "metadata.strip" => ops::strip::strip(req, ctx),
         "fit" => ops::fit::fit(req, ctx),
+        "pdf.optimise" => pdf::optimise(req, ctx),
         "cancel" => return Err(EngineError::invalid("`cancel` only applies to `serve`")),
         other => return Err(EngineError::unsupported(format!("unknown op `{other}`; `hello` lists the ops"))),
     }?;
@@ -103,5 +105,10 @@ pub fn respond(req: &Request, ctx: &Ctx) -> Response {
 }
 
 pub fn error_response(id: serde_json::Value, e: EngineError) -> Response {
-    Response { id, ok: false, result: None, error: Some(ErrorBody { code: e.code, message: e.message }) }
+    Response {
+        id,
+        ok: false,
+        result: None,
+        error: Some(ErrorBody { code: e.code, message: e.message, reason: e.reason.map(String::from) }),
+    }
 }

@@ -23,7 +23,7 @@ engine-check: ## rustfmt, clippy, tests and cargo-deny for the engine (against t
 		cargo test --locked
 	cd engine && cargo deny --locked check
 
-tools: ## ffmpeg, ffprobe, gs and gifsicle from pinned source into Binaries/ (cached)
+tools: ## ffmpeg, ffprobe and gifsicle from pinned source into Binaries/ (cached)
 	Scripts/build-tools.sh
 
 icons: ## regenerate the app icon and the menu bar glyph from assets/ (macOS, librsvg required)

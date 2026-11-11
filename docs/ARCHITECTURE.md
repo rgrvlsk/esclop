@@ -45,8 +45,9 @@ pixel work happens in `esclop-engine` (Rust) or in system frameworks:
 - Video: ffmpeg built without x264/x265, using `h264_videotoolbox`/`hevc_videotoolbox`,
   `libsvtav1`, `libvpx`; speed, mute, cap fps, lower bitrate. Fit-under-size searches bitrate
   and resolution with VideoToolbox and falls back to AV1 when needed.
-- PDF: Ghostscript with `-dSAFER` and adaptive DPI stops (300, 250, 200, 150, 100, 72, 48);
-  crop-pdf and uncrop; extract pages as images. A Rust replacement is a possible later change.
+- PDF: esclop-engine's `pdf.optimise` (images recompressed and downsampled at adaptive DPI stops
+  300, 250, 200, 150, 100, 72, 48, fonts subset, streams recompressed, encryption kept; files it
+  cannot rewrite faithfully are refused); crop-pdf and uncrop; extract pages as images.
 - Audio: ffmpeg with `aac_at`, libopus, libmp3lame; cover art compression, loudness
   normalisation.
 - `Clipboard`: NSPasteboard reading and writing of images, file URLs, base64, paths.
@@ -238,7 +239,7 @@ Planned: a crop window.
   the app target when the active developer directory is an Xcode (`DEVELOPER_DIR` or
   `xcode-select`) or `ESCLOP_WITH_APP` is set. Without switching globally:
   `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift build`.
-- `Scripts/build-tools.sh` builds ffmpeg, Ghostscript and gifsicle from pinned upstream
+- `Scripts/build-tools.sh` builds ffmpeg and gifsicle from pinned upstream
   tarballs (sha256 checked, patches in `Binaries/patches/`), universal, minimal ffmpeg
   configuration (`--disable-network`, no GPL components), into `Binaries/`, and records each
   tool's licence, source URL and checksum in `Binaries/LICENSES/` and `THIRD_PARTY.md`. It
@@ -276,7 +277,6 @@ Planned: a crop window.
   `Colorize.swift`, `bin.tar.lrz` or lrzip, and never Clop's Pro gating nor code that removes it.
 - Never reuse Clop's name, bundle identifier, URL scheme, IPC/MCP names, icon, images,
   website copy, Sparkle/Sentry/lowtechguys infrastructure or keys.
-- gifsicle (GPL-2.0-only) runs as a separate process and is never linked. gifski and
-  Ghostscript are AGPL. The MCP server exposes a source link; the planned About window
+- gifsicle (GPL-2.0-only) runs as a separate process and is never linked. gifski is AGPL. The MCP server exposes a source link; the planned About window
   must do the same.
 - Bundle identifier prefix: `dev.esclop`. No personal data or machine paths in the repo.

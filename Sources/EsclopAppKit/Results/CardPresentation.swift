@@ -356,6 +356,8 @@ public struct CardPresentation: Equatable, Sendable {
             return Strings.text("Stopped before it finished.")
         case let .unreadable(kind):
             return Strings.text(EsclopError.unreadableMessage(kind))
+        case let .leftAsIs(reason):
+            return Strings.text(reason)
         case let .notPermitted(why):
             return why
         case let other:

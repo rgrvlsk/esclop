@@ -2631,6 +2631,16 @@
         }
       }
     },
+    "Encrypted PDFs over 64 MB are left as they are.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els PDF xifrats de més de 64 MB es deixen tal com estan."
+          }
+        }
+      }
+    },
     "Endpoint": {
       "localizations": {
         "ca": {
@@ -4951,6 +4961,46 @@
         }
       }
     },
+    "PDFs over 1 GB are left as they are.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els PDF de més d’1 GB es deixen tal com estan."
+          }
+        }
+      }
+    },
+    "PDFs that need a password are left as they are.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els PDF que demanen una contrasenya es deixen tal com estan."
+          }
+        }
+      }
+    },
+    "PDFs that would need more than 256 MB of memory are left as they are.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els PDF que necessitarien més de 256 MB de memòria es deixen tal com estan."
+          }
+        }
+      }
+    },
+    "PDFs whose encryption L’Esclop cannot write again are left as they are.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els PDF amb un xifratge que L’Esclop no pot tornar a escriure es deixen tal com estan."
+          }
+        }
+      }
+    },
     "Page %d of %d": {
       "localizations": {
         "ca": {
@@ -6347,6 +6397,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Costat a costat, zoom %@"
+          }
+        }
+      }
+    },
+    "Signed PDFs are left as they are, so their signatures stay valid.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els PDF signats es deixen tal com estan, perquè les signatures continuïn sent vàlides."
           }
         }
       }

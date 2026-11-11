@@ -70,7 +70,7 @@ jobs:
       # The upload tests start a local S3 server (moto); install it before the suite starts.
       - name: Local S3 server for the upload tests
         run: Scripts/s3-test-server.sh install
-      # Suites that need ffmpeg, gs, gifsicle or esclop-engine skip here; the gate job reruns
+      # Suites that need ffmpeg, gifsicle or esclop-engine skip here; the gate job reruns
       # them with the real tools. The suite takes under a minute; a hang fails after 5 minutes
       # with the unfinished tests and their stacks (Scripts/test.sh), not at the job timeout.
       # Render suites hold the main actor for seconds per image on a runner without a GPU, so

@@ -28,6 +28,27 @@ into the body of its GitHub release.
   failure keeps the file, says why and offers Upload Again. Agents may upload only when "Agents
   may upload files" (`allowUploads`, off by default) is on.
 
+### Changed
+- PDFs are optimised by esclop-engine's `pdf.optimise` instead of Ghostscript: streams
+  recompressed, images re-encoded and downsampled only where a fidelity check (SSIM at 150 dpi)
+  passes, embedded TrueType and CFF fonts subset with their glyph ids kept (fonts a form field
+  types with stay whole), large inline images moved to shared objects, unused objects dropped.
+  Text, links, outlines, form fields and permissions stay as they were; JPEGs are re-encoded
+  only when downsampled, and "Strip metadata" touches no image. Encrypted PDFs are re-encrypted
+  with the same keys and permissions or left alone (and always left alone over 64 MB); signed
+  and Reader-extended PDFs, damaged files and ones that would need more than 256 MB of memory
+  besides their own size are left as they are, and the result says why. A PDF still being
+  optimised 30 minutes after it started (time spent waiting behind others does not count) is
+  stopped. On 1,576 real PDFs (the pdf.js test files and
+  GovDocs) the engine failed none of the checks, where Ghostscript failed 506 at the default
+  setting; on the files Ghostscript handled cleanly, the engine's output is 0.98x
+  Ghostscript's at the default setting and 1.01x at the aggressive one. Its memory stays under
+  512 MB per file. See `engine/bench/pdf/RESULTS.md`.
+
+### Removed
+- Ghostscript is no longer bundled (32 MB): the bundled tools go from 96 MB to 76 MB
+  (universal). Scripts in pipelines that called `$ESCLOP_BIN/gs` need a Ghostscript of their own.
+
 ## [0.1.0] - 2026-11-10
 
 The first public beta: the menu bar app, the `esclop` command line and the MCP server for AI

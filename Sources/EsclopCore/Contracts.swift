@@ -288,6 +288,10 @@ public enum EsclopError: Error, Codable, Equatable, Sendable, CustomStringConver
     /// A file of a kind L'Esclop handles that cannot be read: damaged, cut short or mislabelled.
     /// The tool's own output goes to the log, not into this message.
     case unreadable(kind: MediaKind)
+    /// The file is left as it is, for the reason given: one sentence for people, from the engine
+    /// ("Signed PDFs are left as they are, so their signatures stay valid."), shown as it is or
+    /// translated.
+    case leftAsIs(String)
     case other(String)
 
     /// "This file isn’t a video L'Esclop can read. It may be damaged."
@@ -313,6 +317,7 @@ public enum EsclopError: Error, Codable, Equatable, Sendable, CustomStringConver
         case let .invalidArgument(why): return "Invalid argument: \(why)"
         case .appNotRunning: return "The esclop app is not running"
         case let .unreadable(kind): return Self.unreadableMessage(kind)
+        case let .leftAsIs(reason): return reason
         case let .other(msg): return msg
         }
     }

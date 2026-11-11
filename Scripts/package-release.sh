@@ -50,7 +50,7 @@ if [ "$DRY" = 0 ]; then
   [ "$(git rev-parse HEAD)" = "$(git rev-parse "$REF^{commit}")" ] || die "HEAD differs from $REF"
   [ -z "$(git status --porcelain)" ] || die "release requires a clean working tree"
 fi
-TOOLS="esclop-engine ffmpeg ffprobe gs gifsicle"
+TOOLS="esclop-engine ffmpeg ffprobe gifsicle"
 for t in $TOOLS; do [ -x "Binaries/$t" ] || die "Binaries/$t is missing (make tools engine)"; done
 
 DIST="$ROOT/dist"
@@ -91,7 +91,7 @@ cat > "$CLI/README.txt" <<EOF
 L'Esclop $VERSION, command line and MCP server (macOS 14 or later, Apple Silicon and Intel)
 
   bin/esclop              the command line; \`esclop mcp serve\` is the MCP server
-  libexec/esclop/         ffmpeg, ffprobe, gs, gifsicle and esclop-engine, found by bin/esclop
+  libexec/esclop/         ffmpeg, ffprobe, gifsicle and esclop-engine, found by bin/esclop
   LICENSES/               licence texts of everything above
   THIRD_PARTY.md          versions, sources and checksums of the bundled tools
 

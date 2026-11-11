@@ -25,6 +25,7 @@ pub const OPS: &[&str] = &[
     "metadata.strip",
     "convert",
     "fit",
+    "pdf.optimise",
     "cancel",
 ];
 
@@ -72,6 +73,10 @@ pub struct ErrorBody {
     pub code: ErrorCode,
     /// For people and agents; do not parse.
     pub message: String,
+    /// With `unsupported`: why the file is left as it is, one sentence meant to be shown to
+    /// people as it is (or translated). Absent when there is nothing to say beyond `message`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
 }
 
 /// Progress line, zero or more per request before its response.
@@ -79,7 +84,8 @@ pub struct ErrorBody {
 pub struct ProgressEvent {
     #[schemars(with = "Option<String>")]
     pub id: serde_json::Value,
-    /// Always `"progress"`.
+    /// `"progress"`, or `"started"` (fraction 0) when a worker takes the request (`serve` only):
+    /// time spent queued ends there.
     pub event: String,
     /// 0..=1, non-decreasing for a request.
     pub fraction: f32,
@@ -105,6 +111,8 @@ pub enum Format {
     Bmp,
     Heic,
     Jxl,
+    /// Only `pdf.optimise` reads and writes it.
+    Pdf,
 }
 
 impl Format {
@@ -119,6 +127,7 @@ impl Format {
             Format::Bmp => "bmp",
             Format::Heic => "heic",
             Format::Jxl => "jxl",
+            Format::Pdf => "pdf",
         }
     }
     pub fn encodable(self) -> bool {
@@ -490,6 +499,27 @@ pub struct FitParams {
     /// avif speed (default 6).
     #[schemars(range(min = 1, max = 10))]
     pub speed: Option<u8>,
+    #[serde(flatten)]
+    pub out: OutputParams,
+}
+
+/// `pdf.optimise`: recompresses a PDF's streams without touching fonts, text, annotations, forms,
+/// outlines or structure. Encrypted PDFs answer `unsupported`, damaged ones `decode`.
+#[derive(Debug, Clone, Default, Deserialize, Serialize, JsonSchema)]
+#[serde(default)]
+pub struct PdfParams {
+    /// Highest image resolution kept, in dots per inch of the page: 48..=300. Images drawn
+    /// denser are downsampled to it. 0, 300 or absent: no downsampling.
+    #[schemars(range(max = 300))]
+    pub dpi: Option<u32>,
+    /// Compression factor 0..=100 (30 normal, 64 aggressive): the JPEG ceiling images are
+    /// re-encoded at, as for `jpeg.optimise`. JPEGs are re-encoded only when downsampled or, with
+    /// a `dpi`, above the ceiling; otherwise they are only re-coded losslessly. At 0 no image is
+    /// touched (only streams, fonts and, with `strip`, metadata change). Default 30.
+    #[schemars(range(max = 100))]
+    pub compression: Option<u8>,
+    /// `strip` removes the document information, the catalog's XMP, page thumbnails and
+    /// application data (`/PieceInfo`); `keep` does not apply.
     #[serde(flatten)]
     pub out: OutputParams,
 }

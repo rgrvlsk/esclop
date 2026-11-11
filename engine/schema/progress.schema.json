@@ -5,7 +5,7 @@
   "type": "object",
   "properties": {
     "event": {
-      "description": "Always `\"progress\"`.",
+      "description": "`\"progress\"`, or `\"started\"` (fraction 0) when a worker takes the request (`serve` only):\ntime spent queued ends there.",
       "type": "string"
     },
     "fraction": {

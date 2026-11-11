@@ -41,6 +41,9 @@ in a floating card and restore the original. CLI and MCP workflows already run w
 
 ## Later
 
+- PDF: a streaming load and write in `pdf.optimise`, so a large file is not held twice while it
+  loads (peak memory is now about twice the input above roughly 256 MB; see
+  `docs/engines.md`, PDF memory).
 - Shelf integrations.
 - More upload targets (WebDAV, a custom command) if they are asked for.
 - App release validation, notarisation, a beta update channel and a Homebrew cask.
