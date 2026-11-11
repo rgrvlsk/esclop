@@ -207,6 +207,7 @@ pub fn rewrite(bytes: &[u8], settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>,
     ctx.check()?;
     let drawn = placement::image_resolutions(&doc, &ctx.cancel_flag())?;
     let masks = mask_ids(&doc);
+    let matted = matte_parents(&doc);
 
     // Recompress every stream in parallel from the unchanged document, then apply.
     let ids: Vec<ObjectId> =
@@ -229,7 +230,8 @@ pub fn rewrite(bytes: &[u8], settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>,
                 }
                 let plan = ImagePlan {
                     jpeg_quality,
-                    dpi,
+                    // Masks are never resampled, and a /Matte mask must keep its image's size.
+                    dpi: dpi.filter(|_| !matted.contains(id)),
                     drawn_dpi: drawn.get(id).map(|p| p.dpi),
                     is_mask: masks.contains(id),
                     // Without downsampling a JPEG is passed through (re-coded losslessly).
@@ -397,6 +399,20 @@ fn mask_ids(doc: &Document) -> HashSet<ObjectId> {
                     out.insert(*r);
                 }
             }
+        }
+    }
+    out
+}
+
+/// Ids of images whose `/SMask` has `/Matte` (pre-multiplied colour).
+fn matte_parents(doc: &Document) -> HashSet<ObjectId> {
+    let mut out = HashSet::new();
+    for (id, o) in &doc.objects {
+        if let Object::Stream(s) = o
+            && let Ok(Object::Reference(m)) = s.dict.get(b"SMask")
+            && doc.get_object(*m).and_then(|m| m.as_stream()).is_ok_and(|m| m.dict.has(b"Matte"))
+        {
+            out.insert(*id);
         }
     }
     out

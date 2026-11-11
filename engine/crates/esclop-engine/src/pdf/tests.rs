@@ -498,3 +498,25 @@ fn an_image_also_drawn_outside_page_content_keeps_its_size() {
     let objs = page("<< /XObject << /Im 5 0 R >> >>", "");
     assert!(resolutions(&build(&objs)).contains_key(&(5, 0)));
 }
+
+#[test]
+fn an_image_with_a_matte_soft_mask_keeps_the_mask_size() {
+    // Drawn at 150 pt, 600 px is 288 dpi: downsampled at 72 dpi, unless its soft mask has /Matte
+    // (pre-multiplied colour: image and mask must keep the same size).
+    for (matte, keeps) in [("/Matte [0]", true), ("", false)] {
+        let mut objs = one_page("<< /XObject << /Im 5 0 R >> >>", b"q 150 0 0 150 0 0 cm /Im Do Q");
+        let mut im = gray_image(600, 600);
+        let at = im.windows(2).position(|w| w == b"<<").unwrap() + 2;
+        im.splice(at..at, b" /SMask 6 0 R".iter().copied());
+        objs.push(im);
+        let mut mask = gray_image(600, 600);
+        mask.splice(at..at, format!(" {matte}").bytes());
+        objs.push(mask);
+        let (r, _) = rewrite_with(build(&objs), Settings::new(30, Some(72.0), false), Duration::from_secs(20))
+            .expect("over 20 s");
+        let out = r.unwrap().0;
+        let widths: Vec<i64> =
+            images_of(&out).iter().map(|s| s.dict.get(b"Width").unwrap().as_i64().unwrap()).collect();
+        assert_eq!(widths.iter().all(|w| *w == 600), keeps, "{matte:?}: {widths:?}");
+    }
+}
