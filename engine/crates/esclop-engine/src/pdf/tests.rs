@@ -423,3 +423,35 @@ fn a_small_image_keeps_the_floor() {
     assert_eq!(image_gate(0.98, 0.90, Some(1.0)), 0.98);
     assert!((image_gate(0.98, 0.90, Some(2.0)) - 0.96).abs() < 1e-12);
 }
+
+/// Whether the glyph a character maps to in a TrueType program has an outline.
+fn has_outline(program: &[u8], c: char) -> bool {
+    use read_fonts::{FontRef, TableProvider};
+    let f = FontRef::new(program).unwrap();
+    let gid = f.cmap().unwrap().map_codepoint(c).unwrap();
+    let loca = f.loca(None).unwrap();
+    let glyf = f.glyf().unwrap();
+    loca.get_glyf(gid, &glyf).unwrap().is_some()
+}
+
+#[test]
+fn a_form_inherits_the_font_set_before_it_is_drawn() {
+    let Ok(ttf) = std::fs::read("/System/Library/Fonts/Supplemental/Andale Mono.ttf") else { return };
+    let mut objs =
+        one_page("<< /Font << /F1 5 0 R >> /XObject << /Fm 7 0 R >> >>", b"BT /F1 9 Tf 10 10 Td (A) Tj ET /Fm Do");
+    objs.push(obj(
+        "<< /Type /Font /Subtype /TrueType /BaseFont /AndaleMono /Encoding /WinAnsiEncoding /FontDescriptor 6 0 R >>",
+    ));
+    objs.push(obj("<< /Type /FontDescriptor /FontName /AndaleMono /Flags 32 /FontBBox [0 0 1000 1000] /ItalicAngle 0 /Ascent 900 /Descent -200 /CapHeight 700 /StemV 80 /FontFile2 8 0 R >>"));
+    // The form shows text without a Tf of its own: it draws with /F1.
+    objs.push(stream("/Type /XObject /Subtype /Form /BBox [0 0 612 792]", b"BT 10 40 Td (xyz) Tj ET", true));
+    objs.push(stream(&format!("/Length1 {}", ttf.len()), &ttf, true));
+    let mut doc = Document::load_mem(&build(&objs)).unwrap();
+    let held = std::sync::Arc::new(budget::Held::new(0));
+    assert_eq!(fonts::subset_fonts(&mut doc, &Ctx::silent().cancel_flag(), &held).unwrap(), 1);
+    let program = doc.get_object((8, 0)).unwrap().as_stream().unwrap().decompressed_content().unwrap();
+    for c in ['A', 'x', 'y', 'z'] {
+        assert!(has_outline(&program, c), "{c} lost its outline");
+    }
+    assert!(!has_outline(&program, 'q'), "the font was not subset");
+}
