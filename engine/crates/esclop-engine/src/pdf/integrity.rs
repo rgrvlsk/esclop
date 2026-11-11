@@ -107,7 +107,7 @@ impl Marks {
     fn new(bytes: &[u8]) -> Self {
         let (mut endobj, mut endstream) = (Vec::new(), Vec::new());
         let mut i = 0;
-        while let Some(p) = bytes.get(i..).and_then(|b| memchr_e(b)) {
+        while let Some(p) = bytes.get(i..).and_then(memchr_e) {
             let at = i + p;
             if bytes[at..].starts_with(b"endobj") {
                 endobj.push(at);
