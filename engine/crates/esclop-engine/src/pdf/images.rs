@@ -110,13 +110,13 @@ pub fn recompress(doc: &Document, stream: &Stream, plan: &ImagePlan, budget: &Bu
     let bpc = if stencil { 1 } else { int(d, b"BitsPerComponent").unwrap_or(8) };
     let space = if stencil { Some(Space::Other(1)) } else { space(doc, d.get(b"ColorSpace").ok()) };
     let lossy_ok = !plan.is_mask && !colour_key && !stencil;
-    // Working set: the samples about four times over (decoded, resampled or filtered, encoded,
-    // and the encode decoded again for the fidelity check).
+    // Working set: the samples about five times over (decoded, resampled or filtered, encoded,
+    // and the encode decoded again and smoothed for the fidelity check).
     let comps_est = match space {
         Some(Space::Jpegable(n) | Space::Other(n)) => n.max(1),
         None => 4,
     };
-    let cost = (w as usize) * (h as usize) * comps_est * (bpc.max(8) as usize / 8) * 4 + stream.content.len() * 2;
+    let cost = (w as usize) * (h as usize) * comps_est * (bpc.max(8) as usize / 8) * 5 + stream.content.len() * 2;
     let Some(_hold) = budget.hold(cost)? else { return Ok(None) };
     let scale = match (plan.dpi, plan.drawn_dpi) {
         (Some(target), Some(drawn)) if drawn > target * 1.05 => target / drawn,
@@ -151,7 +151,7 @@ pub fn recompress(doc: &Document, stream: &Stream, plan: &ImagePlan, budget: &Bu
                 let scale = checked_scale(&raw.pixels, w, h, comps, scale, plan)?;
                 let (px, nw, nh) = resample(raw.pixels, w, h, comps, scale)?;
                 let limit = best.as_ref().map_or(original.len(), |b| b.len());
-                if let Some(enc) = encode_checked(&px, nw, nh, raw.layout, plan, limit)? {
+                if let Some(enc) = encode_checked(&px, nw, nh, raw.layout, plan, scale, limit)? {
                     return Ok(Some((with_jpeg(d, enc, nw, nh), true)));
                 }
             }
@@ -207,7 +207,7 @@ pub fn recompress(doc: &Document, stream: &Stream, plan: &ImagePlan, budget: &Bu
         };
         let limit = original_len.min(strong.len() * 3 / 4);
         if probe.len() < limit
-            && let Some(enc) = encode_checked(&px, nw, nh, layout(comps), plan, limit)?
+            && let Some(enc) = encode_checked(&px, nw, nh, layout(comps), plan, scale, limit)?
         {
             return Ok(Some((with_jpeg(d, enc, nw, nh), true)));
         }
@@ -391,22 +391,73 @@ fn encode_jpeg(px: &[u8], w: u32, h: u32, layout: Layout, quality: u8, chroma_fu
     jpeg::codec().encode(px, w, h, layout, &EncodeOptions { quality, progressive: true, fast_scans: true, chroma_full, markers: &[] })
 }
 
-/// The smallest JPEG under `limit` bytes whose SSIM against `px` reaches the plan's minimum:
-/// the ceiling quality, then without chroma subsampling, then ten points higher (at most 92).
-/// `None` when none does: the caller keeps a lossless form.
-fn encode_checked(px: &[u8], w: u32, h: u32, layout: Layout, plan: &ImagePlan, limit: usize) -> Result<Option<Vec<u8>>> {
+/// The smallest JPEG under `limit` bytes whose SSIM against `px` reaches the plan's minimum,
+/// both seen at `VIEW_DPI` (`scale` is how far `px` was already downsampled from the drawn
+/// image): the ceiling quality, then without chroma subsampling, then 10, 20 and 40 points
+/// higher (at most 92). `None` when none does: the caller keeps a lossless form.
+fn encode_checked(
+    px: &[u8],
+    w: u32,
+    h: u32,
+    layout: Layout,
+    plan: &ImagePlan,
+    scale: f64,
+    limit: usize,
+) -> Result<Option<Vec<u8>>> {
+    let comps = layout.components();
+    // At the view: an image drawn denser than VIEW_DPI is compared as a viewer shows it.
+    let view = plan.drawn_dpi.filter(|d| *d > 0.0).map_or(1.0, |d| (VIEW_DPI / (d * scale)).min(1.0));
+    let (vw, vh) = (((w as f64 * view).round() as u32).max(1), ((h as f64 * view).round() as u32).max(1));
+    // A viewer draws an image through its interpolation filter, which smooths pixel noise a
+    // JPEG drops: one [1 2 1] pass stands in for it (a noisy 150 dpi scan scored SSIM 0.873
+    // on raw pixels, 0.981 after the pass, and 0.987 as CoreGraphics renders the page).
+    let at_view = |p: &[u8]| -> Result<Option<Vec<u8>>> {
+        let seen = if view >= 1.0 { Some(p.to_vec()) } else { resample_to(p, w, h, comps, vw, vh)? };
+        Ok(seen.map(|s| smooth(&s, vw as usize, vh as usize, comps)))
+    };
+    let Some(reference) = at_view(px)? else { return Ok(None) };
     let q = plan.jpeg_quality;
-    for (quality, full) in [(q, false), (q, true), (q.saturating_add(10).min(92).max(q), true)] {
+    let up = |n: u8| q.saturating_add(n).min(92).max(q);
+    for (quality, full) in [(q, false), (q, true), (up(10), true), (up(20), true), (up(40), true)] {
         let enc = encode_jpeg(px, w, h, layout, quality, full)?;
         if enc.len() >= limit {
             return Ok(None);
         }
         let back = jpeg::decode_samples(&enc, u64::from(w) * u64::from(h))?;
-        if back.pixels.len() == px.len() && ssim(px, &back.pixels, w as usize, h as usize, layout.components()) >= plan.min_ssim {
+        if back.pixels.len() != px.len() {
+            return Ok(None);
+        }
+        let Some(seen) = at_view(&back.pixels)? else { return Ok(None) };
+        if ssim(&reference, &seen, vw as usize, vh as usize, comps) >= plan.min_ssim {
             return Ok(Some(enc));
         }
     }
     Ok(None)
+}
+
+/// One separable [1 2 1] / 4 pass over each channel of an interleaved image, edges clamped.
+fn smooth(px: &[u8], w: usize, h: usize, comps: usize) -> Vec<u8> {
+    let at = |x: usize, y: usize, c: usize| u32::from(px[(y * w + x) * comps + c]);
+    let mut tmp = vec![0u32; px.len()];
+    for y in 0..h {
+        for x in 0..w {
+            let (l, r) = (x.saturating_sub(1), (x + 1).min(w - 1));
+            for c in 0..comps {
+                tmp[(y * w + x) * comps + c] = at(l, y, c) + 2 * at(x, y, c) + at(r, y, c);
+            }
+        }
+    }
+    let mut out = vec![0u8; px.len()];
+    for y in 0..h {
+        let (u, d) = (y.saturating_sub(1), (y + 1).min(h - 1));
+        for x in 0..w {
+            for c in 0..comps {
+                let i = |yy: usize| tmp[(yy * w + x) * comps + c];
+                out[(y * w + x) * comps + c] = ((i(u) + 2 * i(y) + i(d) + 8) / 16) as u8;
+            }
+        }
+    }
+    out
 }
 
 /// Mean SSIM over the channels of two interleaved 8-bit images, 7x7 uniform window (as the
@@ -537,3 +588,4 @@ mod ssim_tests {
         assert!(sb < 1.0 && sb > sc, "{sb} {sc}");
     }
 }
+

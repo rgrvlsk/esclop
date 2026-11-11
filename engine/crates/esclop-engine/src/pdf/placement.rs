@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //! How large each image is drawn: walks every page's content (and the form XObjects it draws)
 //! tracking the transformation matrix, and records each image's lowest effective resolution
-//! over all the places it is painted. An image that is never found this way (only in a pattern,
-//! an annotation appearance or a soft mask) gets no entry and is never downsampled.
+//! over all the places it is painted, and how much of the page its page's images cover. An
+//! image that is never found this way (only in a pattern, an annotation appearance or a soft
+//! mask) gets no entry and is never downsampled.
 
 use lopdf::content::Content;
 use lopdf::{Dictionary, Document, Object, ObjectId};
@@ -47,16 +48,57 @@ fn dict<'a>(doc: &'a Document, o: &'a Object) -> Option<&'a Dictionary> {
     }
 }
 
-/// Lowest effective resolution (pixels per inch along the image's less dense axis) of every
-/// image drawn by page content, keyed by the image's object id.
-pub fn image_resolutions(doc: &Document) -> HashMap<ObjectId, f64> {
-    let mut out = HashMap::new();
+/// Where an image is drawn.
+#[derive(Debug, Clone, Copy)]
+pub struct Placed {
+    /// Lowest effective resolution, pixels per inch along the image's less dense axis.
+    pub dpi: f64,
+    /// Page area over the area all images on the page are drawn at, on the page where that is
+    /// smallest, and at least 1: how much of a page-wide SSIM loss this image's own SSIM may
+    /// show (page SSIM is a mean over the page; areas without images keep it at 1).
+    pub allowance: f64,
+}
+
+/// Every image drawn by page content, keyed by the image's object id.
+pub fn image_resolutions(doc: &Document) -> HashMap<ObjectId, Placed> {
+    let mut dpi = HashMap::new();
+    let mut allowance: HashMap<ObjectId, f64> = HashMap::new();
     for page in doc.page_iter() {
         let Ok(content) = doc.get_page_content_with_limit(page, 256 << 20) else { continue };
         let resources = page_resources(doc, page);
-        walk(doc, &content, resources.as_ref(), IDENTITY, 0, &mut Vec::new(), &mut out);
+        let mut draws = Vec::new();
+        walk(doc, &content, resources.as_ref(), IDENTITY, 0, &mut Vec::new(), &mut dpi, &mut draws);
+        let covered: f64 = draws.iter().map(|(_, a)| a).sum();
+        let factor = page_area(doc, page).map_or(1.0, |p| (p / covered.max(1e-6)).max(1.0));
+        for (id, _) in draws {
+            let e = allowance.entry(id).or_insert(f64::INFINITY);
+            *e = e.min(factor);
+        }
     }
-    out
+    dpi.into_iter()
+        .map(|(id, d)| (id, Placed { dpi: d, allowance: allowance.get(&id).copied().unwrap_or(1.0).min(1e3) }))
+        .collect()
+}
+
+/// The page's crop box (or media box) area, in square points, inherited through the page tree.
+fn page_area(doc: &Document, page: ObjectId) -> Option<f64> {
+    let mut node = doc.get_dictionary(page).ok()?;
+    for _ in 0..64 {
+        for key in [&b"CropBox"[..], b"MediaBox"] {
+            if let Some(Object::Array(a)) = node.get(key).ok().map(|o| match o {
+                Object::Reference(r) => doc.get_object(*r).unwrap_or(o),
+                o => o,
+            }) && a.len() == 4
+            {
+                let v: Vec<f64> = a.iter().filter_map(number).collect();
+                if v.len() == 4 {
+                    return Some(((v[2] - v[0]) * (v[3] - v[1])).abs());
+                }
+            }
+        }
+        node = doc.get_dictionary(node.get(b"Parent").ok()?.as_reference().ok()?).ok()?;
+    }
+    None
 }
 
 /// The page's resource dictionary, inherited through the page tree when the page has none.
@@ -73,6 +115,7 @@ fn page_resources(doc: &Document, page: ObjectId) -> Option<Dictionary> {
     None
 }
 
+#[allow(clippy::too_many_arguments)]
 fn walk(
     doc: &Document,
     content: &[u8],
@@ -81,6 +124,7 @@ fn walk(
     depth: usize,
     stack: &mut Vec<ObjectId>,
     out: &mut HashMap<ObjectId, f64>,
+    draws: &mut Vec<(ObjectId, f64)>,
 ) {
     if depth > MAX_DEPTH {
         return;
@@ -103,14 +147,17 @@ fn walk(
                 let Some(Ok(id)) = xobjects.and_then(|x| x.get(name).ok()).map(|o| o.as_reference()) else { continue };
                 let Ok(stream) = doc.get_object(id).and_then(|o| o.as_stream()) else { continue };
                 match stream.dict.get(b"Subtype").and_then(|s| s.as_name()) {
-                    Ok(b"Image") => record(&stream.dict, id, &ctm, out),
+                    Ok(b"Image") => {
+                        record(&stream.dict, id, &ctm, out);
+                        draws.push((id, (ctm[0] * ctm[3] - ctm[1] * ctm[2]).abs()));
+                    }
                     Ok(b"Form") if !stack.contains(&id) => {
                         let m = stream.dict.get(b"Matrix").ok().and_then(|m| m.as_array().ok()).and_then(|a| matrix(a));
                         let local = mul(&m.unwrap_or(IDENTITY), &ctm);
                         let res = stream.dict.get(b"Resources").ok().and_then(|r| dict(doc, r)).or(resources);
                         let Ok(data) = stream.decompressed_content_with_limit(256 << 20) else { continue };
                         stack.push(id);
-                        walk(doc, &data, res, local, depth + 1, stack, out);
+                        walk(doc, &data, res, local, depth + 1, stack, out, draws);
                         stack.pop();
                     }
                     _ => {}
