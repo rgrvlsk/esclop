@@ -7,7 +7,9 @@
 # moto once.
 #
 #   Scripts/s3-test-server.sh start   starts it on a free port on 127.0.0.1 and prints one JSON
-#                                     line: endpoint, bucket, accessKeyID, secret (throwaway), pid
+#                                     line: endpoint, bucket, accessKeyID, secret (throwaway), pid.
+#                                     With ESCLOP_S3_OWNER=PID it stops when that process ends
+#                                     (the test run that shares one server across its tests).
 #   Scripts/s3-test-server.sh stop PID
 #   Scripts/s3-test-server.sh install installs moto only (CI does it before the tests)
 #
@@ -48,7 +50,11 @@ log="$(mktemp "${TMPDIR:-/tmp}/s3-test-server.XXXXXX")"
 # request after them is checked.
 INITIAL_NO_AUTH_ACTION_COUNT=3 nohup "$VENV/bin/moto_server" -H 127.0.0.1 -p "$port" > "$log" 2>&1 &
 pid=$!
-for _ in $(seq 1 100); do
+if [ -n "${ESCLOP_S3_OWNER:-}" ]; then
+  owner=$ESCLOP_S3_OWNER
+  nohup bash -c "while kill -0 $owner 2>/dev/null && kill -0 $pid 2>/dev/null; do sleep 1; done; kill $pid 2>/dev/null" > /dev/null 2>&1 &
+fi
+for _ in $(seq 1 300); do
   curl -fs -o /dev/null "http://127.0.0.1:$port/moto-api/" 2>/dev/null && break
   kill -0 "$pid" 2>/dev/null || { cat "$log" >&2; exit 1; }
   sleep 0.1
