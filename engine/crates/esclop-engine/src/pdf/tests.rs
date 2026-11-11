@@ -406,3 +406,20 @@ fn without_downsampling_a_jpeg_keeps_its_pixels() {
     before.sort();
     assert_eq!(after, before);
 }
+
+#[test]
+fn a_small_image_keeps_the_floor() {
+    // An image drawn over 4 % of the page may lose 25 times the page's share, but not below the
+    // floor (0.5 before there was one).
+    let mut objs = one_page("<< /XObject << /Im 5 0 R >> >>", b"q 139 0 0 139 0 0 cm /Im Do Q");
+    objs.push(gray_image(64, 64));
+    let placed = resolutions(&build(&objs))[&(5, 0)];
+    assert!((placed.allowance - 612.0 * 792.0 / (139.0 * 139.0)).abs() < 1e-6, "{placed:?}");
+    let default = Settings::new(30, Some(150.0), false);
+    let aggressive = Settings::new(64, Some(150.0), false);
+    assert_eq!(image_gate(default.min_ssim, default.image_floor, Some(placed.allowance)), 0.90);
+    assert_eq!(image_gate(aggressive.min_ssim, aggressive.image_floor, Some(placed.allowance)), 0.85);
+    // A page-wide image keeps the page gate; one over half the page, twice its loss.
+    assert_eq!(image_gate(0.98, 0.90, Some(1.0)), 0.98);
+    assert!((image_gate(0.98, 0.90, Some(2.0)) - 0.96).abs() < 1e-12);
+}

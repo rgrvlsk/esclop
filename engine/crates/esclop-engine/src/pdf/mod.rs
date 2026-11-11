@@ -83,6 +83,10 @@ pub struct Settings {
     pub jpeg_quality: u8,
     /// The page gate: SSIM 0.98 at default settings, 0.95 when aggressive.
     pub min_ssim: f64,
+    /// The lowest SSIM any one image may keep, however little of its page it covers: 0.90 at
+    /// default settings, 0.85 when aggressive (a signature or a QR code is small and must stay
+    /// legible).
+    pub image_floor: f64,
     pub strip: bool,
     /// False at compression 0: images stay exactly as stored.
     pub images: bool,
@@ -94,6 +98,7 @@ impl Settings {
             dpi,
             jpeg_quality: jpeg_quality(factor, dpi),
             min_ssim: if factor <= 40 { 0.98 } else { 0.95 },
+            image_floor: if factor <= 40 { 0.90 } else { 0.85 },
             strip,
             images: factor > 0,
         }
@@ -103,7 +108,7 @@ impl Settings {
 /// The rewritten file and whether any image lost information. Without `dpi` (no downsampling)
 /// JPEG images are only re-coded losslessly, as Ghostscript passed them through.
 pub fn rewrite(bytes: &[u8], settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>, bool)> {
-    let Settings { dpi, jpeg_quality, min_ssim, strip, images } = *settings;
+    let Settings { dpi, jpeg_quality, min_ssim, image_floor, strip, images } = *settings;
     let head = &bytes[..bytes.len().min(1024)];
     if !head.windows(5).any(|w| w == b"%PDF-") {
         return Err(EngineError::unsupported("not a PDF"));
@@ -230,7 +235,7 @@ pub fn rewrite(bytes: &[u8], settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>,
                     // Without downsampling a JPEG is passed through (re-coded losslessly).
                     reencode_jpeg: dpi.is_some(),
                     // Each image may lose its share of the page's SSIM budget (see `placement`).
-                    min_ssim: drawn.get(id).map_or(min_ssim, |p| 1.0 - (1.0 - min_ssim) * p.allowance).max(0.5),
+                    min_ssim: image_gate(min_ssim, image_floor, drawn.get(id).map(|p| p.allowance)),
                 };
                 let new = match images::recompress(&doc, s, &plan, &budget) {
                     Ok(n) => n,
@@ -304,6 +309,12 @@ pub fn rewrite(bytes: &[u8], settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>,
         }
     }
     Ok((out, lossy.load(Ordering::Relaxed) > 0))
+}
+
+/// The SSIM an image must keep: its share of the page gate's loss (an image covering a tenth of
+/// its page may lose ten times what the page may), never below `floor`.
+fn image_gate(min_ssim: f64, floor: f64, allowance: Option<f64>) -> f64 {
+    allowance.map_or(min_ssim, |a| 1.0 - (1.0 - min_ssim) * a).max(floor)
 }
 
 /// A catalog `/Perms` (DocMDP, UR3), or any signature value (a dictionary with `/ByteRange`).
