@@ -98,6 +98,16 @@ app that wants one `EngineClient`).
 | Audio | ffmpeg: `aac_at` (falls back to `aac`), `libmp3lame` VBR, `libopus`, FLAC, PCM |
 | PDF | esclop-engine `pdf.optimise` (30 min at most from when a worker starts it; signed, Reader-extended, password-protected and damaged files, encrypted ones over 64 MB, and ones that would need more than 256 MB besides their own size, are left as they are, with the reason as the message); PDFKit for crop/uncrop/pages; images become PDFs with PDFKit |
 
+### PDF memory
+
+`pdf.optimise` keeps what it decodes (parsed objects, font programs, the images being
+recompressed) within about 256 MB besides the file itself, and refuses inputs over 1 GB. The
+file's own streams are held once, but while lopdf loads a file it copies every stream out of the
+input before the input can be dropped, so the peak is about twice the input once the input is
+over roughly 256 MB: 658 MB for a 340.9 MB scanned book, and at most about 2 GB at the 1 GB
+ceiling. Below that it stays under 512 MB (487 MB at most on the 1,576 files of the real
+benchmark corpus). A streaming load and write would remove the copy (`docs/PLAN.md`, Later).
+
 ## Image engine client
 
 `EngineClient` (actor) keeps one `esclop-engine serve` child per client (`EngineClient.shared`
