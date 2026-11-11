@@ -581,6 +581,16 @@
         }
       }
     },
+    "A drag shows the first four that work on every file in it, beside the drop zone.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En arrossegar fitxers, al costat de la zona de deixar anar apareixen les quatre primeres que funcionen amb tots."
+          }
+        }
+      }
+    },
     "A drop zone appears in the corner; drop on it to optimise.": {
       "localizations": {
         "ca": {
@@ -1267,6 +1277,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "A baix a la dreta"
+          }
+        }
+      }
+    },
+    "Built-in template": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plantilla integrada"
           }
         }
       }
@@ -2281,6 +2301,16 @@
         }
       }
     },
+    "Drag files here. Hold ⌘ for harder": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrossega fitxers aquí. Mantén ⌘ per comprimir més"
+          }
+        }
+      }
+    },
     "Drag the file into another app": {
       "localizations": {
         "ca": {
@@ -2297,6 +2327,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Deixa anar un fitxer aquí o tria’n un. El pipeline s’executa en una còpia; el teu fitxer queda com està."
+          }
+        }
+      }
+    },
+    "Drop files here to run this pipeline on them.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deixa anar fitxers aquí per executar-hi aquest pipeline."
           }
         }
       }
@@ -3641,6 +3681,16 @@
         }
       }
     },
+    "Move down": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Baixa"
+          }
+        }
+      }
+    },
     "Move the file": {
       "localizations": {
         "ca": {
@@ -3657,6 +3707,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mou a la paperera"
+          }
+        }
+      }
+    },
+    "Move up": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puja"
+          }
+        }
+      }
+    },
+    "Move “%@” down": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Baixa «%@»"
+          }
+        }
+      }
+    },
+    "Move “%@” up": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puja «%@»"
           }
         }
       }
@@ -4821,6 +4901,26 @@
         }
       }
     },
+    "Preset zone: %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zona predefinida: %@"
+          }
+        }
+      }
+    },
+    "Preset zones": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zones predefinides"
+          }
+        }
+      }
+    },
     "Press again to pause everything.": {
       "localizations": {
         "ca": {
@@ -5527,6 +5627,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Desa a"
+          }
+        }
+      }
+    },
+    "Saved pipeline": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pipeline desat"
           }
         }
       }
@@ -9227,6 +9337,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Conserva les dates dels fitxers"
+          }
+        }
+      }
+    },
+    "setting.presetZones.summary": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les zones al costat de la zona de deixar anar que executen un pipeline amb el que hi deixes, per ordre. Sempre hi surten els pipelines desats que tenen una zona predefinida entre els activadors; s’hi afegeixen les plantilles integrades que s’hi anomenen."
+          }
+        }
+      }
+    },
+    "setting.presetZones.title": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zones predefinides"
           }
         }
       }
