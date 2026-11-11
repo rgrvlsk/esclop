@@ -91,7 +91,7 @@ enum Output {
         case .fileNotFound: return 66
         case .appNotRunning, .toolMissing: return 69
         case .notPermitted: return 77
-        case .invalidArgument, .invalidPipeline, .unsupportedFile: return 64
+        case .invalidArgument, .invalidPipeline, .unsupportedFile, .leftAsIs: return 64
         case .cancelled: return 130
         case .unreadable: return 65
         default: return 1

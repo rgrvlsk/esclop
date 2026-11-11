@@ -41,6 +41,13 @@
         "message": {
           "description": "For people and agents; do not parse.",
           "type": "string"
+        },
+        "reason": {
+          "description": "With `unsupported`: why the file is left as it is, one sentence meant to be shown to\npeople as it is (or translated). Absent when there is nothing to say beyond `message`.",
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "required": [

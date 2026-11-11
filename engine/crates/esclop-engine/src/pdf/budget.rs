@@ -53,7 +53,10 @@ impl Held {
 }
 
 pub fn too_much() -> EngineError {
-    EngineError::unsupported(format!("rewriting this PDF would hold more than {} MB in memory", MAX_HELD >> 20))
+    EngineError::left_as_is(
+        super::reasons::MEMORY,
+        format!("rewriting this PDF would hold more than {} MB in memory", MAX_HELD >> 20),
+    )
 }
 
 thread_local! {

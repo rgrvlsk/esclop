@@ -48,6 +48,10 @@ import Testing
         // With the input's kind known, a file the engine cannot read is a damaged file of that kind.
         #expect(EngineClient.mapError(code: "decode", message: "the cross-reference table misplaces object 5", kind: .pdf) == .unreadable(kind: .pdf))
         #expect(EngineClient.mapError(code: "decode", message: "bad", kind: .image) == .unreadable(kind: .image))
+        // The engine's reason for leaving a file as it is becomes the message.
+        let signed = "Signed PDFs are left as they are, so their signatures stay valid."
+        #expect(EngineClient.mapError(code: "unsupported", message: "signed: /ByteRange", kind: .pdf, reason: signed) == .leftAsIs(signed))
+        #expect(EngineClient.mapError(code: "unsupported", message: "not a PDF") == .unsupportedFile("not a PDF"))
     }
 
     @Test func progressEventsReachTheCaller() async throws {

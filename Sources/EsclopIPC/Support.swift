@@ -301,7 +301,7 @@ extension EsclopError {
     /// A stable machine-readable name for the case.
     public var code: String {
         switch self {
-        case .unsupportedFile: return "unsupportedFile"
+        case .unsupportedFile, .leftAsIs: return "unsupportedFile"
         case .fileNotFound: return "fileNotFound"
         case .toolMissing: return "toolMissing"
         case .toolFailed: return "toolFailed"
