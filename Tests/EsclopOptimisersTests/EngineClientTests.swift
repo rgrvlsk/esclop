@@ -109,6 +109,40 @@ import Testing
         #expect(await client.childProcessIdentifier != first)
     }
 
+    @Test func timeQueuedDoesNotCountAndNothingRunningIsKilled() async throws {
+        // Two workers, six jobs of 0.6 s, each allowed 1 s once started: the last ones wait
+        // 1.2 s in the queue and must still finish, with the same child throughout.
+        let client = EngineClient(executable: try await FakeEngine.shared.executable(), environment: ["FAKE_ENGINE_WORKERS": "2"], cancelGrace: 1)
+        defer { Task { await client.shutdown() } }
+        _ = try await client.call("sleep", params: ["seconds": 0.0])
+        let pid = await client.childProcessIdentifier
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for _ in 0 ..< 6 {
+                group.addTask { _ = try await client.call("sleep", params: ["seconds": 0.6], timeout: 1) }
+            }
+            try await group.waitForAll()
+        }
+        #expect(await client.childProcessIdentifier == pid)
+    }
+
+    @Test func cancellingAQueuedRequestRestartsNothing() async throws {
+        // One worker, held by a request that ignores cancels; a queued one is cancelled. The
+        // engine answers it at once, so the child is not restarted for it.
+        let client = EngineClient(executable: try await FakeEngine.shared.executable(), environment: ["FAKE_ENGINE_WORKERS": "1"], cancelGrace: 1)
+        defer { Task { await client.shutdown() } }
+        _ = try await client.call("sleep", params: ["seconds": 0.0])
+        let pid = await client.childProcessIdentifier
+        let busy = Task { try await client.call("sleep", params: ["seconds": 30, "stuck": true]) }
+        try await Task.sleep(nanoseconds: 300_000_000)
+        let queued = Task { try await client.call("sleep", params: ["seconds": 0.1]) }
+        try await Task.sleep(nanoseconds: 300_000_000)
+        queued.cancel()
+        await #expect(throws: EsclopError.cancelled) { try await queued.value }
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        #expect(await client.childProcessIdentifier == pid, "restarted for a request that never ran")
+        busy.cancel()
+    }
+
     @Test func aCrashFailsTheRequestAndTheNextCallRestarts() async throws {
         let client = try await client()
         defer { Task { await client.shutdown() } }

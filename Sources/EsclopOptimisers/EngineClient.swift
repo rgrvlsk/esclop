@@ -82,9 +82,10 @@ public actor EngineClient {
     private var cachedCapabilities: EngineCapabilities?
     private var exits: [Date] = []
     private var stopping: ObjectIdentifier?
-    /// Requests cancelled (or timed out) whose reply has not come back yet, by the child that
-    /// runs them. One still missing after `cancelGrace` holds a worker in a step that does not
-    /// check for cancellation: the child is restarted to free it.
+    /// Requests cancelled (or timed out) while running whose reply has not come back yet, by the
+    /// child that runs them. One still missing after `cancelGrace` holds a worker in a step that
+    /// does not check for cancellation: the child is restarted to free it. (A request still queued
+    /// is answered at once by the engine, so it is never watched.)
     private var abandoned: [String: ObjectIdentifier] = [:]
     private let cancelGrace: TimeInterval
 
@@ -94,6 +95,12 @@ public actor EngineClient {
         let generation: ObjectIdentifier
         /// The input's kind, for a `decode` refusal (a damaged file of that kind).
         let kind: MediaKind?
+        /// How long it may run once a worker has it (the engine's `started` event).
+        let timeout: TimeInterval?
+        /// The input's name (or the op), for the time-out message.
+        let label: String
+        /// A worker took it: a cancel then has to stop it, rather than drop it from the queue.
+        var started = false
     }
 
     /// The child process went away while a request was in flight.
@@ -156,41 +163,19 @@ public actor EngineClient {
     // MARK: Calls
 
     /// Runs one op. `input`/`output` are absolute file URLs. Errors map onto `EsclopError`.
-    /// With `timeout`, a request that takes longer is cancelled and fails (see `abandoned`).
+    /// With `timeout`, a request still running that long after a worker took it is cancelled
+    /// and fails (time spent queued behind other requests does not count; see `abandoned`).
     @discardableResult
     public func call(
         _ op: String, input: URL? = nil, output: URL? = nil, params: [String: JSONValue] = [:],
         timeout: TimeInterval? = nil, progress: (@Sendable (Double) -> Void)? = nil
     ) async throws -> EngineReply {
-        guard let timeout else { return try await call(op, input: input, output: output, params: params, progress: progress) }
-        return try await withThrowingTaskGroup(of: EngineReply?.self) { group in
-            group.addTask { try await self.call(op, input: input, output: output, params: params, progress: progress) }
-            group.addTask {
-                try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                return nil
-            }
-            defer { group.cancelAll() }
-            guard let reply = try await group.next()!, !Task.isCancelled else {
-                if Task.isCancelled { throw EsclopError.cancelled }
-                let seconds = timeout < 10 ? String(format: "%.1f", timeout) : String(Int(timeout))
-                throw EsclopError.toolFailed(
-                    tool: Tool.esclopEngine.rawValue, exitCode: -1,
-                    stderr: "esclop-engine did not finish \(input?.lastPathComponent ?? op) within \(seconds) s"
-                )
-            }
-            return reply
-        }
-    }
-
-    private func call(
-        _ op: String, input: URL?, output: URL?, params: [String: JSONValue], progress: (@Sendable (Double) -> Void)?
-    ) async throws -> EngineReply {
         do {
-            return EngineReply(try await send(op: op, input: input, output: output, params: params, progress: progress))
+            return EngineReply(try await send(op: op, input: input, output: output, params: params, timeout: timeout, progress: progress))
         } catch is ChildExited {
             // The child crashed or was restarted under us; one more go on a fresh child.
             do {
-                return EngineReply(try await send(op: op, input: input, output: output, params: params, progress: progress))
+                return EngineReply(try await send(op: op, input: input, output: output, params: params, timeout: timeout, progress: progress))
             } catch let exited as ChildExited {
                 throw EsclopError.toolFailed(
                     tool: Tool.esclopEngine.rawValue, exitCode: exited.status,
@@ -211,7 +196,7 @@ public actor EngineClient {
     }
 
     private func send(
-        op: String, input: URL?, output: URL?, params: [String: JSONValue]?,
+        op: String, input: URL?, output: URL?, params: [String: JSONValue]?, timeout: TimeInterval? = nil,
         progress: (@Sendable (Double) -> Void)?
     ) async throws -> [String: JSONValue] {
         if Task.isCancelled { throw EsclopError.cancelled }
@@ -234,7 +219,7 @@ public actor EngineClient {
                 }
                 pending[id] = Pending(
                     continuation: continuation, progress: progress, generation: ObjectIdentifier(child),
-                    kind: input.flatMap(MediaKind.of)
+                    kind: input.flatMap(MediaKind.of), timeout: timeout, label: input?.lastPathComponent ?? op
                 )
                 do {
                     try child.send(line)
@@ -254,13 +239,42 @@ public actor EngineClient {
             return
         }
         entry.continuation.resume(throwing: EsclopError.cancelled)
+        stop(id, entry)
+    }
+
+    /// Tells the engine to stop `id`; a running one is watched until its reply comes back.
+    private func stop(_ id: String, _ entry: Pending) {
         try? running?.send(JSONValue.object(["id": .string(id), "op": "cancel"]).jsonString())
+        guard entry.started else { return }
         abandoned[id] = entry.generation
         let grace = cancelGrace
         Task { [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(grace * 1_000_000_000))
             await self?.restartIfStillRunning(id)
         }
+    }
+
+    /// A worker took `id`: its time limit starts.
+    private func started(_ id: String) {
+        guard var entry = pending[id], !entry.started else { return }
+        entry.started = true
+        pending[id] = entry
+        guard let timeout = entry.timeout else { return }
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+            await self?.timedOut(id)
+        }
+    }
+
+    /// `id` ran past its time limit: it fails, and the engine is told to stop it.
+    private func timedOut(_ id: String) {
+        guard let entry = pending.removeValue(forKey: id), let timeout = entry.timeout else { return }
+        let seconds = timeout < 10 ? String(format: "%.1f", timeout) : String(Int(timeout))
+        entry.continuation.resume(throwing: EsclopError.toolFailed(
+            tool: Tool.esclopEngine.rawValue, exitCode: -1,
+            stderr: "esclop-engine did not finish \(entry.label) within \(seconds) s"
+        ))
+        stop(id, entry)
     }
 
     /// The cancelled request `id` never came back: its worker is stuck, so the child goes.
@@ -341,6 +355,10 @@ public actor EngineClient {
             if let id, let fraction = object["fraction"]?.doubleValue {
                 pending[id]?.progress?(min(1, max(0, fraction)))
             }
+            return
+        }
+        if let event = object["event"]?.stringValue {
+            if event == "started", let id { started(id) }
             return
         }
 
