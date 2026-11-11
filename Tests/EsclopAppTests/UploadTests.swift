@@ -19,7 +19,12 @@ struct S3TestServer {
 
     static let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
 
-    static func start() throws -> S3TestServer {
+    /// Off the main actor: the first start installs moto, which takes a while.
+    static func start() async throws -> S3TestServer {
+        try await Task.detached { try launch() }.value
+    }
+
+    private static func launch() throws -> S3TestServer {
         let process = Process()
         process.executableURL = root.appendingPathComponent("Scripts/s3-test-server.sh")
         process.arguments = ["start"]
@@ -69,7 +74,7 @@ struct S3TestServer {
     }
 
     @Test func aFileGoesUpAndItsLinkPointsAtIt() async throws {
-        let server = try S3TestServer.start()
+        let server = try await S3TestServer.start()
         defer { server.stop() }
         let temp = TempDir()
         let file = temp.file("photo one.png", bytes: 300_000)
@@ -86,7 +91,7 @@ struct S3TestServer {
     }
 
     @Test func aWrongSecretIsRefusedAndTheFileStays() async throws {
-        let server = try S3TestServer.start()
+        let server = try await S3TestServer.start()
         defer { server.stop() }
         let temp = TempDir()
         let file = temp.file("a.png")
@@ -102,7 +107,7 @@ struct S3TestServer {
     }
 
     @Test func anUploadCanBeStopped() async throws {
-        let server = try S3TestServer.start()
+        let server = try await S3TestServer.start()
         defer { server.stop() }
         let temp = TempDir()
         let file = temp.file("big.mov", bytes: 60_000_000)
@@ -123,7 +128,7 @@ struct S3TestServer {
     }
 
     @Test func aCardUploadsItsResultAndCopiesTheLink() async throws {
-        let server = try S3TestServer.start()
+        let server = try await S3TestServer.start()
         defer { server.stop() }
         let harness = harness(server)
         await harness.model.run(harness.job(harness.temp.file("a.png")))
@@ -138,7 +143,7 @@ struct S3TestServer {
     }
 
     @Test func aFailedUploadKeepsTheFileAndSaysWhy() async throws {
-        let server = try S3TestServer.start()
+        let server = try await S3TestServer.start()
         defer { server.stop() }
         let harness = harness(server, keys: false)
         await harness.model.run(harness.job(harness.temp.file("a.png")))
@@ -156,7 +161,7 @@ struct S3TestServer {
     }
 
     @Test func resultsFromChosenSourcesUploadOnTheirOwn() async throws {
-        let server = try S3TestServer.start()
+        let server = try await S3TestServer.start()
         defer { server.stop() }
         let harness = harness(server)
         try EsclopSettings.uploadAutomatically.set(["dropZone"], in: harness.settings.store)
@@ -170,7 +175,7 @@ struct S3TestServer {
     }
 
     @Test func aJobFromTheCommandLineUploadsThroughTheApp() async throws {
-        let server = try S3TestServer.start()
+        let server = try await S3TestServer.start()
         defer { server.stop() }
         let harness = harness(server)
         var job = harness.job(harness.temp.file("cli.png"), origin: .cli)
@@ -189,7 +194,7 @@ struct S3TestServer {
     }
 
     @Test func aPipelineStepUploadsInTheApp() async throws {
-        let server = try S3TestServer.start()
+        let server = try await S3TestServer.start()
         defer { server.stop() }
         let harness = harness(server)
         try harness.model.service.context.pipelines.save(PipelineParser.parse("upload(to: \"Local\")", name: "Share"))

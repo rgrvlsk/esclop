@@ -9,6 +9,7 @@
 #   Scripts/s3-test-server.sh start   starts it on a free port on 127.0.0.1 and prints one JSON
 #                                     line: endpoint, bucket, accessKeyID, secret (throwaway), pid
 #   Scripts/s3-test-server.sh stop PID
+#   Scripts/s3-test-server.sh install installs moto only (CI does it before the tests)
 #
 # Needs python3. The keys are made by the server for this run and mean nothing anywhere else.
 set -euo pipefail
@@ -16,19 +17,31 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MOTO_VERSION=5.2.5
 VENV="${ESCLOP_SCRATCH_PATH:-$ROOT/.build}/s3-test-moto-$MOTO_VERSION"
 
+install() {
+  [ -x "$VENV/bin/moto_server" ] && return 0
+  # One installer at a time: tests may start servers side by side.
+  local lock="$VENV.lock"
+  mkdir -p "$(dirname "$VENV")"
+  until mkdir "$lock" 2>/dev/null; do sleep 0.5; done
+  trap 'rmdir "$lock" 2>/dev/null || true' EXIT
+  if [ ! -x "$VENV/bin/moto_server" ]; then
+    rm -rf "$VENV"
+    python3 -m venv "$VENV" >&2
+    "$VENV/bin/pip" install --quiet --disable-pip-version-check "moto[server]==$MOTO_VERSION" >&2
+  fi
+  rmdir "$lock" 2>/dev/null || true
+  trap - EXIT
+}
+
 case "${1:-}" in
   stop)
     kill "${2:?usage: Scripts/s3-test-server.sh stop PID}" 2>/dev/null || true
     exit 0
     ;;
-  start) ;;
-  *) echo "usage: Scripts/s3-test-server.sh start|stop PID" >&2; exit 2 ;;
+  install) install; exit 0 ;;
+  start) install ;;
+  *) echo "usage: Scripts/s3-test-server.sh start|stop PID|install" >&2; exit 2 ;;
 esac
-
-if [ ! -x "$VENV/bin/moto_server" ]; then
-  python3 -m venv "$VENV" >&2
-  "$VENV/bin/pip" install --quiet --disable-pip-version-check "moto[server]==$MOTO_VERSION" >&2
-fi
 port="$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')"
 log="$(mktemp "${TMPDIR:-/tmp}/s3-test-server.XXXXXX")"
 # The first three requests (make a user, give it a key and a policy) need no signature; every

@@ -67,6 +67,9 @@ jobs:
           restore-keys: swift-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved') }}-
       # With Xcode on the runner, Package.swift includes the app, so this also compiles EsclopApp.
       - run: swift build --build-tests
+      # The upload tests start a local S3 server (moto); install it before the suite starts.
+      - name: Local S3 server for the upload tests
+        run: Scripts/s3-test-server.sh install
       # Suites that need ffmpeg, gs, gifsicle or esclop-engine skip here; the gate job reruns
       # them with the real tools. The suite takes under a minute; a hang fails after 5 minutes
       # with the unfinished tests and their stacks (Scripts/test.sh), not at the job timeout.
@@ -108,6 +111,9 @@ jobs:
           swift --version
           swift --version 2>&1 | grep -Eq 'Swift version (6\.([2-9]|[1-9][0-9])|[7-9])' || { echo "The macOS 26 SDK (Swift 6.2+) is needed for Liquid Glass." >&2; exit 1; }
       - run: swift build --build-tests
+      # The upload tests start a local S3 server (moto); install it before the suite starts.
+      - name: Local S3 server for the upload tests
+        run: Scripts/s3-test-server.sh install
       - run: Scripts/test.sh --filter EsclopAppTests --skip RenderTests
         timeout-minutes: 10
         env:
@@ -178,6 +184,9 @@ jobs:
           key: swift-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved') }}-${{ github.sha }}
           restore-keys: swift-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved') }}-
       # The render suites already ran in the swift job; they need no bundled tools.
+      # The upload tests start a local S3 server (moto); install it before the suite starts.
+      - name: Local S3 server for the upload tests
+        run: Scripts/s3-test-server.sh install
       - name: swift test with the bundled tools
         run: Scripts/test.sh --skip RenderTests
         timeout-minutes: 10
