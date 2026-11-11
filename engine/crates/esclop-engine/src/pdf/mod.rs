@@ -124,7 +124,26 @@ pub fn rewrite(bytes: &[u8], settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>,
     };
     ctx.check()?;
     budget::start_load();
-    let loaded = Document::load_mem_with_options(bytes, options);
+    let mut loaded = Document::load_mem_with_options(bytes, options.clone());
+    // With a filter lopdf no longer rebuilds a damaged file's page tree by scanning for its
+    // objects, as it does without one: done here, through the same filter, when the load came
+    // back without pages.
+    if loaded.as_ref().is_ok_and(|d| d.get_pages().is_empty()) && budget::loaded() <= budget::MAX_HELD {
+        budget::start_load();
+        let options = LoadOptions { force_reconstruct: true, ..options };
+        if let Ok(rebuilt) = Document::load_mem_with_options(bytes, options)
+            && !rebuilt.get_pages().is_empty()
+        {
+            loaded = Ok(rebuilt);
+        }
+    }
+    // lopdf loads an encrypted file without the filter: what it holds is counted afterwards.
+    if let Ok(d) = &loaded
+        && d.was_encrypted()
+    {
+        budget::start_load();
+        d.objects.values().for_each(budget::count);
+    }
     if budget::loaded() > budget::MAX_HELD {
         return Err(budget::too_much());
     }

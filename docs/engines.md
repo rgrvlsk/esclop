@@ -29,7 +29,7 @@ print(result.output, result.bytesBefore, result.bytesAfter, result.steps)
 | `downscale(_:factor:request:progress:)` | `0 < factor <= 1`. A result that is not smaller throws `alreadySmaller`. |
 | `crop(_:to:request:progress:)` | `CropSize`: width/height (crop to fill), `longEdge`, `aspectRatio` ("16:9", "1.5"), `smart` (Vision saliency picks the focus). PDFs crop their pages' crop box to the aspect ratio without recompressing. |
 | `fit(_:underBytes:request:progress:)` | Lands at or under the size, or throws `.other("Could not fit ...")` with the smallest size reached. A file already under the target is returned untouched. |
-| `stripMetadata(_:request:)` | Lossless where the format allows: images (engine or ImageIO), video/audio (`-c copy -map_metadata -1`), PDF (`pdf.optimise` without downsampling, metadata stripped). |
+| `stripMetadata(_:request:)` | Lossless where the format allows: images (engine or ImageIO), video/audio (`-c copy -map_metadata -1`), PDF (`pdf.optimise` at compression 0: no image touched, metadata stripped). |
 | `supports(_:)` | Whether the extension is a kind and format the engines handle. |
 
 Extra operations (pipelines reach them through `PipelineMediaOperations`, conformed in
@@ -96,7 +96,7 @@ app that wants one `EngineClient`).
 | Video to GIF | ffmpeg frames + `esclop-engine gif.from_frames` (gifski); ffmpeg palette + gifsicle when the engine cannot |
 | Animated GIF to MP4/WebM/MOV | ffmpeg |
 | Audio | ffmpeg: `aac_at` (falls back to `aac`), `libmp3lame` VBR, `libopus`, FLAC, PCM |
-| PDF | esclop-engine `pdf.optimise`; PDFKit for crop/uncrop/pages; images become PDFs with PDFKit |
+| PDF | esclop-engine `pdf.optimise` (30 min at most; signed, Reader-extended, password-protected and damaged files, and ones that would need more than 256 MB, are left as they are); PDFKit for crop/uncrop/pages; images become PDFs with PDFKit |
 
 ## Image engine client
 

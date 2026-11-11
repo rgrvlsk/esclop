@@ -88,6 +88,11 @@ pub fn load_filter(id: (u32, u16), o: &mut Object) -> Option<((u32, u16), Object
     Some((id, if matches!(o, Object::Stream(_)) { Object::Null } else { o.clone() }))
 }
 
+/// Counts what `o` holds into this thread's load.
+pub fn count(o: &Object) {
+    LOADED.with(|l| l.set(l.get().saturating_add(held(o, 0))));
+}
+
 /// Roughly what an object holds in memory.
 fn held(o: &Object, depth: usize) -> usize {
     const NODE: usize = std::mem::size_of::<Object>();

@@ -565,3 +565,20 @@ fn a_jpeg_the_decoder_cannot_take_is_kept_and_the_rest_rewritten() {
     let out = r.unwrap().0;
     assert!(images_of(&out).iter().any(|s| s.content == two), "the JPEG was not kept as stored");
 }
+
+#[test]
+fn a_page_tree_the_xref_misplaces_is_rebuilt_as_lopdf_would() {
+    // The xref sends the page tree (object 2) to object 4's offset: lopdf finds no pages and,
+    // unfiltered, rebuilds the table by scanning; the engine's filtered load must do the same.
+    let pdf = build(&image_page(gray_image(64, 64)));
+    let xref = pdf.windows(6).rposition(|w| w == b"\nxref\n").unwrap() + 1;
+    let table = String::from_utf8(pdf[xref..].to_vec()).unwrap();
+    let lines: Vec<&str> = table.lines().collect();
+    let (two, four) = (lines[4], lines[6]);
+    let mut broken = pdf[..xref].to_vec();
+    broken.extend(table.replacen(two, four, 1).bytes());
+    assert!(Document::load_mem(&broken).is_ok());
+    let (r, _) = rewrite_within(broken, Some(150.0), Duration::from_secs(20)).expect("over 20 s");
+    let out = r.unwrap().0;
+    assert_eq!(Document::load_mem(&out).unwrap().get_pages().len(), 1);
+}
