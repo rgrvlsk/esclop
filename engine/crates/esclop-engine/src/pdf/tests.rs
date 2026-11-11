@@ -324,3 +324,36 @@ fn an_impossible_bit_depth_keeps_the_image() {
             .expect("over 20 s");
     assert!(r.unwrap().1);
 }
+
+#[test]
+fn signed_and_reader_extended_pdfs_are_left_as_they_are() {
+    let image = || jpeg_image(&jpeg(300, 300, 95), 300, 300, "");
+    // A signature field whose value carries a /ByteRange.
+    let mut signed = image_page(image());
+    signed[0] = obj("<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [6 0 R] /SigFlags 3 >> >>");
+    signed.push(obj("<< /FT /Sig /T (Sig1) /V 7 0 R /Type /Annot /Subtype /Widget /Rect [0 0 0 0] /P 3 0 R >>"));
+    signed.push(obj("<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached /ByteRange [0 100 200 300] /Contents <00> >>"));
+    // DocMDP, and Reader usage rights (UR3), in the catalog's /Perms.
+    let mut mdp = image_page(image());
+    mdp[0] = obj("<< /Type /Catalog /Pages 2 0 R /Perms << /DocMDP 6 0 R >> >>");
+    mdp.push(obj("<< /Type /Sig /Filter /Adobe.PPKLite /ByteRange [0 1 2 3] /Contents <00> >>"));
+    let mut ur3 = image_page(image());
+    ur3[0] = obj("<< /Type /Catalog /Pages 2 0 R /Perms << /UR3 6 0 R >> >>");
+    ur3.push(obj("<< /Type /Sig /Filter /Adobe.PPKLite /ByteRange [0 1 2 3] /Contents <00> >>"));
+    for (name, objs) in [("signature field", signed), ("DocMDP", mdp), ("UR3", ur3)] {
+        let (r, _) = rewrite_within(build(&objs), Some(72.0), Duration::from_secs(20)).expect("over 20 s");
+        match r {
+            Err(e) => assert!(
+                e.code == crate::error::ErrorCode::Unsupported && e.message.contains("signatures stay valid"),
+                "{name}: {e:?}"
+            ),
+            Ok(_) => panic!("{name}: rewritten"),
+        }
+    }
+    // An unsigned signature field (no value) is rewritten as usual.
+    let mut empty = image_page(image());
+    empty[0] = obj("<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [6 0 R] >> >>");
+    empty.push(obj("<< /FT /Sig /T (Sig1) /Type /Annot /Subtype /Widget /Rect [0 0 0 0] /P 3 0 R >>"));
+    let (r, _) = rewrite_within(build(&empty), Some(72.0), Duration::from_secs(20)).expect("over 20 s");
+    assert!(r.is_ok(), "{r:?}");
+}
