@@ -121,10 +121,11 @@ pub fn rewrite(bytes: &[u8], dpi: Option<f64>, jpeg_quality: u8, min_ssim: f64, 
                 let plan = ImagePlan {
                     jpeg_quality,
                     dpi,
-                    drawn_dpi: drawn.get(id).copied(),
+                    drawn_dpi: drawn.get(id).map(|p| p.dpi),
                     is_mask: masks.contains(id),
                     reencode_jpeg: true,
-                    min_ssim,
+                    // Each image may lose its share of the page's SSIM budget (see `placement`).
+                    min_ssim: drawn.get(id).map_or(min_ssim, |p| 1.0 - (1.0 - min_ssim) * p.allowance).max(0.5),
                 };
                 let new = match images::recompress(&doc, s, &plan, &budget) {
                     Ok(n) => n,
