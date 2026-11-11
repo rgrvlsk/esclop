@@ -210,6 +210,14 @@ extension AppModel {
         optimise(files, origin: .dropZone, aggressive: harder)
     }
 
+    /// Files dropped on a preset zone: the pipeline runs on each, through the usual floating
+    /// results, or the batch window from `batchWindowFrom` files, like a plain drop.
+    public func runPresetZone(_ name: String, on urls: [URL]) {
+        let files = PathInput.expand(urls, recursive: true).filter { MediaKind.of($0) != nil }
+        guard !files.isEmpty else { return notice(Strings.text("Nothing to optimise"), Strings.text("Drop images, videos, PDFs or audio files.")) }
+        optimise(files, origin: .dropZone, aggressive: false, copy: nil) { $0.operation = .pipeline(name) }
+    }
+
     // MARK: Pause
 
     /// The pause hotkey cycles like Clop's: running, then skip the next copy, then paused.

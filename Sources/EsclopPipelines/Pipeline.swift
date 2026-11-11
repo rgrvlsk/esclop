@@ -11,7 +11,7 @@ public enum PipelineTrigger: Hashable, Codable, Sendable, CustomStringConvertibl
     case clipboard
     /// Files dropped on the drop zone.
     case dropZone
-    /// Shown as a preset zone while dragging (Control-drag in the drop zone).
+    /// Shown as a preset zone beside the drop zone while dragging.
     case presetZone
     /// New files in a watched folder. The path may start with `~`.
     case folder(String)
