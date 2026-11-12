@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 //! Subsetting of CFF font programs with glyph ids kept: the charstring of every glyph no page
 //! draws becomes a bare `endchar`, and nothing else changes. The charset (so CID to glyph),
 //! FDSelect, Encoding, Private dicts, local and global subroutines are copied byte for byte;

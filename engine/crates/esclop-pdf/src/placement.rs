@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 //! How large each image is drawn: walks every page's content (and the form XObjects it draws)
 //! tracking the transformation matrix, and records each image's lowest effective resolution
 //! over all the places it is painted, and how much of the page its page's images cover. Each
@@ -7,12 +7,12 @@
 //! draw (`side_images`) gets no entry and is never downsampled, even when page content draws it
 //! too: those draws are not measured.
 
-use crate::error::{EngineError, Result};
+use crate::Ctx;
+use crate::error::{Failure, Result};
 use lopdf::content::Content;
 use lopdf::{Dictionary, Document, Object, ObjectId, Stream};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 type Matrix = [f64; 6];
 const IDENTITY: Matrix = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
@@ -88,8 +88,8 @@ type Uses = HashMap<ObjectId, Use>;
 /// When some content cannot be walked within `MAX_CONTENT`, or the document needs more than
 /// `MAX_OPS`, the map is empty: a draw left unseen could be larger than the ones found, so no
 /// image is downsampled. `Err` only when cancelled.
-pub fn image_resolutions(doc: &Document, cancel: &AtomicBool) -> Result<HashMap<ObjectId, Placed>> {
-    let mut walker = Walker { doc, memo: HashMap::new(), stack: Vec::new(), ops: 0, cancel, stop: None };
+pub fn image_resolutions(doc: &Document, ctx: Ctx) -> Result<HashMap<ObjectId, Placed>> {
+    let mut walker = Walker { doc, memo: HashMap::new(), stack: Vec::new(), ops: 0, ctx, stop: None };
     let mut dpi: HashMap<ObjectId, f64> = HashMap::new();
     let mut allowance: HashMap<ObjectId, f64> = HashMap::new();
     for page in doc.page_iter() {
@@ -98,7 +98,7 @@ pub fn image_resolutions(doc: &Document, cancel: &AtomicBool) -> Result<HashMap<
         let Ok(content) = doc.get_page_content_with_limit(page, MAX_CONTENT) else { return Ok(HashMap::new()) };
         let uses = walker.walk(&content, resources.as_ref(), 0);
         let uses = match (uses, walker.stop) {
-            (_, Some(Stop::Cancelled)) => return Err(EngineError::cancelled()),
+            (_, Some(Stop::Cancelled)) => return Err(Failure::cancelled()),
             (Some(u), None) => u,
             _ => return Ok(HashMap::new()),
         };
@@ -258,7 +258,7 @@ struct Walker<'a> {
     memo: HashMap<(ObjectId, usize), Rc<Uses>>,
     stack: Vec<ObjectId>,
     ops: usize,
-    cancel: &'a AtomicBool,
+    ctx: Ctx<'a>,
     stop: Option<Stop>,
 }
 
@@ -352,7 +352,7 @@ impl<'a> Walker<'a> {
         self.ops += n;
         if self.ops > MAX_OPS {
             self.stop = Some(Stop::Failed);
-        } else if self.ops & 0xffff < n.min(0x10000) && self.cancel.load(Ordering::Relaxed) {
+        } else if self.ops & 0xffff < n.min(0x10000) && self.ctx.is_cancelled() {
             self.stop = Some(Stop::Cancelled);
         }
         self.stop.is_none()

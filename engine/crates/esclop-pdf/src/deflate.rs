@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 //! Flate for PDF streams: libdeflate at its strongest level, and PNG row predictors for images
 //! (`/DecodeParms << /Predictor 15 >>`), choosing each row's filter by the minimum sum of
 //! absolute differences, as PNG encoders do.

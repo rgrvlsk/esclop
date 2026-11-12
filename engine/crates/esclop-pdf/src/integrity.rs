@@ -1,24 +1,24 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 //! Whether lopdf read the file the way a viewer does. Viewers repair damaged files their own way
 //! (they scan for `obj` and `endstream`); lopdf repairs differently or not at all, and a rewrite
 //! would then store lopdf's reading: a stream without `/Length` loaded as empty, an object taken
 //! from the wrong place. Such files are refused (`decode`) instead.
 
-use crate::error::{EngineError, Result};
+use crate::Ctx;
+use crate::error::{Failure, Result};
 use lopdf::xref::XrefEntry;
 use lopdf::{Document, Object};
-use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Every in-use cross-reference entry of an object lopdf loaded must point at `id gen obj`, and
 /// every stream lopdf loaded
 /// must hold all the bytes up to its `endstream`. Linear in the file: `endobj` and `endstream`
 /// are located once (`Marks`), not searched for from each object.
-pub fn check(bytes: &[u8], doc: &Document, cancel: &AtomicBool) -> Result<()> {
+pub fn check(bytes: &[u8], doc: &Document, ctx: Ctx) -> Result<()> {
     let referenced = referenced_ids(doc);
     let marks = Marks::new(bytes);
     for (n, (&id, entry)) in doc.reference_table.entries.iter().enumerate() {
-        if n % 4096 == 0 && cancel.load(Ordering::Relaxed) {
-            return Err(EngineError::cancelled());
+        if n % 4096 == 0 && ctx.is_cancelled() {
+            return Err(Failure::cancelled());
         }
         let XrefEntry::Normal { offset, generation } = *entry else { continue };
         // Entry 0 is the free list's head even when a writer marks it in use; an entry for an
@@ -29,12 +29,12 @@ pub fn check(bytes: &[u8], doc: &Document, cancel: &AtomicBool) -> Result<()> {
         }
         if !doc.objects.contains_key(&(id, generation)) {
             if referenced.contains(&id) {
-                return Err(EngineError::decode(format!("object {id} is referred to but cannot be read")));
+                return Err(Failure::decode(format!("object {id} is referred to but cannot be read")));
             }
             continue;
         }
         let Some(after) = object_header(bytes, offset as usize, id, generation) else {
-            return Err(EngineError::decode(format!("the cross-reference table misplaces object {id}")));
+            return Err(Failure::decode(format!("the cross-reference table misplaces object {id}")));
         };
         // Decrypted content is shorter than its stored bytes: AES adds a 16-byte IV and up to
         // 16 bytes of padding (lopdf also rewrites `/Length` to the decrypted size).
@@ -43,7 +43,7 @@ pub fn check(bytes: &[u8], doc: &Document, cancel: &AtomicBool) -> Result<()> {
             && let Some(raw) = raw_stream_len(bytes, after, &marks)
             && s.content.len() + slack < raw
         {
-            return Err(EngineError::decode(format!(
+            return Err(Failure::decode(format!(
                 "object {id}'s stream is {raw} bytes long but declares {}",
                 s.content.len()
             )));

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Why `pdf.optimise` leaves a file as it is, in words for people: sent as the error's `reason`
-//! (the `message` keeps the detail). The app shows them translated; every sentence here needs an
-//! entry in Sources/EsclopAppKit/Resources/Localizable.xcstrings (a Swift test reads this file).
+//! Why `pdf.optimise` leaves a file as it is, in words for people: esclop-pdf's `KeptReason`,
+//! sent as the error's `reason` (the `message` keeps the detail). The app shows them translated;
+//! every sentence here needs an entry in Sources/EsclopAppKit/Resources/Localizable.xcstrings (a
+//! Swift test reads this file).
 
 pub const SIGNED: &str = "Signed PDFs are left as they are, so their signatures stay valid.";
 pub const PASSWORD: &str = "PDFs that need a password are left as they are.";
@@ -9,3 +10,17 @@ pub const ENCRYPTION: &str = "PDFs whose encryption L’Esclop cannot write agai
 pub const ENCRYPTED_LARGE: &str = "Encrypted PDFs over 64 MB are left as they are.";
 pub const MEMORY: &str = "PDFs that would need more than 256 MB of memory are left as they are.";
 pub const TOO_LARGE: &str = "PDFs over 1 GB are left as they are.";
+
+/// The sentence for a reason, or `None` where the app shows the generic refusal.
+pub fn sentence(reason: esclop_pdf::KeptReason) -> Option<&'static str> {
+    use esclop_pdf::KeptReason as K;
+    Some(match reason {
+        K::Signed => SIGNED,
+        K::PasswordRequired => PASSWORD,
+        K::Encryption => ENCRYPTION,
+        K::EncryptedTooLarge => ENCRYPTED_LARGE,
+        K::MemoryBudget => MEMORY,
+        K::InputTooLarge => TOO_LARGE,
+        _ => return None,
+    })
+}

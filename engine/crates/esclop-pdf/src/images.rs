@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 //! Image XObjects: downsample to the target resolution, then store each as the smaller of a
 //! JPEG at the compression factor's ceiling and lossless Flate with PNG predictors. The colour
 //! space, `/Decode`, `/SMask`, `/Intent` and every other key stay as they are; only the samples'
@@ -10,9 +10,9 @@
 
 use super::budget::Budget;
 use super::{deflate, mono};
-use crate::codec::jpeg::{self, EncodeOptions, Layout, TranscodeOptions};
-use crate::error::{EngineError, Result};
-use crate::meta::JpegParts;
+use crate::error::{Failure, Result};
+use crate::jpeg::JpegParts;
+use crate::jpeg::{self, EncodeOptions, Layout, TranscodeOptions};
 use fast_image_resize as fr;
 use lopdf::{Dictionary, Document, Object, Stream};
 
@@ -762,7 +762,7 @@ fn resample_with(
         4 => fr::PixelType::U8x4,
         _ => return Ok(None),
     };
-    let err = |e: &dyn std::fmt::Display| EngineError::internal(format!("resize: {e}"));
+    let err = |e: &dyn std::fmt::Display| Failure::internal(format!("resize: {e}"));
     let src = fr::images::ImageRef::new(w, h, px, pt).map_err(|e| err(&e))?;
     let mut dst = fr::images::Image::new(nw, nh, pt);
     // CMYK is four colour channels, not RGBA: no alpha handling.

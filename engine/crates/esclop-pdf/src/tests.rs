@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 //! `rewrite` on small crafted files: shapes that once hung, exhausted memory or broke what the
 //! file must keep.
 
@@ -66,7 +66,7 @@ pub fn gray_image(w: usize, h: usize) -> Vec<u8> {
 
 /// Runs `rewrite` with default settings on another thread; `None` when it outlives `limit`.
 /// A rewrite's result and how long it took.
-type Timed = (Result<(Vec<u8>, bool)>, Duration);
+type Timed = (Result<(Vec<u8>, crate::Report)>, Duration);
 
 pub fn rewrite_within(pdf: Vec<u8>, dpi: Option<f64>, limit: Duration) -> Option<Timed> {
     rewrite_with(pdf, Settings::new(30, dpi, false), limit)
@@ -76,7 +76,7 @@ pub fn rewrite_with(pdf: Vec<u8>, settings: Settings, limit: Duration) -> Option
     let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
         let t = Instant::now();
-        let r = rewrite(pdf, &settings, &Ctx::silent());
+        let r = rewrite(pdf, &settings, Ctx::silent());
         let _ = tx.send((r, t.elapsed()));
     });
     rx.recv_timeout(limit).ok()
@@ -119,7 +119,7 @@ fn forms_nested_ten_wide_twelve_deep_finish() {
 
 fn resolutions(pdf: &[u8]) -> HashMap<ObjectId, placement::Placed> {
     let doc = Document::load_mem(pdf).unwrap();
-    placement::image_resolutions(&doc, &std::sync::atomic::AtomicBool::new(false)).unwrap()
+    placement::image_resolutions(&doc, Ctx::silent()).unwrap()
 }
 
 #[test]
@@ -207,7 +207,7 @@ fn the_integrity_check_is_linear() {
     let doc = Document::load_mem(&pdf).unwrap();
     assert!(doc.objects.len() > 100_000);
     let t = Instant::now();
-    let r = integrity::check(&pdf, &doc, &std::sync::atomic::AtomicBool::new(false));
+    let r = integrity::check(&pdf, &doc, Ctx::silent());
     assert!(t.elapsed() < limit(5), "{:?}", t.elapsed());
     assert!(r.is_ok(), "{r:?}");
 }
@@ -215,28 +215,37 @@ fn the_integrity_check_is_linear() {
 #[test]
 fn every_stage_stops_when_cancelled() {
     use std::sync::Arc;
-    use std::sync::atomic::AtomicBool;
-    let cancelled = || Arc::new(AtomicBool::new(true));
-    let is_cancel = |r: &Result<_>| matches!(r, Err(e) if e.code == crate::error::ErrorCode::Cancelled);
+    struct Stop;
+    impl crate::Observer for Stop {
+        fn is_cancelled(&self) -> bool {
+            true
+        }
+    }
+    let cancelled = || Ctx::new(&Stop);
+    let is_cancel = |r: &Result<_>| matches!(r, Err(e) if e.code == crate::error::Code::Cancelled);
     let pdf = streams_without_endobj(10_000);
     let doc = Document::load_mem(&pdf).unwrap();
-    assert!(is_cancel(&integrity::check(&pdf, &doc, &cancelled()).map(|_| 0)));
+    assert!(is_cancel(&integrity::check(&pdf, &doc, cancelled()).map(|_| 0)));
     // Content with more than 4096 operators reaches the font walk's check.
     let mut objs = one_page("<< /XObject << /Im 5 0 R >> >>", &b"q 1 0 0 1 0 0 cm /Im Do Q\n".repeat(70_000));
     objs.push(gray_image(8, 8));
     let pdf = build(&objs);
     let mut doc = Document::load_mem(&pdf).unwrap();
-    assert!(is_cancel(&fonts::subset_fonts(&mut doc, &cancelled(), &Arc::new(budget::Held::new(0)))));
-    assert!(is_cancel(&inline::move_inline_images(&mut doc, &cancelled())));
-    assert!(is_cancel(&placement::image_resolutions(&doc, &cancelled()).map(|_| 0)));
+    assert!(is_cancel(&fonts::subset_fonts(
+        &mut doc,
+        cancelled(),
+        &Arc::new(budget::Held::new(0, crate::Options::DEFAULT_MEMORY_BUDGET))
+    )));
+    assert!(is_cancel(&inline::move_inline_images(&mut doc, cancelled())));
+    assert!(is_cancel(&placement::image_resolutions(&doc, cancelled()).map(|_| 0)));
     let mut w = budget::CappedWriter::new(Vec::new(), 1 << 20, cancelled());
     assert!(std::io::Write::write_all(&mut w, b"x").is_err());
-    let ctx = Ctx::new(cancelled(), Arc::new(|_, _| {}));
-    assert!(is_cancel(&rewrite(pdf, &Settings::new(30, None, false), &ctx).map(|_| 0)));
+    let ctx = cancelled();
+    assert!(is_cancel(&rewrite(pdf, &Settings::new(30, None, false), ctx).map(|_| 0)));
 }
 
 fn is_unsupported<T>(r: &Result<T>) -> bool {
-    matches!(r, Err(e) if e.code == crate::error::ErrorCode::Unsupported)
+    matches!(r, Err(e) if e.code == crate::error::Code::Unsupported)
 }
 
 #[test]
@@ -329,12 +338,12 @@ fn an_impossible_bit_depth_keeps_the_image() {
     o.extend(&jpg);
     o.extend(b"\nendstream");
     let (r, _) = rewrite_within(build(&image_page(o)), Some(150.0), limit(20)).expect("over 20 s");
-    let (_, lossy) = r.unwrap();
-    assert!(!lossy, "an image with a crafted depth was re-encoded");
+    let (_, report) = r.unwrap();
+    assert!(!report.lossy, "an image with a crafted depth was re-encoded");
     // The same image at depth 8 is re-encoded.
     let (r, _) =
         rewrite_within(build(&image_page(jpeg_image(&jpg, 600, 600, ""))), Some(150.0), limit(20)).expect("over 20 s");
-    assert!(r.unwrap().1);
+    assert!(r.unwrap().1.lossy);
 }
 
 #[test]
@@ -356,7 +365,7 @@ fn signed_and_reader_extended_pdfs_are_left_as_they_are() {
         let (r, _) = rewrite_within(build(&objs), Some(72.0), limit(20)).expect("over 20 s");
         match r {
             Err(e) => assert!(
-                e.code == crate::error::ErrorCode::Unsupported && e.reason == Some(reasons::SIGNED),
+                e.code == crate::error::Code::Unsupported && e.reason == Some(crate::KeptReason::Signed),
                 "{name}: {e:?}"
             ),
             Ok(_) => panic!("{name}: rewritten"),
@@ -389,8 +398,8 @@ fn without_downsampling_a_jpeg_keeps_its_pixels() {
     let (r, _) =
         rewrite_with(build(&image_page(jpeg_image(&jpg, 600, 600, ""))), Settings::new(64, None, false), limit(20))
             .expect("over 20 s");
-    let (out, lossy) = r.unwrap();
-    assert!(!lossy);
+    let (out, report) = r.unwrap();
+    assert!(!report.lossy);
     let im = &images_of(&out)[0];
     assert_eq!(image::load_from_memory(&im.content).unwrap().to_rgb8(), original);
     // Compression 0 (strip only): no image is touched, JPEG or Flate.
@@ -403,8 +412,8 @@ fn without_downsampling_a_jpeg_keeps_its_pixels() {
     objs.push(flate.clone());
     let before = images_of(&build(&objs));
     let (r, _) = rewrite_with(build(&objs), Settings::new(0, None, true), limit(20)).expect("over 20 s");
-    let (out, lossy) = r.unwrap();
-    assert!(!lossy);
+    let (out, report) = r.unwrap();
+    assert!(!report.lossy);
     let mut after: Vec<Vec<u8>> = images_of(&out).into_iter().map(|s| s.content).collect();
     let mut before: Vec<Vec<u8>> = before.into_iter().map(|s| s.content).collect();
     after.sort();
@@ -452,8 +461,8 @@ fn a_form_inherits_the_font_set_before_it_is_drawn() {
     objs.push(stream("/Type /XObject /Subtype /Form /BBox [0 0 612 792]", b"BT 10 40 Td (xyz) Tj ET", true));
     objs.push(stream(&format!("/Length1 {}", ttf.len()), &ttf, true));
     let mut doc = Document::load_mem(&build(&objs)).unwrap();
-    let held = std::sync::Arc::new(budget::Held::new(0));
-    assert_eq!(fonts::subset_fonts(&mut doc, &Ctx::silent().cancel_flag(), &held).unwrap(), 1);
+    let held = std::sync::Arc::new(budget::Held::new(0, crate::Options::DEFAULT_MEMORY_BUDGET));
+    assert_eq!(fonts::subset_fonts(&mut doc, Ctx::silent(), &held).unwrap(), 1);
     let program = doc.get_object((8, 0)).unwrap().as_stream().unwrap().decompressed_content().unwrap();
     for c in ['A', 'x', 'y', 'z'] {
         assert!(has_outline(&program, c), "{c} lost its outline");
@@ -585,17 +594,6 @@ fn a_page_tree_the_xref_misplaces_is_rebuilt_as_lopdf_would() {
 }
 
 #[test]
-fn a_reason_reaches_the_reply() {
-    let r = crate::error_response(serde_json::json!("1"), EngineError::left_as_is(reasons::SIGNED, "signed"));
-    let line = serde_json::to_value(&r).unwrap();
-    assert_eq!(line["error"]["reason"], reasons::SIGNED);
-    assert_eq!(line["error"]["code"], "unsupported");
-    let plain =
-        serde_json::to_value(crate::error_response(serde_json::json!("1"), EngineError::unsupported("x"))).unwrap();
-    assert!(plain["error"].get("reason").is_none());
-}
-
-#[test]
 fn a_million_trailer_words_are_searched_once() {
     // Uncompressed content holding "trailer" a million times, before the real trailer.
     let mut objs = image_page(gray_image(16, 16));
@@ -630,7 +628,7 @@ fn an_encrypted_input_shares_one_limit_between_its_object_streams() {
     let mut big = vec![b' '; MAX_ENCRYPTED_INPUT + 1];
     big.extend(encrypted(b""));
     let e = load_stream_limit(&big, &ctx).unwrap_err();
-    assert_eq!(e.reason, Some(reasons::ENCRYPTED_LARGE));
+    assert_eq!(e.reason, Some(crate::KeptReason::EncryptedTooLarge));
     assert_eq!(names_count(b"/ObjStm/ObjStmX /Obj#53tm (/ObjStm)", b"ObjStm"), 3);
 }
 
@@ -645,9 +643,9 @@ fn the_font_scan_stops_at_the_operator_cap() {
     let mut objs = one_page(&format!("<< /Font << {fonts}>> /XObject << /X 5 0 R >> >>"), content.as_bytes());
     objs.push(stream("/Type /XObject /Subtype /Form /BBox [0 0 1 1]", &b"0 0 m\n".repeat(200_000), true));
     let mut doc = Document::load_mem(&build(&objs)).unwrap();
-    let held = std::sync::Arc::new(budget::Held::new(0));
+    let held = std::sync::Arc::new(budget::Held::new(0, crate::Options::DEFAULT_MEMORY_BUDGET));
     let t = Instant::now();
-    fonts::subset_fonts(&mut doc, &Ctx::silent().cancel_flag(), &held).unwrap();
+    fonts::subset_fonts(&mut doc, Ctx::silent(), &held).unwrap();
     assert!(t.elapsed() < limit(5), "{:?}", t.elapsed());
 }
 
@@ -662,7 +660,7 @@ fn an_encrypted_input_with_more_than_512_object_streams_is_left_as_it_is() {
     }
     f.extend(b"trailer\n<< /Size 3 /Root 1 0 R /Encrypt 2 0 R >>\nstartxref\n0\n%%EOF\n");
     let e = load_stream_limit(&f, &Ctx::silent()).unwrap_err();
-    assert_eq!(e.reason, Some(reasons::MEMORY));
+    assert_eq!(e.reason, Some(crate::KeptReason::MemoryBudget));
     // 512 still share the 32 MB: 64 KB each.
     let mut f = b"%PDF-1.7\n".to_vec();
     f.extend(b"<< /Type /ObjStm >> ".repeat(512));
@@ -679,7 +677,7 @@ fn an_encrypt_key_far_from_the_end_in_a_cross_reference_stream_is_found() {
     f.extend(vec![b'x'; 200 << 10]);
     f.extend(b"\nendstream endobj\nstartxref\n0\n%%EOF\n");
     assert!(!is_encrypted(&f), "the tail check alone misses it");
-    assert_eq!(load_stream_limit(&f, &Ctx::silent()).unwrap_err().reason, Some(reasons::MEMORY));
+    assert_eq!(load_stream_limit(&f, &Ctx::silent()).unwrap_err().reason, Some(crate::KeptReason::MemoryBudget));
     // A plain file whose text names /Encrypt outside any xref stream is not encrypted.
     let plain = b"%PDF-1.7\n4 0 obj << /Length 9 >> stream\n(/Encrypt)\nendstream endobj\ntrailer << /Root 1 0 R >>";
     assert!(!xref_stream_names_encrypt(plain));

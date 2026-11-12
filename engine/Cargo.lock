@@ -476,32 +476,48 @@ name = "esclop-engine"
 version = "0.1.0"
 dependencies = [
  "crc32fast",
+ "esclop-pdf",
  "fast_image_resize",
- "fax",
  "gif 0.14.2",
  "gifski",
- "hayro-jpeg2000",
  "image",
  "imagequant",
  "imgref",
  "libaom-sys",
  "libavif-sys",
  "libc",
- "libdeflater",
  "lopdf",
  "miniz_oxide 0.8.9",
  "mozjpeg-sys",
  "oxipng",
  "ravif",
  "rayon",
- "read-fonts",
  "rgb",
  "schemars",
  "serde",
  "serde_json",
- "skera",
  "tempfile",
  "webp",
+]
+
+[[package]]
+name = "esclop-pdf"
+version = "0.1.0"
+dependencies = [
+ "crc32fast",
+ "fast_image_resize",
+ "fax",
+ "hayro-jpeg2000",
+ "image",
+ "libc",
+ "libdeflater",
+ "lopdf",
+ "miniz_oxide 0.8.9",
+ "mozjpeg-sys",
+ "rayon",
+ "read-fonts",
+ "skera",
+ "tempfile",
  "write-fonts",
 ]
 

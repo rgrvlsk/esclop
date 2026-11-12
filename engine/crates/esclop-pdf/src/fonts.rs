@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 //! Subsetting of embedded TrueType and CFF fonts (`/FontFile2`, `/FontFile3`) to the glyphs the
 //! document draws. TrueType goes through skera with glyph ids retained; CFF (bare, or in an
 //! OpenType wrapper) through `cff`, which only empties the charstrings of glyphs no page uses
@@ -28,7 +28,8 @@
 
 use super::budget::{Held, too_much};
 use super::{cff, deflate};
-use crate::error::{EngineError, Result};
+use crate::Ctx;
+use crate::error::{Failure, Result};
 use lopdf::content::Content;
 use lopdf::{Dictionary, Document, Object, ObjectId, Stream};
 use rayon::prelude::*;
@@ -38,7 +39,6 @@ use read_fonts::{FontRef, TableProvider};
 use skera::{Plan, SubsetFlags, subset_font};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 const MAX_DEPTH: usize = 32;
 use super::placement::{MAX_CONTENT, MAX_OPS};
@@ -360,7 +360,7 @@ fn gid_of_name(n: &str) -> Option<u16> {
 
 /// What the content of a document draws with each TrueType program.
 #[derive(Default)]
-struct Usage {
+struct Usage<'c> {
     fonts: HashMap<usize, Option<Result<Font, ObjectId>>>,
     /// Font dictionaries some scanned stream selects.
     selected: HashSet<usize>,
@@ -370,12 +370,12 @@ struct Usage {
     visited: HashSet<(ObjectId, usize, usize)>,
     failed: bool,
     programs: Programs,
-    cancel: Option<Arc<AtomicBool>>,
+    cancel: Option<Ctx<'c>>,
     cancelled: bool,
     ops: usize,
 }
 
-impl Usage {
+impl Usage<'_> {
     fn show(&mut self, doc: &Document, font: &Dictionary, text: &[u8]) {
         let k = key(font);
         self.selected.insert(k);
@@ -451,7 +451,7 @@ impl Usage {
         let (font, saved) = (&mut text.0, &mut text.1);
         for op in &ops.operations {
             self.ops += 1;
-            if self.ops.is_multiple_of(4096) && self.cancel.as_ref().is_some_and(|c| c.load(Ordering::Relaxed)) {
+            if self.ops.is_multiple_of(4096) && self.cancel.is_some_and(|c| c.is_cancelled()) {
                 self.cancelled = true;
                 self.failed = true;
                 return;
@@ -597,8 +597,8 @@ fn page_resources(doc: &Document, page: ObjectId) -> Option<&Dictionary> {
 
 /// Every TrueType program referenced from a font dictionary the scan never selected, or from
 /// the interactive form's default resources.
-fn unscanned_programs(doc: &Document, usage: &Usage) -> HashSet<ObjectId> {
-    fn visit(doc: &Document, o: &Object, usage: &Usage, out: &mut HashSet<ObjectId>, depth: usize) {
+fn unscanned_programs(doc: &Document, usage: &Usage<'_>) -> HashSet<ObjectId> {
+    fn visit(doc: &Document, o: &Object, usage: &Usage<'_>, out: &mut HashSet<ObjectId>, depth: usize) {
         if depth > 64 {
             return;
         }
@@ -638,13 +638,9 @@ fn unscanned_programs(doc: &Document, usage: &Usage) -> HashSet<ObjectId> {
 }
 
 /// Glyph ids each TrueType program must keep, for the programs that can be subset.
-fn collect(
-    doc: &Document,
-    cancel: &Arc<AtomicBool>,
-    held: &Arc<Held>,
-) -> Result<(HashMap<ObjectId, BTreeSet<u16>>, Programs)> {
+fn collect(doc: &Document, ctx: Ctx<'_>, held: &Arc<Held>) -> Result<(HashMap<ObjectId, BTreeSet<u16>>, Programs)> {
     let programs = Programs { held: Some(held.clone()), ..Default::default() };
-    let mut u = Usage { cancel: Some(cancel.clone()), programs, ..Default::default() };
+    let mut u = Usage { cancel: Some(ctx), programs, ..Default::default() };
     for (_, page) in doc.get_pages() {
         let res = page_resources(doc, page);
         // The page's streams joined, within `placement::MAX_CONTENT`.
@@ -671,10 +667,10 @@ fn collect(
             }
         }
         if u.cancelled {
-            return Err(EngineError::cancelled());
+            return Err(Failure::cancelled());
         }
         if u.programs.over {
-            return Err(too_much());
+            return Err(too_much(held.limit()));
         }
         if u.failed {
             return Ok((HashMap::new(), u.programs));
@@ -683,7 +679,7 @@ fn collect(
     let mut skip = unscanned_programs(doc, &u);
     skip.extend(&u.keep_whole);
     if u.programs.over {
-        return Err(too_much());
+        return Err(too_much(held.limit()));
     }
     let used = u.used.into_iter().filter(|(p, _)| !skip.contains(p)).collect();
     Ok((used, u.programs))
@@ -741,7 +737,7 @@ fn subset_cff(data: &[u8], gids: &BTreeSet<u16>) -> Result<Vec<u8>, String> {
     Ok(b.build())
 }
 
-fn subset(data: &[u8], gids: &BTreeSet<u16>) -> Result<Vec<u8>, String> {
+pub(crate) fn subset(data: &[u8], gids: &BTreeSet<u16>) -> Result<Vec<u8>, String> {
     if cff_table(data).is_some() {
         return subset_cff(data, gids);
     }
@@ -780,8 +776,8 @@ fn subset(data: &[u8], gids: &BTreeSet<u16>) -> Result<Vec<u8>, String> {
 
 /// Replaces each embedded TrueType program the document can spare glyphs of with its subset,
 /// where that is smaller. Returns how many were replaced.
-pub fn subset_fonts(doc: &mut Document, cancel: &Arc<AtomicBool>, held: &Arc<Held>) -> Result<usize> {
-    let (used, mut programs) = collect(doc, cancel, held)?;
+pub fn subset_fonts(doc: &mut Document, ctx: Ctx, held: &Arc<Held>) -> Result<usize> {
+    let (used, mut programs) = collect(doc, ctx, held)?;
     // Moved out of the cache, not copied: the programs are held once.
     let jobs: Vec<(ObjectId, Vec<u8>, BTreeSet<u16>)> =
         used.into_iter().filter_map(|(id, gids)| Some((id, programs.data.remove(&id).flatten()?, gids))).collect();
@@ -789,7 +785,7 @@ pub fn subset_fonts(doc: &mut Document, cancel: &Arc<AtomicBool>, held: &Arc<Hel
     let done: Vec<(ObjectId, Vec<u8>, usize)> = jobs
         .into_par_iter()
         .filter_map(|(id, data, gids)| {
-            if cancel.load(Ordering::Relaxed) {
+            if ctx.is_cancelled() {
                 return None;
             }
             let out = subset(&data, &gids).ok()?;
@@ -797,8 +793,8 @@ pub fn subset_fonts(doc: &mut Document, cancel: &Arc<AtomicBool>, held: &Arc<Hel
             Some((id, deflate::zlib(&out, 9), n))
         })
         .collect();
-    if cancel.load(Ordering::Relaxed) {
-        return Err(EngineError::cancelled());
+    if ctx.is_cancelled() {
+        return Err(Failure::cancelled());
     }
     let mut count = 0;
     for (id, packed, raw) in done {
@@ -865,7 +861,7 @@ mod tests {
 
     #[test]
     fn a_cid_map_is_decoded_no_further_than_65536_cids() {
-        use crate::pdf::tests::{build, obj, one_page, stream};
+        use crate::rewrite::tests::{build, obj, one_page, stream};
         // A /CIDToGIDMap that inflates to 200 MB of zeros: not decoded past 128 KB, so not read.
         let zeros = deflate::zlib(&vec![0u8; 200 << 20], 9);
         let mut objs = one_page("<< >>", b"");
@@ -884,10 +880,10 @@ mod tests {
         assert!(cid_map(&doc, font(5)).is_none(), "an inflating map was decoded");
         assert_eq!(cid_map(&doc, font(8)), Some(Some(vec![5, 9])));
         // Kept maps count against the document's budget.
-        let held = Arc::new(Held::new(0));
+        let held = Arc::new(Held::new(0, crate::Options::DEFAULT_MEMORY_BUDGET));
         let mut p = Programs { held: Some(held.clone()), ..Default::default() };
         assert!(p.cid_map(&doc, font(8)).is_some());
-        assert_eq!(super::super::budget::MAX_HELD - held.room(), 4);
+        assert_eq!(crate::Options::DEFAULT_MEMORY_BUDGET - held.room(), 4);
     }
 
     #[test]

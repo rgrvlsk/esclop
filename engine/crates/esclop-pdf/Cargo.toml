@@ -1,0 +1,46 @@
+[package]
+name = "esclop-pdf"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.92"
+license = "MPL-2.0"
+description = "Makes PDFs smaller without changing what they show: images recompressed and downsampled under a fidelity check, fonts subset, streams recompressed"
+repository = "https://github.com/rgrvlsk/esclop"
+homepage = "https://github.com/rgrvlsk/esclop/tree/main/engine/crates/esclop-pdf"
+documentation = "https://docs.rs/esclop-pdf"
+readme = "README.md"
+keywords = ["pdf", "compression", "optimize", "jpeg", "fonts"]
+categories = ["compression", "multimedia::images"]
+include = ["src/**/*.rs", "README.md", "CHANGELOG.md", "LICENSE", "Cargo.toml"]
+
+[package.metadata.docs.rs]
+all-features = false
+rustdoc-args = ["--cfg", "docsrs"]
+targets = ["aarch64-apple-darwin", "x86_64-unknown-linux-gnu"]
+
+[features]
+# Entry points for the cargo-fuzz targets in `fuzz/`; not part of the public interface.
+fuzzing = []
+
+[dependencies]
+crc32fast = "1.5"
+fast_image_resize = { version = "6.1.0", features = ["rayon"] }
+fax = "0.2.7"
+# MIT OR Apache-2.0 (LaurenzV/hayro): JPEG 2000 decoding for JPXDecode images.
+hayro-jpeg2000 = { version = "0.5.0", default-features = false, features = ["std", "simd"] }
+libc = "0.2.191"
+libdeflater = "1.26.1"
+# lopdf's `rayon` feature stays off: the load budget counts on the calling thread (see budget.rs).
+lopdf = { version = "0.47.0", default-features = false }
+miniz_oxide = "0.8"
+mozjpeg-sys = "2.2.3"
+rayon = "1.12"
+# MIT OR Apache-2.0 (googlefonts/fontations): font subsetting for embedded TrueType fonts.
+read-fonts = { version = "0.46.0", default-features = false, features = ["std"] }
+skera = "0.9.0"
+tempfile = "3.27.0"
+# MIT OR Apache-2.0 (googlefonts/fontations): rebuilds OpenType fonts whose CFF table was subset.
+write-fonts = "0.55.0"
+
+[dev-dependencies]
+image = { version = "0.25.10", default-features = false, features = ["jpeg"] }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 //! 1-bit images: CCITT Group 4 (the `fax` crate) and downsampling by area coverage. Samples are
 //! one byte per pixel holding the PDF sample value (0 or 1), so `/Decode` keeps its meaning.
 

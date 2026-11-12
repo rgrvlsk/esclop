@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 //! Memory limits for one `pdf.optimise`, whatever the input: a file can declare a 600-megapixel
 //! JPEG behind a small `/Width`, or a stream that inflates a thousandfold.
 //!
@@ -14,14 +14,14 @@
 //!   stops and the operation is refused (`unsupported`).
 //! - **Held**: the objects lopdf parses (object streams included; a stream's stored bytes are not
 //!   counted, they are the input's, held once) and the font programs decoded for subsetting stay
-//!   in memory together; past `MAX_HELD` the operation is refused (`unsupported`). Object and cross-reference streams decode to at most `MAX_LOAD_STREAM`
+//!   in memory together; past the `Options` memory budget the file is left as it is. Object and cross-reference streams decode to at most `MAX_LOAD_STREAM`
 //!   (the largest in the benchmark corpus is 12.4 MB): their objects parse into several times
 //!   their size before the filter sees them.
 
-use crate::error::{EngineError, Result};
+use crate::Ctx;
+use crate::error::{Failure, Result};
 use lopdf::Object;
 use std::io::Write;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Condvar, Mutex};
 
@@ -29,65 +29,75 @@ pub const MAX_INPUT: usize = 1 << 30;
 pub const MAX_STREAM: usize = 384 << 20;
 pub const MAX_IN_FLIGHT: usize = 256 << 20;
 pub const MAX_DECODED: u64 = 16 << 30;
-pub const MAX_HELD: usize = 256 << 20;
 pub const MAX_LOAD_STREAM: usize = 16 << 20;
 
-/// What a document may still hold (see `MAX_HELD`), shared by the stages that keep decoded data.
-pub struct Held(AtomicUsize);
+/// What a document may still hold (the `Options` memory budget, `limit`), shared by the stages
+/// that keep decoded data.
+pub struct Held {
+    used: AtomicUsize,
+    limit: usize,
+}
 
 impl Held {
-    pub fn new(used: usize) -> Self {
-        Self(AtomicUsize::new(used))
+    pub fn new(used: usize, limit: usize) -> Self {
+        Self { used: AtomicUsize::new(used), limit }
+    }
+
+    /// The most the document may hold.
+    pub fn limit(&self) -> usize {
+        self.limit
     }
 
     /// What is left.
     pub fn room(&self) -> usize {
-        MAX_HELD.saturating_sub(self.0.load(Ordering::Relaxed))
+        self.limit.saturating_sub(self.used.load(Ordering::Relaxed))
     }
 
-    /// Takes `bytes` more; an error once the document would hold more than `MAX_HELD`.
+    /// Takes `bytes` more; an error once the document would hold more than the limit.
     pub fn take(&self, bytes: usize) -> Result<()> {
-        if self.0.fetch_add(bytes, Ordering::Relaxed).saturating_add(bytes) > MAX_HELD {
-            return Err(too_much());
+        if self.used.fetch_add(bytes, Ordering::Relaxed).saturating_add(bytes) > self.limit {
+            return Err(too_much(self.limit));
         }
         Ok(())
     }
 }
 
-pub fn too_much() -> EngineError {
-    EngineError::left_as_is(
-        super::reasons::MEMORY,
-        format!("rewriting this PDF would hold more than {} MB in memory", MAX_HELD >> 20),
+pub fn too_much(limit: usize) -> Failure {
+    Failure::left_as_is(
+        crate::KeptReason::MemoryBudget,
+        format!("rewriting this PDF would hold more than {} MB in memory", limit >> 20),
     )
 }
 
 thread_local! {
-    /// Bytes the objects parsed so far by `load_filter` hold, on this thread's load.
-    static LOADED: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    /// Bytes the objects parsed so far by `load_filter` hold, on this thread's load, and the
+    /// most they may.
+    static LOADED: std::cell::Cell<(usize, usize)> = const { std::cell::Cell::new((0, usize::MAX)) };
 }
 
-/// Starts counting a load on this thread.
-pub fn start_load() {
-    LOADED.with(|l| l.set(0));
+/// Starts counting a load on this thread, which may hold `limit` bytes.
+pub fn start_load(limit: usize) {
+    LOADED.with(|l| l.set((0, limit)));
 }
 
-/// What the load counted: the bytes its objects hold, more than `MAX_HELD` when it stopped
+/// What the load counted: the bytes its objects hold, more than the limit when it stopped
 /// keeping them.
 pub fn loaded() -> usize {
-    LOADED.with(|l| l.get())
+    LOADED.with(|l| l.get().0)
 }
 
-/// lopdf's load filter: counts what each object holds and drops objects past `MAX_HELD`, so a
+/// lopdf's load filter: counts what each object holds and drops objects past the limit, so a
 /// file whose object streams parse into gigabytes stops growing (the load is then refused).
 /// lopdf ignores the returned object for top-level objects and keeps it for those of object
 /// streams, which never hold streams.
 pub fn load_filter(id: (u32, u16), o: &mut Object) -> Option<((u32, u16), Object)> {
-    let total = LOADED.with(|l| {
-        let t = l.get().saturating_add(held(o, 0));
-        l.set(t);
-        t
+    let (total, limit) = LOADED.with(|l| {
+        let (t, limit) = l.get();
+        let t = t.saturating_add(held(o, 0));
+        l.set((t, limit));
+        (t, limit)
     });
-    if total > MAX_HELD {
+    if total > limit {
         return None;
     }
     Some((id, if matches!(o, Object::Stream(_)) { Object::Null } else { o.clone() }))
@@ -95,7 +105,10 @@ pub fn load_filter(id: (u32, u16), o: &mut Object) -> Option<((u32, u16), Object
 
 /// Counts what `o` holds into this thread's load.
 pub fn count(o: &Object) {
-    LOADED.with(|l| l.set(l.get().saturating_add(held(o, 0))));
+    LOADED.with(|l| {
+        let (t, limit) = l.get();
+        l.set((t.saturating_add(held(o, 0)), limit));
+    });
 }
 
 /// Roughly what an object holds in memory.
@@ -172,8 +185,8 @@ impl Budget {
         let total = self.decoded.fetch_add(bytes as u64, Ordering::Relaxed) + bytes as u64;
         if total > self.max_decoded {
             self.exhausted.store(true, Ordering::Relaxed);
-            return Err(EngineError::left_as_is(
-                super::reasons::MEMORY,
+            return Err(Failure::left_as_is(
+                crate::KeptReason::MemoryBudget,
                 format!("decoding this PDF needs more than {} GB", self.max_decoded >> 30),
             ));
         }
@@ -186,17 +199,17 @@ impl Budget {
     }
 }
 
-/// A buffered writer over `W` that fails past `limit` bytes, or once `cancel` is set.
-pub struct CappedWriter<W: Write> {
+/// A buffered writer over `W` that fails past `limit` bytes, or once cancelled.
+pub struct CappedWriter<'a, W: Write> {
     out: std::io::BufWriter<W>,
     written: usize,
     limit: usize,
-    cancel: Arc<AtomicBool>,
+    ctx: Ctx<'a>,
 }
 
-impl<W: Write> CappedWriter<W> {
-    pub fn new(out: W, limit: usize, cancel: Arc<AtomicBool>) -> Self {
-        Self { out: std::io::BufWriter::with_capacity(1 << 20, out), written: 0, limit, cancel }
+impl<'a, W: Write> CappedWriter<'a, W> {
+    pub fn new(out: W, limit: usize, ctx: Ctx<'a>) -> Self {
+        Self { out: std::io::BufWriter::with_capacity(1 << 20, out), written: 0, limit, ctx }
     }
 
     pub fn written(&self) -> usize {
@@ -204,7 +217,7 @@ impl<W: Write> CappedWriter<W> {
     }
 }
 
-impl CappedWriter<std::fs::File> {
+impl CappedWriter<'_, std::fs::File> {
     /// Everything written, read back from the file.
     pub fn into_bytes(self) -> std::io::Result<Vec<u8>> {
         use std::io::{Read, Seek};
@@ -216,12 +229,12 @@ impl CappedWriter<std::fs::File> {
     }
 }
 
-impl<W: Write> Write for CappedWriter<W> {
+impl<W: Write> Write for CappedWriter<'_, W> {
     fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
         if self.written + data.len() > self.limit {
             return Err(std::io::Error::other("output limit reached"));
         }
-        if self.cancel.load(Ordering::Relaxed) {
+        if self.ctx.is_cancelled() {
             return Err(std::io::Error::other("cancelled"));
         }
         self.out.write_all(data)?;
@@ -259,7 +272,7 @@ mod tests {
         assert!(b.hold(MAX_STREAM + 1).unwrap().is_none());
         let a = b.hold(MAX_STREAM).unwrap().unwrap();
         drop(a);
-        let mut w = CappedWriter::new(Vec::new(), 4, Arc::new(AtomicBool::new(false)));
+        let mut w = CappedWriter::new(Vec::new(), 4, Ctx::silent());
         assert!(w.write_all(b"abcd").is_ok());
         assert!(w.write_all(b"e").is_err());
     }
@@ -282,14 +295,14 @@ mod load_tests {
     /// entries or 1 MB is parsed on rayon's pool). This fails if that ever changes.
     #[test]
     fn lopdf_loads_on_the_calling_thread() {
-        let mut objs = crate::pdf::tests::one_page("<< >>", b"q Q");
+        let mut objs = crate::rewrite::tests::one_page("<< >>", b"q Q");
         for i in 0..2000 {
-            objs.push(crate::pdf::tests::obj(&format!("<< /N {i} /Pad ({}) >>", "x".repeat(600))));
+            objs.push(crate::rewrite::tests::obj(&format!("<< /N {i} /Pad ({}) >>", "x".repeat(600))));
         }
-        let pdf = crate::pdf::tests::build(&objs);
+        let pdf = crate::rewrite::tests::build(&objs);
         assert!(pdf.len() > 1 << 20 && objs.len() > 16, "big enough for a parallel load");
         THREADS.lock().unwrap().clear();
-        start_load();
+        start_load(usize::MAX);
         let options = lopdf::LoadOptions { filter: Some(recording), ..Default::default() };
         let doc = lopdf::Document::load_mem_with_options(&pdf, options).unwrap();
         let me = std::thread::current().id();
