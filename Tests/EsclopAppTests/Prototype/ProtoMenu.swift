@@ -81,11 +81,11 @@ struct ProtoMenuPanel: View {
                 switch mode {
                 case .normal, .selected, .batch:
                     ProtoFigure(text: "−38 MB", size: 32)
-                    Text(mode == .normal ? (catalan ? "avui, el millor dia de la setmana" : "today, the week’s best") : (catalan ? "avui, en 14 fitxers" : "today, across 14 files")).font(.system(size: 11)).foregroundStyle(Proto.quiet)
+                    Text(mode == .normal ? (catalan ? "avui, el millor de la setmana" : "today, the week’s best") : (catalan ? "avui, en 14 fitxers" : "today, across 14 files")).font(.system(size: 11)).foregroundStyle(Proto.quiet)
                 case .paused, .pausedOpen:
                     Text(catalan ? "En pausa" : "Paused").font(.system(size: 24, weight: .semibold))
                     Text(mode == .pausedOpen
-                        ? (catalan ? "Fins que es reprengui" : "Until you resume")
+                        ? (catalan ? "Fins que ho diguis" : "Until you resume")
                         : (catalan ? "Es reprèn a les 14:32" : "Resumes at 14:32")).font(.system(size: 11)).foregroundStyle(Proto.quiet)
                 case .empty:
                     Text(catalan ? "A punt" : "Ready").font(.system(size: 24, weight: .semibold))

@@ -104,7 +104,7 @@ struct ProtoSurface: ViewModifier {
             .overlay { if let glow { shape.strokeBorder(glow.opacity(0.2), lineWidth: 4).allowsHitTesting(false) } }
             .background {
                 if let glow {
-                    shape.fill(glow.opacity(scheme == .dark ? 0.35 : 0.6)).blur(radius: 32).offset(y: 14).padding(4)
+                    shape.fill(glow.opacity(scheme == .dark ? 0.35 : 0.4)).blur(radius: 32).offset(y: 14).padding(4)
                 }
             }
             // Elevation: one shadow and one inner rim, so the edge never depends on the wallpaper.
@@ -181,6 +181,7 @@ struct ProtoClog: View {
     /// Where the app speaks as itself (the empty panel, the first run), the carved clog shows in
     /// both directions: the owner's choice, "A with B's wooden clog".
     var wood = false
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         if wood, !template, let wooden = Self.wooden {
@@ -188,7 +189,7 @@ struct ProtoClog: View {
             Image(nsImage: wooden).resizable().aspectRatio(contentMode: .fit).frame(width: width * 1.25)
                 .rotationEffect(.degrees(-4))
                 .background(alignment: .bottom) {
-                    Ellipse().fill(.black.opacity(0.22)).frame(width: width * 0.9, height: width * 0.14).blur(radius: 8).offset(y: width * 0.02)
+                    Ellipse().fill(.black.opacity(scheme == .dark ? 0.45 : 0.22)).frame(width: width * 0.9, height: width * 0.14).blur(radius: 8).offset(y: width * 0.02)
                 }
         } else if Proto.own, !template, let wooden = Self.wooden {
             Image(nsImage: wooden).resizable().aspectRatio(contentMode: .fit).frame(width: width * 1.25).frame(width: width * 1.3)

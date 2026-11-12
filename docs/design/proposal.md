@@ -4,8 +4,8 @@ Status: the council's four rounds are done (blocking issues per round: 17, 12, 8
 raised in the last round are fixed here and were not put before the council again. The owner
 then chose the direction, **A with B's wooden clog**, and asked for more spark: the section
 "Spark" answers that. The council gave its opinion on it once, at his request (character: 5
-out of 10 before, 6 to 7 after a first pass), and its best ideas are built in; it has not
-scored the result.
+out of 10 before, 6 to 7 after a first pass); its best ideas were then built in and it scored
+the result **8 out of 10**, each member separately. The owner approved it.
 
 ## The owner's answers
 
@@ -216,8 +216,8 @@ back. Pressing the glyph, dragging to a command and releasing activates it, as i
 - **A running batch** takes the status line's place: a spinner, "Optimising 7 of 9", Show.
   Nothing above it moves.
 - **Status:** "Watching the clipboard and 2 folders".
-- **Empty:** "Ready / Nothing optimised yet" and "Copy a screenshot. It lands here, smaller."
-  (B: with the wooden clog.)
+- **Empty:** "Ready", the carved clog and "Copy a screenshot. You'll find it here, smaller."
+  The clog is hidden from VoiceOver; the sentence says it.
 - **Keyboard:** Tab moves between header buttons, grid and commands; arrows move within; Return
   activates. VoiceOver reads a picture as "Beach 02.jpg, 54 % smaller, 1.1 megabytes" with Undo,
   Compare and Show in Finder as actions.
@@ -412,38 +412,53 @@ own card.**
    swells to 103 % and settles (0.35 / 0.70), then "Original restored". The weight comes back.
 4. **A card takes its picture's tone.** The picture's dominant colour, pushed toward its own
    hue, lights the card where no ink sits: the 4 pt frame around the picture at 20 %, a halo
-   under the card (32 pt blur, 14 pt down; 60 % in light, 35 % in dark with its lightness capped
+   under the card (32 pt blur, 14 pt down; 40 % in light, 35 % in dark with its lightness capped
    at 60 % so it never reads as a selection), and a 6 % wash in the footer. A picture with no
    colour of its own (most screenshots) keeps the neutral shadow. A failed card has no tone. The
    contrast test runs under the strongest washes (pure red, blue, yellow) on every ground.
 5. **A glass edge.** A 1 pt inner stroke on every floating surface, lit from the top left
    (white 90 % in light, 40 % in dark) and falling to 15 % and 6 % at the bottom right.
-6. **One clog, one gesture, three places.** Over the main drop tile the clog lifts its heel (the
-   glyph's working pose, 15°, spring 0.25 / 0.60) and sets it down on the drop, as the tile
-   becomes the card; at that instant the menu bar clog starts to walk. On the first run's stage
-   and in the empty panel the carved clog stands on its heel, tilted 4°, with a contact shadow;
-   it takes the raised-heel pose when the first screenshot lands (a pose, so Reduce Motion
-   keeps it).
+6. **One clog, one gesture, three places.** Over the main drop tile the flat clog lifts its heel
+   (the glyph's working pose, 15°, spring 0.25 / 0.60) and sets it down on the drop, as the tile
+   becomes the card; at that instant the menu bar clog starts to walk, and a step once begun
+   always ends (560 ms). The carved clog appears in two places only, the first run's stage and
+   the empty panel, small and still: on its heel, tilted 4°, with a contact shadow (black 22 %
+   in light, 45 % in dark). It takes the raised-heel pose when the first screenshot lands, on
+   0.30 / 0.85, without a visible bounce: a carved shoe that bounces is a toy. It ships as a
+   clean asset at 1x, 2x and 3x.
 7. **The saving drawn to scale.** In the first run the screenshot lands filling a dashed frame
    in `saving`, holds 250 ms, then shrinks to true scale from the bottom left (spring 0.50 /
    0.80): half the side, a quarter of the area, for a 75 % saving. The frame stays, labelled
-   with the old size. The figure, the new size and the split bar read the same progress, so
-   the number is honest at every frame.
+   with the old size. The figure, the new size and the split bar read one progress, clamped to
+   1, so the number is honest at every frame and the spring's overshoot never prints "−76 %".
+   With Reduce Motion the step opens in its final state. On the sample's path the sentence is
+   only "The original is kept for 7 days.", since nothing was copied.
 8. **The figure has a history.** In the panel, beside the day's saving, seven bars: the last
    seven days, today's in green. The figure counts only from the value last seen; if nothing
-   changed, nothing moves. When today passes the other six, the caption reads "today, the
-   week's best" until midnight. VoiceOver reads the bars as one element: "Last 7 days. Today is
-   the highest."
-9. **The line.** Once, in the first run's last step and in About, under the name: "Quiet, for a
-   clog." It is true of the product and funny only because of the name. About also holds the
-   lifetime saving as its one green figure ("−14 GB since 3 March"): found there, never pushed.
+   changed, nothing moves. When today passes the other six, and at least three of them had a
+   saving, the caption reads "today, the week's best" until midnight. VoiceOver reads the bars
+   as one element with a value: "Last 7 days. Today, 38 MB. Highest, Tuesday, 52 MB."
+9. **The line.** In exactly two places, as real text: the first run's last step and About, under
+   the name: "Quiet, for a clog." Never in a notification, a tooltip or a menu. It is true of
+   the product and funny only because of the name. About also holds the lifetime saving as its
+   one green figure ("−14 GB since 3 March", with the year once the date is older): found there,
+   never pushed.
 10. **The trackpad answers.** A haptic tick when a drag enters a tile, and when the scale slider
     crosses a "Fit under" size.
 
 The one moment to show a friend is the drop: drag three photos toward the corner, the tile
 lights and the clog lifts its heel; let go, and the tile becomes three cards, each in its
-picture's colour, each squeezing exactly as hard as it saved and leaving the outline of what it
-weighed, while "−75 %" comes out in green and the clog in the menu bar walks.
+picture's colour, each squeezing exactly as hard as it saved, 90 ms after the one before, and
+leaving the outline of what it weighed, while "−75 %" comes out in green and the clog in the
+menu bar walks.
+
+So that the signature is seen where it matters: a drop of two or three files is exempt from the
+burst rule (each card squeezes as it finishes, at least 90 ms apart); results that arrive on
+their own within 3 s of the last still appear set. A fast job (under 1 s) does squeeze: it
+starts 250 ms after the card begins to enter, when the card is all but at rest. The squeeze
+moves only the picture, from its centre; the outline stays at the rest frame and fades when the
+picture passes 98 % on its way back, not on a timer. An undo during an arrival counts down from
+the number shown.
 
 Not added, on purpose: confetti, sounds by default, idle motion, gradients on the windows, a
 shimmer on completion. Reduce Motion keeps the type, the tone, the edge, the bars, the poses
@@ -455,12 +470,12 @@ Words this section adds:
 | Concept | English | Catalan |
 |---|---|---|
 | The line | Quiet, for a clog. | Per ser un esclop, fa poc soroll. |
-| Record day | today, the week's best | avui, el millor dia de la setmana |
-| The week, spoken | Last 7 days. Today is the highest. | Els últims 7 dies. Avui, el més alt. |
+| Record day | today, the week's best | avui, el millor de la setmana |
+| The week, spoken | Last 7 days. Today, 38 MB. Highest, Tuesday, 52 MB. | Els últims 7 dies. Avui, 38 MB. El més alt, dimarts, 52 MB. |
 | Lifetime | −14 GB since 3 March | −14 GB des del 3 de març |
 | Panel, empty | Ready / Copy a screenshot. You'll find it here, smaller. | A punt / Copia una captura. La trobaràs aquí, més petita. |
 | First run, step 2 | It was smaller before you could paste it. | Abans que l'enganxessis, ja era més petita. |
-| Pause, last choice | Until I Resume | Fins que jo ho digui |
+| Pause, last choice / its caption | Until I Resume / Until you resume | Fins que jo ho digui / Fins que ho diguis |
 | Clog, spoken | Waiting for a screenshot | Esperant una captura |
 
 ## Motion
@@ -472,8 +487,8 @@ a 150 ms crossfade, shows final figures without counting, and holds the glyph's 
 | Moment | Motion | How often |
 |---|---|---|
 | Card enters | slides 24 pt from the screen edge and fades, 0.35 / 1.0 | every result |
-| **Result arrives** | the squeeze to scale (see Spark): the picture shrinks by 0.14 × the saving in 120 ms and returns on 0.35 / 0.60; the figure counts to its value in 300 ms, ease-out | the signature. Only when the previous result is more than 3 s old; in a burst, figures appear set |
-| Fast job (under 1 s) | the card enters already done and the figure counts; no dip, which nobody would see during the entrance | |
+| **Result arrives** | the squeeze to scale (see Spark): the picture shrinks by 0.14 × the saving in 120 ms and returns on 0.35 / 0.60; the figure counts to its value in 300 ms, ease-out | the signature. Automatic results within 3 s of the last appear set; a drop of 2 or 3 files is exempt |
+| Fast job (under 1 s) | the card enters already done; the squeeze starts 250 ms after the entrance begins | |
 | Detail: neighbours | covered ones fade out, the rest dim, 120 ms | |
 | Detail: the figure | grows from 17 to 34 pt with the card, as one text scaling, not two crossfading | |
 | Card leaves | fades and moves 12 pt toward the screen edge, 150 ms ease-in | |
@@ -486,7 +501,7 @@ a 150 ms crossfade, shows final figures without counting, and holds the glyph's 
 | Drop row | fades in 120 ms, out 100 ms | every file drag |
 | **Tile under the drag** | 100 → 104 %, 0.25 / 0.60; the others dim in 120 ms | a drag has momentum |
 | **Drop** | the tile morphs into the card, 0.35 / 0.85 | a drop is a release |
-| **Glyph working** | one step, 280 ms per half, ease-in-out; 1.4 s rest | after 1 s of work |
+| **Glyph working** | one step, 280 ms per half, ease-in-out; 1.4 s rest | at once on a drop; after 1 s of work otherwise |
 | Menu panel | 98 → 100 % from the glyph and fade, 100 ms; closes in 80 ms | |
 | Options popover | the system's | |
 | Options change | the figure counts to the new value in 300 ms | |
@@ -494,7 +509,7 @@ a 150 ms crossfade, shows final figures without counting, and holds the glyph's 
 | Compare: layout | crossfade 180 ms | |
 | Batch row finishes | its figure fades in, 150 ms | |
 | List item moves | follows the pointer; settles on 0.30 / 1.0 | |
-| **First run, step 2** | the arrival, as on a result | once |
+| **First run, step 2** | the screenshot fills its frame, holds 250 ms, shrinks to scale on 0.50 / 0.80 (Spark, 7) | once |
 | Settings, tabs | none | |
 
 Three rows overshoot: the arrival and the tile under the drag at a damping of 0.60 (about 1 pt
@@ -547,11 +562,11 @@ One name per thing, in both languages. Catalan uses the comma for decimals ("2,4
 | Drop tile | Optimise · 3 files | Optimitza · 3 fitxers |
 | Panel figure | today, across 14 files | avui, en 14 fitxers |
 | Panel status | Watching the clipboard and 2 folders | Vigila el porta-retalls i 2 carpetes |
-| Panel, paused | Paused / Resumes at 14:32 / Until you resume / Resume / Watching nothing | En pausa / Es reprèn a les 14:32 / Fins que es reprengui / Reprèn / No vigila res |
-| Panel, empty | Ready / Nothing optimised yet / Copy a screenshot. It lands here, smaller. | A punt / Encara no s'ha optimitzat res / Copia una captura de pantalla. Apareixerà aquí, més petita. |
+| Panel, paused | Paused / Resumes at 14:32 / Until you resume / Resume / Watching nothing | En pausa / Es reprèn a les 14:32 / Fins que ho diguis / Reprèn / No vigila res |
+| Panel, empty | Ready / Copy a screenshot. You'll find it here, smaller. | A punt / Copia una captura. La trobaràs aquí, més petita. |
 | Panel commands | Optimise Files… · Optimise Clipboard · All Results · Pipelines | Optimitza fitxers… · Optimitza el porta-retalls · Tots els resultats · Fluxos |
 | Panel, batch | Optimising 7 of 9 / Show | S'està optimitzant: 7 de 9 / Mostra |
-| Pause menu | For the Next Copy · For 5 Minutes · For an Hour · Until I Resume | Per a la pròxima còpia · Durant 5 minuts · Durant una hora · Fins que es reprengui |
+| Pause menu | For the Next Copy · For 5 Minutes · For an Hour · Until I Resume | Per a la pròxima còpia · Durant 5 minuts · Durant una hora · Fins que jo ho digui |
 | Notice | The next copy won't be optimised | La pròxima còpia no s'optimitzarà |
 | Originals kept | The original is kept for 7 days. Put it back from All Results. | L'original es conserva 7 dies. Recupera'l des de Tots els resultats. |
 | First run | Copy a screenshot / That is all it does / It lives in the menu bar | Copia una captura / Això és tot el que fa / Viu a la barra de menús |
