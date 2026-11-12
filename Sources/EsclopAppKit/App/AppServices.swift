@@ -47,6 +47,7 @@ public final class AppServices {
         }
         self.settingsModel = settingsModel
         settingsModel.pipelines = model.service.context.pipelines
+        settingsModel.uploads = .live()
         settingsWindow = SettingsWindowController(model: settingsModel, agents: AgentsModel(), actions: SettingsActions(
             reveal: { [weak model] in model?.reveal([$0]) },
             copy: { text in

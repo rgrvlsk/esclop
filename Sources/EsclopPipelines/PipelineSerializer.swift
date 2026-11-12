@@ -137,6 +137,8 @@ public enum PipelineSerializer {
             add("location", loc(location))
         case let .shelveWith(app), let .uploadWith(app):
             add("app", app)
+        case let .upload(target):
+            add("to", target.map(quote))
         case let .openWith(app):
             add("app", quote(app))
         }

@@ -112,10 +112,16 @@ public struct EsclopService: Sendable {
         var job = job
         job.request.origin = context.origin
         var usesScripts = false
+        var uploads = false
         if case let .pipeline(pipeline) = job.operation {
             usesScripts = try pipelineRunner.usesScripts(pipeline)
+            uploads = try pipelineRunner.usesUploads(pipeline)
         }
-        try policy.check(job, pipelineUsesScripts: usesScripts)
+        try policy.check(job, pipelineUsesScripts: usesScripts, pipelineUploads: uploads)
+        if case .upload = job.operation, context.useApp, !context.app.isAppRunning {
+            // Only the app holds the upload keys: start it rather than fail.
+            try await context.app.launchApp()
+        }
         if case .pipeline = job.operation, policy.applies, !policy.allowed(.allowOverwriteOriginals) {
             // Pipeline steps choose their own locations (optimise works in place). An agent that may
             // not overwrite originals runs the pipeline on copies written where it asked.

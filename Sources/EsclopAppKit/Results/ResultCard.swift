@@ -58,6 +58,11 @@ public final class ResultCard: Identifiable {
     public var optionsTab: OptionsTab = .optimise
     /// Where the pointer was when the dwell started counting.
     var dwellAnchor: CGPoint?
+    /// The result's upload, from the Share tab or an automatic upload; nil when there is none.
+    public var upload: UploadState?
+    /// The target the last upload went to, for "Upload again".
+    var uploadTarget: String?
+    var uploadTask: Task<Void, Never>?
     /// Runs the job again after an error.
     var retry: (() -> Void)?
     var cancelWork: (() -> Void)?
@@ -86,6 +91,19 @@ public final class ResultCard: Identifiable {
         default: machine.finished(at: Date(), hideAfter: nil)
         }
         self.machine = machine
+    }
+
+    public enum UploadState: Equatable, Sendable {
+        case uploading(fraction: Double)
+        case uploaded(URL)
+        /// The file stays where it is; the message says why the upload did not go through.
+        case failed(String)
+    }
+
+    /// The link to copy: this card's upload, or a result that was an upload (`esclop upload`).
+    public var link: URL? {
+        if case let .uploaded(link) = upload { return link }
+        return result?.link
     }
 
     public var result: OptimisationResult? {

@@ -42,7 +42,7 @@ import Testing
 
     @Test func panesTheBriefNames() {
         #expect(SettingsPane.allCases.map(\.title) == [
-            "General", "Images", "Video", "PDF", "Audio", "Clipboard", "Floating results", "Agents and MCP", "Advanced",
+            "General", "Images", "Video", "PDF", "Audio", "Clipboard", "Floating results", "Uploads", "Agents and MCP", "Advanced",
         ])
         #expect(model().groups(in: .agents).flatMap(\.settings).map(\.key) == AgentPermission.allCases.map(\.rawValue))
     }

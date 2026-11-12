@@ -477,6 +477,29 @@ public enum EsclopSettings {
         "allowSettingsChanges", default: false, title: "Agents may change settings",
         description: "Let AI agents change esclop's settings.", section: .agents
     )
+    public static let allowUploads = Setting<Bool>(
+        "allowUploads", default: false, title: "Agents may upload files",
+        description: "Let AI agents upload images, videos, PDFs and audio to your upload targets, and get their links. Anyone with a link can open the file if the bucket is public.", section: .agents
+    )
+
+    // MARK: Uploads
+
+    public static let uploadTargets = Setting<[String]>(
+        "uploadTargets", default: [], title: "Upload targets",
+        description: "Where files are uploaded: S3-compatible storage such as AWS S3, Cloudflare R2, Backblaze B2 or MinIO. The keys are kept in the Keychain, never here.",
+        section: .uploads,
+        schema: ["x-details": "One JSON object per target: name, endpoint, bucket, region, path (a path template such as %y/%m/%f), publicURL (a template where {path} is the uploaded path; empty uses the endpoint) and pathStyle. Keys are set in the app only."]
+    )
+    public static let uploadTarget = Setting<String>(
+        "uploadTarget", default: "", title: "Upload to",
+        description: "The target used when none is named. Empty uses the first one.", section: .uploads
+    )
+    public static let uploadAutomatically = Setting<[String]>(
+        "uploadAutomatically", default: [], title: "Upload automatically",
+        description: "Sources whose results are uploaded as soon as they are optimised, with the link put on the clipboard.",
+        section: .uploads,
+        schema: ["x-details": "Any of: clipboard, dropZone, watchedFolder, finder."]
+    )
 
     // MARK: -
 
@@ -511,7 +534,8 @@ public enum EsclopSettings {
         enableAutomaticVideoOptimisations.erased, enableAutomaticPDFOptimisations.erased,
         enableAutomaticAudioOptimisations.erased, imageDirs.erased, videoDirs.erased, pdfDirs.erased, audioDirs.erased,
         maxImageFileCount.erased, maxVideoFileCount.erased, maxPDFFileCount.erased, maxAudioFileCount.erased,
-        allowOverwriteOriginals.erased, allowDeleteBackups.erased, allowRunScripts.erased, allowSettingsChanges.erased,
+        allowOverwriteOriginals.erased, allowDeleteBackups.erased, allowRunScripts.erased, allowSettingsChanges.erased, allowUploads.erased,
+        uploadTargets.erased, uploadTarget.erased, uploadAutomatically.erased,
         checkForUpdatesAutomatically.erased, installUpdatesAutomatically.erased,
     ]
 }

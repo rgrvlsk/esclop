@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Share: a row of round buttons (Copy, AirDrop, Save as, Show in Finder, Quick Look, Share…),
-// then drill-downs (Open with, Run a Shortcut, Run a pipeline, shelf and upload apps when they
-// are installed), and the footer: how long results stay visible, and which hover buttons show.
+// then drill-downs (Open with, Run a Shortcut, Run a pipeline, Upload to each upload target, shelf
+// and upload apps when they are installed), and the footer: how long results stay visible, and which hover buttons show.
 
 import AppKit
 import EsclopCore
@@ -34,6 +34,19 @@ struct ShareTab: View {
             DrillRow(symbol: "wand.and.rays", title: Strings.text("Run a pipeline")) { model.drill = .pipeline }
             ForEach(AppModel.installed(AppModel.shelfApps), id: \.self) { url in
                 DrillRow(symbol: "tray", title: Strings.format("Add to %@", Self.name(of: url)), chevron: false) { app.open(card, with: url) }
+            }
+            // Uploads to the person's own targets (Settings › Uploads), the link on the clipboard.
+            let targets = app.uploadTargets
+            ForEach(targets) { target in
+                DrillRow(symbol: "icloud.and.arrow.up", title: Strings.format("Upload to %@", target.name), chevron: false) { app.upload(card, to: target.name) }
+            }
+            if targets.isEmpty {
+                DrillRow(symbol: "icloud.and.arrow.up", title: Strings.text("Set Up Uploads…"), chevron: false) {
+                    if let url = URL(string: "esclop://settings/uploads") { NSWorkspace.shared.open(url) }
+                }
+            }
+            if let link = card.link {
+                DrillRow(symbol: "link", title: Strings.text("Copy Link"), chevron: false) { app.copyLink(link) }
             }
             ForEach(AppModel.installed(AppModel.uploadApps), id: \.self) { url in
                 DrillRow(symbol: "icloud.and.arrow.up", title: Strings.format("Upload with %@", Self.name(of: url)), chevron: false) { app.open(card, with: url) }

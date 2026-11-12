@@ -76,7 +76,7 @@ app that wants one `EngineClient`).
   written. Results are staged next to the destination so the final swap never crosses volumes.
 - **Agents.** A request with `origin == .mcp` that would overwrite its source (`.inPlace`, or a
   template resolving to it) throws `notPermitted` unless `allowOverwriteOriginals` is on. The other agent switches (`allowDeleteBackups`,
-  `allowRunScripts`, `allowSettingsChanges`) are for the MCP server and pipelines to enforce.
+  `allowRunScripts`, `allowSettingsChanges`, `allowUploads`) are for the MCP server and pipelines to enforce.
 - **Results.** `output`, `backup` (the copy in `Paths.backups`), `kind` (of the output: a video
   turned GIF is an image), sizes, `width`/`height`/`duration` when known, and `steps`, a
   readable log ("Resized to 160x90", "Encoded JPEG at quality 85").
@@ -254,6 +254,10 @@ Swift code reads typed values: `EsclopSettings.stripMetadata.value` (or `.value(
 | `allowDeleteBackups` | Bool | `false` | agents | Agents may delete backups |
 | `allowRunScripts` | Bool | `false` | agents | Agents may run scripts |
 | `allowSettingsChanges` | Bool | `false` | agents | Agents may change settings |
+| `allowUploads` | Bool | `false` | agents | Agents may upload files |
+| `uploadTargets` | [String] | `[]` | uploads | Upload targets |
+| `uploadTarget` | String | `""` | uploads | Upload to |
+| `uploadAutomatically` | [String] | `[]` | uploads | Upload automatically |
 | `checkForUpdatesAutomatically` | Bool | `true` | updates | Check for updates automatically |
 | `installUpdatesAutomatically` | Bool | `false` | updates | Download and install updates automatically |
 

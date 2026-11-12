@@ -189,7 +189,7 @@ final class ServerProcess: @unchecked Sendable {
         let list = try server.request(2, "tools/list")
         let tools = try #require((list["result"] as? [String: Any])?["tools"] as? [[String: Any]])
         let names = Set(tools.compactMap { $0["name"] as? String })
-        #expect(names.count == 25)
+        #expect(names.count == 26)
         #expect(names.isSuperset(of: ["esclop_optimise", "esclop_status", "esclop_settings_schema", "esclop_pipeline_write"]))
         for tool in tools {
             #expect((tool["inputSchema"] as? [String: Any])?["type"] as? String == "object")

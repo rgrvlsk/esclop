@@ -59,6 +59,13 @@ public final class SettingsViewModel {
     @ObservationIgnored let provider: any SettingsProvider
     /// The saved pipelines, for the preset zones row (its switches attach the `presetZone` trigger).
     @ObservationIgnored public var pipelines: PipelineStore?
+    /// The Keychain and the test upload, for Settings › Uploads.
+    @ObservationIgnored public var uploads: UploadSettingsSupport?
+
+    /// The upload targets in the setting.
+    public var uploadTargets: [UploadTarget] {
+        UploadTarget.decode((value(EsclopSettings.uploadTargets.key)?.arrayValue ?? []).compactMap(\.stringValue))
+    }
     @ObservationIgnored let extraRows: [ExtraRow]
     @ObservationIgnored let onChange: (String, JSONValue) -> Void
     @ObservationIgnored private var observer: DefaultsObserver?

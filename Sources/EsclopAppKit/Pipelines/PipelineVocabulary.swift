@@ -36,6 +36,7 @@ enum PipelineVocabulary {
         case "fork": Strings.text("Show the result so far")
         case "shelveWith": Strings.text("Put on a shelf")
         case "uploadWith": Strings.text("Upload")
+        case "upload": Strings.text("Upload to a target")
         case "openWith": Strings.text("Open with")
         default: name
         }
