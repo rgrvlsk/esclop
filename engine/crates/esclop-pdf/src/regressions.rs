@@ -36,6 +36,16 @@ fn font_inputs() {
 }
 
 #[test]
+fn a_loca_claiming_gigabytes_is_not_given_to_skera() {
+    // skera sized its buffer from these `loca` lengths: 11 GB.
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("fuzz/regressions/font/skera-loca-11gb-allocation");
+    let Ok(data) = std::fs::read(path) else { return };
+    let gids = (0..512u16).filter(|g| g % 8 <= u16::from(data[0] % 8)).collect();
+    let err = crate::fonts::subset(&data[1..], &gids).unwrap_err();
+    assert!(err.contains("loca"), "{err}");
+}
+
+#[test]
 fn optimise_inputs() {
     each("optimise", crate::fuzzing::optimise);
 }

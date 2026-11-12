@@ -749,7 +749,20 @@ fn subset_unguarded(data: &[u8], gids: &BTreeSet<u16>) -> Result<Vec<u8>, String
         return subset_cff(data, gids);
     }
     let font = FontRef::new(data).map_err(|e| format!("read: {e}"))?;
-    font.glyf().map_err(|e| format!("glyf: {e}"))?;
+    let glyf = font.glyf().map_err(|e| format!("glyf: {e}"))?;
+    // skera sizes its output buffer from the glyph lengths `loca` states: a crafted `loca`
+    // claiming gigabytes made it allocate 11 GB (found by fuzzing). Every offset must rise and
+    // stay inside `glyf`.
+    let loca = font.loca(None).map_err(|e| format!("loca: {e}"))?;
+    let glyf_len = glyf.offset_data().len() as u64;
+    let mut last = 0u64;
+    for i in 0..loca.len() {
+        let o = u64::from(loca.get_raw(i).ok_or("loca")?);
+        if o < last || o > glyf_len {
+            return Err("loca points outside glyf".into());
+        }
+        last = o;
+    }
     let total = font.maxp().map_err(|e| format!("maxp: {e}"))?.num_glyphs();
     let mut input = IntSet::<GlyphId>::empty();
     input.insert(GlyphId::NOTDEF);
