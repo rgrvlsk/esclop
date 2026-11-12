@@ -257,6 +257,8 @@ public struct CardPresentation: Equatable, Sendable {
                 capsule = .status(symbol: "link", text: t("Uploaded · link copied"))
                 detailActions = [.copyLink] + detailActions
                 actions = [.copyLink] + actions
+                // VoiceOver hears what the capsule shows, not the result under it.
+                accessibilityLabel = f("%@, uploaded, the link is on the clipboard", name)
             }
         }
     }

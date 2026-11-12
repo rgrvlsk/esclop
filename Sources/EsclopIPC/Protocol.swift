@@ -246,7 +246,7 @@ public enum AppEvent: Codable, Sendable {
 }
 
 public enum EsclopVersion {
-    public static let string = "0.1.0"
+    public static let string = "0.1.1"
 
     /// Where the corresponding source lives (GPL/AGPL: the MCP server and About expose it). Set by
     /// the bundle script as `EsclopSourceURL` in Info.plist; nil in a development build.
