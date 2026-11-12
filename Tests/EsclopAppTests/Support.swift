@@ -17,6 +17,13 @@ final class TempDir: @unchecked Sendable {
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     }
 
+    /// A real PNG, for what checks a file's bytes.
+    func png(_ name: String) -> URL {
+        let file = url.appendingPathComponent(name)
+        try? pngData().write(to: file)
+        return file
+    }
+
     func file(_ name: String, bytes: Int = 100_000) -> URL {
         let file = url.appendingPathComponent(name)
         try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
