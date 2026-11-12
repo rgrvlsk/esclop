@@ -2,7 +2,8 @@
 
 Status: the council's four rounds are done (blocking issues per round: 17, 12, 8, 2). The two
 raised in the last round are fixed here and were not put before the council again. The owner
-then chose the direction, **A with B's wooden clog**, and asked for more spark: the section
+then chose the direction, **A, native Mac** (first with B's carved clog, then without it), and
+asked for more spark: the section
 "Spark" answers that. The council gave its opinion on it once, at his request (character: 5
 out of 10 before, 6 to 7 after a first pass); its best ideas were then built in and it scored
 the result **8 out of 10**, each member separately. The owner approved it.
@@ -22,9 +23,10 @@ the result **8 out of 10**, each member separately. The owner approved it.
 
 Everything below holds for both unless a line says "A" or "B".
 
-**Decided by the owner after the fourth round: A, with B's wooden clog** where the app speaks
-as itself: the empty panel and the first run's stage. B stays in this document and in the
-renders as the road not taken.
+**Decided by the owner: A, native Mac, with nothing of B.** After the fourth round he chose A
+with B's carved clog in the empty panel and the first run; having seen it, he took the carved
+clog out. The clog lives in the glyph, flat, and nowhere else. B stays in this document and in
+the renders as the road not taken.
 
 ## Five rules
 
@@ -216,8 +218,8 @@ back. Pressing the glyph, dragging to a command and releasing activates it, as i
 - **A running batch** takes the status line's place: a spinner, "Optimising 7 of 9", Show.
   Nothing above it moves.
 - **Status:** "Watching the clipboard and 2 folders".
-- **Empty:** "Ready", the carved clog and "Copy a screenshot. You'll find it here, smaller."
-  The clog is hidden from VoiceOver; the sentence says it.
+- **Empty:** "Ready", the glyph in secondary ink and "Copy a screenshot. You'll find it here,
+  smaller." The glyph is hidden from VoiceOver; the sentence says it.
 - **Keyboard:** Tab moves between header buttons, grid and commands; arrows move within; Return
   activates. VoiceOver reads a picture as "Beach 02.jpg, 54 % smaller, 1.1 megabytes" with Undo,
   Compare and Show in Finder as actions.
@@ -368,7 +370,7 @@ Three steps, 600 × 480 pt.
 3. **It lives in the menu bar.** The glyph as it looks up there, in both directions, three
    shortcuts as key caps, and one link: "Connect an AI Agent…". Done; no Skip on the last step.
 
-In B the wooden clog waits on the stage of step 1.
+The glyph waits on the stage of step 1 (in B, the carved clog).
 
 ## Pipeline editor
 
@@ -418,14 +420,13 @@ own card.**
    contrast test runs under the strongest washes (pure red, blue, yellow) on every ground.
 5. **A glass edge.** A 1 pt inner stroke on every floating surface, lit from the top left
    (white 90 % in light, 40 % in dark) and falling to 15 % and 6 % at the bottom right.
-6. **One clog, one gesture, three places.** Over the main drop tile the flat clog lifts its heel
-   (the glyph's working pose, 15°, spring 0.25 / 0.60) and sets it down on the drop, as the tile
-   becomes the card; at that instant the menu bar clog starts to walk, and a step once begun
-   always ends (560 ms). The carved clog appears in two places only, the first run's stage and
-   the empty panel, small and still: on its heel, tilted 4°, with a contact shadow (black 22 %
-   in light, 45 % in dark). It takes the raised-heel pose when the first screenshot lands, on
-   0.30 / 0.85, without a visible bounce: a carved shoe that bounces is a toy. It ships as a
-   clean asset at 1x, 2x and 3x.
+6. **One clog, one gesture, three places.** The clog is the flat glyph, everywhere. Over the
+   main drop tile it lifts its heel (the working pose, 15°, spring 0.25 / 0.60) and sets it down
+   on the drop, as the tile becomes the card; at that instant the menu bar clog starts to walk,
+   and a step once begun always ends (560 ms). On the first run's stage and in the empty panel
+   the same glyph waits, in secondary ink, and takes the raised-heel pose when the first
+   screenshot lands (a pose, so Reduce Motion keeps it). There is no carved clog in the app:
+   the owner chose native Mac without it. The wood stays on the icon.
 7. **The saving drawn to scale.** In the first run the screenshot lands filling a dashed frame
    in `saving`, holds 250 ms, then shrinks to true scale from the bottom left (spring 0.50 /
    0.80): half the side, a quarter of the area, for a 75 % saving. The frame stays, labelled
@@ -603,9 +604,8 @@ what was kept, and the way out is a button.
 3. In B the green is both the saving and the control colour, as the owner's brief for B says.
    One member proposed wood for B's controls; `wood` is too close to `warm` to carry both, so
    it stays green. This is the owner's call when choosing between A and B.
-4. B's wooden clog is a rendered picture beside SF Symbols. It appears only where the app
-   speaks as itself (the main drop tile at rest, the empty panel, the first run's stage), never
-   as a control.
+4. B's carved clog is a rendered picture beside SF Symbols. It is part of B only; A, the
+   chosen direction, does not use it.
 5. A against B: the owner chooses. In the last round the visual-system member called A the
    stronger system, narrowly (green means the saving and nothing else, on surfaces that match
    the stock windows), and B the better material (the same contrast on every ground, honestly

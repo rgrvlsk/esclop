@@ -178,13 +178,13 @@ struct ProtoClog: View {
 
     /// On a lit tile, or where the menu bar glyph itself is meant, both directions draw the template.
     var template = false
-    /// Where the app speaks as itself (the empty panel, the first run), the carved clog shows in
-    /// both directions: the owner's choice, "A with B's wooden clog".
+    /// Where the app speaks as itself (the empty panel, the first run). In B this is the carved
+    /// clog; in A, the owner's final choice, it is the same flat glyph as everywhere else.
     var wood = false
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        if wood, !template, let wooden = Self.wooden {
+        if wood, Proto.own, !template, let wooden = Self.wooden {
             // The carved clog stands on something: tilted on its heel, with a contact shadow.
             Image(nsImage: wooden).resizable().aspectRatio(contentMode: .fit).frame(width: width * 1.25)
                 .rotationEffect(.degrees(-4))
@@ -196,6 +196,7 @@ struct ProtoClog: View {
         } else if let glyph = MenuBarLabel.customGlyph {
             // The same slot as the wooden clog, so a label beside it never moves when it changes.
             Image(nsImage: glyph).renderingMode(.template).resizable().aspectRatio(contentMode: .fit).frame(width: width).frame(width: Proto.own ? width * 1.3 : width)
+                .foregroundStyle(wood ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
         }
     }
 }
