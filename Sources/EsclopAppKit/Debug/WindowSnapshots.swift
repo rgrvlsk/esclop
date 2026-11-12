@@ -9,6 +9,14 @@
 //   osascript -l JavaScript -e '$.NSDistributedNotificationCenter.defaultCenter
 //     .postNotificationNameObjectUserInfoDeliverImmediately("dev.esclop.snapshot", "after-copy", $(), true)'
 //
+// A burst, for judging motion: user info `frames` (1–240) and `interval` (8–2000 ms) captures
+// that many frames, one every `interval` ms from the request, as `<label>-f<NNN>-<n>-<kind>.png`,
+// and `<label>.json` lists each frame's time and windows.
+//
+//   osascript -l JavaScript -e '$.NSDistributedNotificationCenter.defaultCenter
+//     .postNotificationNameObjectUserInfoDeliverImmediately("dev.esclop.snapshot", "arrival",
+//     $({frames: 30, interval: 33}), true)'
+//
 // A process may capture its own windows without the screen recording permission, so this works
 // in a session where nothing else can take screenshots. Only the app's windows are drawn:
 // whatever is behind a glass panel is left out.
@@ -37,7 +45,45 @@ public final class WindowSnapshots: NSObject {
         public var screenWidth: Double
         public var screenHeight: Double
         public var appearance: String
+        /// A single snapshot's windows; for a burst, the first frame's.
         public var windows: [Entry]
+        /// A burst's frames, in order; nil for a single snapshot.
+        public var frames: [Frame]? = nil
+    }
+
+    public struct Frame: Codable, Equatable, Sendable {
+        public var index: Int
+        /// When the frame was taken, from the request.
+        public var milliseconds: Double
+        public var windows: [Entry]
+    }
+
+    /// How many frames, how far apart.
+    public struct Burst: Equatable, Sendable {
+        public static let maxFrames = 240
+        public static let intervals = 8 ... 2000
+
+        public var frames: Int
+        public var interval: Int
+
+        public init(frames: Int, interval: Int) {
+            self.frames = min(max(frames, 1), Self.maxFrames)
+            self.interval = min(max(interval, Self.intervals.lowerBound), Self.intervals.upperBound)
+        }
+
+        /// From a request's user info, `frames` and `interval` (milliseconds), as numbers or
+        /// text. Nil, a single snapshot, without `frames` or with fewer than two.
+        public static func from(_ info: [AnyHashable: Any]?) -> Burst? {
+            func number(_ key: String) -> Int? {
+                switch info?[key] {
+                case let value as NSNumber: value.intValue
+                case let value as String: Int(value.trimmingCharacters(in: .whitespaces))
+                default: nil
+                }
+            }
+            guard let frames = number("frames"), frames > 1 else { return nil }
+            return Burst(frames: frames, interval: number("interval") ?? 33)
+        }
     }
 
     public let directory: URL
@@ -63,7 +109,12 @@ public final class WindowSnapshots: NSObject {
     }
 
     @objc private func requested(_ note: Notification) {
-        _ = try? write(label: note.object as? String ?? "")
+        let label = note.object as? String ?? ""
+        if let burst = Burst.from(note.userInfo) {
+            Task { _ = try? await write(label: label, burst: burst) }
+        } else {
+            _ = try? write(label: label)
+        }
     }
 
     /// Letters, digits, `-` and `_`; anything else becomes `-`, so a label is never a path.
@@ -108,6 +159,53 @@ public final class WindowSnapshots: NSObject {
         let manifest = Manifest(
             label: label, screenWidth: screen.width, screenHeight: screen.height,
             appearance: dark ? "dark" : "light", windows: entries
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(manifest).write(to: directory.appendingPathComponent("\(label).json"), options: .atomic)
+        return manifest
+    }
+
+    /// Writes `burst.frames` frames of every visible window, one every `burst.interval` ms. Frames
+    /// are captured on time and encoded off the main actor, so writing never delays the next one.
+    @discardableResult
+    public func write(label: String, burst: Burst, windows: (() -> [NSWindow])? = nil) async throws -> Manifest {
+        let label = Self.safe(label)
+        let directory = directory
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let screen = NSScreen.screens.first?.frame ?? .zero
+        let clock = ContinuousClock()
+        let start = clock.now
+        var frames: [Frame] = []
+        var encodes: [Task<Void, Never>] = []
+        for index in 0 ..< burst.frames {
+            try? await Task.sleep(until: start + .milliseconds(index * burst.interval), clock: clock)
+            let elapsed = start.duration(to: clock.now)
+            let visible = (windows?() ?? NSApp.windows).filter { $0.isVisible && $0.frame.width >= 1 && $0.frame.height >= 1 }
+            var entries: [Entry] = []
+            for (number, window) in visible.enumerated() {
+                guard let image = Self.image(of: window) else { continue }
+                let kind = Self.kind(title: window.title, className: window.className)
+                let file = String(format: "%@-f%03d-%d-%@.png", label, index + 1, number + 1, kind)
+                let frame = window.frame
+                entries.append(Entry(
+                    file: file, kind: kind, title: window.title,
+                    x: frame.minX, y: screen.maxY - frame.maxY, width: frame.width, height: frame.height,
+                    level: window.level.rawValue
+                ))
+                let url = directory.appendingPathComponent(file)
+                encodes.append(Task.detached(priority: .utility) {
+                    try? NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])?.write(to: url, options: .atomic)
+                })
+            }
+            let milliseconds = Double(elapsed.components.seconds) * 1000 + Double(elapsed.components.attoseconds) / 1e15
+            frames.append(Frame(index: index + 1, milliseconds: (milliseconds * 10).rounded() / 10, windows: entries))
+        }
+        for encode in encodes { await encode.value }
+        let dark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let manifest = Manifest(
+            label: label, screenWidth: screen.width, screenHeight: screen.height,
+            appearance: dark ? "dark" : "light", windows: frames.first?.windows ?? [], frames: frames
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
