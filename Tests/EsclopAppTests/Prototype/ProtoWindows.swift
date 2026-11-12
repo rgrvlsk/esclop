@@ -53,8 +53,8 @@ struct ProtoBatch: View {
                                 .frame(width: 40, height: 40)
                                 .saturation(index == 5 ? 0.15 : 1)
                                 .opacity(index == 5 ? 0.7 : 1)
-                                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                                .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
+                                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                                .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(row.0).font(.system(size: 13, weight: .medium)).lineLimit(1)
                                 Text(row.1).font(.system(size: 11)).foregroundStyle(index == 5 ? AnyShapeStyle(Proto.error) : AnyShapeStyle(.secondary))
@@ -71,13 +71,18 @@ struct ProtoBatch: View {
                             if let saving = row.2 {
                                 Text(saving).font(.system(size: 13, weight: .medium)).frame(width: 58, alignment: .trailing)
                             } else if index == 5 {
-                                Button("Retry") {}.controlSize(.small)
+                                Button("Retry") {}
+                                    .buttonStyle(.plain)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .padding(.horizontal, 12)
+                                    .frame(height: Proto.hit)
+                                    .background(Capsule().fill(Color.primary.opacity(0.14)))
                             }
                         }
                         .monospacedDigit()
                         .padding(.horizontal, 20)
                         .frame(height: 56)
-                        .background(row.4 ? Color.primary.opacity(0.05) : .clear)
+                        .background(row.4 ? Color.primary.opacity(0.06) : .clear)
                         if index < rows.count - 1 { Divider().padding(.leading, 72) }
                     }
                 }
@@ -101,7 +106,7 @@ struct ProtoBatch: View {
 
 struct ProtoSettings: View {
     enum Pane: String, CaseIterable, Identifiable {
-        case general = "General", automatic = "Automatic", quality = "Quality", results = "Results"
+        case general = "General", automatic = "Automatic", quality = "Compression", results = "Results"
         case uploads = "Uploads", agents = "Agents", advanced = "Advanced"
         var id: String { rawValue }
         var symbol: String {
@@ -184,6 +189,7 @@ struct ProtoSettings: View {
                 Toggle("Videos", isOn: $off)
                 Toggle("PDFs", isOn: $off)
                 Toggle("Audio", isOn: $off)
+                Toggle("Put the result back on the clipboard", isOn: $on)
             }
             Section("Folders") {
                 LabeledContent("~/Desktop") { Text("Images").foregroundStyle(.secondary) }
@@ -211,13 +217,12 @@ struct ProtoSettings: View {
             } header: {
                 Text("Normally")
             } footer: {
-                Text("Balanced is visually lossless. Strong makes smaller files with loss you can find if you look.")
+                Text("Balanced is visually lossless. Strong makes smaller files, with loss you can find if you look.")
             }
             Section("When aggressive") {
                 Picker("Images", selection: .constant(2)) {
-                    Text("Light").tag(0)
-                    Text("Balanced").tag(1)
                     Text("Strong").tag(2)
+                    Text("Maximum").tag(3)
                 }
                 .pickerStyle(.segmented)
                 LabeledContent("Always aggressive for") { Text("PNG, GIF").foregroundStyle(.secondary) }
@@ -248,7 +253,7 @@ struct ProtoOnboarding: View {
             Spacer(minLength: 0)
             Divider()
             HStack {
-                Button("Skip") {}.buttonStyle(.plain).foregroundStyle(.secondary)
+                Button("Skip") {}.buttonStyle(.plain).foregroundStyle(.secondary).opacity(step == .menuBar ? 0 : 1)
                 Spacer()
                 HStack(spacing: 6) {
                     ForEach(0 ..< 3, id: \.self) { index in
@@ -285,12 +290,12 @@ struct ProtoOnboarding: View {
                     .font(.system(size: 13)).foregroundStyle(.secondary)
             }
             ZStack {
-                RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.primary.opacity(0.05))
+                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.primary.opacity(0.06))
                 if step == .tried {
                     HStack(spacing: 22) {
                         Image(nsImage: ProtoSamples.screenshot).resizable().aspectRatio(contentMode: .fit)
                             .frame(height: 120)
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                             .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
                         VStack(alignment: .leading, spacing: 6) {
                             Text(Proto.percent(75)).font(Proto.figure(44)).foregroundStyle(Proto.saving).fixedSize()
@@ -302,7 +307,9 @@ struct ProtoOnboarding: View {
                     }
                 } else {
                     VStack(spacing: 10) {
-                        Image(systemName: "camera.viewfinder").font(.system(size: 30, weight: .light)).foregroundStyle(.secondary)
+                        if Proto.own { ProtoClog(width: 52) } else {
+                            Image(systemName: "camera.viewfinder").font(.system(size: 30, weight: .light)).foregroundStyle(.secondary)
+                        }
                         Text("Waiting for a screenshot").font(.system(size: 13)).foregroundStyle(.secondary)
                         Button("Use a Sample Instead") {}.controlSize(.small)
                     }
@@ -315,7 +322,7 @@ struct ProtoOnboarding: View {
 
     private var menuBar: some View {
         VStack(spacing: 18) {
-            ProtoClog(width: 64)
+            ProtoClog(width: 64, template: true)
             Text("It lives in the menu bar").font(.system(size: 28, weight: .semibold))
             Text("Results, undo and pause are there. These work from anywhere:")
                 .font(.system(size: 13)).foregroundStyle(.secondary)
@@ -378,7 +385,7 @@ struct ProtoPipeline: View {
                                     Image(systemName: step.0)
                                         .font(.system(size: 13, weight: .medium))
                                         .frame(width: 30, height: 30)
-                                        .background(Circle().fill(Color.primary.opacity(0.08)))
+                                        .background(Circle().fill(Color.primary.opacity(0.06)))
                                     if index < steps.count - 1 {
                                         Rectangle().fill(Color.primary.opacity(0.15)).frame(width: 1.5).frame(maxHeight: .infinity)
                                     }
@@ -420,6 +427,7 @@ struct ProtoPipeline: View {
                     }
                     .pickerStyle(.segmented)
                     Button("Try It…", systemImage: "play.fill") {}.labelStyle(.titleAndIcon)
+                    Button("Run on Files…", systemImage: "doc.on.doc") {}.labelStyle(.titleAndIcon)
                 }
             }
         }
@@ -431,7 +439,7 @@ struct ProtoPipeline: View {
             .font(.system(size: 12, weight: .medium))
             .padding(.horizontal, 10)
             .frame(height: 26)
-            .background(Capsule().fill(Color.primary.opacity(0.07)))
+            .background(Capsule().fill(Color.primary.opacity(0.06)))
     }
 }
 
@@ -445,7 +453,7 @@ struct ProtoCompare: View {
             ZStack {
                 ProtoChecker()
                 Image(nsImage: ProtoSamples.photo).resizable().aspectRatio(contentMode: .fit).padding(28)
-                Rectangle().fill(.white).frame(width: 1.5).shadow(color: .black.opacity(0.4), radius: 1.5).padding(.vertical, 60)
+                Rectangle().fill(.white).frame(width: 1.5).shadow(color: .black.opacity(0.4), radius: 1.5).padding(.vertical, 28)
                 Image(systemName: "chevron.left.chevron.right")
                     .font(.system(size: 10, weight: .bold)).foregroundStyle(Color(white: 0.2))
                     .frame(width: 24, height: 32).background(Capsule().fill(.white))
@@ -537,8 +545,8 @@ struct ProtoAllResults: View {
                         HStack(spacing: 12) {
                             Image(nsImage: row.3).resizable().aspectRatio(contentMode: .fill)
                                 .frame(width: 40, height: 40)
-                                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                                .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
+                                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                                .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(row.0).font(.system(size: 13, weight: .medium)).lineLimit(1).truncationMode(.middle)
                                 Text(row.1).font(.system(size: 11)).foregroundStyle(.secondary)
@@ -556,7 +564,7 @@ struct ProtoAllResults: View {
                         .monospacedDigit()
                         .padding(.horizontal, 20)
                         .frame(height: 56)
-                        .background(index == 1 ? Color.primary.opacity(0.05) : .clear)
+                        .background(index == 1 ? Color.primary.opacity(0.06) : .clear)
                     }
                 }
             }

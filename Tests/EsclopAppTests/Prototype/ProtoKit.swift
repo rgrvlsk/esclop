@@ -25,8 +25,13 @@ enum Proto {
     /// Controls, selection and the drop target: the system accent, or the green in the own-brand direction.
     /// A test process is never the active app, so the system accent draws grey: the default blue stands in for it.
     static var control: Color { own ? saving : Color(nsColor: .systemBlue) }
+    /// A lit drop tile: one fill for both appearances, so white text on it is always above 4.5:1.
+    static var lit: Color { own ? Color(nsColor: Palette.color(0x176B59)) : Color(nsColor: Palette.color(0x0A60D8)) }
+    static let litWarm = Color(nsColor: Palette.color(0x8F5510))
+    /// Secondary text on the own-brand surface: the system's fails on boxwood.
+    static let ownSecondary = Color(nsColor: Palette.dynamic(light: 0x625C56, dark: 0xB9AFA5))
     /// What is left of the original in a split bar.
-    static var kept: Color { own ? wood.opacity(0.8) : Color.primary.opacity(0.32) }
+    static var kept: Color { own ? Color(nsColor: Palette.dynamic(light: 0xD8BF9F, dark: 0x6E5746)) : Color.primary.opacity(0.32) }
 
     // Concentric radii: outer = inner + padding.
     /// "−75 %" with the narrow space the figure needs at large sizes.
@@ -71,6 +76,8 @@ struct ProtoSurface: ViewModifier {
         surface(content, shape)
             // Elevation: one shadow and one inner rim, so the edge never depends on the wallpaper.
             .overlay(shape.strokeBorder(Color.white.opacity(scheme == .dark ? 0.14 : 0.35), lineWidth: 0.5).allowsHitTesting(false))
+            // An outer hairline, for a light surface on a white ground.
+            .overlay(shape.inset(by: -0.5).strokeBorder(Color.black.opacity(scheme == .dark ? 0.3 : 0.1), lineWidth: 0.5).allowsHitTesting(false))
             .background {
                 shape.fill(.black)
                     .shadow(color: .black.opacity(scheme == .dark ? 0.45 : 0.2), radius: 12, y: 8)
@@ -79,14 +86,19 @@ struct ProtoSurface: ViewModifier {
     }
 
     @ViewBuilder private func surface(_ content: Content, _ shape: RoundedRectangle) -> some View {
-        if Proto.own {
+        if let tint {
+            // A lit tile: the colour itself, opaque, so the state survives any wallpaper.
+            content.background(shape.fill(tint))
+        } else if Proto.own {
+            // Wood does not transmit: the surface is opaque, with its own secondary ink.
             let fill = scheme == .dark ? Palette.color(0x2B2521) : Palette.color(0xF6F0E8)
-            content.background(shape.fill(tint.map { $0.opacity(scheme == .dark ? 0.85 : 0.92) } ?? Color(nsColor: fill).opacity(0.94)))
-        } else if let tint {
-            // A lit tile: the colour itself, so the state survives any wallpaper.
-            content.background(shape.fill(tint.opacity(scheme == .dark ? 0.85 : 0.92)))
+            content.foregroundStyle(Color.primary, Proto.ownSecondary).background(shape.fill(Color(nsColor: fill)))
         } else if #available(macOS 26, *) {
-            content.glassEffect(.regular, in: shape)
+            // Glass with a backing in the appearance's own tone: the ground under the ink is
+            // bounded whatever the desktop is.
+            content
+                .background(shape.fill((scheme == .dark ? Color(white: 0.13) : Color(white: 0.97)).opacity(0.8)))
+                .glassEffect(.regular, in: shape)
         } else {
             content.glassSurface(shape)
         }
@@ -103,8 +115,11 @@ struct ProtoClog: View {
         return NSImage(contentsOf: url)
     }()
 
+    /// On a lit tile, or where the menu bar glyph itself is meant, both directions draw the template.
+    var template = false
+
     var body: some View {
-        if Proto.own, let wooden = Self.wooden {
+        if Proto.own, !template, let wooden = Self.wooden {
             Image(nsImage: wooden).resizable().aspectRatio(contentMode: .fit).frame(width: width * 1.25)
         } else if let glyph = MenuBarLabel.customGlyph {
             Image(nsImage: glyph).renderingMode(.template).resizable().aspectRatio(contentMode: .fit).frame(width: width)
@@ -140,8 +155,8 @@ struct ProtoKeys: View {
                     .font(.system(size: 11, weight: .medium))
                     .frame(minWidth: 18, minHeight: 18)
                     .padding(.horizontal, 2)
-                    .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.primary.opacity(0.08)))
-                    .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(Color.primary.opacity(0.12)))
+                    .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.primary.opacity(0.06)))
+                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.primary.opacity(0.12)))
             }
         }
         .foregroundStyle(.secondary)

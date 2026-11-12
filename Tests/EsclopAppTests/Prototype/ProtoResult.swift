@@ -27,6 +27,8 @@ struct ProtoResultCard: View {
     var size = "612 kB"
     var saving = Proto.percent(75)
     var dimmed = false
+    /// Several failures share one slot.
+    var failures = 1
 
     var body: some View {
         let width = Proto.cardWidth - 2 * Proto.cardPadding
@@ -42,6 +44,22 @@ struct ProtoResultCard: View {
                 .overlay(RoundedRectangle(cornerRadius: Proto.pictureRadius, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
             footer
                 .frame(width: width, height: Proto.footerHeight)
+                .overlay(alignment: .top) {
+                    if case let .working(progress, _) = state {
+                        // The one progress indicator, on the seam of picture and footer, inside
+                        // the picture's corners. It belongs to the footer's frame, so nothing
+                        // in the footer moves it.
+                        GeometryReader { proxy in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(Color.primary.opacity(0.14))
+                                Capsule().fill(Color.primary.opacity(0.6)).frame(width: max(4, proxy.size.width * progress))
+                            }
+                        }
+                        .frame(height: 2)
+                        .padding(.horizontal, 10)
+                        .offset(y: -1)
+                    }
+                }
             if state == .failedOpen {
                 Text("This file isn’t a video L’Esclop can read. It may be damaged. The original is untouched.")
                     .font(.system(size: 11))
@@ -61,7 +79,7 @@ struct ProtoResultCard: View {
                     .frame(width: 20, height: 20)
                     .protoGlass(10)
                     .frame(width: Proto.hit, height: Proto.hit)
-                    .offset(x: -12, y: -12)
+                    .offset(x: -8, y: -8)
                     .accessibilityLabel("Dismiss")
             }
         }
@@ -90,7 +108,7 @@ struct ProtoResultCard: View {
 
     @ViewBuilder private var footer: some View {
         let showTools = hover && !tools.isEmpty
-        HStack(spacing: 6) {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
             switch state {
             case .working:
                 label("Optimising")
@@ -108,7 +126,7 @@ struct ProtoResultCard: View {
                 label("Original restored")
             case .failed, .failedOpen:
                 mark("exclamationmark.triangle.fill", Proto.error)
-                label("Not optimised")
+                label(failures > 1 ? "\(failures) not optimised" : "Not optimised")
             case .uploaded:
                 mark("link")
                 label("Link copied")
@@ -118,6 +136,7 @@ struct ProtoResultCard: View {
                 HStack(spacing: 4) {
                     ForEach(tools, id: \.0) { ProtoIconButton(symbol: $0.0, name: $0.1) }
                 }
+                .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
             } else {
                 switch state {
                 case let .working(_, left): quiet(left)
@@ -131,6 +150,7 @@ struct ProtoResultCard: View {
                         .padding(.horizontal, 12)
                         .frame(height: Proto.hit)
                         .background(Capsule().fill(Color.primary.opacity(0.14)))
+                        .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
                 }
             }
         }
@@ -138,21 +158,6 @@ struct ProtoResultCard: View {
         .lineLimit(1)
         .padding(.leading, 8)
         .padding(.trailing, showTools || isFailed ? 3 : 8)
-        .overlay(alignment: .top) {
-            if case let .working(progress, _) = state {
-                // The one progress indicator, on the seam of picture and footer, inside the
-                // picture's corners.
-                GeometryReader { proxy in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Color.primary.opacity(0.12))
-                        Capsule().fill(Color.primary.opacity(0.6)).frame(width: max(4, proxy.size.width * progress))
-                    }
-                }
-                .frame(height: 2)
-                .padding(.horizontal, 10)
-                .offset(y: -1)
-            }
-        }
     }
 }
 
@@ -187,7 +192,7 @@ struct ProtoDetailCard: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(Proto.percent(75)).font(Proto.figure(30)).foregroundStyle(Proto.saving)
+                    Text(Proto.percent(75)).font(Proto.figure(34)).foregroundStyle(Proto.saving)
                     Spacer()
                     Text("1.8 MB saved").font(.system(size: 13)).foregroundStyle(.secondary)
                 }
@@ -253,6 +258,17 @@ struct ProtoStackWithDetail: View {
                 ProtoResultCard(picture: ProtoSamples.screenshot, state: .done).hidden()
             }
             ProtoDetailCard()
+        }
+    }
+}
+
+/// Three slots, always: failures gather in one, so the stack cannot outgrow the screen.
+struct ProtoStackWithFailures: View {
+    var body: some View {
+        VStack(alignment: .trailing, spacing: Proto.gap) {
+            ProtoResultCard(picture: ProtoSamples.chart, state: .failed, failures: 3)
+            ProtoResultCard(picture: ProtoSamples.photo, state: .done, size: "1.1 MB", saving: Proto.percent(54))
+            ProtoResultCard(picture: ProtoSamples.screenshot, state: .done)
         }
     }
 }

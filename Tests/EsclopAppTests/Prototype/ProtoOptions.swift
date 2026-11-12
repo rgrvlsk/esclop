@@ -33,6 +33,8 @@ struct ProtoOptions: View {
     var kind: Kind = .image
     var suggestion = true
     var catalan = false
+    /// A change is running: the selection has moved, the figure waits, Stop is at hand.
+    var pending = false
 
     @State private var quality = 70.0
     @State private var scale = 50.0
@@ -44,7 +46,7 @@ struct ProtoOptions: View {
             header
             if suggestion, tab == .format, kind == .image { suggestionRow }
             ProtoSegments(
-                items: catalan ? ["Format", kind == .audio ? "So" : "Mida", "Accions"] : ["Format", kind == .audio ? "Sound" : "Size", "Actions"],
+                items: catalan ? ["Format", "Mida", "Accions"] : ["Format", "Size", "Actions"],
                 selected: tab == .format ? 0 : (tab == .size ? 1 : 2)
             )
             switch tab {
@@ -85,7 +87,25 @@ struct ProtoOptions: View {
                 Text(sample.change).font(.system(size: 11)).foregroundStyle(.secondary).monospacedDigit()
             }
             Spacer(minLength: 4)
-            Text(Proto.percent(sample.saving)).font(Proto.figure(20)).foregroundStyle(Proto.saving).monospacedDigit()
+            if pending {
+                Button {} label: { Label("Stop", systemImage: "stop.fill").labelStyle(.iconOnly).font(.system(size: 11, weight: .semibold)).frame(width: Proto.hit, height: Proto.hit) }
+                    .buttonStyle(.plain)
+                    .background(Circle().fill(Color.primary.opacity(0.14)))
+            } else {
+                Text(Proto.percent(sample.saving)).font(Proto.figure(24)).foregroundStyle(Proto.saving).monospacedDigit()
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if pending {
+                GeometryReader { proxy in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.primary.opacity(0.14))
+                        Capsule().fill(Color.primary.opacity(0.6)).frame(width: proxy.size.width * 0.4)
+                    }
+                }
+                .frame(height: 2)
+                .offset(y: 7)
+            }
         }
     }
 
@@ -93,7 +113,7 @@ struct ProtoOptions: View {
     private var suggestionRow: some View {
         HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 1) {
-                Text(catalan ? "En WebP faria 410 kB" : "As WebP it would be 410 kB").font(.system(size: 12, weight: .medium))
+                Text(catalan ? "En WebP ocuparia 410 kB" : "As WebP it would be 410 kB").font(.system(size: 12, weight: .medium))
                 Text(catalan ? "Sol anar bé per a les captures" : "Usually right for screenshots").font(.system(size: 11)).foregroundStyle(.secondary)
             }
             Spacer(minLength: 4)
@@ -106,7 +126,8 @@ struct ProtoOptions: View {
     }
 
     private func tiles(_ items: [(String, String)], more: Bool = true) -> some View {
-        HStack(spacing: 6) {
+        let chosen = pending ? 1 : 0
+        return HStack(spacing: 6) {
             ForEach(Array(items.enumerated()), id: \.offset) { index, item in
                 VStack(spacing: 1) {
                     Text(item.0).font(.system(size: 12, weight: .semibold))
@@ -114,9 +135,9 @@ struct ProtoOptions: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
-                .background(RoundedRectangle(cornerRadius: Proto.innerRadius, style: .continuous).fill(Color.primary.opacity(index == 0 ? 0.14 : 0.06)))
+                .background(RoundedRectangle(cornerRadius: Proto.innerRadius, style: .continuous).fill(Color.primary.opacity(index == chosen ? 0.14 : 0.06)))
                 .overlay {
-                    if index == 0 { RoundedRectangle(cornerRadius: Proto.innerRadius, style: .continuous).strokeBorder(Proto.control, lineWidth: 1.5) }
+                    if index == chosen { RoundedRectangle(cornerRadius: Proto.innerRadius, style: .continuous).strokeBorder(Proto.control, lineWidth: 1.5) }
                 }
             }
             if more {
@@ -188,7 +209,7 @@ struct ProtoOptions: View {
 
     private var pdfFormat: some View {
         VStack(alignment: .leading, spacing: 12) {
-            tiles([("Screen", "1.2 MB"), ("Reading", "3.1 MB"), ("Print", "6.4 MB")], more: false)
+            tiles([("Screen", "1.2 MB"), ("Reading", "3.1 MB"), ("Print", "6.4 MB")])
             Text("Reading keeps pictures at 150 dpi.").font(.system(size: 11)).foregroundStyle(.secondary)
             toggle("Keep text selectable", $on)
             toggle("Remove metadata", $on)
@@ -200,6 +221,7 @@ struct ProtoOptions: View {
         VStack(alignment: .leading, spacing: 12) {
             tiles([("AAC", "6.2 MB"), ("MP3", "7.4 MB"), ("Opus", "4.9 MB")])
             chips("Bitrate", ["64", "96", "128", "160", "192", "256"], selected: 3)
+            line("Speed", "1×")
             toggle("Even out loudness", $off)
             rule("Always do this for voice memos")
         }
@@ -241,13 +263,14 @@ struct ProtoOptions: View {
     private var actions: some View {
         VStack(spacing: 0) {
             actionRow("square.on.square", catalan ? "Copia" : "Copy", ["⌘", "C"])
-            actionRow("square.and.arrow.down", catalan ? "Desa com a…" : "Save As…", ["⌘", "S"])
+            actionRow("square.and.arrow.down", catalan ? "Anomena i desa…" : "Save As…", ["⌘", "S"])
             actionRow("folder", catalan ? "Mostra al Finder" : "Show in Finder", ["⌘", "R"])
             actionRow("eye", catalan ? "Vista ràpida" : "Quick Look", [catalan ? "Espai" : "Space"])
-            actionRow("rectangle.split.2x1", catalan ? "Compara amb l’original…" : "Compare with the Original…", [])
+            actionRow("rectangle.split.2x1", catalan ? "Compara amb l’original" : "Compare with the Original", [])
             Divider().opacity(0.6).padding(.vertical, 4).padding(.horizontal, 6)
             actionRow("square.and.arrow.up", catalan ? "Comparteix…" : "Share…", [])
             actionRow("arrow.up.forward.app", catalan ? "Obre amb" : "Open With", [], chevron: true)
+            actionRow("square.stack.3d.up", catalan ? "Executa una drecera" : "Run a Shortcut", [], chevron: true)
             actionRow("point.3.connected.trianglepath.dotted", catalan ? "Aplica un flux" : "Run a Pipeline", [], chevron: true)
             actionRow("icloud.and.arrow.up", catalan ? "Puja a R2" : "Upload to R2", [])
         }
@@ -288,15 +311,15 @@ struct ProtoDropZone: View {
 
     private var main: some View {
         let hot = mode == .target || mode == .aggressive
-        let tint: Color? = mode == .aggressive ? Proto.warm : (mode == .target ? Proto.control : nil)
+        let tint: Color? = mode == .aggressive ? Proto.litWarm : (mode == .target ? Proto.lit : nil)
         return HStack(spacing: 10) {
-            ProtoClog(width: 34)
+            ProtoClog(width: 34, template: hot)
             VStack(alignment: .leading, spacing: 1) {
                 Text(mode == .aggressive
                     ? (catalan ? "Optimitza a fons" : "Optimise Aggressively")
                     : (catalan ? "Optimitza" : "Optimise"))
                     .font(.system(size: 13, weight: .semibold))
-                Text(catalan ? "3 fitxers" : "3 files").font(.system(size: 11)).opacity(0.7)
+                Text(catalan ? "3 fitxers" : "3 files").font(.system(size: 11)).opacity(hot ? 1 : 0.62)
             }
         }
         .padding(.horizontal, 16)
@@ -309,7 +332,7 @@ struct ProtoDropZone: View {
 
     private func tile(_ symbol: String, _ title: String, hot: Bool) -> some View {
         VStack(spacing: 6) {
-            Image(systemName: symbol).font(.system(size: 20, weight: .regular))
+            Image(systemName: symbol).font(.system(size: 20, weight: .regular)).frame(height: 24)
             Text(title)
                 .font(.system(size: 12, weight: .medium))
                 .multilineTextAlignment(.center)
@@ -317,9 +340,10 @@ struct ProtoDropZone: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 8)
-        .frame(width: 92, height: 92)
+        .padding(.top, 18)
+        .frame(width: 92, height: 92, alignment: .top)
         .foregroundStyle(hot ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
-        .protoGlass(Proto.tileRadius, tint: hot ? Proto.control : nil)
+        .protoGlass(Proto.tileRadius, tint: hot ? Proto.lit : nil)
         .scaleEffect(hot ? 1.04 : 1)
         .opacity(mode == .target || mode == .aggressive ? 0.6 : 1)
     }

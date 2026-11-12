@@ -1,6 +1,6 @@
 # Design proposal
 
-Status: round 2, under review. It answers [critique.md](critique.md). Nothing here is built into
+Status: round 3, under review. It answers [critique.md](critique.md). Nothing here is built into
 the app yet: the pictures come from prototype views in `Tests/EsclopAppTests/Prototype`, drawn
 with real SwiftUI and AppKit and captured as real windows, so glass is the system's Liquid Glass.
 Render them with `ESCLOP_RENDER_DIR=<folder> Scripts/test.sh --filter 'PrototypeRenderTests'`.
@@ -39,33 +39,40 @@ Everything below holds for both unless a line says "A" or "B".
 
 | Token | A, Native | B, Own |
 |---|---|---|
-| Floating surface | Liquid Glass (`glassEffect(.regular)`); HUD material before macOS 26 | `#F6F0E8` at 94 % in light, `#2B2521` at 94 % in dark |
-| Elevation (both) | shadow y 8, blur 24, black 20 % light and 45 % dark; inner rim 0.5 pt, white 35 % light and 14 % dark | same |
+| Floating surface | Liquid Glass (`glassEffect(.regular)`) over a backing in the appearance's own tone (white 97 % or 13 %, at 80 %), so the ground under the ink is bounded whatever the desktop is; HUD material before macOS 26 | opaque: `#F6F0E8` in light, `#2B2521` in dark. Wood does not transmit. |
+| Elevation (both) | shadow y 8, blur 24, black 20 % light and 45 % dark; inner rim 0.5 pt, white 35 % light and 14 % dark; outer hairline 0.5 pt, black 10 % light and 30 % dark | same |
 | `saving` | `#176B59` light, `#63D6B8` dark | same |
 | `warm` (aggressive) | `#8F5510` light, `#E0A040` dark | same |
 | `error` | `#C4281C` light, `#FF6961` dark | same |
-| `wood` | not used | `#8A5A33` light, `#D0A077` dark: the kept part of a split bar |
-| Controls, selection, lit tile | system accent | `saving` |
+| Kept part of a split bar | ink at 32 % | pale wood `#D8BF9F` light, dark wood `#6E5746` dark: 3:1 against `saving` by lightness, not by hue |
+| Secondary text on the surface | the system's | `#625C56` light, `#B9AFA5` dark (the system's fails on boxwood) |
+| Lit drop tile | `#0A60D8` (the selection blue), white text | `#176B59`, white text |
+| Lit tile, aggressive | `#8F5510`, white text | same |
+| Controls and selection | system accent | `saving` |
 | Text | system label colours | same |
 
-`saving` and `warm` were retuned for the surface they sit on: at least 4.5:1 on the floating
-surface over a white, a black and a busy desktop, in both appearances. A test
-(`PopoverInkTests`, extended) keeps them there.
+`saving`, `warm` and secondary text hold at least 4.5:1 on the floating surface over a white, a
+black and a busy desktop, in both appearances, and white holds it on a lit tile. The test that
+keeps them there samples the rendered window, not a modelled ground: the render tests draw the
+card over white, black and a busy desktop (`-on-white`, `-on-black`, `-on-busy`) and measure.
+Lit tiles use one fill in both appearances so their white text never drops. B is a skin of the
+floating surfaces and the control tint; its windows are stock, as A's are.
 
 Type, all SF Pro, digits monospaced, the percent sign after a narrow no-break space (U+202F):
 
 | Role | Size and weight |
 |---|---|
-| Figure (savings only) | Rounded semibold: 17 (card, compare), 20 (popover), 24 (panel), 30 (detail), 34 (batch, all results), 44 (first run) |
+| Figure (savings only) | Rounded semibold, four steps: 17 (card, compare), 24 (panel, popover), 34 (detail, batch, all results), 44 (first run) |
 | Title | 13 semibold; 22 semibold for a document; 24 semibold for a panel state ("Paused"); 28 semibold in the first run |
 | Body | 13 regular |
 | Label on a floating surface | 12 medium |
 | Caption | 11 regular, secondary. Nothing smaller, anywhere. |
 
 Geometry: a 4 pt grid (4, 8, 12, 16, 24). Radii are concentric, outer = inner + padding, and
-there are five: card 14 around a 10 pt picture (padding 4); detail 22 around 14 (padding 8);
-panel and popover 22 around 10 pt children (padding 12); drop tiles 18; capsules and circles
-for controls on a floating surface. Every pointer target is at least 28 × 28 pt, 4 pt apart.
+there are six: 6 (key caps, 40 pt thumbnails in lists), 10 (the card's picture, children of a
+panel or popover), 14 (card, the detail's picture), 18 (drop tiles), 22 (detail, panel,
+popover), and capsules or circles for controls on a floating surface. Neutral fills have three
+strengths: 6 % (resting), 14 % (a button, a selected tile), 20 % (pressed). Every pointer target is at least 28 × 28 pt, 4 pt apart.
 Floating objects are 8 pt apart; drop tiles 12 pt.
 
 Symbols: one meaning each. Undo `arrow.uturn.backward`; Undo All `arrow.uturn.backward.circle`;
@@ -110,27 +117,36 @@ Pointer:
 - **Drag** the picture or the footer: drags the file out; the card dims to 60 %.
 - **Two-finger swipe** toward the screen edge: the card follows the fingers 1:1 and leaves past
   40 % of its width or 500 pt/s; otherwise it returns (spring 0.35 / 1.0).
-- **Failed, clicked:** the card grows downward by one caption: what went wrong, and that the
-  original is untouched.
+- **Failed, clicked:** the card grows by one caption, away from the screen corner and over its
+  neighbours: what went wrong, and that the original is untouched.
+- Buttons that appear under a pointer that was already there take clicks only once their fade
+  has ended, so a click meant for the footer never lands on a button.
+- Working is shown only for jobs expected to take over 1 s; a faster job's card enters done.
 
 Keyboard: ⌃⇧R (new, global) moves focus to the newest result, or opens the menu panel when
-there is none. Then ↑ ↓ move between results, Return opens the detail, ⌘Z undoes, ⌘C copies,
-⌘R reveals, Space is Quick Look, ⌘. stops a working one, Esc dismisses and, on the last, gives
-focus back to the app that had it. The focused card draws the system focus ring.
+there is none. The focused card draws the system focus ring and shows its buttons, which Tab
+walks (so Options, Retry and Optimise Again have a key). ↑ ↓ move between results, Return opens
+the detail, ⌘Z undoes, ⌘C copies, ⌘R reveals, Space is Quick Look, ⌘. stops a working one, and
+⌫ dismisses the card. Esc only ever backs out one level: popover, then detail, then focus, which
+returns to the app that had it; the cards stay and their timers resume with at least 5 s left.
+Esc never removes anything.
 
-Stack: the newest three. A new result enters at the end away from the corner; slots never
-change while the pointer is within the stack (plus 8 pt) or a card is focused, dragged or open,
-and settle 400 ms after (spring 0.35 / 1.0). A fourth result removes the oldest that is not
-hovered, open or failed. Older results are in All Results.
+Stack: three slots, always (`proto-result-stack`, `-stack-failures`). A new result enters at the
+end away from the corner and the oldest leaves. Failures share one slot: "3 not optimised" with
+one Retry for all; clicking it opens All Results. While the pointer is within the stack (plus
+8 pt) or a card is focused, dragged or open, no slot moves: an arrival replaces the card that
+would have left, in place, with a 150 ms crossfade, and if all three are held it goes to the
+panel only. Slots settle 400 ms after the pointer leaves (spring 0.35 / 1.0). Older results are
+in All Results.
 
 Auto-hide: 10 s for a copy, 30 s otherwise; paused while hovered, focused, dragged or open, and
 at least 5 s remain after the pointer leaves. A failed result stays. With VoiceOver running
 nothing hides on its own.
 
 **Detail.** The same card grown to 320 pt from its corner, over its neighbours: the ones it
-covers fade out, the others dim to 60 %, none moves. It holds the comparison (the whole picture
+covers fade out, the others dim to 60 %, none moves. It grows away from the corner. It holds the comparison (the whole picture
 drags the divider; ← → move it 5 %), "Original 2.4 MB" and "612 kB Optimised" under their
-halves, the figure at 30 pt with "1.8 MB saved", the split bar, one caption of facts, and Undo,
+halves, the figure at 34 pt with "1.8 MB saved", the split bar, one caption of facts, and Undo,
 Compare, Options…. Esc, the close button or a click outside closes it.
 
 **Split bar.** The whole width is the original. The left part is what is left (ink at 32 % in
@@ -144,10 +160,11 @@ A notice (the pause hotkey) is a 34 pt capsule with a symbol, one line and the k
 `proto-glyph`, `proto-menu-panel`, `-menu-panel-ca`, `-menu-panel-busy`.
 
 **Glyph.** Three states, each drawn as its own vector (the renders stand in with a rotated and
-an eroded copy). Idle: solid. Working, after 1 s of work: the clog takes one step (heel −6°,
-toe 4°, 280 ms each, ease-in-out), rests 1.4 s, and repeats while work runs; it always finishes
-a step. Paused: a 1.5 pt outline. Reduce Motion: working holds the heel pose, so the state
-never rests on motion alone.
+an eroded copy). Idle: solid. Working, after 1 s of work: the clog walks on a 1 pt ground line
+(heel raised 15°, then toe 8°, 280 ms each, ease-in-out), rests 1.4 s, and repeats while work
+runs; it always finishes a step. Paused: a 1.5 pt outline. Reduce Motion: working holds the
+raised heel over the ground line, a form of its own, so the state never rests on motion alone.
+VoiceOver reads the status item as "L'Esclop", "L'Esclop, optimising" or "L'Esclop, paused".
 
 **Panel.** A 316 pt panel under the glyph. It is a non-activating panel that always becomes
 key, so the shortcuts it prints work; Esc or a click outside closes it and gives the key window
@@ -156,15 +173,19 @@ back. Pressing the glyph, dragging to a command and releasing activates it, as i
 - **Header:** the day's saving as the figure ("−38 MB") over "today, across 14 files"; a Pause
   pull-down and a gear. The gear's menu: Settings… ⌘, · Check for Updates… · Show the Tour ·
   Quit ⌘Q.
-- **Pause** menu: Skip the Next Copy · For 5 Minutes · For an Hour · Until I Resume. The
-  hotkey cycles the same. Paused, the header reads "Paused / Resumes at 14:32" with Resume, and
-  the status line is gone.
+- **Pause** menu: For the Next Copy · For 5 Minutes · For an Hour · Until I Resume. The
+  hotkey cycles the same. Paused, the header reads "Paused / Resumes at 14:32" (or "Until you
+  resume") with Resume, and the status line is gone.
 - **Recent results:** the last six as 92 × 64 pt pictures, 8 pt apart, each with its saving
-  under it in secondary 11 pt. A picture drags out as the file. Clicking one selects it: a row
-  appears under the grid with its name, sizes and Undo, Compare, Show in Finder. Double-click
-  opens Compare. Nothing happens at the far corner.
-- **Commands:** Optimise Files… ⌘O · Optimise Clipboard ⌃⇧C · All Results… · Pipelines….
-  Holding ⌥ turns the first two into "… Aggressively". ⌘Z undoes the newest result.
+  under it in secondary 11 pt. A picture drags out as the file. One is always selected, the
+  newest when the panel opens: a row under the grid shows its name, sizes and Undo, Compare,
+  Show in Finder. The row is always there, so the commands never shift and ⌘Z has a visible
+  target. Double-click opens Compare. Nothing happens at the far corner.
+- **Commands:** Optimise Files… ⌘O · Optimise Clipboard ⌃⇧C · All Results · Pipelines. (No
+  ellipsis on the two that only open a window.) Holding ⌥ turns the first two into "…
+  Aggressively"; ⌥Return does the same from the keyboard, and VoiceOver has it as an action.
+  ⌘Z undoes the selected result.
+- **A running batch** is a row above the commands: a spinner, "Optimising 7 of 9", Show.
 - **Status:** "Watching the clipboard and 2 folders".
 - **Empty:** "Ready / Nothing optimised yet" and "Copy a screenshot. It lands here, smaller."
   (B: with the wooden clog.)
@@ -185,14 +206,14 @@ It is where "put it back" always works.
 - **Header:** a 60 × 42 pt picture, the name (click to rename), "2.4 MB → 612 kB", the figure.
 - **Suggestion:** one row, only when there is something to propose: "As WebP it would be
   410 kB / Usually right for screenshots" and **Convert to WebP**. Used or dismissed, it is gone.
-- **Format · Size · Actions**; audio has **Sound** in place of Size.
+- **Format · Size · Actions**, for every kind.
 
 | Kind | Format tab |
 |---|---|
 | Image | tiles PNG, JPEG, WebP, AVIF and "…" (HEIC, GIF, TIFF), each with its estimated size; Adaptive · Lossless · Aggressive; Quality; Remove metadata; (HDR input: Keep HDR) |
 | Video | tiles HEVC, H.264, GIF and "…" (AV1, still frame); Adaptive · Lossless · Aggressive; Frame rate; Speed; Remove audio |
-| PDF | tiles Screen, Reading, Print (72, 150, 300 dpi) with a caption for the chosen one; Keep text selectable; Remove metadata |
-| Audio | tiles AAC, MP3, Opus and "…"; Bitrate; Even out loudness |
+| PDF | tiles Screen, Reading, Print (72, 150, 300 dpi) with a caption for the chosen one, and "…" (Pages as Images); Keep text selectable; Remove metadata |
+| Audio | tiles AAC, MP3, Opus and "…"; Bitrate; Speed; Even out loudness |
 
 - Under a hairline, the rule: "Always do this for screenshots" (for screen recordings, exported
   PDFs, voice memos…).
@@ -200,13 +221,20 @@ It is where "put it back" always works.
   The same is in the tile's context menu as "Convert and Keep Both".
 - **Size:** Scale with "50 % · 1470 × 956 · 180 kB"; "Fit under" chips; Crop chips. A ratio
   crops from the centre at once; "Free…" opens the crop window. Video and PDF show Scale and
-  Fit under only. **Sound** shows Fit under and Speed.
+  Fit under only; audio shows Fit under.
 - **Actions:** a list like a menu, so no label wraps in any language: Copy ⌘C · Save As… ⌘S ·
-  Show in Finder ⌘R · Quick Look Space · Compare with the Original… | Share… · Open With › ·
-  Run a Pipeline › · Upload to (target).
-- A tile, chip or switch applies at once; a slider applies on release. A new change cancels the
-  one still running. The figure counts to the new value. ⌘Z undoes the last change, or cancels
-  it mid-run.
+  Show in Finder ⌘R · Quick Look Space · Compare with the Original | Share… · Open With › ·
+  Send To › (shelf apps and uploaders, only those installed) · Run a Shortcut › · Run a
+  Pipeline › · Upload to (target).
+- A tile, chip or switch applies at once; a slider applies on release. While the change runs
+  (`proto-options-kinds`, the video): the selection has already moved, a 2 pt line runs under
+  the header, and after 400 ms a Stop button takes the figure's place. A new change cancels the
+  one still running. Done, the figure counts to the new value. If it fails, the selection goes
+  back (150 ms) and one caption in `error` says so: "Not converted. The PNG is kept." ⌘Z undoes
+  the last change, or stops it mid-run.
+- The popover hangs from the card's edge, not from a button that can vanish, and the card
+  keeps its footer and its height until the popover closes.
+- ⌥ over a tile, ⌥Return on it, or the context menu: "Convert and Keep Both".
 - Estimates carry no "≈"; VoiceOver says "about 410 kilobytes".
 
 ## Drop zone
@@ -222,11 +250,14 @@ nearest tile, so there is no dead strip.
   fades in at full size in 120 ms, and out in 100 ms when the drag ends. Most drags are going
   to Finder; they get no show. It never appears for a drag that started on one of the app's own
   cards.
-- **It comes alive when the drag comes near** (within 120 pt): the tile under the drag lights
-  in the control colour and grows to 104 % from its centre; the others dim to 60 %.
+- **It comes alive when the drag is over a tile:** that tile lights (white on the lit fill) and
+  grows to 104 % from its centre; the others dim to 60 %. Lit means "a drop here is accepted",
+  nothing else. Within 120 pt of the row, before any tile is under the drag, the row rises 4 pt
+  and no tile lights.
 - **⌥** turns the main tile into "Optimise Aggressively" in `warm` (⌘ is Finder's Move).
 - **Drop:** the tile becomes the result card (it morphs into the card's frame, spring 0.35 /
-  0.85, carrying the drop's momentum).
+  0.85, carrying the drop's momentum). Two or three files become two or three cards, the first
+  from the tile; four or more become the batch window, and the tile fades.
 - Preset names are the pipelines' names. A name that does not fit two lines is cut in the
   middle. Presets reorder in Settings by dragging, or with ⌥↑ and ⌥↓.
 
@@ -251,7 +282,8 @@ Show in Finder always, each with a tooltip and a VoiceOver name.
 A toolbar: the file name as title; Split · Side by Side · Flip in the middle; Differences, Zoom
 to Fit, Try Another, Undo at the right. The canvas is a checkerboard in the appearance's own
 greys; the divider stops at the picture's edges. A 34 pt bar under it: "Original PNG · 4.8 MB",
-the saving, "JPEG · 1.2 MB Optimised". No "Keep": closing keeps. Undo asks nothing. Flip is a
+the saving, "JPEG · 1.2 MB Optimised". For video the bar's middle also holds Play, Next Frame
+and a scrubber that drives both sides; for a PDF, Previous Page, "3 of 28", Next Page. No "Keep": closing keeps. Undo asks nothing. Flip is a
 cut with no fade, because the eye needs the edge.
 
 ## Settings
@@ -263,15 +295,16 @@ Seven panes, by decision:
 | Pane | Holds |
 |---|---|
 | General | Open at login; where optimised and converted files go, once, with "Different for video, PDF or audio · Set…"; Remove metadata, Keep file dates, Keep HDR; the four shortcuts |
-| Automatic | what is optimised when copied; watched folders per kind; rules; ignored apps; size limits per kind; "most new files at once" |
-| Quality | "Normally" and "When aggressive": Light · Balanced · Strong per kind; "Always aggressive for"; then one row per kind (Images… · Video… · PDF… · Audio…) holding its conversions and exact numbers: formats converted automatically, Retina downscale, encoder, frame rate cap, GIF width, PDF dpi, loudness, cover art |
+| Automatic | what is optimised when copied, and "Put the result back on the clipboard"; watched folders per kind; rules; ignored apps; size limits per kind; "most new files at once" |
+| Compression | "Normally": Light · Balanced · Strong per kind. "When aggressive": only the levels above the normal one (Strong · Maximum). "Always aggressive for". Then one row per kind (Images… · Video… · PDF… · Audio…) holding its conversions and exact numbers: formats converted automatically, adaptive format, Retina downscale and the default downscale factor; encoder, frame rate cap and floor, what a speed change does to frames, remove audio, GIF width and frame rate; PDF dpi; convert to AAC, loudness, cover art |
 | Results | corner, screen, how long results stay, the footer's buttons, batch threshold, drop zone and preset tiles |
 | Uploads | targets and automatic uploads |
 | Agents | connected agents first; "Add an Agent…" lists the rest; what agents may do |
 | Advanced | updates, backups, path templates, reset |
 
-Every registry setting has a place in this table; the implementation carries a test that fails
-when a setting has none. Search finds every one, including those behind "Set…" and the per-kind
+The pane is named for what its scale measures: Strong is more compression, so it is not under
+"Quality", where the popover's slider runs the other way. Every registry setting has a place in
+this table; the implementation carries a test that fails when a setting has none. Search finds every one, including those behind "Set…" and the per-kind
 sheets, and opens the sheet on the row. A row is its label; a second line appears only where
 the choice has a consequence ("The original is kept for 7 days. Put it back from All Results.").
 Lists reorder by dragging, with ⌥↑ and ⌥↓ and with VoiceOver's Move Up and Move Down.
@@ -288,8 +321,10 @@ Three steps, 600 × 480 pt.
    is held back during this step: the stage is the result.
 2. **That is all it does.** The person's own screenshot, the figure, "2.4 MB → 612 kB", the
    split bar. "It was smaller before you could paste it. The original is kept for 7 days."
-3. **It lives in the menu bar.** The clog (B: the wooden one), three shortcuts as key caps, and
-   one link: "Connect an AI Agent…". Done.
+3. **It lives in the menu bar.** The glyph as it looks up there, in both directions, three
+   shortcuts as key caps, and one link: "Connect an AI Agent…". Done; no Skip on the last step.
+
+In B the wooden clog waits on the stage of step 1.
 
 ## Pipeline editor
 
@@ -303,7 +338,7 @@ Three steps, 600 × 480 pt.
   name and its settings in plain words. Clicking a step opens its settings in a popover. Steps
   reorder by dragging, with ⌥↑ and ⌥↓, and with VoiceOver's Move Up and Move Down.
 - Problems are written for people: "A size has to be more than zero."
-- Toolbar: Steps · Text, and "Try It…".
+- Toolbar: Steps · Text, "Try It…" and "Run on Files…".
 
 ## Motion
 
@@ -314,14 +349,17 @@ a 150 ms crossfade, shows final figures without counting, and holds the glyph's 
 | Moment | Motion | How often |
 |---|---|---|
 | Card enters | slides 24 pt from the screen edge and fades, 0.35 / 1.0 | every result |
-| **Result arrives** | the picture dips to 95 % in 120 ms and returns on 0.35 / 0.80; the figure counts to its value in 300 ms, ease-out | the signature. Only when the previous result is more than 3 s old; in a burst, figures appear set |
-| Fast job (under 400 ms) | the card enters already done, then plays the arrival once; at rest within 450 ms | |
+| **Result arrives** | the picture dips to 95 % in 120 ms and returns on 0.35 / 0.60 (about 1 pt of overshoot, once); the figure counts to its value in 300 ms, ease-out | the signature. Only when the previous result is more than 3 s old; in a burst, figures appear set |
+| Fast job (under 1 s) | the card enters already done and the figure counts; no dip, which nobody would see during the entrance | |
+| Card leaves | fades and moves 12 pt toward the screen edge, 150 ms ease-in | |
+| Working becomes done | the footer crossfades, 120 ms, then the arrival | |
 | Footer buttons, close button | fade 120 ms | every hover |
-| Detail opens, closes | the card resizes from its corner, 0.35 / 1.0; content fades in over the last 150 ms; the split bar draws with it, once per result, in 250 ms | on click |
+| Detail opens, closes | the card resizes from its corner, 0.35 / 1.0; content opacity follows the spring's progress from 0.7 to 1, so it reverses with it; the split bar draws with it, once per result | on click |
+| Failed caption, panel selection row | height follows 0.30 / 1.0; text fades with progress | |
 | Swipe away | tracks 1:1; leaves or returns on 0.35 / 1.0 | |
 | Stack settles | 0.35 / 1.0, 400 ms after the pointer leaves | |
 | Drop row | fades in 120 ms, out 100 ms | every file drag |
-| **Tile under the drag** | 100 → 104 %, 0.25 / 0.80; the others dim in 120 ms | a drag has momentum |
+| **Tile under the drag** | 100 → 104 %, 0.25 / 0.60; the others dim in 120 ms | a drag has momentum |
 | **Drop** | the tile morphs into the card, 0.35 / 0.85 | a drop is a release |
 | **Glyph working** | one step, 280 ms per half, ease-in-out; 1.4 s rest | after 1 s of work |
 | Menu panel | 98 → 100 % from the glyph and fade, 100 ms; closes in 80 ms | |
@@ -334,9 +372,9 @@ a 150 ms crossfade, shows final figures without counting, and holds the glyph's 
 | **First run, step 2** | the arrival, as on a result | once |
 | Settings, tabs | none | |
 
-Two rows overshoot without a gesture before them: the arrival and the tile under the drag. They
-are kept, with a damping of 0.80, because the owner asked for the singular elements to be alive;
-the arrival is rate-limited so it cannot repeat in a burst.
+Two rows overshoot: the arrival and the tile under the drag, at a damping of 0.60, which is
+about 1 pt of travel past the mark. They are the product's two singular moments and the owner
+asked for those to be alive; the arrival is rate-limited so it cannot repeat in a burst.
 
 ## Words
 
@@ -346,15 +384,17 @@ One name per thing, in both languages. Catalan uses the comma for decimals ("2,4
 |---|---|---|
 | The action | Optimise | Optimitza |
 | The strong mode | Aggressive / Optimise Aggressively | A fons / Optimitza a fons |
-| Quality levels | Light · Balanced · Strong | Suau · Equilibrada · Forta |
-| Quality headings | Normally / When aggressive | Normalment / A fons |
+| Settings pane | Compression | Compressió |
+| Compression levels | Light · Balanced · Strong · Maximum | Suau · Equilibrada · Forta · Màxima |
+| Compression headings | Normally / When aggressive | Normalment / A fons |
 | Going back | Undo, Undo All | Desfés, Desfés-ho tot |
 | After going back | Original restored | Original recuperat |
 | Again, after going back | Optimise Again | Torna a optimitzar |
 | No gain | Already optimised | Ja estava optimitzat |
-| Failure | Not optimised / Retry | No s'ha optimitzat / Torna-hi |
+| Failure | Not optimised / 3 not optimised / Retry | No s'ha optimitzat / 3 sense optimitzar / Torna-hi |
+| A change failed | Not converted. The PNG is kept. | No s'ha convertit. Es conserva el PNG. |
 | Upload done | Link copied / Copy Link | Enllaç copiat / Copia l'enllaç |
-| Tabs | Format · Size · Sound · Actions | Format · Mida · So · Accions |
+| Tabs | Format · Size · Actions | Format · Mida · Accions |
 | Scale | Scale | Escala |
 | Size cap, everywhere | Fit under | Com a màxim |
 | Crop | Crop / Free… | Retalla / Lliure… |
@@ -362,18 +402,24 @@ One name per thing, in both languages. Catalan uses the comma for decimals ("2,4
 | Loudness | Even out loudness | Iguala el volum |
 | PDF text | Keep text selectable | Conserva el text seleccionable |
 | Rule | Always do this for screenshots | Fes-ho sempre amb les captures |
-| Suggestion | As WebP it would be 410 kB / Usually right for screenshots / Convert to WebP | En WebP faria 410 kB / Sol anar bé per a les captures / Converteix a WebP |
+| Suggestion | As WebP it would be 410 kB / Usually right for screenshots / Convert to WebP | En WebP ocuparia 410 kB / Sol anar bé per a les captures / Converteix a WebP |
+| Save | Save As… | Anomena i desa… |
+| Shortcut | Run a Shortcut | Executa una drecera |
+| PDF pages | Pages as Images | Pàgines com a imatges |
+| Clipboard | Put the result back on the clipboard | Torna el resultat al porta-retalls |
+| Spoken marks | optimised aggressively / by your rule | optimitzat a fons / per una regla teva |
 | Keep both | Convert and Keep Both | Converteix i conserva tots dos |
 | Pipeline | Pipeline / Run a Pipeline | Flux / Aplica un flux |
 | Pipeline sentence | Runs for … when copied or dropped on its tile | S'aplica a … quan es copien o es deixen a la seva casella |
 | Drop tile | Optimise · 3 files | Optimitza · 3 fitxers |
 | Panel figure | today, across 14 files | avui, en 14 fitxers |
 | Panel status | Watching the clipboard and 2 folders | Vigila el porta-retalls i 2 carpetes |
-| Panel, paused | Paused / Resumes at 14:32 / Resume | En pausa / Es reprèn a les 14:32 / Reprèn |
+| Panel, paused | Paused / Resumes at 14:32 / Until you resume / Resume | En pausa / Es reprèn a les 14:32 / Fins que ho reprenguis / Reprèn |
 | Panel, empty | Ready / Nothing optimised yet / Copy a screenshot. It lands here, smaller. | A punt / Encara no s'ha optimitzat res / Copia una captura de pantalla. Apareixerà aquí, més petita. |
-| Panel commands | Optimise Files… · Optimise Clipboard · All Results… · Pipelines… | Optimitza fitxers… · Optimitza el porta-retalls · Tots els resultats… · Fluxos… |
-| Pause menu | Skip the Next Copy · For 5 Minutes · For an Hour · Until I Resume | Salta la pròxima còpia · Durant 5 minuts · Durant una hora · Fins que ho reprengui |
-| Notice | Skipping the next copy | Se salta la pròxima còpia |
+| Panel commands | Optimise Files… · Optimise Clipboard · All Results · Pipelines | Optimitza fitxers… · Optimitza el porta-retalls · Tots els resultats · Fluxos |
+| Panel, batch | Optimising 7 of 9 / Show | S'optimitzen 7 de 9 / Mostra |
+| Pause menu | For the Next Copy · For 5 Minutes · For an Hour · Until I Resume | Per a la pròxima còpia · Durant 5 minuts · Durant una hora · Fins que ho reprengui |
+| Notice | The next copy won't be optimised | La pròxima còpia no s'optimitzarà |
 | Originals kept | The original is kept for 7 days. Put it back from All Results. | L'original es conserva 7 dies. Recupera'l des de Tots els resultats. |
 | First run | Copy a screenshot / That is all it does / It lives in the menu bar | Copia una captura / Això és tot el que fa / Viu a la barra de menús |
 
@@ -383,14 +429,16 @@ what was kept, and the way out is a button.
 
 ## Accessibility
 
-- **VoiceOver:** a result is one element, "Screenshot, 75 % smaller, 612 kilobytes", with its
-  state's buttons, Show Details and Dismiss as actions; arrivals are announced once, at low
-  priority. Every icon-only button has a name and a tooltip.
+- **VoiceOver:** a result is one element, "Screenshot, 75 % smaller, 612 kilobytes" (and
+  "optimised aggressively" or "by your rule" where the bolt or the pin shows), with its state's
+  buttons, Show Details and Dismiss as actions; arrivals are announced once, at low priority.
+  Every icon-only button has a name and a tooltip. Everything ⌥ changes is also an action.
 - **Keyboard:** everything the pointer does has a key: results (⌃⇧R and the keys above), the
   panel (Tab and arrows), the divider (← →), reordering (⌥↑ ⌥↓), the popover (arrows, Return,
   Esc, the printed shortcuts).
 - **Contrast:** `saving`, `warm` and secondary text hold 4.5:1 on the floating surface over
-  white, black and busy desktops; a test keeps them there.
+  white, black and busy desktops, and white holds it on a lit tile; a test on rendered pixels
+  keeps them there. The two parts of a split bar differ by 3:1 in lightness.
 - **Increase Contrast:** floating surfaces become opaque with a 1 pt border in the label colour.
 - **Reduce Transparency:** A's glass becomes the window background colour with a 1 pt border.
   B is already opaque.
@@ -405,6 +453,11 @@ what was kept, and the way out is a button.
 1. The glyph's three states are still to be drawn as vectors; the renders use stand-ins.
 2. The prototype draws its own segmented control so that it fills the row; whether the shipped
    one is `NSSegmentedControl` at full width or this drawing is an implementation choice.
-3. The arrival keeps a damped overshoot (0.80) against one member's advice, at the owner's
-   request for lively singular elements; it is rate-limited instead.
-4. A against B: the owner chooses. Members may say which serves the product better and why.
+3. In B the green is both the saving and the control colour, as the owner's brief for B says.
+   One member proposed wood for B's controls; `wood` is too close to `warm` to carry both, so
+   it stays green. This is the owner's call when choosing between A and B.
+4. B's wooden clog is a rendered picture beside SF Symbols. It appears only where the app
+   speaks as itself (the main drop tile at rest, the empty panel, the first run's stage), never
+   as a control.
+5. A against B: the owner chooses. Round 2: interaction and visual system preferred A;
+   accessibility preferred B before A's glass got its backing.

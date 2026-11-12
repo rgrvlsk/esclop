@@ -8,7 +8,7 @@ import AppKit
 import SwiftUI
 
 struct ProtoMenuPanel: View {
-    enum Mode { case normal, selected, paused, empty }
+    enum Mode { case normal, selected, batch, paused, pausedOpen, empty }
     var mode: Mode = .normal
     var catalan = false
 
@@ -28,17 +28,29 @@ struct ProtoMenuPanel: View {
                 .frame(maxWidth: .infinity, minHeight: 96)
             } else {
                 grid
-                if mode == .selected { selection }
+                // The newest result is selected when the panel opens, so the row is always
+                // there: the commands never shift, and ⌘Z has a visible target.
+                if mode != .paused, mode != .pausedOpen { selection }
             }
             Divider().opacity(0.6)
             VStack(spacing: 0) {
+                if mode == .batch {
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        Text("Optimising 7 of 9").font(.system(size: 13))
+                        Spacer()
+                        Text("Show").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 6)
+                    .frame(height: Proto.hit)
+                }
                 row(catalan ? "Optimitza fitxers…" : "Optimise Files…", keys: ["⌘", "O"])
                 row(catalan ? "Optimitza el porta-retalls" : "Optimise Clipboard", keys: ["⌃", "⇧", "C"])
-                row(catalan ? "Tots els resultats…" : "All Results…", keys: [])
-                row(catalan ? "Fluxos…" : "Pipelines…", keys: [])
+                row(catalan ? "Tots els resultats" : "All Results", keys: [])
+                row(catalan ? "Fluxos" : "Pipelines", keys: [])
             }
             .padding(.horizontal, -6)
-            if mode != .paused {
+            if mode != .paused, mode != .pausedOpen {
                 Text(catalan ? "Vigila el porta-retalls i 2 carpetes" : "Watching the clipboard and 2 folders")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
@@ -53,19 +65,21 @@ struct ProtoMenuPanel: View {
         HStack(alignment: .center, spacing: 4) {
             VStack(alignment: .leading, spacing: 1) {
                 switch mode {
-                case .normal, .selected:
+                case .normal, .selected, .batch:
                     Text("−38 MB").font(Proto.figure(24)).foregroundStyle(Proto.saving).monospacedDigit()
                     Text(catalan ? "avui, en 14 fitxers" : "today, across 14 files").font(.system(size: 11)).foregroundStyle(.secondary)
-                case .paused:
+                case .paused, .pausedOpen:
                     Text(catalan ? "En pausa" : "Paused").font(.system(size: 24, weight: .semibold))
-                    Text(catalan ? "Es reprèn a les 14:32" : "Resumes at 14:32").font(.system(size: 11)).foregroundStyle(.secondary)
+                    Text(mode == .pausedOpen
+                        ? (catalan ? "Fins que ho reprenguis" : "Until you resume")
+                        : (catalan ? "Es reprèn a les 14:32" : "Resumes at 14:32")).font(.system(size: 11)).foregroundStyle(.secondary)
                 case .empty:
                     Text(catalan ? "A punt" : "Ready").font(.system(size: 24, weight: .semibold))
                     Text(catalan ? "Encara no s’ha optimitzat res" : "Nothing optimised yet").font(.system(size: 11)).foregroundStyle(.secondary)
                 }
             }
             Spacer()
-            if mode == .paused {
+            if mode == .paused || mode == .pausedOpen {
                 Button(catalan ? "Reprèn" : "Resume") {}
                     .buttonStyle(.plain)
                     .font(.system(size: 12, weight: .medium))
@@ -102,7 +116,7 @@ struct ProtoMenuPanel: View {
                                 .clipShape(RoundedRectangle(cornerRadius: Proto.innerRadius, style: .continuous))
                                 .overlay(RoundedRectangle(cornerRadius: Proto.innerRadius, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
                                 .overlay {
-                                    if mode == .selected, index == 1 {
+                                    if index == (mode == .selected ? 1 : 0), mode != .paused, mode != .pausedOpen {
                                         RoundedRectangle(cornerRadius: Proto.innerRadius + 2, style: .continuous)
                                             .strokeBorder(Proto.control, lineWidth: 2).padding(-3)
                                     }
@@ -122,13 +136,13 @@ struct ProtoMenuPanel: View {
     private var selection: some View {
         HStack(spacing: 4) {
             VStack(alignment: .leading, spacing: 1) {
-                Text(catalan ? "Platja 02.jpg" : "Beach 02.jpg").font(.system(size: 12, weight: .medium)).lineLimit(1)
-                Text("2.4 MB → 1.1 MB").font(.system(size: 11)).foregroundStyle(.secondary).monospacedDigit()
+                Text(mode == .selected ? (catalan ? "Platja 02.jpg" : "Beach 02.jpg") : (catalan ? "Captura 10.42.png" : "Screenshot 10.42.png")).font(.system(size: 12, weight: .medium)).lineLimit(1).truncationMode(.middle)
+                Text(mode == .selected ? (catalan ? "2,4 MB → 1,1 MB" : "2.4 MB → 1.1 MB") : (catalan ? "2,4 MB → 612 kB" : "2.4 MB → 612 kB")).font(.system(size: 11)).foregroundStyle(.secondary).monospacedDigit()
             }
             Spacer(minLength: 4)
             ProtoIconButton(symbol: "arrow.uturn.backward", name: "Undo")
             ProtoIconButton(symbol: "rectangle.split.2x1", name: "Compare")
-            ProtoIconButton(symbol: "magnifyingglass", name: "Show in Finder")
+            ProtoIconButton(symbol: "folder", name: "Show in Finder")
         }
         .padding(.leading, 10)
         .padding(.trailing, 4)
@@ -153,8 +167,8 @@ struct ProtoPauseMenu: View {
     var catalan = false
     var body: some View {
         let items = catalan
-            ? ["Salta la pròxima còpia", "Durant 5 minuts", "Durant una hora", "Fins que ho reprengui"]
-            : ["Skip the Next Copy", "For 5 Minutes", "For an Hour", "Until I Resume"]
+            ? ["Per a la pròxima còpia", "Durant 5 minuts", "Durant una hora", "Fins que ho reprengui"]
+            : ["For the Next Copy", "For 5 Minutes", "For an Hour", "Until I Resume"]
         VStack(alignment: .leading, spacing: 0) {
             ForEach(items, id: \.self) { title in
                 Text(title).font(.system(size: 13)).padding(.horizontal, 10).frame(height: 26, alignment: .leading)
@@ -174,8 +188,8 @@ struct ProtoGlyphStrip: View {
     var body: some View {
         HStack(spacing: 34) {
             state("Idle") { glyph(MenuBarLabel.customGlyph) }
-            state("Working: heel") { glyph(MenuBarLabel.customGlyph).rotationEffect(.degrees(-6), anchor: .bottomLeading) }
-            state("Working: toe") { glyph(MenuBarLabel.customGlyph).rotationEffect(.degrees(4), anchor: .bottomTrailing) }
+            state("Working: heel") { glyph(MenuBarLabel.customGlyph).rotationEffect(.degrees(-15), anchor: .bottomLeading).overlay(alignment: .bottom) { Capsule().fill(.primary).frame(width: 26, height: 1).offset(y: 3) } }
+            state("Working: toe") { glyph(MenuBarLabel.customGlyph).rotationEffect(.degrees(8), anchor: .bottomTrailing).overlay(alignment: .bottom) { Capsule().fill(.primary).frame(width: 26, height: 1).offset(y: 3) } }
             state("Paused") { glyph(ProtoGlyph.hollow) }
         }
         .padding(.horizontal, 28)

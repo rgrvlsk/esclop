@@ -34,6 +34,8 @@ import Testing
         try await ProtoRender.floating(edges, size: CGSize(width: 560, height: 240), name: "result-on-white", scheme: scheme, flat: .white)
         try await ProtoRender.floating(edges, size: CGSize(width: 560, height: 240), name: "result-on-black", scheme: scheme, flat: .black)
         try await ProtoRender.floating(ProtoStack(), size: CGSize(width: 300, height: 620), name: "result-stack", scheme: scheme, alignment: .bottomTrailing)
+        try await ProtoRender.floating(ProtoStackWithFailures(), size: CGSize(width: 300, height: 620), name: "result-stack-failures", scheme: scheme, alignment: .bottomTrailing)
+        try await ProtoRender.floating(edges, size: CGSize(width: 560, height: 240), name: "result-on-busy", scheme: scheme, busy: true)
         try await ProtoRender.floating(ProtoStackWithDetail(), size: CGSize(width: 400, height: 620), name: "result-detail", scheme: scheme, alignment: .bottomTrailing)
         try await ProtoRender.floating(ProtoNotice(), size: CGSize(width: 360, height: 110), name: "result-notice", scheme: scheme)
     }
@@ -42,16 +44,16 @@ import Testing
     func menu(scheme: ColorScheme) async throws {
         let panels = HStack(alignment: .top, spacing: 20) {
             ProtoMenuPanel()
-            ProtoMenuPanel(mode: .selected)
+            ProtoMenuPanel(mode: .batch)
             ProtoMenuPanel(mode: .paused)
             ProtoMenuPanel(mode: .empty)
         }
-        try await ProtoRender.floating(panels, size: CGSize(width: 1400, height: 480), name: "menu-panel", scheme: scheme, alignment: .top)
+        try await ProtoRender.floating(panels, size: CGSize(width: 1400, height: 520), name: "menu-panel", scheme: scheme, alignment: .top)
         try await ProtoRender.floating(
             HStack(alignment: .top, spacing: 20) { ProtoMenuPanel(catalan: true); ProtoMenuPanel(mode: .paused, catalan: true); ProtoPauseMenu(catalan: true); ProtoPauseMenu() },
-            size: CGSize(width: 1150, height: 440), name: "menu-panel-ca", scheme: scheme, alignment: .top
+            size: CGSize(width: 1150, height: 520), name: "menu-panel-ca", scheme: scheme, alignment: .top
         )
-        try await ProtoRender.floating(ProtoMenuPanel(), size: CGSize(width: 380, height: 440), name: "menu-panel-busy", scheme: scheme, busy: true, alignment: .top)
+        try await ProtoRender.floating(ProtoMenuPanel(), size: CGSize(width: 380, height: 520), name: "menu-panel-busy", scheme: scheme, busy: true, alignment: .top)
         try await ProtoRender.floating(ProtoGlyphStrip(), size: CGSize(width: 520, height: 120), name: "glyph", scheme: scheme)
     }
 
@@ -64,11 +66,11 @@ import Testing
         }
         try await ProtoRender.floating(tabs, size: CGSize(width: 1120, height: 480), name: "options", scheme: scheme, alignment: .top)
         let kinds = HStack(alignment: .top, spacing: 20) {
-            ProtoOptions(kind: .video)
+            ProtoOptions(kind: .video, pending: true)
             ProtoOptions(kind: .pdf)
             ProtoOptions(kind: .audio)
         }
-        try await ProtoRender.floating(kinds, size: CGSize(width: 1120, height: 420), name: "options-kinds", scheme: scheme, alignment: .top)
+        try await ProtoRender.floating(kinds, size: CGSize(width: 1120, height: 440), name: "options-kinds", scheme: scheme, alignment: .top)
         let catalan = HStack(alignment: .top, spacing: 20) {
             ProtoOptions(tab: .format, catalan: true)
             ProtoOptions(tab: .size, catalan: true)
