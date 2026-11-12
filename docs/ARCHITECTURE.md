@@ -231,6 +231,13 @@ holds the rest, in folders by feature:
   `SUPublicEDKey`, keeps Sparkle's automatic check and install switches and the two registry
   settings in step both ways, honours `ESCLOP_UPDATE_FEED` at launch, and brings Sparkle's window
   forward in a menu bar app. Feed, keys and signing: docs/release.md › Updates.
+- `Design`: the tokens of the design overhaul (`Ink`, `NeutralFill`, `Radius`, `Spacing`,
+  `Typeface`, `Elevation`), the floating surface (`floatingSurface`: glass under the content,
+  a backing in the appearance's tone, pinned inks) and `Figure`, the compressed saving.
+  `SurfaceRenderTests` measures the inks' contrast on rendered pixels. Surfaces move onto these
+  one by one; until then they keep `Palette` and `Metrics`.
+- `Debug`: `WindowSnapshots` writes the app's own windows on a distributed notification, one
+  snapshot or a burst of frames for judging motion, only when `ESCLOP_SNAPSHOT_DIR` is set.
 
 Planned: a crop window.
 
