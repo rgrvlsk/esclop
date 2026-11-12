@@ -7,6 +7,13 @@ into the body of its GitHub release.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.1.1] - 2026-11-12
+
+Preset zones beside the drop zone, uploads to your own S3-compatible storage, and a PDF engine
+of L'Esclop's own in place of Ghostscript. 0.1.0 installs this update by itself.
+
 ### Added
 - Preset zones: while files are dragged, up to four targets beside the drop zone, in a 2 × 2
   grid facing the screen, each running a pipeline on what is dropped on it, through the usual
