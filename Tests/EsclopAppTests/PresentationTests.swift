@@ -38,6 +38,18 @@ import Testing
         #expect(Figures.timeLeft(130) == "3\(nbsp)min left")
     }
 
+    @Test func anUploadedResultSaysSoToVoiceOverAsOnScreen() {
+        // `esclop upload` and automatic uploads hand back a result that carries its link.
+        let card = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/tmp/shot.png"), origin: .clipboard, bytesBefore: 542_000)
+        var output = result(before: 542_000, after: 542_000, backup: false)
+        output.link = URL(string: "https://files.example.com/2026/11/shot.png")
+        card.phase = .done(output)
+        let info = CardPresentation(card: card, locale: en)
+        #expect(info.capsule == .status(symbol: "link", text: "Uploaded · link copied"))
+        #expect(info.accessibilityLabel == "shot.png, uploaded, the link is on the clipboard")
+        #expect(info.actions.first == .copyLink)
+    }
+
     @Test func aResultShowsTheSavingInTheCapsuleAndTheDetail() {
         let card = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/tmp/shot.png"), origin: .clipboard, bytesBefore: 2_400_000)
         var output = result(before: 2_400_000, after: 600_000)
