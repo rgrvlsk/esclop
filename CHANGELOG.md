@@ -27,6 +27,10 @@ into the body of its GitHub release.
   takes its turn with the other jobs, shows its progress on the result, can be stopped, and on
   failure keeps the file, says why and offers Upload Again. Agents may upload only when "Agents
   may upload files" (`allowUploads`, off by default) is on.
+- Agents' uploads and pipelines' upload steps take only images, videos, PDFs and audio whose
+  first bytes (at most 4 KB are read) show the kind their extension names: a key or a text file
+  renamed to `.png`, `.mp4`, `.pdf` or `.mp3` is refused, while a PNG named `.jpg` goes through.
+  Uploads the person starts are not checked.
 
 ### Changed
 - PDFs are optimised by esclop-engine's `pdf.optimise` instead of Ghostscript: streams

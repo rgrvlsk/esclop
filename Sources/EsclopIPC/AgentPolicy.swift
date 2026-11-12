@@ -111,9 +111,13 @@ public struct AgentPolicy: Sendable {
         }
     }
 
-    /// An image, video, PDF or audio file, after following symbolic links.
+    /// An image, video, PDF or audio file, after following symbolic links: its extension names a
+    /// kind, and its first bytes show that same kind. A key or a text file renamed to `.png` is
+    /// not one; a PNG named `.jpg` is.
     public static func isUploadable(_ file: URL) -> Bool {
-        MediaKind.of(file.resolvingSymlinksInPath()) != nil
+        let resolved = file.resolvingSymlinksInPath()
+        guard let kind = MediaKind.of(resolved) else { return false }
+        return MediaKind.sniff(resolved).contains(kind)
     }
 
     private func refusal(_ permission: AgentPermission, _ why: String) -> EsclopError {
