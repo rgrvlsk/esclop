@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: MPL-2.0
+# cargo-fuzz targets for esclop-pdf: `cargo +nightly fuzz run <target> <corpus>` (see README.md).
+[package]
+name = "esclop-pdf-fuzz"
+version = "0.0.0"
+edition = "2024"
+license = "MPL-2.0"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+esclop-pdf = { path = "..", features = ["fuzzing"] }
+
+# Not part of the engine workspace.
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "optimise"
+path = "fuzz_targets/optimise.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "load"
+path = "fuzz_targets/load.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "cff"
+path = "fuzz_targets/cff.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "font"
+path = "fuzz_targets/font.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "inline"
+path = "fuzz_targets/inline.rs"
+test = false
+doc = false
+bench = false

@@ -35,7 +35,7 @@ pub fn cff(data: &[u8]) {
     let n = cff::glyph_count(data).unwrap_or(0).min(4096);
     let _ = cff::cids(data);
     let _ = cff::charstrings(data);
-    for keep in [|g: usize| g % 2 == 0, |g: usize| g == 0] {
+    for keep in [|g: usize| g.is_multiple_of(2), |g: usize| g == 0] {
         let gids: BTreeSet<u16> = (0..n).filter(|g| keep(*g)).map(|g| g as u16).collect();
         let _ = cff::seac_components(data, &gids);
         let _ = cff::subset(data, &keep);
@@ -53,20 +53,26 @@ pub fn font(data: &[u8]) {
 /// Inline-image extraction: `data` as the content of a one-page PDF whose inline images are
 /// moved into image objects.
 pub fn inline(data: &[u8]) {
+    use lopdf::{Dictionary, Object, Stream};
     let mut doc = Document::with_version("1.7");
-    let content = doc.add_object(lopdf::Stream::new(lopdf::Dictionary::new(), data.to_vec()));
+    let content = doc.add_object(Stream::new(Dictionary::new(), data.to_vec()));
     let pages = doc.new_object_id();
-    let page = doc.add_object(lopdf::dictionary! {
-        "Type" => "Page", "Parent" => pages, "Contents" => content,
-        "Resources" => lopdf::dictionary! {}, "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
-    });
-    doc.objects.insert(
-        pages,
-        lopdf::Object::Dictionary(lopdf::dictionary! {
-            "Type" => "Pages", "Kids" => vec![page.into()], "Count" => 1,
-        }),
-    );
-    let catalog = doc.add_object(lopdf::dictionary! { "Type" => "Catalog", "Pages" => pages });
+    let mut page = Dictionary::new();
+    page.set("Type", Object::Name(b"Page".to_vec()));
+    page.set("Parent", pages);
+    page.set("Contents", content);
+    page.set("Resources", Dictionary::new());
+    page.set("MediaBox", vec![0.into(), 0.into(), 612.into(), 792.into()]);
+    let page = doc.add_object(page);
+    let mut tree = Dictionary::new();
+    tree.set("Type", Object::Name(b"Pages".to_vec()));
+    tree.set("Kids", vec![page.into()]);
+    tree.set("Count", 1);
+    doc.objects.insert(pages, Object::Dictionary(tree));
+    let mut catalog = Dictionary::new();
+    catalog.set("Type", Object::Name(b"Catalog".to_vec()));
+    catalog.set("Pages", pages);
+    let catalog = doc.add_object(catalog);
     doc.trailer.set("Root", catalog);
     let _ = inline::move_inline_images(&mut doc, Ctx::silent());
 }

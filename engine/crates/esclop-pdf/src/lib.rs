@@ -321,10 +321,10 @@ pub enum KeptReason {
     /// It is encrypted in a way this crate cannot write again exactly (another security
     /// handler, per-stream crypt filters, crypt filters it cannot read).
     Encryption,
-    /// It is encrypted and over 64 MB, or has more object streams than an encrypted file's
-    /// shared parsing limit allows.
+    /// It is encrypted and over 64 MB.
     EncryptedTooLarge,
-    /// Rewriting it would need more than the [memory budget](OptionsBuilder::memory_budget).
+    /// Rewriting it would need more than the [memory budget](OptionsBuilder::memory_budget), or
+    /// it has more object streams than parsing an encrypted file allows (512).
     MemoryBudget,
     /// It is over 1 GB.
     InputTooLarge,
