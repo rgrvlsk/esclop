@@ -8,6 +8,13 @@ use crate::KeptReason;
 use std::fmt;
 
 /// What kind of failure an [`Error`] is.
+///
+/// ```
+/// // A file whose page tree points at nothing cannot be rewritten faithfully.
+/// let pdf = b"%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n";
+/// let err = esclop_pdf::optimise(pdf.to_vec(), &esclop_pdf::Options::default()).unwrap_err();
+/// assert_eq!(err.kind(), esclop_pdf::ErrorKind::Damaged);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum ErrorKind {

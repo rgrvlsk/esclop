@@ -153,12 +153,25 @@ impl OptionsBuilder {
     /// falling with the factor, and capped at 66, or lower when downsampling to 100 dpi or less),
     /// and over 40 the gentler aggressive fidelity gate (SSIM 0.95 per page, 0.85 per image,
     /// instead of 0.98 and 0.90).
+    ///
+    /// ```
+    /// // Streams and fonts only: every image stays as it is.
+    /// let options = esclop_pdf::Options::builder().compression(0).build()?;
+    /// assert_eq!(options.compression(), 0);
+    /// # Ok::<(), esclop_pdf::Error>(())
+    /// ```
     pub fn compression(mut self, factor: u8) -> Self {
         self.options.compression = factor;
         self
     }
 
     /// [`Options::AGGRESSIVE_COMPRESSION`].
+    ///
+    /// ```
+    /// let options = esclop_pdf::Options::builder().aggressive().build()?;
+    /// assert_eq!(options.compression(), 64);
+    /// # Ok::<(), esclop_pdf::Error>(())
+    /// ```
     pub fn aggressive(self) -> Self {
         self.compression(Options::AGGRESSIVE_COMPRESSION)
     }
@@ -166,12 +179,24 @@ impl OptionsBuilder {
     /// Downsamples images drawn denser than `dpi` pixels per inch of the page, 48 to 300 (300
     /// keeps every image's resolution). An image is downsampled only as far as the fidelity gate
     /// allows.
+    ///
+    /// ```
+    /// let options = esclop_pdf::Options::builder().max_dpi(150).build()?;
+    /// assert_eq!(options.max_dpi(), Some(150));
+    /// # Ok::<(), esclop_pdf::Error>(())
+    /// ```
     pub fn max_dpi(mut self, dpi: u32) -> Self {
         self.options.max_dpi = Some(dpi);
         self
     }
 
     /// Keeps every image's resolution (the default).
+    ///
+    /// ```
+    /// let options = esclop_pdf::Options::builder().max_dpi(150).keep_resolution().build()?;
+    /// assert_eq!(options.max_dpi(), None);
+    /// # Ok::<(), esclop_pdf::Error>(())
+    /// ```
     pub fn keep_resolution(mut self) -> Self {
         self.options.max_dpi = None;
         self
@@ -179,6 +204,12 @@ impl OptionsBuilder {
 
     /// Removes the document information dictionary, the catalog's XMP metadata, page thumbnails
     /// and application private data (`/PieceInfo`).
+    ///
+    /// ```
+    /// let options = esclop_pdf::Options::builder().strip_metadata(true).build()?;
+    /// assert!(options.strip_metadata());
+    /// # Ok::<(), esclop_pdf::Error>(())
+    /// ```
     pub fn strip_metadata(mut self, strip: bool) -> Self {
         self.options.strip_metadata = strip;
         self
@@ -191,6 +222,12 @@ impl OptionsBuilder {
     /// The peak is higher: the file's own streams are held once and decoded images are worked on
     /// a few at a time (up to 256 MB more). For a large file the peak is about twice its size,
     /// because the file is copied while it is parsed.
+    ///
+    /// ```
+    /// let options = esclop_pdf::Options::builder().memory_budget(64 << 20).build()?;
+    /// assert_eq!(options.memory_budget(), 64 << 20);
+    /// # Ok::<(), esclop_pdf::Error>(())
+    /// ```
     pub fn memory_budget(mut self, bytes: usize) -> Self {
         self.options.memory_budget = bytes;
         self
@@ -248,6 +285,28 @@ pub trait Observer: Sync {
 impl Observer for () {}
 
 /// What a rewrite is doing, for [`Observer::progress`].
+///
+/// ```
+/// use std::sync::Mutex;
+/// use esclop_pdf::{Observer, Stage};
+///
+/// struct Stages(Mutex<Vec<Stage>>);
+///
+/// impl Observer for Stages {
+///     fn progress(&self, _fraction: f32, stage: Stage) {
+///         let mut seen = self.0.lock().unwrap();
+///         if seen.last() != Some(&stage) {
+///             seen.push(stage);
+///         }
+///     }
+/// }
+///
+/// # let pdf = b"%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents 4 0 R >> endobj\n4 0 obj << /Length 44 >> stream\n0 0 1 rg 10 10 180 180 re f 0 0 1 rg 10 10 180 180 re f\nendstream endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n".to_vec();
+/// let stages = Stages(Mutex::new(Vec::new()));
+/// esclop_pdf::optimise_with(pdf, &esclop_pdf::Options::default(), &stages)?;
+/// assert_eq!(stages.0.lock().unwrap().first(), Some(&Stage::Load));
+/// # Ok::<(), esclop_pdf::Error>(())
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum Stage {
@@ -262,6 +321,22 @@ pub enum Stage {
 }
 
 /// What [`optimise`] did.
+///
+/// ```
+/// use esclop_pdf::{KeptReason, Outcome};
+///
+/// # let pdf = b"%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents 4 0 R >> endobj\n4 0 obj << /Length 44 >> stream\n0 0 1 rg 10 10 180 180 re f 0 0 1 rg 10 10 180 180 re f\nendstream endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n".to_vec();
+/// let original = pdf.clone();
+/// let kept = match esclop_pdf::optimise(pdf, &esclop_pdf::Options::default())? {
+///     // Keep whichever is smaller.
+///     Outcome::Rewritten { bytes, report, .. } if report.bytes_after < report.bytes_before => bytes,
+///     Outcome::Rewritten { .. } => original,
+///     Outcome::Kept { reason: KeptReason::Signed, .. } => original,
+///     _ => original,
+/// };
+/// assert!(!kept.is_empty());
+/// # Ok::<(), esclop_pdf::Error>(())
+/// ```
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum Outcome {
@@ -286,6 +361,15 @@ pub enum Outcome {
 }
 
 /// What a rewrite did.
+///
+/// ```
+/// # let pdf = b"%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents 4 0 R >> endobj\n4 0 obj << /Length 44 >> stream\n0 0 1 rg 10 10 180 180 re f 0 0 1 rg 10 10 180 180 re f\nendstream endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n".to_vec();
+/// if let esclop_pdf::Outcome::Rewritten { report, .. } = esclop_pdf::optimise(pdf, &esclop_pdf::Options::default())? {
+///     assert!(!report.lossy, "nothing here is an image");
+///     assert_eq!(report.images_rewritten, 0);
+/// }
+/// # Ok::<(), esclop_pdf::Error>(())
+/// ```
 #[derive(Debug, Clone, Default, PartialEq)]
 #[non_exhaustive]
 pub struct Report {
@@ -311,7 +395,24 @@ pub struct Report {
     pub metadata_stripped: bool,
 }
 
-/// Why a file was left as it is.
+/// Why a file was left as it is. Its `Display` is an English sentence.
+///
+/// ```
+/// // A signature value: its /ByteRange covers bytes a rewrite would move.
+/// let pdf = b"%PDF-1.4
+/// 1 0 obj << /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] /SigFlags 3 >> >> endobj
+/// 2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+/// 3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] >> endobj
+/// 5 0 obj << /FT /Sig /T (Sig1) /V << /Type /Sig /ByteRange [0 10 20 30] /Contents <00> >> >> endobj
+/// trailer << /Root 1 0 R >>
+/// %%EOF
+/// ";
+/// match esclop_pdf::optimise(pdf.to_vec(), &esclop_pdf::Options::default())? {
+///     esclop_pdf::Outcome::Kept { reason, .. } => assert_eq!(reason, esclop_pdf::KeptReason::Signed),
+///     other => panic!("{other:?}"),
+/// }
+/// # Ok::<(), esclop_pdf::Error>(())
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum KeptReason {
@@ -374,6 +475,25 @@ pub fn optimise(input: Vec<u8>, options: &Options) -> Result<Outcome, Error> {
 }
 
 /// [`optimise`], reporting to `observer` and stopping when it says so.
+///
+/// ```
+/// use std::sync::atomic::{AtomicU32, Ordering};
+///
+/// /// Counts progress reports.
+/// struct Count(AtomicU32);
+///
+/// impl esclop_pdf::Observer for Count {
+///     fn progress(&self, _fraction: f32, _stage: esclop_pdf::Stage) {
+///         self.0.fetch_add(1, Ordering::Relaxed);
+///     }
+/// }
+///
+/// # let pdf = b"%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents 4 0 R >> endobj\n4 0 obj << /Length 44 >> stream\n0 0 1 rg 10 10 180 180 re f 0 0 1 rg 10 10 180 180 re f\nendstream endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n".to_vec();
+/// let count = Count(AtomicU32::new(0));
+/// esclop_pdf::optimise_with(pdf, &esclop_pdf::Options::default(), &count)?;
+/// assert!(count.0.load(Ordering::Relaxed) > 0);
+/// # Ok::<(), esclop_pdf::Error>(())
+/// ```
 pub fn optimise_with(input: Vec<u8>, options: &Options, observer: &dyn Observer) -> Result<Outcome, Error> {
     let options = OptionsBuilder { options: options.clone() }.build()?;
     let ctx = Ctx { observer };
