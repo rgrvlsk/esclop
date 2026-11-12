@@ -45,6 +45,9 @@ import Testing
         try await ProtoRender.floating(edges, size: CGSize(width: 640, height: 240), name: "result-on-busy", scheme: scheme, busy: true)
         try await ProtoRender.floating(ProtoStackWithDetail(), size: CGSize(width: 400, height: 620), name: "result-detail", scheme: scheme, alignment: .bottomTrailing)
         try await ProtoRender.floating(ProtoNotice(), size: CGSize(width: 420, height: 110), name: "result-notice", scheme: scheme)
+        try await ProtoRender.floating(ProtoArrival(), size: CGSize(width: 760, height: 300), name: "result-arrival", scheme: scheme)
+        try await ProtoRender.floating(ProtoTones(), size: CGSize(width: 1000, height: 330), name: "result-tones", scheme: scheme)
+        try await ProtoRender.floating(ProtoTones(), size: CGSize(width: 1000, height: 330), name: "result-tones-on-white", scheme: scheme, flat: .white)
     }
 
     @Test(arguments: schemes)
@@ -128,9 +131,10 @@ import Testing
                 ForEach(inks, id: \.0) { Rectangle().fill($0.1).frame(width: 20, height: 20) }
             }
             .frame(width: 200, height: 60)
-            .protoGlass(Proto.cardRadius)
+            // The picture's tone washes the surface: the bar must hold under the strongest ones.
+            for (wash, glow) in [("plain", nil as Color?), ("red", Color.red), ("blue", Color.blue), ("yellow", Color.yellow)] {
             for (ground, flat, busy) in [("white", Color.white as Color?, false), ("black", Color.black as Color?, false), ("busy", nil, true)] {
-                try await ProtoRender.floating(probe, size: CGSize(width: 260, height: 120), name: "ink-probe-\(ground)", scheme: scheme, busy: busy, flat: flat)
+                try await ProtoRender.floating(probe.protoGlass(Proto.cardRadius, glow: glow), size: CGSize(width: 260, height: 120), name: "ink-probe-\(wash)-\(ground)", scheme: scheme, busy: busy, flat: flat)
                 guard let image = ProtoRender.lastImage else { continue }
                 let scale = Double(image.width) / 260
                 // Squares are centred in the 200 pt surface, which is centred in the 260 pt stage.
@@ -140,8 +144,9 @@ import Testing
                     let color = try #require(InkProbe.color(in: image, x: x, y: 60 * scale))
                     let ratio = RGBA.contrast(color, ground)
                     // The aggressive mark is a symbol, not text: 3:1.
-                    #expect(ratio >= (ink.0 == "warm" ? 3 : 4.5), "\(own ? "B" : "A") \(scheme == .dark ? "dark" : "light"), \(ink.0) on the surface over a \(busy ? "busy" : "\(flat == .white ? "white" : "black")") desktop: \(String(format: "%.2f", ratio)):1")
+                    #expect(ratio >= (ink.0 == "warm" ? 3 : 4.5), "\(own ? "B" : "A") \(scheme == .dark ? "dark" : "light"), \(ink.0) on the surface (\(wash) wash) over a \(busy ? "busy" : "\(flat == .white ? "white" : "black")") desktop: \(String(format: "%.2f", ratio)):1")
                 }
+            }
             }
         }
     }

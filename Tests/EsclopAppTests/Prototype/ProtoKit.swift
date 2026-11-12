@@ -68,8 +68,8 @@ enum Proto {
 extension View {
     /// A floating surface: system Liquid Glass (or the own-brand surface), with the one elevation
     /// every floating object shares. `tint` colours the glass itself for a state.
-    func protoGlass(_ radius: CGFloat, tint: Color? = nil, small: Bool = false) -> some View {
-        modifier(ProtoSurface(radius: radius, tint: tint, small: small))
+    func protoGlass(_ radius: CGFloat, tint: Color? = nil, small: Bool = false, glow: Color? = nil) -> some View {
+        modifier(ProtoSurface(radius: radius, tint: tint, small: small, glow: glow))
     }
 }
 
@@ -78,11 +78,28 @@ struct ProtoSurface: ViewModifier {
     var tint: Color?
     /// Small glass takes more of the desktop's tone: it gets a denser backing, to stay one material with the card.
     var small = false
+    /// The picture's own colour, lent to the surface that carries it: a wash of 8 % in the
+    /// surface and a soft halo under it. Every card is then a little its own.
+    var glow: Color?
     @Environment(\.colorScheme) private var scheme
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         surface(content, shape)
+            // A lit top edge: the one place the material catches light.
+            .overlay {
+                if tint == nil {
+                    shape.strokeBorder(
+                        LinearGradient(stops: [.init(color: .white.opacity(scheme == .dark ? 0.34 : 0.95), location: 0), .init(color: .white.opacity(0), location: 0.45)], startPoint: .top, endPoint: .bottom),
+                        lineWidth: 1
+                    ).allowsHitTesting(false)
+                }
+            }
+            .background {
+                if let glow {
+                    shape.fill(glow.opacity(scheme == .dark ? 0.5 : 0.42)).blur(radius: 22).offset(y: 10).padding(6)
+                }
+            }
             // Elevation: one shadow and one inner rim, so the edge never depends on the wallpaper.
             .overlay(shape.strokeBorder(Proto.own && scheme != .dark ? Color.black.opacity(0.1) : Color.white.opacity(scheme == .dark ? 0.14 : 0.35), lineWidth: 0.5).allowsHitTesting(false))
             // An outer hairline, for a light surface on a white ground.
@@ -109,6 +126,7 @@ struct ProtoSurface: ViewModifier {
             // draws is not "on" the glass, so the system cannot flip its appearance to suit the
             // desktop, and the inks stay the ones the appearance chose.
             content
+                .background { if let glow { shape.fill(glow.opacity(0.08)) } }
                 .background(shape.fill((scheme == .dark ? Color(white: 0.13) : Color(white: 0.97)).opacity(small ? 0.94 : 0.88)))
                 .background { Color.clear.glassEffect(.regular, in: shape) }
         } else {
@@ -129,9 +147,12 @@ struct ProtoClog: View {
 
     /// On a lit tile, or where the menu bar glyph itself is meant, both directions draw the template.
     var template = false
+    /// Where the app speaks as itself (the empty panel, the first run), the carved clog shows in
+    /// both directions: the owner's choice, "A with B's wooden clog".
+    var wood = false
 
     var body: some View {
-        if Proto.own, !template, let wooden = Self.wooden {
+        if Proto.own || wood, !template, let wooden = Self.wooden {
             Image(nsImage: wooden).resizable().aspectRatio(contentMode: .fit).frame(width: width * 1.25).frame(width: width * 1.3)
         } else if let glyph = MenuBarLabel.customGlyph {
             // The same slot as the wooden clog, so a label beside it never moves when it changes.
@@ -251,6 +272,21 @@ enum ProtoSamples {
     }
 
     static let pictures: [NSImage] = [screenshot, photo, page, poster, chart, screenshot]
+
+    /// The picture's dominant tone: its average, pushed toward its own hue so that a grey
+    /// average does not wash the card.
+    static func tone(of image: NSImage) -> Color {
+        guard let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil),
+              let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(data: nil, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4, space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
+              let data = { context.interpolationQuality = .medium; context.draw(cg, in: CGRect(x: 0, y: 0, width: 1, height: 1)); return context.data }()
+        else { return .clear }
+        let bytes = data.bindMemory(to: UInt8.self, capacity: 4)
+        let color = NSColor(srgbRed: CGFloat(bytes[0]) / 255, green: CGFloat(bytes[1]) / 255, blue: CGFloat(bytes[2]) / 255, alpha: 1)
+        var (h, sat, b, a): (CGFloat, CGFloat, CGFloat, CGFloat) = (0, 0, 0, 0)
+        color.getHue(&h, saturation: &sat, brightness: &b, alpha: &a)
+        return Color(nsColor: NSColor(hue: h, saturation: min(1, sat * 2.2 + 0.1), brightness: max(0.55, b), alpha: 1))
+    }
 
     static func picture(_ size: NSSize, draw: @escaping (NSRect) -> Void) -> NSImage {
         NSImage(size: size, flipped: true) { rect in

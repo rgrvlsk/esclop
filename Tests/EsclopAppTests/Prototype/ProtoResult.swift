@@ -20,6 +20,8 @@ struct ProtoResultCard: View {
         /// A failure another try cannot fix: the way out is the file.
         case unreadable
         case uploaded
+        /// A frame of the arrival: the picture dipped, the figure mid-count, the glint on the rim.
+        case arriving
     }
 
     var picture: NSImage = ProtoSamples.screenshot
@@ -44,6 +46,7 @@ struct ProtoResultCard: View {
                 .frame(width: width, height: height)
                 .saturation(isFailed ? 0.15 : 1)
                 .opacity(isFailed ? 0.7 : 1)
+                .scaleEffect(state == .arriving ? 0.955 : 1)
                 .clipShape(RoundedRectangle(cornerRadius: Proto.pictureRadius, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: Proto.pictureRadius, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
             footer
@@ -77,7 +80,21 @@ struct ProtoResultCard: View {
         // Dimming takes the ink and the picture, never the surface.
         .opacity(dimmed ? 0.45 : 1)
         .padding(Proto.cardPadding)
-        .protoGlass(Proto.cardRadius)
+        .protoGlass(Proto.cardRadius, glow: isFailed ? nil : ProtoSamples.tone(of: picture))
+        .overlay {
+            // The glint: one pass of green light along the rim, only for a saving worth it.
+            if state == .arriving {
+                let shape = RoundedRectangle(cornerRadius: Proto.cardRadius, style: .continuous)
+                ZStack {
+                    shape.trim(from: 0.52, to: 0.78).stroke(Proto.saving, style: StrokeStyle(lineWidth: 5, lineCap: .round)).blur(radius: 6).opacity(0.7)
+                    shape.trim(from: 0.52, to: 0.78).stroke(
+                        LinearGradient(colors: [Proto.saving.opacity(0), Proto.saving, .white], startPoint: .bottomLeading, endPoint: .topLeading),
+                        style: StrokeStyle(lineWidth: 1.5, lineCap: .round)
+                    )
+                }
+                .allowsHitTesting(false)
+            }
+        }
         .overlay(alignment: .topLeading) {
             // The pointer's way out, centred on the card's outer corner.
             if hover {
@@ -104,7 +121,7 @@ struct ProtoResultCard: View {
         case .already: return [("square.on.square", "Copy"), ("ellipsis", "Options")]
         case .restored: return [("ellipsis", "Options"), ("arrow.uturn.forward", "Optimise Again")]
         case .uploaded: return [("square.on.square", "Copy Link"), ("ellipsis", "Options")]
-        case .failed, .failedOpen, .unreadable: return []
+        case .failed, .failedOpen, .unreadable, .arriving: return []
         }
     }
 
@@ -124,6 +141,8 @@ struct ProtoResultCard: View {
                 label(catalan ? "S’està optimitzant" : "Optimising")
             case .done:
                 Text(saving).font(Proto.figure(17)).foregroundStyle(Proto.saving)
+            case .arriving:
+                Text(Proto.percent(48)).font(Proto.figure(17)).foregroundStyle(Proto.saving)
             case .aggressive:
                 Text(saving).font(Proto.figure(17)).foregroundStyle(Proto.saving)
                 mark("bolt.fill", Proto.warm)
@@ -150,6 +169,7 @@ struct ProtoResultCard: View {
             Group {
                 switch state {
                 case let .working(_, left): quiet(left)
+                case .arriving: quiet("1.2 MB")
                 case .done, .aggressive, .ruled, .already: quiet(catalan ? size.replacingOccurrences(of: ".", with: ",") : size)
                 case .restored: quiet(catalan ? "2,4 MB" : "2.4 MB")
                 case .uploaded: quiet(saving)
@@ -290,6 +310,29 @@ struct ProtoStackWithFailures: View {
             ProtoResultCard(picture: ProtoSamples.chart, state: .failed, failures: 3, catalan: catalan)
             ProtoResultCard(picture: ProtoSamples.photo, state: .done, size: "1.1 MB", saving: Proto.percent(54), catalan: catalan)
             ProtoResultCard(picture: ProtoSamples.screenshot, state: .done, catalan: catalan)
+        }
+    }
+}
+
+/// The arrival in three frames: in, the dip with the glint and the count, at rest.
+struct ProtoArrival: View {
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 24) {
+            ProtoResultCard(picture: ProtoSamples.photo, state: .working(progress: 0.9, left: ""), size: "1.1 MB").opacity(0.55).offset(x: 14)
+            ProtoResultCard(picture: ProtoSamples.photo, state: .arriving)
+            ProtoResultCard(picture: ProtoSamples.photo, state: .done, size: "612 kB")
+        }
+    }
+}
+
+/// Cards over different pictures: each takes its picture's tone.
+struct ProtoTones: View {
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 24) {
+            ProtoResultCard(picture: ProtoSamples.photo, state: .done, size: "1.1 MB", saving: Proto.percent(54))
+            ProtoResultCard(picture: ProtoSamples.poster, state: .done, size: "720 kB", saving: Proto.percent(62))
+            ProtoResultCard(picture: ProtoSamples.chart, state: .done, size: "88 kB", saving: Proto.percent(89))
+            ProtoResultCard(picture: ProtoSamples.screenshot, state: .done)
         }
     }
 }

@@ -1,14 +1,9 @@
 # Design proposal
 
-Status: the council's four rounds are done (blocking issues per round: 17, 12, 8, 2). The
-two raised in the last round are fixed here and have not been before the council again. It
-awaits the owner. It answers [critique.md](critique.md). Nothing here is built into
-the app yet: the pictures come from prototype views in `Tests/EsclopAppTests/Prototype`, drawn
-with real SwiftUI and AppKit and captured as real windows, so glass is the system's Liquid Glass.
-Render them with `ESCLOP_RENDER_DIR=<folder> Scripts/test.sh --filter 'PrototypeRenderTests'`.
-A render is named `proto-<name>-light.png` or `-dark.png`; the second direction's renders are
-`proto-own-<name>-…`. The final set is in [renders/](renders) as WebP, without the `proto-`
-prefix: `result-states-light.webp` is direction A, `own-result-states-light.webp` direction B.
+Status: the council's four rounds are done (blocking issues per round: 17, 12, 8, 2). The two
+raised in the last round are fixed here and were not put before the council again. The owner
+then chose the direction, **A with B's wooden clog**, and asked for more spark: the section
+"Spark" answers that and is before the council for one more opinion, at his request.
 
 ## The owner's answers
 
@@ -24,6 +19,10 @@ prefix: `result-states-light.webp` is direction A, `own-result-states-light.webp
      wooden clog in the drop zone, the empty states and the first run.
 
 Everything below holds for both unless a line says "A" or "B".
+
+**Decided by the owner after the fourth round: A, with B's wooden clog** where the app speaks
+as itself: the empty panel and the first run's stage. B stays in this document and in the
+renders as the road not taken.
 
 ## Five rules
 
@@ -382,6 +381,39 @@ In B the wooden clog waits on the stage of step 1.
   reorder by dragging, with ⌥↑ and ⌥↓, and with VoiceOver's Move Up and Move Down.
 - Problems are written for people: "A size has to be more than zero."
 - Toolbar: Steps · Text, "Try It…" and "Run on Files…".
+
+## Spark
+
+`proto-result-arrival`, `proto-result-tones`, `-result-tones-on-white`, `proto-menu-panel`,
+`proto-onboarding-1-try`, `-2-tried`.
+
+The owner found the fourth round correct and a little flat. It was: to hold contrast the glass
+had been covered, and everything had become the same grey. Six things give it back its life,
+each tied to a meaning, none decorative on its own.
+
+1. **A card takes its picture's tone.** The picture's dominant colour, pushed toward its own
+   hue, washes the card's surface at 8 % and glows under it as a soft halo (22 pt blur, 10 pt
+   down, 42 % light and 50 % dark). A sunset's card is warm, a blue poster's is blue. No two
+   cards are the same and none is grey. A failed card has no tone. The contrast test runs under
+   the strongest washes (pure red, blue and yellow) on every ground; 8 % is where it passes.
+2. **A lit top edge.** Every floating surface catches light on its top rim (white, fading out
+   by 45 % of the height). It is the one place the material shows.
+3. **The glint.** When a result arrives, a line of green light runs once along the card's rim
+   from the footer to the top, in step with the count (450 ms, ease-out), and is gone. Only for
+   a saving of 50 % or more: the bigger the saving, the bigger the moment. Under 20 % the figure
+   simply appears; from 20 % it counts and the picture dips; from 50 % the glint joins.
+4. **The figure has a history.** In the panel, beside the day's saving, seven small bars: the
+   last seven days, today's in green. When the panel opens, the figure counts from yesterday's
+   close to now (300 ms) and today's bar grows with it.
+5. **The clog is there when the app speaks.** The carved clog sits on the first run's stage
+   while it waits, and in the empty panel. It takes one step when the first screenshot lands.
+6. **The saving drawn to scale.** In the first run, the screenshot shrinks inside the dashed
+   outline of what it weighed: half the side, a quarter of the area, for a 75 % saving. The
+   outline stays, labelled with the old size. It is the product explained without a sentence.
+
+Not added, on purpose: confetti, sounds by default, idle motion, gradients on the windows.
+Reduce Motion keeps the tone, the lit edge and the bars; it drops the glint, the count and the
+clog's step.
 
 ## Motion
 

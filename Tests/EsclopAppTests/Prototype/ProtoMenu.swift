@@ -19,7 +19,7 @@ struct ProtoMenuPanel: View {
             header
             if mode == .empty {
                 VStack(spacing: 8) {
-                    if Proto.own { ProtoClog(width: 56) }
+                    ProtoClog(width: 56, wood: true)
                     Text(catalan ? "Copia una captura de pantalla. Apareixerà aquí, més petita." : "Copy a screenshot. It lands here, smaller.")
                         .font(.system(size: 13))
                         .foregroundStyle(Proto.quiet)
@@ -54,6 +54,19 @@ struct ProtoMenuPanel: View {
         .protoGlass(Proto.panelRadius)
     }
 
+    /// The last seven days' savings, today's in green: the figure has a history.
+    private var week: some View {
+        let days: [CGFloat] = [0.35, 0.6, 0.2, 0.85, 0.5, 0.3, 1]
+        return HStack(alignment: .bottom, spacing: 3) {
+            ForEach(Array(days.enumerated()), id: \.offset) { index, value in
+                Capsule().fill(index == 6 ? Proto.saving : Proto.quiet.opacity(0.45)).frame(width: 4, height: 6 + 20 * value)
+            }
+        }
+        .frame(height: 28, alignment: .bottom)
+        .padding(.trailing, 8)
+        .accessibilityLabel("The last seven days")
+    }
+
     private var status: String {
         switch mode {
         case .batch: return catalan ? "S’està optimitzant: 7 de 9" : "Optimising 7 of 9"
@@ -80,6 +93,7 @@ struct ProtoMenuPanel: View {
                 }
             }
             Spacer()
+            if mode == .normal || mode == .selected || mode == .batch { week }
             if mode == .paused || mode == .pausedOpen {
                 Button(catalan ? "Reprèn" : "Resume") {}
                     .buttonStyle(.plain)

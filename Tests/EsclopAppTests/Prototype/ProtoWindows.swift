@@ -288,10 +288,19 @@ struct ProtoOnboarding: View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.primary.opacity(0.06))
                 if step == .tried {
                     HStack(spacing: 22) {
-                        Image(nsImage: ProtoSamples.screenshot).resizable().aspectRatio(contentMode: .fit)
-                            .frame(height: 120)
-                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                            .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
+                        // The picture has shrunk inside the outline of what it weighed: half the
+                        // side is a quarter of the area, a 75 % saving drawn to scale.
+                        ZStack(alignment: .bottomLeading) {
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .strokeBorder(Color.primary.opacity(0.28), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                                .frame(width: 185, height: 120)
+                            Text("2.4 MB").font(.system(size: 11)).foregroundStyle(.secondary).padding(6)
+                                .frame(width: 185, height: 120, alignment: .topTrailing)
+                            Image(nsImage: ProtoSamples.screenshot).resizable().aspectRatio(contentMode: .fit)
+                                .frame(height: 60)
+                                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                                .shadow(color: .black.opacity(0.22), radius: 8, y: 3)
+                        }
                         VStack(alignment: .leading, spacing: 6) {
                             Text(Proto.percent(75)).font(Proto.figure(44)).foregroundStyle(Proto.saving).fixedSize()
                             Text("2.4 MB → 612 kB").font(.system(size: 13)).foregroundStyle(.secondary)
@@ -302,9 +311,7 @@ struct ProtoOnboarding: View {
                     }
                 } else {
                     VStack(spacing: 10) {
-                        if Proto.own { ProtoClog(width: 52) } else {
-                            Image(systemName: "camera.viewfinder").font(.system(size: 30, weight: .light)).foregroundStyle(.secondary)
-                        }
+                        ProtoClog(width: 52, wood: true)
                         Text("Waiting for a screenshot").font(.system(size: 13))
                         Button("Use a Sample Instead") {}.controlSize(.small)
                     }
