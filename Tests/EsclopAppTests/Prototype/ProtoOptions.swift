@@ -18,11 +18,11 @@ struct ProtoSegments: View {
                     .font(.system(size: 12, weight: index == selected ? .semibold : .regular))
                     .frame(maxWidth: .infinity)
                     .frame(height: 24)
-                    .background { if index == selected { RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.16)) } }
+                    .background { if index == selected { RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.14)) } }
             }
         }
         .padding(2)
-        .background(RoundedRectangle(cornerRadius: Proto.innerRadius, style: .continuous).fill(Color.primary.opacity(0.07)))
+        .background(RoundedRectangle(cornerRadius: Proto.innerRadius, style: .continuous).fill(Color.primary.opacity(0.06)))
     }
 }
 
@@ -44,13 +44,14 @@ struct ProtoOptions: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
-            if suggestion, tab == .format, kind == .image { suggestionRow }
+            // The tabs sit at one height under the header, whatever the tab holds.
             ProtoSegments(
                 items: catalan ? ["Format", "Mida", "Accions"] : ["Format", "Size", "Actions"],
                 selected: tab == .format ? 0 : (tab == .size ? 1 : 2)
             )
             switch tab {
             case .format:
+                if suggestion, kind == .image, !pending { suggestionRow }
                 switch kind {
                 case .image: imageFormat
                 case .video: videoFormat
@@ -84,7 +85,7 @@ struct ProtoOptions: View {
                 .overlay(RoundedRectangle(cornerRadius: Proto.innerRadius, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
             VStack(alignment: .leading, spacing: 2) {
                 Text(sample.name).font(.system(size: 13, weight: .semibold)).lineLimit(1).truncationMode(.middle)
-                Text(sample.change).font(.system(size: 11)).foregroundStyle(.secondary).monospacedDigit()
+                Text(sample.change).font(.system(size: 11)).foregroundStyle(Proto.quiet).monospacedDigit()
             }
             Spacer(minLength: 4)
             if pending {
@@ -114,24 +115,27 @@ struct ProtoOptions: View {
         HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(catalan ? "En WebP ocuparia 410 kB" : "As WebP it would be 410 kB").font(.system(size: 12, weight: .medium))
-                Text(catalan ? "Sol anar bé per a les captures" : "Usually right for screenshots").font(.system(size: 11)).foregroundStyle(.secondary)
+                Text(catalan ? "Sol anar bé per a les captures" : "Usually right for screenshots").font(.system(size: 11)).foregroundStyle(Proto.quiet)
             }
             Spacer(minLength: 4)
-            Button(catalan ? "Converteix a WebP" : "Convert to WebP") {}.controlSize(.small).buttonStyle(.borderedProminent)
+            Button(catalan ? "Converteix" : "Convert") {}.controlSize(.small).buttonStyle(.borderedProminent)
+                .accessibilityLabel(catalan ? "Converteix a WebP" : "Convert to WebP")
+            Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundStyle(Proto.quiet)
+                .frame(width: 20, height: Proto.hit).accessibilityLabel("Dismiss the suggestion")
         }
         .padding(.leading, 10)
-        .padding(.trailing, 8)
+        .padding(.trailing, 4)
         .frame(height: 44)
         .background(RoundedRectangle(cornerRadius: Proto.innerRadius, style: .continuous).fill(Color.primary.opacity(0.06)))
     }
 
-    private func tiles(_ items: [(String, String)], more: Bool = true) -> some View {
-        let chosen = pending ? 1 : 0
+    private func tiles(_ items: [(String, String)], more: Bool = true, chosen picked: Int = 0) -> some View {
+        let chosen = pending ? 1 : picked
         return HStack(spacing: 6) {
             ForEach(Array(items.enumerated()), id: \.offset) { index, item in
                 VStack(spacing: 1) {
                     Text(item.0).font(.system(size: 12, weight: .semibold))
-                    Text(item.1).font(.system(size: 11)).foregroundStyle(.secondary).monospacedDigit()
+                    Text(item.1).font(.system(size: 11)).foregroundStyle(Proto.quiet).monospacedDigit()
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
@@ -143,10 +147,11 @@ struct ProtoOptions: View {
             if more {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Proto.quiet)
                     .frame(width: 36, height: 44)
                     .background(RoundedRectangle(cornerRadius: Proto.innerRadius, style: .continuous).fill(Color.primary.opacity(0.06)))
                     .accessibilityLabel("More formats")
+                    .help("More formats")
             }
         }
     }
@@ -155,8 +160,8 @@ struct ProtoOptions: View {
         HStack {
             Text(title).font(.system(size: 13))
             Spacer()
-            Text(value).font(.system(size: 13)).foregroundStyle(.secondary).monospacedDigit()
-            Image(systemName: "chevron.up.chevron.down").font(.system(size: 9, weight: .semibold)).foregroundStyle(.secondary)
+            Text(value).font(.system(size: 13)).foregroundStyle(Proto.quiet).monospacedDigit()
+            Image(systemName: "chevron.up.chevron.down").font(.system(size: 9, weight: .semibold)).foregroundStyle(Proto.quiet)
         }
     }
 
@@ -187,7 +192,7 @@ struct ProtoOptions: View {
                 HStack {
                     Text(catalan ? "Qualitat" : "Quality").font(.system(size: 13))
                     Spacer()
-                    Text("70").font(.system(size: 13)).foregroundStyle(.secondary).monospacedDigit()
+                    Text("70").font(.system(size: 13)).foregroundStyle(Proto.quiet).monospacedDigit()
                 }
                 Slider(value: $quality, in: 1 ... 100)
             }
@@ -209,8 +214,8 @@ struct ProtoOptions: View {
 
     private var pdfFormat: some View {
         VStack(alignment: .leading, spacing: 12) {
-            tiles([("Screen", "1.2 MB"), ("Reading", "3.1 MB"), ("Print", "6.4 MB")])
-            Text("Reading keeps pictures at 150 dpi.").font(.system(size: 11)).foregroundStyle(.secondary)
+            tiles([("Screen", "1.2 MB"), ("Reading", "3.1 MB"), ("Print", "6.4 MB")], chosen: 1)
+            Text("Reading keeps pictures at 150 dpi.").font(.system(size: 11)).foregroundStyle(Proto.quiet)
             toggle("Keep text selectable", $on)
             toggle("Remove metadata", $on)
             rule("Always do this for exported PDFs")
@@ -220,7 +225,7 @@ struct ProtoOptions: View {
     private var audioFormat: some View {
         VStack(alignment: .leading, spacing: 12) {
             tiles([("AAC", "6.2 MB"), ("MP3", "7.4 MB"), ("Opus", "4.9 MB")])
-            chips("Bitrate", ["64", "96", "128", "160", "192", "256"], selected: 3)
+            chips("Bitrate, kbps", ["64", "96", "128", "160", "192", "256"], selected: 3)
             line("Speed", "1×")
             toggle("Even out loudness", $off)
             rule("Always do this for voice memos")
@@ -233,7 +238,7 @@ struct ProtoOptions: View {
                 HStack {
                     Text(catalan ? "Escala" : "Scale").font(.system(size: 13))
                     Spacer()
-                    Text("50\u{202F}% · 1470 × 956 · 180 kB").font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit()
+                    Text("50\u{202F}% · 1470 × 956 · 180 kB").font(.system(size: 12)).foregroundStyle(Proto.quiet).monospacedDigit()
                 }
                 Slider(value: $scale, in: 10 ... 100, step: 10)
             }
@@ -279,11 +284,11 @@ struct ProtoOptions: View {
 
     private func actionRow(_ symbol: String, _ title: String, _ keys: [String], chevron: Bool = false) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: symbol).font(.system(size: 13)).foregroundStyle(.secondary).frame(width: 20)
+            Image(systemName: symbol).font(.system(size: 13)).foregroundStyle(Proto.quiet).frame(width: 20)
             Text(title).font(.system(size: 13))
             Spacer()
             if !keys.isEmpty { ProtoKeys(keys: keys) }
-            if chevron { Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(.tertiary) }
+            if chevron { Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(Proto.quiet) }
         }
         .padding(.horizontal, 6)
         .frame(height: Proto.hit)
@@ -319,21 +324,24 @@ struct ProtoDropZone: View {
                     ? (catalan ? "Optimitza a fons" : "Optimise Aggressively")
                     : (catalan ? "Optimitza" : "Optimise"))
                     .font(.system(size: 13, weight: .semibold))
-                Text(catalan ? "3 fitxers" : "3 files").font(.system(size: 11)).opacity(hot ? 1 : 0.62)
+                Text(catalan ? "3 fitxers" : "3 files").font(.system(size: 11)).foregroundStyle(hot ? Color.white : Proto.quiet)
             }
         }
         .padding(.horizontal, 16)
         .frame(width: Proto.cardWidth, height: 92, alignment: .leading)
         .foregroundStyle(hot ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+        .opacity(mode == .preset ? 0.55 : 1)
         .protoGlass(Proto.tileRadius, tint: tint)
         .scaleEffect(hot ? 1.04 : 1)
-        .opacity(mode == .preset ? 0.6 : 1)
     }
 
     private func tile(_ symbol: String, _ title: String, hot: Bool) -> some View {
-        VStack(spacing: 6) {
-            Image(systemName: symbol).font(.system(size: 20, weight: .regular)).frame(height: 24)
+        // A dimmed tile is still a target: its symbol recedes, its name keeps its contrast.
+        let dim = mode == .target || mode == .aggressive
+        return VStack(spacing: 6) {
+            Image(systemName: symbol).font(.system(size: 20, weight: .regular)).frame(height: 24).opacity(dim ? 0.4 : 1)
             Text(title)
+                .foregroundStyle(hot ? Color.white : (dim ? Proto.quiet : Proto.ink))
                 .font(.system(size: 12, weight: .medium))
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
@@ -345,6 +353,5 @@ struct ProtoDropZone: View {
         .foregroundStyle(hot ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
         .protoGlass(Proto.tileRadius, tint: hot ? Proto.lit : nil)
         .scaleEffect(hot ? 1.04 : 1)
-        .opacity(mode == .target || mode == .aggressive ? 0.6 : 1)
     }
 }

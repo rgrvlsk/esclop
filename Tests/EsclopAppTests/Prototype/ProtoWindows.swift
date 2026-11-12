@@ -133,7 +133,7 @@ struct ProtoSettings: View {
             List(Pane.allCases, selection: $pane) { pane in
                 Label(pane.rawValue, systemImage: pane.symbol).tag(pane)
             }
-            .navigationSplitViewColumnWidth(190)
+            .navigationSplitViewColumnWidth(210)
             .searchable(text: .constant(""), placement: .sidebar, prompt: "Search")
         } detail: {
             Group {
@@ -198,7 +198,7 @@ struct ProtoSettings: View {
             }
             Section("Rules") {
                 LabeledContent("Screenshots") { Text("WebP, adaptive").foregroundStyle(.secondary) }
-                LabeledContent("Photos from Photos") { Text("JPEG, no location").foregroundStyle(.secondary) }
+                LabeledContent("Photos exports") { Text("JPEG, no location").foregroundStyle(.secondary) }
             }
         }
     }
@@ -280,11 +280,10 @@ struct ProtoOnboarding: View {
             if step == .tryIt {
                 HStack(spacing: 8) {
                     Text("Press")
-                    ProtoKeys(keys: ["⌃", "⇧", "⌘", "4"])
+                    ProtoKeys(keys: ["⌃", "⇧", "⌘", "4"], ink: .primary)
                     Text("and drag over anything.")
                 }
                 .font(.system(size: 13))
-                .foregroundStyle(.secondary)
             } else {
                 Text("It was smaller before you could paste it. The original is kept for 7 days.")
                     .font(.system(size: 13)).foregroundStyle(.secondary)
@@ -332,7 +331,7 @@ struct ProtoOnboarding: View {
                 GridRow { ProtoKeys(keys: ["⌃", "⇧", "R"]); Text("Go to the newest result") }
             }
             .font(.system(size: 13))
-            Button("Connect an AI Agent…") {}.buttonStyle(.link).font(.system(size: 13))
+            Button("Connect an AI Agent…") {}.buttonStyle(.plain).font(.system(size: 13)).foregroundStyle(Proto.own ? Proto.saving : Color(nsColor: .linkColor))
         }
         .padding(.horizontal, 40)
     }
@@ -394,7 +393,7 @@ struct ProtoPipeline: View {
                                     Text(step.1).font(.system(size: 13, weight: .semibold))
                                     Text(step.2).font(.system(size: 13)).foregroundStyle(.secondary).monospacedDigit()
                                     if let problem = step.3 {
-                                        Label(problem, systemImage: "exclamationmark.circle.fill")
+                                        Label(problem, systemImage: "exclamationmark.triangle.fill")
                                             .font(.system(size: 12)).foregroundStyle(Proto.error).padding(.top, 2)
                                     }
                                 }

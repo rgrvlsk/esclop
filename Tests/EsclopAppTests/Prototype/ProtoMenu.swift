@@ -22,7 +22,7 @@ struct ProtoMenuPanel: View {
                     if Proto.own { ProtoClog(width: 56) }
                     Text(catalan ? "Copia una captura de pantalla. Apareixerà aquí, més petita." : "Copy a screenshot. It lands here, smaller.")
                         .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Proto.quiet)
                         .multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity, minHeight: 96)
@@ -30,35 +30,36 @@ struct ProtoMenuPanel: View {
                 grid
                 // The newest result is selected when the panel opens, so the row is always
                 // there: the commands never shift, and ⌘Z has a visible target.
-                if mode != .paused, mode != .pausedOpen { selection }
+                selection
             }
             Divider().opacity(0.6)
             VStack(spacing: 0) {
-                if mode == .batch {
-                    HStack(spacing: 8) {
-                        ProgressView().controlSize(.small)
-                        Text("Optimising 7 of 9").font(.system(size: 13))
-                        Spacer()
-                        Text("Show").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
-                    }
-                    .padding(.horizontal, 6)
-                    .frame(height: Proto.hit)
-                }
                 row(catalan ? "Optimitza fitxers…" : "Optimise Files…", keys: ["⌘", "O"])
                 row(catalan ? "Optimitza el porta-retalls" : "Optimise Clipboard", keys: ["⌃", "⇧", "C"])
                 row(catalan ? "Tots els resultats" : "All Results", keys: [])
                 row(catalan ? "Fluxos" : "Pipelines", keys: [])
             }
             .padding(.horizontal, -6)
-            if mode != .paused, mode != .pausedOpen {
-                Text(catalan ? "Vigila el porta-retalls i 2 carpetes" : "Watching the clipboard and 2 folders")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+            // One line, always: what the app is watching, or the batch that is running.
+            HStack(spacing: 6) {
+                if mode == .batch { ProgressView().controlSize(.mini) }
+                Text(status).font(.system(size: 11)).foregroundStyle(Proto.quiet)
+                Spacer()
+                if mode == .batch { Text(catalan ? "Mostra" : "Show").font(.system(size: 11, weight: .medium)) }
             }
+            .frame(height: 14)
         }
         .padding(Proto.panelPadding)
         .frame(width: 3 * 92 + 2 * Proto.gap + 2 * Proto.panelPadding)
         .protoGlass(Proto.panelRadius)
+    }
+
+    private var status: String {
+        switch mode {
+        case .batch: return catalan ? "S’està optimitzant, 7 de 9" : "Optimising 7 of 9"
+        case .paused, .pausedOpen: return catalan ? "No vigila res" : "Watching nothing"
+        default: return catalan ? "Vigila el porta-retalls i 2 carpetes" : "Watching the clipboard and 2 folders"
+        }
     }
 
     private var header: some View {
@@ -67,15 +68,15 @@ struct ProtoMenuPanel: View {
                 switch mode {
                 case .normal, .selected, .batch:
                     Text("−38 MB").font(Proto.figure(24)).foregroundStyle(Proto.saving).monospacedDigit()
-                    Text(catalan ? "avui, en 14 fitxers" : "today, across 14 files").font(.system(size: 11)).foregroundStyle(.secondary)
+                    Text(catalan ? "avui, en 14 fitxers" : "today, across 14 files").font(.system(size: 11)).foregroundStyle(Proto.quiet)
                 case .paused, .pausedOpen:
                     Text(catalan ? "En pausa" : "Paused").font(.system(size: 24, weight: .semibold))
                     Text(mode == .pausedOpen
                         ? (catalan ? "Fins que ho reprenguis" : "Until you resume")
-                        : (catalan ? "Es reprèn a les 14:32" : "Resumes at 14:32")).font(.system(size: 11)).foregroundStyle(.secondary)
+                        : (catalan ? "Es reprèn a les 14:32" : "Resumes at 14:32")).font(.system(size: 11)).foregroundStyle(Proto.quiet)
                 case .empty:
                     Text(catalan ? "A punt" : "Ready").font(.system(size: 24, weight: .semibold))
-                    Text(catalan ? "Encara no s’ha optimitzat res" : "Nothing optimised yet").font(.system(size: 11)).foregroundStyle(.secondary)
+                    Text(catalan ? "Encara no s’ha optimitzat res" : "Nothing optimised yet").font(.system(size: 11)).foregroundStyle(Proto.quiet)
                 }
             }
             Spacer()
@@ -90,7 +91,7 @@ struct ProtoMenuPanel: View {
                 // A menu, so it says so: pause, with the chevron of a pull-down.
                 HStack(spacing: 3) {
                     Image(systemName: "pause.fill").font(.system(size: 11, weight: .semibold))
-                    Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).foregroundStyle(.secondary)
+                    Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).foregroundStyle(Proto.quiet)
                 }
                 .padding(.horizontal, 10)
                 .frame(height: Proto.hit)
@@ -116,7 +117,7 @@ struct ProtoMenuPanel: View {
                                 .clipShape(RoundedRectangle(cornerRadius: Proto.innerRadius, style: .continuous))
                                 .overlay(RoundedRectangle(cornerRadius: Proto.innerRadius, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
                                 .overlay {
-                                    if index == (mode == .selected ? 1 : 0), mode != .paused, mode != .pausedOpen {
+                                    if index == (mode == .selected ? 1 : 0) {
                                         RoundedRectangle(cornerRadius: Proto.innerRadius + 2, style: .continuous)
                                             .strokeBorder(Proto.control, lineWidth: 2).padding(-3)
                                     }
@@ -124,7 +125,7 @@ struct ProtoMenuPanel: View {
                             Text(Proto.percent(figures[index]))
                                 .font(.system(size: 11))
                                 .monospacedDigit()
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Proto.quiet)
                         }
                     }
                 }
@@ -137,7 +138,7 @@ struct ProtoMenuPanel: View {
         HStack(spacing: 4) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(mode == .selected ? (catalan ? "Platja 02.jpg" : "Beach 02.jpg") : (catalan ? "Captura 10.42.png" : "Screenshot 10.42.png")).font(.system(size: 12, weight: .medium)).lineLimit(1).truncationMode(.middle)
-                Text(mode == .selected ? (catalan ? "2,4 MB → 1,1 MB" : "2.4 MB → 1.1 MB") : (catalan ? "2,4 MB → 612 kB" : "2.4 MB → 612 kB")).font(.system(size: 11)).foregroundStyle(.secondary).monospacedDigit()
+                Text(mode == .selected ? (catalan ? "2,4 MB → 1,1 MB" : "2.4 MB → 1.1 MB") : (catalan ? "2,4 MB → 612 kB" : "2.4 MB → 612 kB")).font(.system(size: 11)).foregroundStyle(Proto.quiet).monospacedDigit()
             }
             Spacer(minLength: 4)
             ProtoIconButton(symbol: "arrow.uturn.backward", name: "Undo")
@@ -176,7 +177,7 @@ struct ProtoPauseMenu: View {
         }
         .padding(.vertical, 5)
         .frame(width: 190, alignment: .leading)
-        .protoGlass(12)
+        .protoGlass(14)
     }
 }
 
@@ -200,7 +201,7 @@ struct ProtoGlyphStrip: View {
     private func state(_ title: String, @ViewBuilder content: () -> some View) -> some View {
         VStack(spacing: 8) {
             content().frame(width: 34, height: 24)
-            Text(title).font(.system(size: 11)).foregroundStyle(.secondary)
+            Text(title).font(.system(size: 11)).foregroundStyle(Proto.quiet)
         }
     }
 

@@ -14,8 +14,11 @@ struct ProtoResultCard: View {
         case ruled
         case already
         case restored
+        /// A failure another try can fix (an upload refused, a busy file).
         case failed
         case failedOpen
+        /// A failure another try cannot fix: the way out is the file.
+        case unreadable
         case uploaded
     }
 
@@ -29,6 +32,7 @@ struct ProtoResultCard: View {
     var dimmed = false
     /// Several failures share one slot.
     var failures = 1
+    var catalan = false
 
     var body: some View {
         let width = Proto.cardWidth - 2 * Proto.cardPadding
@@ -46,49 +50,52 @@ struct ProtoResultCard: View {
                 .frame(width: width, height: Proto.footerHeight)
                 .overlay(alignment: .top) {
                     if case let .working(progress, _) = state {
-                        // The one progress indicator, on the seam of picture and footer, inside
-                        // the picture's corners. It belongs to the footer's frame, so nothing
-                        // in the footer moves it.
+                        // The one progress indicator: wholly inside the footer, at its top
+                        // edge, inside the picture's corners. Nothing in the footer moves it.
                         GeometryReader { proxy in
                             ZStack(alignment: .leading) {
-                                Capsule().fill(Color.primary.opacity(0.14))
-                                Capsule().fill(Color.primary.opacity(0.6)).frame(width: max(4, proxy.size.width * progress))
+                                Capsule().fill(Color.primary.opacity(0.24))
+                                Capsule().fill(Color.primary.opacity(0.7)).frame(width: max(4, proxy.size.width * progress))
                             }
                         }
                         .frame(height: 2)
                         .padding(.horizontal, 10)
-                        .offset(y: -1)
+                        .offset(y: 2)
                     }
                 }
             if state == .failedOpen {
-                Text("This file isn’t a video L’Esclop can read. It may be damaged. The original is untouched.")
+                Text(catalan
+                    ? "El servidor ha rebutjat la pujada. El fitxer optimitzat es conserva."
+                    : "The server refused the upload. The optimised file is kept.")
                     .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Proto.quiet)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(width: width - 12, alignment: .leading)
                     .padding(.bottom, 8)
             }
         }
+        // Dimming takes the ink and the picture, never the surface.
+        .opacity(dimmed ? 0.45 : 1)
         .padding(Proto.cardPadding)
         .protoGlass(Proto.cardRadius)
         .overlay(alignment: .topLeading) {
-            // The pointer's way out: on the outer corner, as Notification Center does.
+            // The pointer's way out, centred on the card's outer corner.
             if hover {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .bold))
                     .frame(width: 20, height: 20)
                     .protoGlass(10)
                     .frame(width: Proto.hit, height: Proto.hit)
-                    .offset(x: -8, y: -8)
+                    .offset(x: -14, y: -14)
                     .accessibilityLabel("Dismiss")
             }
         }
-        .opacity(dimmed ? 0.6 : 1)
     }
 
-    private var isFailed: Bool { state == .failed || state == .failedOpen }
+    private var isFailed: Bool { state == .failed || state == .failedOpen || state == .unreadable }
 
-    /// What the pointer can do in each state: every state defines its buttons.
+    /// What the pointer can do in each state: every state defines its buttons. The first slot
+    /// is always the way back or forward (Undo, Optimise Again), so a second click stays on it.
     private var tools: [(String, String)] {
         switch state {
         case .working: return [("stop.fill", "Stop")]
@@ -96,22 +103,24 @@ struct ProtoResultCard: View {
         case .already: return [("square.on.square", "Copy"), ("ellipsis", "Options")]
         case .restored: return [("arrow.uturn.forward", "Optimise Again"), ("ellipsis", "Options")]
         case .uploaded: return [("link", "Copy Link"), ("ellipsis", "Options")]
-        case .failed, .failedOpen: return []
+        case .failed, .failedOpen, .unreadable: return []
         }
     }
 
     private func label(_ text: String) -> some View { Text(text).font(.system(size: 12, weight: .medium)) }
-    private func quiet(_ text: String) -> some View { Text(text).font(.system(size: 12)).foregroundStyle(.secondary) }
-    private func mark(_ symbol: String, _ color: Color = .secondary) -> some View {
+    private func quiet(_ text: String) -> some View { Text(text).font(.system(size: 12)).foregroundStyle(Proto.quiet) }
+    private func mark(_ symbol: String, _ color: Color = Proto.quiet) -> some View {
         Image(systemName: symbol).font(.system(size: 11, weight: .semibold)).foregroundStyle(color)
     }
 
-    @ViewBuilder private var footer: some View {
+    private var footer: some View {
         let showTools = hover && !tools.isEmpty
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
+        // One baseline for every state: text sits on it, and the buttons lie over the right
+        // side without taking part in the layout, so hover moves nothing.
+        return HStack(alignment: .firstTextBaseline, spacing: 6) {
             switch state {
             case .working:
-                label("Optimising")
+                label(catalan ? "S’està optimitzant" : "Optimising")
             case .done:
                 Text(saving).font(Proto.figure(17)).foregroundStyle(Proto.saving)
             case .aggressive:
@@ -121,43 +130,50 @@ struct ProtoResultCard: View {
                 Text(saving).font(Proto.figure(17)).foregroundStyle(Proto.saving)
                 mark("pin.fill")
             case .already:
-                label("Already optimised")
+                label(catalan ? "Ja estava optimitzat" : "Already optimised")
             case .restored:
-                label("Original restored")
-            case .failed, .failedOpen:
+                label(catalan ? "Original recuperat" : "Original restored")
+            case .failed, .failedOpen, .unreadable:
                 mark("exclamationmark.triangle.fill", Proto.error)
-                label(failures > 1 ? "\(failures) not optimised" : "Not optimised")
+                label(failures > 1
+                    ? (catalan ? "\(failures) no optimitzats" : "\(failures) not optimised")
+                    : (catalan ? "No optimitzat" : "Not optimised"))
             case .uploaded:
                 mark("link")
-                label("Link copied")
+                label(catalan ? "Enllaç copiat" : "Link copied")
             }
             Spacer(minLength: 4)
-            if showTools {
-                HStack(spacing: 4) {
-                    ForEach(tools, id: \.0) { ProtoIconButton(symbol: $0.0, name: $0.1) }
-                }
-                .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
-            } else {
+            Group {
                 switch state {
                 case let .working(_, left): quiet(left)
-                case .done, .aggressive, .ruled, .already: quiet(size)
-                case .restored: quiet("2.4 MB")
+                case .done, .aggressive, .ruled, .already: quiet(catalan ? size.replacingOccurrences(of: ".", with: ",") : size)
+                case .restored: quiet(catalan ? "2,4 MB" : "2.4 MB")
                 case .uploaded: quiet(saving)
-                case .failed, .failedOpen:
-                    Button("Retry") {}
+                case .failed, .failedOpen, .unreadable: Text(" ").font(.system(size: 12))
+                }
+            }
+            .opacity(showTools ? 0 : 1)
+        }
+        .monospacedDigit()
+        .lineLimit(1)
+        .padding(.horizontal, 8)
+        .overlay(alignment: .trailing) {
+            HStack(spacing: 4) {
+                if showTools {
+                    ForEach(tools, id: \.0) { ProtoIconButton(symbol: $0.0, name: $0.1) }
+                } else if state == .unreadable {
+                    ProtoIconButton(symbol: "folder", name: "Show in Finder")
+                } else if isFailed {
+                    Button(catalan ? "Torna-hi" : "Retry") {}
                         .buttonStyle(.plain)
                         .font(.system(size: 12, weight: .medium))
                         .padding(.horizontal, 12)
                         .frame(height: Proto.hit)
                         .background(Capsule().fill(Color.primary.opacity(0.14)))
-                        .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
                 }
             }
+            .padding(.trailing, 3)
         }
-        .monospacedDigit()
-        .lineLimit(1)
-        .padding(.leading, 8)
-        .padding(.trailing, showTools || isFailed ? 3 : 8)
     }
 }
 
@@ -181,9 +197,9 @@ struct ProtoDetailCard: View {
             .overlay(RoundedRectangle(cornerRadius: Proto.detailPictureRadius, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
 
             HStack {
-                Text("Original").foregroundStyle(.secondary) + Text("  2.4 MB")
+                Text("Original").foregroundStyle(Proto.quiet) + Text("  2.4 MB")
                 Spacer()
-                Text("612 kB  ") + Text("Optimised").foregroundStyle(.secondary)
+                Text("612 kB  ") + Text("Optimised").foregroundStyle(Proto.quiet)
             }
             .font(.system(size: 11))
             .monospacedDigit()
@@ -194,13 +210,13 @@ struct ProtoDetailCard: View {
                 HStack(alignment: .firstTextBaseline) {
                     Text(Proto.percent(75)).font(Proto.figure(34)).foregroundStyle(Proto.saving)
                     Spacer()
-                    Text("1.8 MB saved").font(.system(size: 13)).foregroundStyle(.secondary)
+                    Text("1.8 MB saved").font(.system(size: 13)).foregroundStyle(Proto.quiet)
                 }
                 .monospacedDigit()
                 ProtoSplitBar(kept: 0.25)
                 Text("PNG · 2940 × 1912 · metadata removed")
                     .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Proto.quiet)
             }
             .padding(.horizontal, 4)
             .padding(.top, 12)
@@ -225,20 +241,15 @@ struct ProtoDetailCard: View {
 
 /// A message with no file: the pause hotkey.
 struct ProtoNotice: View {
-    @Environment(\.colorScheme) private var scheme
-
     var body: some View {
-        // Small glass lets the system flip its content to suit what is behind it. The ink is
-        // pinned to the appearance instead, since the backing already bounds the ground.
-        let ink = scheme == .dark ? Color.white : Color.black
         HStack(spacing: 8) {
-            Image(systemName: "forward.end.fill").font(.system(size: 11, weight: .semibold)).foregroundStyle(ink.opacity(0.62))
-            Text("The next copy won’t be optimised").font(.system(size: 12, weight: .medium)).foregroundStyle(ink.opacity(0.9))
-            ProtoKeys(keys: ["⌃", "⇧", "P"], ink: ink.opacity(0.62))
+            Image(systemName: "forward.end.fill").font(.system(size: 11, weight: .semibold)).foregroundStyle(Proto.quiet)
+            Text("The next copy won’t be optimised").font(.system(size: 12, weight: .medium)).foregroundStyle(Proto.ink)
+            ProtoKeys(keys: ["⌃", "⇧", "P"])
         }
         .padding(.horizontal, 12)
         .frame(height: Proto.footerHeight)
-        .protoGlass(Proto.footerHeight / 2)
+        .protoGlass(Proto.footerHeight / 2, small: true)
     }
 }
 
@@ -269,11 +280,12 @@ struct ProtoStackWithDetail: View {
 
 /// Three slots, always: failures gather in one, so the stack cannot outgrow the screen.
 struct ProtoStackWithFailures: View {
+    var catalan = false
     var body: some View {
         VStack(alignment: .trailing, spacing: Proto.gap) {
-            ProtoResultCard(picture: ProtoSamples.chart, state: .failed, failures: 3)
-            ProtoResultCard(picture: ProtoSamples.photo, state: .done, size: "1.1 MB", saving: Proto.percent(54))
-            ProtoResultCard(picture: ProtoSamples.screenshot, state: .done)
+            ProtoResultCard(picture: ProtoSamples.chart, state: .failed, failures: 3, catalan: catalan)
+            ProtoResultCard(picture: ProtoSamples.photo, state: .done, size: "1.1 MB", saving: Proto.percent(54), catalan: catalan)
+            ProtoResultCard(picture: ProtoSamples.screenshot, state: .done, catalan: catalan)
         }
     }
 }

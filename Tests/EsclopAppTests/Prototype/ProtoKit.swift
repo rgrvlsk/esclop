@@ -30,6 +30,13 @@ enum Proto {
     static let litWarm = Color(nsColor: Palette.color(0x8F5510))
     /// Secondary text on the own-brand surface: the system's fails on boxwood.
     static let ownSecondary = Color(nsColor: Palette.dynamic(light: 0x625C56, dark: 0xB9AFA5))
+    /// Ink on a floating surface is pinned, never left to the system's vibrancy: text at 90 %
+    /// and secondary text at 62 % of black or white (A), or the own-brand pair (B).
+    static let ink = Color(nsColor: NSColor(name: nil) { $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? NSColor(white: 1, alpha: 0.92) : NSColor(white: 0, alpha: 0.88) })
+    private static let pinnedSecondary = Color(nsColor: NSColor(name: nil) { $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? NSColor(white: 1, alpha: 0.62) : NSColor(white: 0, alpha: 0.62) })
+    static var quiet: Color { own ? ownSecondary : pinnedSecondary }
+    /// The fill of a filled control in B: white content holds 4.5:1 on it in both appearances.
+    static let ownFill = Color(nsColor: Palette.dynamic(light: 0x176B59, dark: 0x1C8068))
     /// What is left of the original in a split bar.
     static var kept: Color { own ? Color(nsColor: Palette.dynamic(light: 0xD8BF9F, dark: 0x6E5746)) : Color.primary.opacity(0.32) }
 
@@ -61,21 +68,23 @@ enum Proto {
 extension View {
     /// A floating surface: system Liquid Glass (or the own-brand surface), with the one elevation
     /// every floating object shares. `tint` colours the glass itself for a state.
-    func protoGlass(_ radius: CGFloat, tint: Color? = nil) -> some View {
-        modifier(ProtoSurface(radius: radius, tint: tint))
+    func protoGlass(_ radius: CGFloat, tint: Color? = nil, small: Bool = false) -> some View {
+        modifier(ProtoSurface(radius: radius, tint: tint, small: small))
     }
 }
 
 struct ProtoSurface: ViewModifier {
     let radius: CGFloat
     var tint: Color?
+    /// Small glass takes more of the desktop's tone: it gets a denser backing, to stay one material with the card.
+    var small = false
     @Environment(\.colorScheme) private var scheme
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         surface(content, shape)
             // Elevation: one shadow and one inner rim, so the edge never depends on the wallpaper.
-            .overlay(shape.strokeBorder(Color.white.opacity(scheme == .dark ? 0.14 : 0.35), lineWidth: 0.5).allowsHitTesting(false))
+            .overlay(shape.strokeBorder(Proto.own && scheme != .dark ? Color.black.opacity(0.1) : Color.white.opacity(scheme == .dark ? 0.14 : 0.35), lineWidth: 0.5).allowsHitTesting(false))
             // An outer hairline, for a light surface on a white ground.
             .overlay(shape.inset(by: -0.5).strokeBorder(Color.black.opacity(scheme == .dark ? 0.3 : 0.1), lineWidth: 0.5).allowsHitTesting(false))
             .background {
@@ -92,13 +101,16 @@ struct ProtoSurface: ViewModifier {
         } else if Proto.own {
             // Wood does not transmit: the surface is opaque, with its own secondary ink.
             let fill = scheme == .dark ? Palette.color(0x2B2521) : Palette.color(0xF6F0E8)
-            content.foregroundStyle(Color.primary, Proto.ownSecondary).background(shape.fill(Color(nsColor: fill)))
+            content.background(shape.fill(Color(nsColor: fill)))
         } else if #available(macOS 26, *) {
             // Glass with a backing in the appearance's own tone: the ground under the ink is
             // bounded whatever the desktop is.
+            // The glass is a layer under the content, not a container around it: what the app
+            // draws is not "on" the glass, so the system cannot flip its appearance to suit the
+            // desktop, and the inks stay the ones the appearance chose.
             content
-                .background(shape.fill((scheme == .dark ? Color(white: 0.13) : Color(white: 0.97)).opacity(0.8)))
-                .glassEffect(.regular, in: shape)
+                .background(shape.fill((scheme == .dark ? Color(white: 0.13) : Color(white: 0.97)).opacity(small ? 0.94 : 0.88)))
+                .background { Color.clear.glassEffect(.regular, in: shape) }
         } else {
             content.glassSurface(shape)
         }
@@ -120,9 +132,10 @@ struct ProtoClog: View {
 
     var body: some View {
         if Proto.own, !template, let wooden = Self.wooden {
-            Image(nsImage: wooden).resizable().aspectRatio(contentMode: .fit).frame(width: width * 1.25)
+            Image(nsImage: wooden).resizable().aspectRatio(contentMode: .fit).frame(width: width * 1.25).frame(width: width * 1.3)
         } else if let glyph = MenuBarLabel.customGlyph {
-            Image(nsImage: glyph).renderingMode(.template).resizable().aspectRatio(contentMode: .fit).frame(width: width)
+            // The same slot as the wooden clog, so a label beside it never moves when it changes.
+            Image(nsImage: glyph).renderingMode(.template).resizable().aspectRatio(contentMode: .fit).frame(width: width).frame(width: Proto.own ? width * 1.3 : width)
         }
     }
 }
@@ -161,7 +174,7 @@ struct ProtoKeys: View {
                     .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.primary.opacity(0.12)))
             }
         }
-        .foregroundStyle(ink.map { AnyShapeStyle($0) } ?? AnyShapeStyle(.secondary))
+        .foregroundStyle(ink ?? Proto.quiet)
     }
 }
 
@@ -304,11 +317,15 @@ enum ProtoRender {
         try await capture(view, size: size, name: name, scheme: scheme, style: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], title: title)
     }
 
+    /// The last capture, for tests that measure rendered pixels.
+    static var lastImage: CGImage?
+
     private static func capture(
         _ view: some View, size: CGSize, name: String, scheme: ColorScheme, style: NSWindow.StyleMask, title: String = ""
     ) async throws {
+        lastImage = nil
         _ = NSApplication.shared
-        let host = NSHostingView(rootView: view.tint(Proto.own ? Proto.saving : nil).environment(\.colorScheme, scheme))
+        let host = NSHostingView(rootView: view.tint(Proto.own ? Proto.ownFill : nil).environment(\.colorScheme, scheme))
         let window = KeyWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: style, backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
@@ -324,6 +341,7 @@ enum ProtoRender {
         }
         // A runner without a window server session gives no image: the layout still ran.
         guard let image = WindowSnapshots.image(of: window) else { return }
+        lastImage = image
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let data = try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
         try data.write(to: folder.appendingPathComponent("proto-\(Proto.own ? "own-" : "")\(name)-\(scheme == .dark ? "dark" : "light").png"))
