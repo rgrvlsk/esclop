@@ -3,7 +3,9 @@
 Status: the council's four rounds are done (blocking issues per round: 17, 12, 8, 2). The two
 raised in the last round are fixed here and were not put before the council again. The owner
 then chose the direction, **A with B's wooden clog**, and asked for more spark: the section
-"Spark" answers that and is before the council for one more opinion, at his request.
+"Spark" answers that. The council gave its opinion on it once, at his request (character: 5
+out of 10 before, 6 to 7 after a first pass), and its best ideas are built in; it has not
+scored the result.
 
 ## The owner's answers
 
@@ -31,7 +33,7 @@ renders as the road not taken.
 2. **One green, one job.** `saving` marks the saving: the figure and the saved part of a bar. At
    most one green figure per surface. (B also tints controls with it.)
 3. **The picture is never covered.** Figures sit beside or under a picture, never on it.
-4. **One figure per surface.** SF Pro Rounded semibold, and only for a saving. Everything else
+4. **One figure per surface.** SF Pro Compressed bold, and only for a saving. Everything else
    is SF Pro at 13, 12 or 11 pt.
 5. **Motion goes where the meaning is.** Four moments are alive: a result arriving, a drag
    reaching the drop zone, the glyph working, the first run. Everything else moves in under
@@ -69,7 +71,7 @@ Type, all SF Pro, digits monospaced, the percent sign after a narrow no-break sp
 
 | Role | Size and weight |
 |---|---|
-| Figure (savings only) | Rounded semibold, four steps: 17 (card, compare), 24 (panel, popover), 34 (detail, batch, all results), 44 (first run) |
+| Figure (savings only) | SF Pro Compressed bold, four steps: 24 (card, compare), 32 (panel, popover), 48 (detail, batch, all results), 72 (first run); its unit at 55 %, semibold, raised to the cap line |
 | Title | 13 semibold; 22 semibold for a document; 24 semibold for a panel state ("Paused"); 28 semibold in the first run |
 | Body | 13 regular |
 | Label on a floating surface | 12 medium |
@@ -385,35 +387,81 @@ In B the wooden clog waits on the stage of step 1.
 ## Spark
 
 `proto-result-arrival`, `proto-result-tones`, `-result-tones-on-white`, `proto-menu-panel`,
-`proto-onboarding-1-try`, `-2-tried`.
+`proto-result-detail`, `proto-drop-zone`, `proto-onboarding-1-try`, `-2-tried`, `-3-menu-bar`.
 
-The owner found the fourth round correct and a little flat. It was: to hold contrast the glass
-had been covered, and everything had become the same grey. Six things give it back its life,
-each tied to a meaning, none decorative on its own.
+The owner found the fourth round correct and a little flat, and asked the council. It agreed:
+5 out of 10 for character. To hold contrast the glass had been covered, and every surface had
+become the same grey. This section is what gives it a face. Each item is tied to a meaning; the
+council's three members named the first two as the signature.
 
-1. **A card takes its picture's tone.** The picture's dominant colour, pushed toward its own
-   hue, washes the card's surface at 8 % and glows under it as a soft halo (22 pt blur, 10 pt
-   down, 42 % light and 50 % dark). A sunset's card is warm, a blue poster's is blue. No two
-   cards are the same and none is grey. A failed card has no tone. The contrast test runs under
-   the strongest washes (pure red, blue and yellow) on every ground; 8 % is where it passes.
-2. **A lit top edge.** Every floating surface catches light on its top rim (white, fading out
-   by 45 % of the height). It is the one place the material shows.
-3. **The glint.** When a result arrives, a line of green light runs once along the card's rim
-   from the footer to the top, in step with the count (450 ms, ease-out), and is gone. Only for
-   a saving of 50 % or more: the bigger the saving, the bigger the moment. Under 20 % the figure
-   simply appears; from 20 % it counts and the picture dips; from 50 % the glint joins.
-4. **The figure has a history.** In the panel, beside the day's saving, seven small bars: the
-   last seven days, today's in green. When the panel opens, the figure counts from yesterday's
-   close to now (300 ms) and today's bar grows with it.
-5. **The clog is there when the app speaks.** The carved clog sits on the first run's stage
-   while it waits, and in the empty panel. It takes one step when the first screenshot lands.
-6. **The saving drawn to scale.** In the first run, the screenshot shrinks inside the dashed
-   outline of what it weighed: half the side, a quarter of the area, for a 75 % saving. The
-   outline stays, labelled with the old size. It is the product explained without a sentence.
+**The look it is recognised by: a tall, squeezed green number under a picture that lights its
+own card.**
 
-Not added, on purpose: confetti, sounds by default, idle motion, gradients on the windows.
-Reduce Motion keeps the tone, the lit edge and the bars; it drops the glint, the count and the
-clog's step.
+1. **The figure is compressed type.** A compressor's number is set in SF Pro Compressed, bold:
+   tall and narrow, in `saving`. Four sizes: 24 (card, compare), 32 (panel, popover), 48
+   (detail, batch, all results), 72 (first run). Its unit ("%", "MB") is 55 % of its size,
+   semibold, raised to the cap line. Heavier strokes at a larger size only raise its contrast.
+   This replaces the Rounded figure of the earlier rounds everywhere.
+2. **The squeeze is to scale.** When a result arrives, the picture shrinks by as much as it
+   saved: scale = 1 − 0.14 × saving (−20 % squeezes to 97 %, −75 % to 89.5 %), in 120 ms
+   ease-out, then returns on spring 0.35 / 0.60 while the figure counts for 300 ms. From a
+   saving of 50 %, a 1 pt dashed outline holds the picture's full frame while it is squeezed,
+   and fades in 200 ms as the picture meets it again: the outline of what it weighed. You feel
+   how much was saved before you read it. It replaces the fixed dip, and there is no glint.
+3. **Undo is the arrival backwards.** The figure counts down to zero in 250 ms, the picture
+   swells to 103 % and settles (0.35 / 0.70), then "Original restored". The weight comes back.
+4. **A card takes its picture's tone.** The picture's dominant colour, pushed toward its own
+   hue, lights the card where no ink sits: the 4 pt frame around the picture at 20 %, a halo
+   under the card (32 pt blur, 14 pt down; 60 % in light, 35 % in dark with its lightness capped
+   at 60 % so it never reads as a selection), and a 6 % wash in the footer. A picture with no
+   colour of its own (most screenshots) keeps the neutral shadow. A failed card has no tone. The
+   contrast test runs under the strongest washes (pure red, blue, yellow) on every ground.
+5. **A glass edge.** A 1 pt inner stroke on every floating surface, lit from the top left
+   (white 90 % in light, 40 % in dark) and falling to 15 % and 6 % at the bottom right.
+6. **One clog, one gesture, three places.** Over the main drop tile the clog lifts its heel (the
+   glyph's working pose, 15°, spring 0.25 / 0.60) and sets it down on the drop, as the tile
+   becomes the card; at that instant the menu bar clog starts to walk. On the first run's stage
+   and in the empty panel the carved clog stands on its heel, tilted 4°, with a contact shadow;
+   it takes the raised-heel pose when the first screenshot lands (a pose, so Reduce Motion
+   keeps it).
+7. **The saving drawn to scale.** In the first run the screenshot lands filling a dashed frame
+   in `saving`, holds 250 ms, then shrinks to true scale from the bottom left (spring 0.50 /
+   0.80): half the side, a quarter of the area, for a 75 % saving. The frame stays, labelled
+   with the old size. The figure, the new size and the split bar read the same progress, so
+   the number is honest at every frame.
+8. **The figure has a history.** In the panel, beside the day's saving, seven bars: the last
+   seven days, today's in green. The figure counts only from the value last seen; if nothing
+   changed, nothing moves. When today passes the other six, the caption reads "today, the
+   week's best" until midnight. VoiceOver reads the bars as one element: "Last 7 days. Today is
+   the highest."
+9. **The line.** Once, in the first run's last step and in About, under the name: "Quiet, for a
+   clog." It is true of the product and funny only because of the name. About also holds the
+   lifetime saving as its one green figure ("−14 GB since 3 March"): found there, never pushed.
+10. **The trackpad answers.** A haptic tick when a drag enters a tile, and when the scale slider
+    crosses a "Fit under" size.
+
+The one moment to show a friend is the drop: drag three photos toward the corner, the tile
+lights and the clog lifts its heel; let go, and the tile becomes three cards, each in its
+picture's colour, each squeezing exactly as hard as it saved and leaving the outline of what it
+weighed, while "−75 %" comes out in green and the clog in the menu bar walks.
+
+Not added, on purpose: confetti, sounds by default, idle motion, gradients on the windows, a
+shimmer on completion. Reduce Motion keeps the type, the tone, the edge, the bars, the poses
+and the line; it drops the squeeze, the counting and the walk. VoiceOver gets the line, the
+record day and the lifetime figure as text.
+
+Words this section adds:
+
+| Concept | English | Catalan |
+|---|---|---|
+| The line | Quiet, for a clog. | Per ser un esclop, fa poc soroll. |
+| Record day | today, the week's best | avui, el millor dia de la setmana |
+| The week, spoken | Last 7 days. Today is the highest. | Els últims 7 dies. Avui, el més alt. |
+| Lifetime | −14 GB since 3 March | −14 GB des del 3 de març |
+| Panel, empty | Ready / Copy a screenshot. You'll find it here, smaller. | A punt / Copia una captura. La trobaràs aquí, més petita. |
+| First run, step 2 | It was smaller before you could paste it. | Abans que l'enganxessis, ja era més petita. |
+| Pause, last choice | Until I Resume | Fins que jo ho digui |
+| Clog, spoken | Waiting for a screenshot | Esperant una captura |
 
 ## Motion
 
@@ -424,7 +472,7 @@ a 150 ms crossfade, shows final figures without counting, and holds the glyph's 
 | Moment | Motion | How often |
 |---|---|---|
 | Card enters | slides 24 pt from the screen edge and fades, 0.35 / 1.0 | every result |
-| **Result arrives** | the picture dips to 95 % in 120 ms and returns on 0.35 / 0.60 (about 1 pt of overshoot, once); the figure counts to its value in 300 ms, ease-out | the signature. Only when the previous result is more than 3 s old; in a burst, figures appear set |
+| **Result arrives** | the squeeze to scale (see Spark): the picture shrinks by 0.14 × the saving in 120 ms and returns on 0.35 / 0.60; the figure counts to its value in 300 ms, ease-out | the signature. Only when the previous result is more than 3 s old; in a burst, figures appear set |
 | Fast job (under 1 s) | the card enters already done and the figure counts; no dip, which nobody would see during the entrance | |
 | Detail: neighbours | covered ones fade out, the rest dim, 120 ms | |
 | Detail: the figure | grows from 17 to 34 pt with the card, as one text scaling, not two crossfading | |

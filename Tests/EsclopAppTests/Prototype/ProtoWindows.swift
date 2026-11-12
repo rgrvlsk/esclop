@@ -25,7 +25,7 @@ struct ProtoBatch: View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(Proto.percent(71)).font(Proto.figure(34)).foregroundStyle(Proto.saving)
+                    ProtoFigure(text: Proto.percent(71), size: 48)
                     Text("29 MB → 8.4 MB").font(.system(size: 13)).foregroundStyle(.secondary)
                     Spacer()
                     if running {
@@ -292,17 +292,18 @@ struct ProtoOnboarding: View {
                         // side is a quarter of the area, a 75 % saving drawn to scale.
                         ZStack(alignment: .bottomLeading) {
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .strokeBorder(Color.primary.opacity(0.28), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                                .frame(width: 185, height: 120)
-                            Text("2.4 MB").font(.system(size: 11)).foregroundStyle(.secondary).padding(6)
-                                .frame(width: 185, height: 120, alignment: .topTrailing)
+                                .fill(Proto.saving.opacity(0.06))
+                                .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Proto.saving.opacity(0.45), style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])))
+                                .frame(width: 216, height: 140)
+                            Text("2.4 MB").font(.system(size: 11)).foregroundStyle(.secondary).padding(7)
+                                .frame(width: 216, height: 140, alignment: .topTrailing)
                             Image(nsImage: ProtoSamples.screenshot).resizable().aspectRatio(contentMode: .fit)
-                                .frame(height: 60)
+                                .frame(height: 70)
                                 .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                                 .shadow(color: .black.opacity(0.22), radius: 8, y: 3)
                         }
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(Proto.percent(75)).font(Proto.figure(44)).foregroundStyle(Proto.saving).fixedSize()
+                            ProtoFigure(text: Proto.percent(75), size: 72)
                             Text("2.4 MB → 612 kB").font(.system(size: 13)).foregroundStyle(.secondary)
                             ProtoSplitBar(kept: 0.25)
                         }
@@ -311,8 +312,7 @@ struct ProtoOnboarding: View {
                     }
                 } else {
                     VStack(spacing: 10) {
-                        ProtoClog(width: 52, wood: true)
-                        Text("Waiting for a screenshot").font(.system(size: 13))
+                        ProtoClog(width: 84, wood: true)
                         Button("Use a Sample Instead") {}.controlSize(.small)
                     }
                 }
@@ -326,8 +326,8 @@ struct ProtoOnboarding: View {
         VStack(spacing: 18) {
             ProtoClog(width: 64, template: true)
             Text("It lives in the menu bar").font(.system(size: 28, weight: .semibold))
-            Text("Results, undo and pause are there. These work from anywhere:")
-                .font(.system(size: 13))
+            Text("Quiet, for a clog.")
+                .font(.system(size: 15)).foregroundStyle(.secondary)
             Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
                 GridRow { ProtoKeys(keys: ["⌃", "⇧", "C"]); Text("Optimise the clipboard") }
                 GridRow { ProtoKeys(keys: ["⌃", "⇧", "P"]); Text("Pause") }
@@ -465,7 +465,7 @@ struct ProtoCompare: View {
             HStack {
                 Text("Original").foregroundStyle(.secondary) + Text("  PNG · 4.8 MB")
                 Spacer()
-                Text(Proto.percent(75)).font(Proto.figure(17)).foregroundStyle(Proto.saving)
+                ProtoFigure(text: Proto.percent(75), size: 24)
                 Spacer()
                 Text("JPEG · 1.2 MB  ") + Text("Optimised").foregroundStyle(.secondary)
             }
@@ -527,7 +527,7 @@ struct ProtoAllResults: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
-                Text("−212 MB").font(Proto.figure(34)).foregroundStyle(Proto.saving)
+                ProtoFigure(text: "−212 MB", size: 48)
                 Text("this week, across 96 files").font(.system(size: 13)).foregroundStyle(.secondary)
                 Spacer()
             }

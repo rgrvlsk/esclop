@@ -93,7 +93,7 @@ struct ProtoOptions: View {
                     .buttonStyle(.plain)
                     .background(Circle().fill(Color.primary.opacity(0.14)))
             } else {
-                Text(Proto.percent(sample.saving)).font(Proto.figure(24)).foregroundStyle(Proto.saving).monospacedDigit()
+                ProtoFigure(text: Proto.percent(sample.saving), size: 32)
             }
         }
         .overlay(alignment: .bottom) {
@@ -318,7 +318,9 @@ struct ProtoDropZone: View {
         let hot = mode == .target || mode == .aggressive
         let tint: Color? = mode == .aggressive ? Proto.litWarm : (mode == .target ? Proto.lit : nil)
         return HStack(spacing: 10) {
+            // Over the main tile the clog lifts its heel, the glyph's working pose.
             ProtoClog(width: 34, template: hot).opacity(mode == .preset ? 0.4 : 1)
+                .rotationEffect(.degrees(hot ? -15 : 0), anchor: .bottomLeading)
             VStack(alignment: .leading, spacing: 1) {
                 Text(mode == .aggressive
                     ? (catalan ? "Optimitza a fons" : "Optimise Aggressively")

@@ -20,7 +20,7 @@ struct ProtoResultCard: View {
         /// A failure another try cannot fix: the way out is the file.
         case unreadable
         case uploaded
-        /// A frame of the arrival: the picture dipped, the figure mid-count, the glint on the rim.
+        /// A frame of the arrival: the picture squeezed to scale inside its outline, the figure mid-count.
         case arriving
     }
 
@@ -36,6 +36,8 @@ struct ProtoResultCard: View {
     var failures = 1
     var catalan = false
 
+    @Environment(\.colorScheme) private var scheme
+
     var body: some View {
         let width = Proto.cardWidth - 2 * Proto.cardPadding
         let height = min(190, max(72, (width * picture.size.height / picture.size.width).rounded()))
@@ -46,9 +48,16 @@ struct ProtoResultCard: View {
                 .frame(width: width, height: height)
                 .saturation(isFailed ? 0.15 : 1)
                 .opacity(isFailed ? 0.7 : 1)
-                .scaleEffect(state == .arriving ? 0.955 : 1)
                 .clipShape(RoundedRectangle(cornerRadius: Proto.pictureRadius, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: Proto.pictureRadius, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
+                // The squeeze, to scale: the picture shrinks by as much as it saved (a 75 %
+                // saving squeezes to 89.5 %) and leaves the outline of what it weighed.
+                .scaleEffect(state == .arriving ? 0.895 : 1)
+                .background {
+                    if state == .arriving {
+                        RoundedRectangle(cornerRadius: Proto.pictureRadius, style: .continuous).strokeBorder(Proto.quiet.opacity(0.7), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                    }
+                }
             footer
                 .frame(width: width, height: Proto.footerHeight)
                 .overlay(alignment: .top) {
@@ -80,21 +89,7 @@ struct ProtoResultCard: View {
         // Dimming takes the ink and the picture, never the surface.
         .opacity(dimmed ? 0.45 : 1)
         .padding(Proto.cardPadding)
-        .protoGlass(Proto.cardRadius, glow: isFailed ? nil : ProtoSamples.tone(of: picture))
-        .overlay {
-            // The glint: one pass of green light along the rim, only for a saving worth it.
-            if state == .arriving {
-                let shape = RoundedRectangle(cornerRadius: Proto.cardRadius, style: .continuous)
-                ZStack {
-                    shape.trim(from: 0.52, to: 0.78).stroke(Proto.saving, style: StrokeStyle(lineWidth: 5, lineCap: .round)).blur(radius: 6).opacity(0.7)
-                    shape.trim(from: 0.52, to: 0.78).stroke(
-                        LinearGradient(colors: [Proto.saving.opacity(0), Proto.saving, .white], startPoint: .bottomLeading, endPoint: .topLeading),
-                        style: StrokeStyle(lineWidth: 1.5, lineCap: .round)
-                    )
-                }
-                .allowsHitTesting(false)
-            }
-        }
+        .protoGlass(Proto.cardRadius, glow: isFailed ? nil : ProtoSamples.tone(of: picture, dark: scheme == .dark))
         .overlay(alignment: .topLeading) {
             // The pointer's way out, centred on the card's outer corner.
             if hover {
@@ -140,14 +135,14 @@ struct ProtoResultCard: View {
             case .working:
                 label(catalan ? "S’està optimitzant" : "Optimising")
             case .done:
-                Text(saving).font(Proto.figure(17)).foregroundStyle(Proto.saving)
+                ProtoFigure(text: saving, size: 24)
             case .arriving:
-                Text(Proto.percent(48)).font(Proto.figure(17)).foregroundStyle(Proto.saving)
+                ProtoFigure(text: Proto.percent(48), size: 24)
             case .aggressive:
-                Text(saving).font(Proto.figure(17)).foregroundStyle(Proto.saving)
+                ProtoFigure(text: saving, size: 24)
                 mark("bolt.fill", Proto.warm)
             case .ruled:
-                Text(saving).font(Proto.figure(17)).foregroundStyle(Proto.saving)
+                ProtoFigure(text: saving, size: 24)
                 mark("pin.fill")
             case .already:
                 label(catalan ? "Ja estava optimitzat" : "Already optimised")
@@ -232,7 +227,7 @@ struct ProtoDetailCard: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(Proto.percent(75)).font(Proto.figure(34)).foregroundStyle(Proto.saving)
+                    ProtoFigure(text: Proto.percent(75), size: 48)
                     Spacer()
                     Text("1.8 MB saved").font(.system(size: 13)).foregroundStyle(Proto.quiet)
                 }
@@ -314,7 +309,7 @@ struct ProtoStackWithFailures: View {
     }
 }
 
-/// The arrival in three frames: in, the dip with the glint and the count, at rest.
+/// The arrival in three frames: in, the squeeze to scale with the count, at rest.
 struct ProtoArrival: View {
     var body: some View {
         HStack(alignment: .bottom, spacing: 24) {

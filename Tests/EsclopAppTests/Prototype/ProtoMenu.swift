@@ -19,13 +19,13 @@ struct ProtoMenuPanel: View {
             header
             if mode == .empty {
                 VStack(spacing: 8) {
-                    ProtoClog(width: 56, wood: true)
-                    Text(catalan ? "Copia una captura de pantalla. Apareixerà aquí, més petita." : "Copy a screenshot. It lands here, smaller.")
+                    ProtoClog(width: 72, wood: true).padding(.top, 6)
+                    Text(catalan ? "Copia una captura. La trobaràs aquí, més petita." : "Copy a screenshot. You’ll find it here, smaller.")
                         .font(.system(size: 13))
                         .foregroundStyle(Proto.quiet)
                         .multilineTextAlignment(.center)
                 }
-                .frame(maxWidth: .infinity, minHeight: 96)
+                .frame(maxWidth: .infinity, minHeight: 132)
             } else {
                 grid
                 // The newest result is selected when the panel opens, so the row is always
@@ -80,8 +80,8 @@ struct ProtoMenuPanel: View {
             VStack(alignment: .leading, spacing: 1) {
                 switch mode {
                 case .normal, .selected, .batch:
-                    Text("−38 MB").font(Proto.figure(24)).foregroundStyle(Proto.saving).monospacedDigit()
-                    Text(catalan ? "avui, en 14 fitxers" : "today, across 14 files").font(.system(size: 11)).foregroundStyle(Proto.quiet)
+                    ProtoFigure(text: "−38 MB", size: 32)
+                    Text(mode == .normal ? (catalan ? "avui, el millor dia de la setmana" : "today, the week’s best") : (catalan ? "avui, en 14 fitxers" : "today, across 14 files")).font(.system(size: 11)).foregroundStyle(Proto.quiet)
                 case .paused, .pausedOpen:
                     Text(catalan ? "En pausa" : "Paused").font(.system(size: 24, weight: .semibold))
                     Text(mode == .pausedOpen
@@ -89,10 +89,10 @@ struct ProtoMenuPanel: View {
                         : (catalan ? "Es reprèn a les 14:32" : "Resumes at 14:32")).font(.system(size: 11)).foregroundStyle(Proto.quiet)
                 case .empty:
                     Text(catalan ? "A punt" : "Ready").font(.system(size: 24, weight: .semibold))
-                    Text(catalan ? "Encara no s’ha optimitzat res" : "Nothing optimised yet").font(.system(size: 11)).foregroundStyle(Proto.quiet)
                 }
             }
-            Spacer()
+            .fixedSize()
+            Spacer(minLength: 4)
             if mode == .normal || mode == .selected || mode == .batch { week }
             if mode == .paused || mode == .pausedOpen {
                 Button(catalan ? "Reprèn" : "Resume") {}
@@ -183,7 +183,7 @@ struct ProtoPauseMenu: View {
     var catalan = false
     var body: some View {
         let items = catalan
-            ? ["Per a la pròxima còpia", "Durant 5 minuts", "Durant una hora", "Fins que es reprengui"]
+            ? ["Per a la pròxima còpia", "Durant 5 minuts", "Durant una hora", "Fins que jo ho digui"]
             : ["For the Next Copy", "For 5 Minutes", "For an Hour", "Until I Resume"]
         VStack(alignment: .leading, spacing: 0) {
             ForEach(items, id: \.self) { title in

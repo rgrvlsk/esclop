@@ -61,8 +61,8 @@ enum Proto {
     static let hit: CGFloat = 28
     static let gap: CGFloat = 8
 
-    /// The one large figure of a surface.
-    static func figure(_ size: CGFloat) -> Font { .system(size: size, weight: .semibold, design: .rounded) }
+    /// The one large figure of a surface: compressed type, for a compressor.
+    static func figure(_ size: CGFloat, weight: Font.Weight = .bold) -> Font { .system(size: size, weight: weight).width(.compressed) }
 }
 
 extension View {
@@ -86,18 +86,25 @@ struct ProtoSurface: ViewModifier {
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         surface(content, shape)
-            // A lit top edge: the one place the material catches light.
+            // A glass edge: light from the top left, falling off toward the bottom right.
             .overlay {
                 if tint == nil {
                     shape.strokeBorder(
-                        LinearGradient(stops: [.init(color: .white.opacity(scheme == .dark ? 0.34 : 0.95), location: 0), .init(color: .white.opacity(0), location: 0.45)], startPoint: .top, endPoint: .bottom),
-                        lineWidth: 1
+                        AngularGradient(
+                            stops: [
+                                .init(color: .white.opacity(scheme == .dark ? 0.06 : 0.15), location: 0),
+                                .init(color: .white.opacity(scheme == .dark ? 0.4 : 0.9), location: 0.62),
+                                .init(color: .white.opacity(scheme == .dark ? 0.06 : 0.15), location: 1),
+                            ], center: .center
+                        ), lineWidth: 1
                     ).allowsHitTesting(false)
                 }
             }
+            // The picture's tone, where no ink sits: the frame around the picture and a halo under the card.
+            .overlay { if let glow { shape.strokeBorder(glow.opacity(0.2), lineWidth: 4).allowsHitTesting(false) } }
             .background {
                 if let glow {
-                    shape.fill(glow.opacity(scheme == .dark ? 0.5 : 0.42)).blur(radius: 22).offset(y: 10).padding(6)
+                    shape.fill(glow.opacity(scheme == .dark ? 0.35 : 0.6)).blur(radius: 32).offset(y: 14).padding(4)
                 }
             }
             // Elevation: one shadow and one inner rim, so the edge never depends on the wallpaper.
@@ -126,12 +133,36 @@ struct ProtoSurface: ViewModifier {
             // draws is not "on" the glass, so the system cannot flip its appearance to suit the
             // desktop, and the inks stay the ones the appearance chose.
             content
-                .background { if let glow { shape.fill(glow.opacity(0.08)) } }
+                .background { if let glow { shape.fill(glow.opacity(0.06)) } }
                 .background(shape.fill((scheme == .dark ? Color(white: 0.13) : Color(white: 0.97)).opacity(small ? 0.94 : 0.88)))
                 .background { Color.clear.glassEffect(.regular, in: shape) }
         } else {
             content.glassSurface(shape)
         }
+    }
+}
+
+/// The saving as a piece of typography: tall, squeezed, green. The number is the figure; its
+/// unit ("%", "MB") is a little over half its size, raised to the cap line.
+struct ProtoFigure: View {
+    let text: String
+    let size: CGFloat
+    var color: Color = Proto.saving
+
+    var body: some View {
+        // "−75 %" or "−38 MB": the number, then the unit.
+        let parts = text.split(whereSeparator: { $0 == " " || $0 == "\u{202F}" }).map(String.init)
+        HStack(alignment: .firstTextBaseline, spacing: size * 0.045) {
+            Text(parts.first ?? text).font(Proto.figure(size))
+            if parts.count > 1 {
+                Text(parts[1]).font(Proto.figure(size * 0.55, weight: .semibold)).baselineOffset(size * 0.3)
+            }
+        }
+        .monospacedDigit()
+        .foregroundStyle(color)
+        .fixedSize()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(text)
     }
 }
 
@@ -152,7 +183,14 @@ struct ProtoClog: View {
     var wood = false
 
     var body: some View {
-        if Proto.own || wood, !template, let wooden = Self.wooden {
+        if wood, !template, let wooden = Self.wooden {
+            // The carved clog stands on something: tilted on its heel, with a contact shadow.
+            Image(nsImage: wooden).resizable().aspectRatio(contentMode: .fit).frame(width: width * 1.25)
+                .rotationEffect(.degrees(-4))
+                .background(alignment: .bottom) {
+                    Ellipse().fill(.black.opacity(0.22)).frame(width: width * 0.9, height: width * 0.14).blur(radius: 8).offset(y: width * 0.02)
+                }
+        } else if Proto.own, !template, let wooden = Self.wooden {
             Image(nsImage: wooden).resizable().aspectRatio(contentMode: .fit).frame(width: width * 1.25).frame(width: width * 1.3)
         } else if let glyph = MenuBarLabel.customGlyph {
             // The same slot as the wooden clog, so a label beside it never moves when it changes.
@@ -275,17 +313,19 @@ enum ProtoSamples {
 
     /// The picture's dominant tone: its average, pushed toward its own hue so that a grey
     /// average does not wash the card.
-    static func tone(of image: NSImage) -> Color {
+    static func tone(of image: NSImage, dark: Bool = false) -> Color? {
         guard let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil),
               let space = CGColorSpace(name: CGColorSpace.sRGB),
               let context = CGContext(data: nil, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4, space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
               let data = { context.interpolationQuality = .medium; context.draw(cg, in: CGRect(x: 0, y: 0, width: 1, height: 1)); return context.data }()
-        else { return .clear }
+        else { return nil }
         let bytes = data.bindMemory(to: UInt8.self, capacity: 4)
         let color = NSColor(srgbRed: CGFloat(bytes[0]) / 255, green: CGFloat(bytes[1]) / 255, blue: CGFloat(bytes[2]) / 255, alpha: 1)
         var (h, sat, b, a): (CGFloat, CGFloat, CGFloat, CGFloat) = (0, 0, 0, 0)
         color.getHue(&h, saturation: &sat, brightness: &b, alpha: &a)
-        return Color(nsColor: NSColor(hue: h, saturation: min(1, sat * 2.2 + 0.1), brightness: max(0.55, b), alpha: 1))
+        // A picture with no colour of its own (most screenshots) keeps the neutral shadow.
+        guard sat > 0.12 else { return nil }
+        return Color(nsColor: NSColor(hue: h, saturation: min(1, sat * 2.4 + 0.1), brightness: dark ? min(0.6, max(0.45, b)) : max(0.6, b), alpha: 1))
     }
 
     static func picture(_ size: NSSize, draw: @escaping (NSRect) -> Void) -> NSImage {
