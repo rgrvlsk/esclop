@@ -737,7 +737,14 @@ fn subset_cff(data: &[u8], gids: &BTreeSet<u16>) -> Result<Vec<u8>, String> {
     Ok(b.build())
 }
 
+/// `subset_unguarded`, with a panic in a font library (skera unwraps a glyph map entry a
+/// malformed font may lack) turned into an error: the font is then kept whole.
 pub(crate) fn subset(data: &[u8], gids: &BTreeSet<u16>) -> Result<Vec<u8>, String> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| subset_unguarded(data, gids)))
+        .unwrap_or_else(|_| Err("the font subsetter panicked".into()))
+}
+
+fn subset_unguarded(data: &[u8], gids: &BTreeSet<u16>) -> Result<Vec<u8>, String> {
     if cff_table(data).is_some() {
         return subset_cff(data, gids);
     }

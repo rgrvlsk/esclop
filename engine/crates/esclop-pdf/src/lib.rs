@@ -58,9 +58,11 @@ mod mono;
 mod placement;
 mod rewrite;
 
-#[cfg(feature = "fuzzing")]
+#[cfg(any(test, feature = "fuzzing"))]
 #[doc(hidden)]
 pub mod fuzzing;
+#[cfg(test)]
+mod regressions;
 
 pub use error::{Error, ErrorKind};
 

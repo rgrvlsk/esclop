@@ -6,11 +6,32 @@ use crate::{Ctx, Options, budget, cff, fonts, inline, integrity, rewrite};
 use lopdf::{Document, LoadOptions};
 use std::collections::BTreeSet;
 
-/// The whole rewrite, at the default settings and at aggressive ones with downsampling.
+/// libfuzzer-sys aborts on every panic, caught or not. The font subsetter catches skera's (a
+/// dependency that unwraps a glyph-map entry a malformed font may lack) and keeps that font
+/// whole; those are let through, every other panic still aborts.
+fn tolerate_caught_dependency_panics() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        let abort = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |info| {
+            if info.location().is_some_and(|l| l.file().contains("/skera-")) {
+                return;
+            }
+            abort(info);
+        }));
+    });
+}
+
+/// The whole rewrite: at the default settings, or (for inputs of odd length) at aggressive ones
+/// with downsampling to 72 dpi and metadata stripped. One rewrite per input.
 pub fn optimise(data: &[u8]) {
-    let _ = crate::optimise(data.to_vec(), &Options::default());
-    let aggressive = Options::builder().aggressive().max_dpi(72).strip_metadata(true).build().expect("valid");
-    let _ = crate::optimise(data.to_vec(), &aggressive);
+    tolerate_caught_dependency_panics();
+    let options = if data.len().is_multiple_of(2) {
+        Options::default()
+    } else {
+        Options::builder().aggressive().max_dpi(72).strip_metadata(true).build().expect("valid")
+    };
+    let _ = crate::optimise(data.to_vec(), &options);
 }
 
 /// Loading as the rewrite does (load filter, stream limits, page-tree rebuild) and the checks
@@ -45,6 +66,7 @@ pub fn cff(data: &[u8]) {
 /// The font subsetter (TrueType through skera, CFF in an OpenType wrapper through `cff`) on a
 /// font program: the first byte picks which glyphs to keep.
 pub fn font(data: &[u8]) {
+    tolerate_caught_dependency_panics();
     let Some((&pick, font)) = data.split_first() else { return };
     let gids: BTreeSet<u16> = (0..512u16).filter(|g| (g % 8) as u8 <= pick % 8).collect();
     let _ = fonts::subset(font, &gids);

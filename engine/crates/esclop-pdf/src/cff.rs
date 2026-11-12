@@ -237,13 +237,14 @@ pub fn subset(data: &[u8], keep: &dyn Fn(usize) -> bool) -> Option<Vec<u8>> {
     let private_ok = |entries: &[Entry]| -> bool {
         let Some(p) = get(entries, PRIVATE) else { return true };
         let (Some(Some(size)), Some(Some(at))) = (p.ints.first(), p.ints.get(1)) else { return false };
-        let (size, at) = (*size as usize, *at as usize);
-        let Some(pd) = data.get(at..at + size).and_then(parse_dict) else { return false };
+        // Offsets come from the file: negative or huge ones leave the program as it is.
+        let (Ok(size), Ok(at)) = (usize::try_from(*size), usize::try_from(*at)) else { return false };
+        let Some(pd) = at.checked_add(size).and_then(|end| data.get(at..end)).and_then(parse_dict) else { return false };
         match get(&pd, SUBRS).and_then(|e| *e.ints.first()?) {
             None => true,
             Some(rel) => {
-                let sub = at + rel as usize;
-                matches!((shift(at, 0), shift(sub, 0)), (Some(a), Some(b)) if b == a + rel as usize)
+                let Some(sub) = usize::try_from(rel).ok().and_then(|r| at.checked_add(r)) else { return false };
+                matches!((shift(at, 0), shift(sub, 0)), (Some(a), Some(b)) if Some(b) == a.checked_add(sub - at))
             }
         }
     };
