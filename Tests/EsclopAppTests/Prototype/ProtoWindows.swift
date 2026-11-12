@@ -13,11 +13,11 @@ struct ProtoBatch: View {
     var running = false
 
     private let rows: [(String, String, String?, NSImage, Bool)] = [
-        ("Beach 01.jpg", "4.8 MB → 1.2 MB", "−75 %", ProtoSamples.photo, false),
-        ("Beach 02.jpg", "5.1 MB → 1.4 MB", "−73 %", ProtoSamples.photo, true),
-        ("Harbour.heic", "3.2 MB → 2 MB", "−39 %", ProtoSamples.poster, false),
-        ("Menu scan.pdf", "13 MB → 3.1 MB", "−76 %", ProtoSamples.page, false),
-        ("Map.png", "Already small · 180 kB", nil, ProtoSamples.chart, false),
+        ("Beach 01.jpg", "4.8 MB → 1.2 MB", Proto.percent(75), ProtoSamples.photo, false),
+        ("Beach 02.jpg", "5.1 MB → 1.4 MB", Proto.percent(73), ProtoSamples.photo, true),
+        ("Harbour.heic", "3.2 MB → 2 MB", Proto.percent(39), ProtoSamples.poster, false),
+        ("Menu scan.pdf", "13 MB → 3.1 MB", Proto.percent(76), ProtoSamples.page, false),
+        ("Map.png", "Already optimised · 180 kB", nil, ProtoSamples.chart, false),
         ("Sunset walk.mov", "Not a video L’Esclop can read", nil, ProtoSamples.photo, false),
     ]
 
@@ -25,7 +25,7 @@ struct ProtoBatch: View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text("−71 %").font(Proto.figure(34)).foregroundStyle(Proto.saving)
+                    Text(Proto.percent(71)).font(Proto.figure(34)).foregroundStyle(Proto.saving)
                     Text("29 MB → 8.4 MB").font(.system(size: 13)).foregroundStyle(.secondary)
                     Spacer()
                     if running {
@@ -39,7 +39,7 @@ struct ProtoBatch: View {
                     }
                 }
                 .monospacedDigit()
-                ProtoSplitBar(kept: 0.29, height: 8)
+                ProtoSplitBar(kept: 0.29)
             }
             .padding(.horizontal, 20)
             .padding(.top, 14)
@@ -51,6 +51,8 @@ struct ProtoBatch: View {
                         HStack(spacing: 12) {
                             Image(nsImage: row.3).resizable().aspectRatio(contentMode: .fill)
                                 .frame(width: 40, height: 40)
+                                .saturation(index == 5 ? 0.15 : 1)
+                                .opacity(index == 5 ? 0.7 : 1)
                                 .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                                 .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
                             VStack(alignment: .leading, spacing: 2) {
@@ -60,14 +62,14 @@ struct ProtoBatch: View {
                             Spacer()
                             if row.4 {
                                 // Hover: the actions arrive beside the figure; the figure stays.
-                                HStack(spacing: 2) {
+                                HStack(spacing: 4) {
                                     ProtoIconButton(symbol: "arrow.uturn.backward", name: "Undo")
                                     ProtoIconButton(symbol: "rectangle.split.2x1", name: "Compare")
                                     ProtoIconButton(symbol: "folder", name: "Show in Finder")
                                 }
                             }
                             if let saving = row.2 {
-                                Text(saving).font(.system(size: 15, weight: .medium, design: .rounded)).frame(width: 58, alignment: .trailing)
+                                Text(saving).font(.system(size: 13, weight: .medium)).frame(width: 58, alignment: .trailing)
                             } else if index == 5 {
                                 Button("Retry") {}.controlSize(.small)
                             }
@@ -88,7 +90,7 @@ struct ProtoBatch: View {
                     Button("Pause", systemImage: "pause.fill") {}
                     Button("Stop", systemImage: "stop.fill") {}
                 }
-                Button("Undo All", systemImage: "arrow.uturn.backward") {}
+                Button("Undo All", systemImage: "arrow.uturn.backward.circle") {}
                 Button("Show in Finder", systemImage: "folder") {}
             }
         }
@@ -105,7 +107,7 @@ struct ProtoSettings: View {
         var symbol: String {
             switch self {
             case .general: return "gearshape"
-            case .automatic: return "wand.and.sparkles"
+            case .automatic: return "bolt.badge.automatic"
             case .quality: return "slider.horizontal.3"
             case .results: return "rectangle.on.rectangle"
             case .uploads: return "icloud.and.arrow.up"
@@ -153,7 +155,7 @@ struct ProtoSettings: View {
                     Text("Next to the original").tag(1)
                     Text("A folder…").tag(2)
                 }
-                Text("The original is kept for 7 days and can be put back from the menu.")
+                Text("The original is kept for 7 days. Put it back from All Results.")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
                 Picker("Converted files", selection: .constant(1)) {
                     Text("Replace the original").tag(0)
@@ -207,11 +209,11 @@ struct ProtoSettings: View {
                     .pickerStyle(.segmented)
                 }
             } header: {
-                Text("Normal")
+                Text("Normally")
             } footer: {
                 Text("Balanced is visually lossless. Strong makes smaller files with loss you can find if you look.")
             }
-            Section("Aggressive") {
+            Section("When aggressive") {
                 Picker("Images", selection: .constant(2)) {
                     Text("Light").tag(0)
                     Text("Balanced").tag(1)
@@ -220,8 +222,11 @@ struct ProtoSettings: View {
                 .pickerStyle(.segmented)
                 LabeledContent("Always aggressive for") { Text("PNG, GIF").foregroundStyle(.secondary) }
             }
-            Section {
-                LabeledContent("Exact numbers") { Button("Fine-tune…") {} }
+            Section("Conversions and exact numbers") {
+                LabeledContent("Images") { Button("Set…") {} }
+                LabeledContent("Video") { Button("Set…") {} }
+                LabeledContent("PDF") { Button("Set…") {} }
+                LabeledContent("Audio") { Button("Set…") {} }
             }
         }
     }
@@ -261,7 +266,7 @@ struct ProtoOnboarding: View {
         .frame(width: 600, height: 480)
     }
 
-    private var dot: Int { step == .menuBar ? 2 : 0 }
+    private var dot: Int { step == .menuBar ? 2 : (step == .tried ? 1 : 0) }
 
     private var stage: some View {
         VStack(spacing: 18) {
@@ -273,11 +278,11 @@ struct ProtoOnboarding: View {
                     ProtoKeys(keys: ["⌃", "⇧", "⌘", "4"])
                     Text("and drag over anything.")
                 }
-                .font(.system(size: 14))
+                .font(.system(size: 13))
                 .foregroundStyle(.secondary)
             } else {
                 Text("It was smaller before you could paste it. The original is kept for 7 days.")
-                    .font(.system(size: 14)).foregroundStyle(.secondary)
+                    .font(.system(size: 13)).foregroundStyle(.secondary)
             }
             ZStack {
                 RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.primary.opacity(0.05))
@@ -288,11 +293,12 @@ struct ProtoOnboarding: View {
                             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                             .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("−75 %").font(Proto.figure(44)).foregroundStyle(Proto.saving)
+                            Text(Proto.percent(75)).font(Proto.figure(44)).foregroundStyle(Proto.saving).fixedSize()
                             Text("2.4 MB → 612 kB").font(.system(size: 13)).foregroundStyle(.secondary)
-                            ProtoSplitBar(kept: 0.25).frame(width: 150)
+                            ProtoSplitBar(kept: 0.25)
                         }
                         .monospacedDigit()
+                        .fixedSize(horizontal: true, vertical: false)
                     }
                 } else {
                     VStack(spacing: 10) {
@@ -309,12 +315,10 @@ struct ProtoOnboarding: View {
 
     private var menuBar: some View {
         VStack(spacing: 18) {
-            if let glyph = MenuBarLabel.customGlyph {
-                Image(nsImage: glyph).renderingMode(.template).resizable().aspectRatio(contentMode: .fit).frame(width: 64)
-            }
+            ProtoClog(width: 64)
             Text("It lives in the menu bar").font(.system(size: 28, weight: .semibold))
             Text("Results, undo and pause are there. These work from anywhere:")
-                .font(.system(size: 14)).foregroundStyle(.secondary)
+                .font(.system(size: 13)).foregroundStyle(.secondary)
             Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
                 GridRow { ProtoKeys(keys: ["⌃", "⇧", "C"]); Text("Optimise the clipboard") }
                 GridRow { ProtoKeys(keys: ["⌃", "⇧", "P"]); Text("Pause") }
@@ -333,7 +337,7 @@ struct ProtoPipeline: View {
     private let steps: [(String, String, String, String?)] = [
         ("crop", "Crop", "Long edge 1600 px", nil),
         ("arrow.triangle.2.circlepath", "Convert", "To WebP", nil),
-        ("arrow.down.to.line", "Fit under", "−5 MB", "A size has to be more than zero."),
+        ("arrow.down.right.and.arrow.up.left", "Fit under", "−5 MB", "A size has to be more than zero."),
         ("icloud.and.arrow.up", "Upload", "To R2, copy the link", nil),
     ]
 
@@ -341,7 +345,7 @@ struct ProtoPipeline: View {
         NavigationSplitView {
             List(selection: .constant("Blog screenshots")) {
                 Section("Yours") {
-                    Label("Blog screenshots", systemImage: "photo").tag("Blog screenshots")
+                    Label("Blog screenshots", systemImage: "camera.viewfinder").tag("Blog screenshots")
                     Label("Archive PDFs", systemImage: "doc").tag("Archive PDFs")
                 }
                 Section("Examples") {
@@ -363,7 +367,8 @@ struct ProtoPipeline: View {
                         chip("PNG screenshots", "line.3.horizontal.decrease")
                         Text("when").font(.system(size: 13)).foregroundStyle(.secondary)
                         chip("copied", "doc.on.clipboard")
-                        chip("dropped on its zone", "arrow.down.to.line")
+                        Text("or").font(.system(size: 13)).foregroundStyle(.secondary)
+                        chip("dropped on its tile", "tray.and.arrow.down")
                         Image(systemName: "plus.circle").foregroundStyle(.secondary)
                     }
                     VStack(alignment: .leading, spacing: 0) {
@@ -440,7 +445,7 @@ struct ProtoCompare: View {
             ZStack {
                 ProtoChecker()
                 Image(nsImage: ProtoSamples.photo).resizable().aspectRatio(contentMode: .fit).padding(28)
-                Rectangle().fill(.white).frame(width: 1.5).shadow(color: .black.opacity(0.4), radius: 1.5)
+                Rectangle().fill(.white).frame(width: 1.5).shadow(color: .black.opacity(0.4), radius: 1.5).padding(.vertical, 60)
                 Image(systemName: "chevron.left.chevron.right")
                     .font(.system(size: 10, weight: .bold)).foregroundStyle(Color(white: 0.2))
                     .frame(width: 24, height: 32).background(Capsule().fill(.white))
@@ -450,7 +455,7 @@ struct ProtoCompare: View {
             HStack {
                 Text("Original").foregroundStyle(.secondary) + Text("  PNG · 4.8 MB")
                 Spacer()
-                Text("−75 %").font(Proto.figure(15)).foregroundStyle(Proto.saving)
+                Text(Proto.percent(75)).font(Proto.figure(17)).foregroundStyle(Proto.saving)
                 Spacer()
                 Text("JPEG · 1.2 MB  ") + Text("Optimised").foregroundStyle(.secondary)
             }
@@ -472,7 +477,7 @@ struct ProtoCompare: View {
             ToolbarItemGroup {
                 Button("Differences", systemImage: "square.2.layers.3d") {}
                 Button("Zoom to Fit", systemImage: "arrow.up.left.and.arrow.down.right") {}
-                Menu("Try Another", systemImage: "wand.and.sparkles") { Text("WebP") }
+                Menu("Try Another", systemImage: "arrow.clockwise") { Text("WebP") }
                 Button("Undo", systemImage: "arrow.uturn.backward") {}
             }
         }
@@ -493,5 +498,70 @@ struct ProtoChecker: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - All results
+
+/// Every original still kept (7 days), newest first: the home of anything older than the panel's six.
+struct ProtoAllResults: View {
+    private let rows: [(String, String, Int, NSImage, String)] = [
+        ("Screenshot 2026-11-05 at 10.42.png", "2.4 MB → 612 kB", 75, ProtoSamples.screenshot, "Today"),
+        ("Beach 02.jpg", "2.4 MB → 1.1 MB", 54, ProtoSamples.photo, "Today"),
+        ("Dossier.pdf", "13 MB → 3.1 MB", 76, ProtoSamples.page, "Today"),
+        ("Poster.png", "1.9 MB → 720 kB", 62, ProtoSamples.poster, "Yesterday"),
+        ("Chart.png", "800 kB → 88 kB", 89, ProtoSamples.chart, "Yesterday"),
+        ("Beach 01.jpg", "4.8 MB → 1.2 MB", 75, ProtoSamples.photo, "Monday"),
+    ]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("−212 MB").font(Proto.figure(34)).foregroundStyle(Proto.saving)
+                Text("this week, across 96 files").font(.system(size: 13)).foregroundStyle(.secondary)
+                Spacer()
+            }
+            .monospacedDigit()
+            .padding(.horizontal, 20)
+            .padding(.top, 14)
+            .padding(.bottom, 14)
+            Divider()
+            ScrollView {
+                VStack(spacing: 0) {
+                    ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
+                        if index == 0 || rows[index - 1].4 != row.4 {
+                            Text(row.4).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 4)
+                        }
+                        HStack(spacing: 12) {
+                            Image(nsImage: row.3).resizable().aspectRatio(contentMode: .fill)
+                                .frame(width: 40, height: 40)
+                                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                                .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(row.0).font(.system(size: 13, weight: .medium)).lineLimit(1).truncationMode(.middle)
+                                Text(row.1).font(.system(size: 11)).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if index == 1 {
+                                HStack(spacing: 4) {
+                                    ProtoIconButton(symbol: "arrow.uturn.backward", name: "Undo")
+                                    ProtoIconButton(symbol: "rectangle.split.2x1", name: "Compare")
+                                    ProtoIconButton(symbol: "folder", name: "Show in Finder")
+                                }
+                            }
+                            Text(Proto.percent(row.2)).font(.system(size: 13, weight: .medium)).frame(width: 58, alignment: .trailing)
+                        }
+                        .monospacedDigit()
+                        .padding(.horizontal, 20)
+                        .frame(height: 56)
+                        .background(index == 1 ? Color.primary.opacity(0.05) : .clear)
+                    }
+                }
+            }
+        }
+        .frame(width: 560, height: 480)
+        .searchable(text: .constant(""), prompt: "Search")
     }
 }

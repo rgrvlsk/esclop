@@ -12,12 +12,26 @@ import Testing
 /// The proposal's tokens. One green, and it has one job: the saving.
 enum Proto {
     /// The saving figure and the saved part of a bar. Nothing else.
-    static let saving = Palette.accent
+    static let saving = Color(nsColor: Palette.dynamic(light: 0x176B59, dark: 0x63D6B8))
     /// Aggressive compression, where it is the current mode.
-    static let warm = Palette.warm
+    static let warm = Color(nsColor: Palette.dynamic(light: 0x8F5510, dark: 0xE0A040))
     static let error = Palette.error
 
+    /// The competing direction (the owner's option 3): a surface and colours of the app's own.
+    /// The structure is the same; only the skin changes, so the two can be judged side by side.
+    nonisolated(unsafe) static var own = false
+    /// The wood of the icon, as the second colour of the own-brand direction.
+    static let wood = Color(nsColor: Palette.dynamic(light: 0x8A5A33, dark: 0xD0A077))
+    /// Controls, selection and the drop target: the system accent, or the green in the own-brand direction.
+    /// A test process is never the active app, so the system accent draws grey: the default blue stands in for it.
+    static var control: Color { own ? saving : Color(nsColor: .systemBlue) }
+    /// What is left of the original in a split bar.
+    static var kept: Color { own ? wood.opacity(0.8) : Color.primary.opacity(0.32) }
+
     // Concentric radii: outer = inner + padding.
+    /// "−75 %" with the narrow space the figure needs at large sizes.
+    static func percent(_ value: Int) -> String { "−\(value)\u{202F}%" }
+
     static let cardWidth: CGFloat = 208
     static let cardPadding: CGFloat = 4
     static let cardRadius: CGFloat = 14
@@ -28,6 +42,9 @@ enum Proto {
     static let detailRadius: CGFloat = 22
     static let detailPictureRadius: CGFloat = 14
     static let panelRadius: CGFloat = 22
+    static let panelPadding: CGFloat = 12
+    /// Anything inside a panel or popover: 22 − 12.
+    static let innerRadius: CGFloat = 10
     static let tileRadius: CGFloat = 18
     static let hit: CGFloat = 28
     static let gap: CGFloat = 8
@@ -37,9 +54,61 @@ enum Proto {
 }
 
 extension View {
-    /// System Liquid Glass in a shape (the app's own modifier: glass on macOS 26, HUD material before).
-    func protoGlass(_ radius: CGFloat, interactive: Bool = false) -> some View {
-        glassSurface(RoundedRectangle(cornerRadius: radius, style: .continuous), interactive: interactive)
+    /// A floating surface: system Liquid Glass (or the own-brand surface), with the one elevation
+    /// every floating object shares. `tint` colours the glass itself for a state.
+    func protoGlass(_ radius: CGFloat, tint: Color? = nil) -> some View {
+        modifier(ProtoSurface(radius: radius, tint: tint))
+    }
+}
+
+struct ProtoSurface: ViewModifier {
+    let radius: CGFloat
+    var tint: Color?
+    @Environment(\.colorScheme) private var scheme
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        surface(content, shape)
+            // Elevation: one shadow and one inner rim, so the edge never depends on the wallpaper.
+            .overlay(shape.strokeBorder(Color.white.opacity(scheme == .dark ? 0.14 : 0.35), lineWidth: 0.5).allowsHitTesting(false))
+            .background {
+                shape.fill(.black)
+                    .shadow(color: .black.opacity(scheme == .dark ? 0.45 : 0.2), radius: 12, y: 8)
+                    .mask { Rectangle().padding(-60).overlay(shape.blendMode(.destinationOut)).compositingGroup() }
+            }
+    }
+
+    @ViewBuilder private func surface(_ content: Content, _ shape: RoundedRectangle) -> some View {
+        if Proto.own {
+            let fill = scheme == .dark ? Palette.color(0x2B2521) : Palette.color(0xF6F0E8)
+            content.background(shape.fill(tint.map { $0.opacity(scheme == .dark ? 0.85 : 0.92) } ?? Color(nsColor: fill).opacity(0.94)))
+        } else if let tint {
+            // A lit tile: the colour itself, so the state survives any wallpaper.
+            content.background(shape.fill(tint.opacity(scheme == .dark ? 0.85 : 0.92)))
+        } else if #available(macOS 26, *) {
+            content.glassEffect(.regular, in: shape)
+        } else {
+            content.glassSurface(shape)
+        }
+    }
+}
+
+/// The clog: the template glyph, or the carved wooden one in the own-brand direction.
+struct ProtoClog: View {
+    var width: CGFloat
+
+    static let wooden: NSImage? = {
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("../../../assets/icon-wood.png").standardizedFileURL
+        return NSImage(contentsOf: url)
+    }()
+
+    var body: some View {
+        if Proto.own, let wooden = Self.wooden {
+            Image(nsImage: wooden).resizable().aspectRatio(contentMode: .fit).frame(width: width * 1.25)
+        } else if let glyph = MenuBarLabel.customGlyph {
+            Image(nsImage: glyph).renderingMode(.template).resizable().aspectRatio(contentMode: .fit).frame(width: width)
+        }
     }
 }
 
@@ -55,7 +124,7 @@ struct ProtoIconButton: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .background(Circle().fill(Color.primary.opacity(0.08)))
+        .background(Circle().fill(Color.primary.opacity(0.14)))
         .help(name)
         .accessibilityLabel(name)
     }
@@ -68,7 +137,7 @@ struct ProtoKeys: View {
         HStack(spacing: 3) {
             ForEach(keys, id: \.self) { key in
                 Text(key)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .font(.system(size: 11, weight: .medium))
                     .frame(minWidth: 18, minHeight: 18)
                     .padding(.horizontal, 2)
                     .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.primary.opacity(0.08)))
@@ -83,13 +152,13 @@ struct ProtoKeys: View {
 struct ProtoSplitBar: View {
     /// Fraction of the original that remains, 0...1.
     var kept: Double
-    var height: CGFloat = 6
+    let height: CGFloat = 6
     var body: some View {
         GeometryReader { proxy in
             let gap: CGFloat = 2
             let keptWidth = max(height, (proxy.size.width - gap) * kept)
             HStack(spacing: gap) {
-                Capsule().fill(Color.primary.opacity(0.32)).frame(width: keptWidth)
+                Capsule().fill(Proto.kept).frame(width: keptWidth)
                 Capsule().fill(Proto.saving)
             }
         }
@@ -164,13 +233,17 @@ enum ProtoSamples {
 struct ProtoDesktop: View {
     @Environment(\.colorScheme) private var scheme
     var busy = false
+    /// A plain ground (pure white, pure black) to prove the edge.
+    var flat: Color?
 
     var body: some View {
         let colors = scheme == .dark
             ? [Palette.color(0x1B2B45), Palette.color(0x3A1F4A), Palette.color(0x0E1420)]
             : [Palette.color(0x9CC3E6), Palette.color(0xE9C6B0), Palette.color(0x7FA3C9)]
         ZStack(alignment: .topLeading) {
-            LinearGradient(colors: colors.map { Color(nsColor: $0) }, startPoint: .topLeading, endPoint: .bottomTrailing)
+            if let flat { flat } else {
+                LinearGradient(colors: colors.map { Color(nsColor: $0) }, startPoint: .topLeading, endPoint: .bottomTrailing)
+            }
             if busy {
                 VStack(alignment: .leading, spacing: 9) {
                     ForEach(0 ..< 40, id: \.self) { row in
@@ -199,10 +272,10 @@ enum ProtoRender {
     /// A floating surface over the desktop, in a borderless window the size of the stage.
     static func floating(
         _ view: some View, size: CGSize, name: String, scheme: ColorScheme, busy: Bool = false,
-        alignment: Alignment = .center
+        alignment: Alignment = .center, flat: Color? = nil
     ) async throws {
         let stage = ZStack(alignment: alignment) {
-            ProtoDesktop(busy: busy)
+            ProtoDesktop(busy: busy, flat: flat)
             view.padding(24)
         }
         .frame(width: size.width, height: size.height)
@@ -218,7 +291,7 @@ enum ProtoRender {
         _ view: some View, size: CGSize, name: String, scheme: ColorScheme, style: NSWindow.StyleMask, title: String = ""
     ) async throws {
         _ = NSApplication.shared
-        let host = NSHostingView(rootView: view.environment(\.colorScheme, scheme))
+        let host = NSHostingView(rootView: view.tint(Proto.own ? Proto.saving : nil).environment(\.colorScheme, scheme))
         let window = KeyWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: style, backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
@@ -236,6 +309,6 @@ enum ProtoRender {
         guard let image = WindowSnapshots.image(of: window) else { return }
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let data = try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
-        try data.write(to: folder.appendingPathComponent("proto-\(name)-\(scheme == .dark ? "dark" : "light").png"))
+        try data.write(to: folder.appendingPathComponent("proto-\(Proto.own ? "own-" : "")\(name)-\(scheme == .dark ? "dark" : "light").png"))
     }
 }

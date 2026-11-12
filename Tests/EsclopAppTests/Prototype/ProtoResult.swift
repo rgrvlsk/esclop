@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Prototype of the floating result: one glass card, the picture clean on top and a footer under
-// it with the saving as the one large figure. The footer is the only place that changes.
+// Prototype of the floating result: one card, the picture clean on top and a footer under it
+// with the saving as the one large figure. The footer is the only place that changes.
 
 @testable import EsclopAppKit
 import SwiftUI
@@ -10,8 +10,8 @@ struct ProtoResultCard: View {
     enum State: Equatable {
         case working(progress: Double, left: String)
         case done
-        case hover
         case aggressive
+        case ruled
         case already
         case restored
         case failed
@@ -21,8 +21,12 @@ struct ProtoResultCard: View {
 
     var picture: NSImage = ProtoSamples.screenshot
     var state: State = .done
+    /// The pointer is over the card: the footer's right side becomes the state's buttons and
+    /// the close button shows on the corner.
+    var hover = false
     var size = "612 kB"
-    var saving = "−75 %"
+    var saving = Proto.percent(75)
+    var dimmed = false
 
     var body: some View {
         let width = Proto.cardWidth - 2 * Proto.cardPadding
@@ -49,76 +53,104 @@ struct ProtoResultCard: View {
         }
         .padding(Proto.cardPadding)
         .protoGlass(Proto.cardRadius)
+        .overlay(alignment: .topLeading) {
+            // The pointer's way out: on the outer corner, as Notification Center does.
+            if hover {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .bold))
+                    .frame(width: 20, height: 20)
+                    .protoGlass(10)
+                    .frame(width: Proto.hit, height: Proto.hit)
+                    .offset(x: -12, y: -12)
+                    .accessibilityLabel("Dismiss")
+            }
+        }
+        .opacity(dimmed ? 0.6 : 1)
     }
 
     private var isFailed: Bool { state == .failed || state == .failedOpen }
 
+    /// What the pointer can do in each state: every state defines its buttons.
+    private var tools: [(String, String)] {
+        switch state {
+        case .working: return [("stop.fill", "Stop")]
+        case .done, .aggressive, .ruled: return [("arrow.uturn.backward", "Undo"), ("square.on.square", "Copy"), ("ellipsis", "Options")]
+        case .already: return [("square.on.square", "Copy"), ("ellipsis", "Options")]
+        case .restored: return [("arrow.uturn.forward", "Optimise Again"), ("ellipsis", "Options")]
+        case .uploaded: return [("link", "Copy Link"), ("ellipsis", "Options")]
+        case .failed, .failedOpen: return []
+        }
+    }
+
+    private func label(_ text: String) -> some View { Text(text).font(.system(size: 12, weight: .medium)) }
+    private func quiet(_ text: String) -> some View { Text(text).font(.system(size: 12)).foregroundStyle(.secondary) }
+    private func mark(_ symbol: String, _ color: Color = .secondary) -> some View {
+        Image(systemName: symbol).font(.system(size: 11, weight: .semibold)).foregroundStyle(color)
+    }
+
     @ViewBuilder private var footer: some View {
+        let showTools = hover && !tools.isEmpty
         HStack(spacing: 6) {
             switch state {
-            case let .working(progress, left):
-                Text("Optimising").font(.system(size: 12, weight: .medium))
-                Spacer(minLength: 4)
-                Text(left).font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit()
-                    .accessibilityValue("\(Int(progress * 100)) %")
+            case .working:
+                label("Optimising")
             case .done:
                 Text(saving).font(Proto.figure(17)).foregroundStyle(Proto.saving)
-                Spacer(minLength: 4)
-                Text(size).font(.system(size: 12)).foregroundStyle(.secondary)
             case .aggressive:
                 Text(saving).font(Proto.figure(17)).foregroundStyle(Proto.saving)
-                Image(systemName: "bolt.fill").font(.system(size: 10, weight: .semibold)).foregroundStyle(Proto.warm)
-                Spacer(minLength: 4)
-                Text(size).font(.system(size: 12)).foregroundStyle(.secondary)
-            case .hover:
+                mark("bolt.fill", Proto.warm)
+            case .ruled:
                 Text(saving).font(Proto.figure(17)).foregroundStyle(Proto.saving)
-                Spacer(minLength: 4)
-                HStack(spacing: 2) {
-                    ProtoIconButton(symbol: "arrow.uturn.backward", name: "Undo")
-                    ProtoIconButton(symbol: "square.on.square", name: "Copy")
-                    ProtoIconButton(symbol: "ellipsis", name: "Options")
-                }
+                mark("pin.fill")
             case .already:
-                Text("Already small").font(.system(size: 12, weight: .medium))
-                Spacer(minLength: 4)
-                Text(size).font(.system(size: 12)).foregroundStyle(.secondary)
+                label("Already optimised")
             case .restored:
-                Image(systemName: "arrow.uturn.backward").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
-                Text("Original back").font(.system(size: 12, weight: .medium))
-                Spacer(minLength: 4)
-                Text("2.4 MB").font(.system(size: 12)).foregroundStyle(.secondary)
+                label("Original restored")
             case .failed, .failedOpen:
-                Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 11)).foregroundStyle(Proto.error)
-                Text("Not optimised").font(.system(size: 12, weight: .medium))
-                Spacer(minLength: 4)
-                Button("Retry") {}
-                    .buttonStyle(.plain)
-                    .font(.system(size: 11, weight: .semibold))
-                    .padding(.horizontal, 10)
-                    .frame(height: 24)
-                    .background(Capsule().fill(Color.primary.opacity(0.1)))
+                mark("exclamationmark.triangle.fill", Proto.error)
+                label("Not optimised")
             case .uploaded:
-                Image(systemName: "link").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
-                Text("Link copied").font(.system(size: 12, weight: .medium))
-                Spacer(minLength: 4)
-                Text(saving).font(.system(size: 12, weight: .medium, design: .rounded)).foregroundStyle(.secondary)
+                mark("link")
+                label("Link copied")
+            }
+            Spacer(minLength: 4)
+            if showTools {
+                HStack(spacing: 4) {
+                    ForEach(tools, id: \.0) { ProtoIconButton(symbol: $0.0, name: $0.1) }
+                }
+            } else {
+                switch state {
+                case let .working(_, left): quiet(left)
+                case .done, .aggressive, .ruled, .already: quiet(size)
+                case .restored: quiet("2.4 MB")
+                case .uploaded: quiet(saving)
+                case .failed, .failedOpen:
+                    Button("Retry") {}
+                        .buttonStyle(.plain)
+                        .font(.system(size: 12, weight: .medium))
+                        .padding(.horizontal, 12)
+                        .frame(height: Proto.hit)
+                        .background(Capsule().fill(Color.primary.opacity(0.14)))
+                }
             }
         }
         .monospacedDigit()
         .lineLimit(1)
         .padding(.leading, 8)
-        .padding(.trailing, state == .hover ? 2 : 8)
+        .padding(.trailing, showTools || isFailed ? 3 : 8)
         .overlay(alignment: .top) {
             if case let .working(progress, _) = state {
-                // The one progress indicator: a neutral line where picture and footer meet.
+                // The one progress indicator, on the seam of picture and footer, inside the
+                // picture's corners.
                 GeometryReader { proxy in
                     ZStack(alignment: .leading) {
-                        Capsule().fill(Color.primary.opacity(0.1))
-                        Capsule().fill(Color.primary.opacity(0.55)).frame(width: max(4, proxy.size.width * progress))
+                        Capsule().fill(Color.primary.opacity(0.12))
+                        Capsule().fill(Color.primary.opacity(0.6)).frame(width: max(4, proxy.size.width * progress))
                     }
                 }
                 .frame(height: 2)
-                .offset(y: -3)
+                .padding(.horizontal, 10)
+                .offset(y: -1)
             }
         }
     }
@@ -150,12 +182,12 @@ struct ProtoDetailCard: View {
             }
             .font(.system(size: 11))
             .monospacedDigit()
-            .padding(.horizontal, 6)
+            .padding(.horizontal, 4)
             .padding(.top, 8)
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text("−75 %").font(Proto.figure(30)).foregroundStyle(Proto.saving)
+                    Text(Proto.percent(75)).font(Proto.figure(30)).foregroundStyle(Proto.saving)
                     Spacer()
                     Text("1.8 MB saved").font(.system(size: 13)).foregroundStyle(.secondary)
                 }
@@ -165,20 +197,20 @@ struct ProtoDetailCard: View {
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
-            .padding(.horizontal, 6)
+            .padding(.horizontal, 4)
             .padding(.top, 12)
 
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 ForEach(["Undo", "Compare", "Options…"], id: \.self) { title in
                     Button(title) {}
                         .buttonStyle(.plain)
                         .font(.system(size: 12, weight: .medium))
                         .frame(maxWidth: .infinity)
-                        .frame(height: 30)
-                        .background(Capsule().fill(Color.primary.opacity(0.09)))
+                        .frame(height: Proto.hit)
+                        .background(Capsule().fill(Color.primary.opacity(0.14)))
                 }
             }
-            .padding(.top, 14)
+            .padding(.top, 12)
         }
         .padding(Proto.detailPadding)
         .frame(width: Proto.detailWidth)
@@ -204,9 +236,23 @@ struct ProtoNotice: View {
 struct ProtoStack: View {
     var body: some View {
         VStack(alignment: .trailing, spacing: Proto.gap) {
-            ProtoResultCard(picture: ProtoSamples.photo, state: .done, size: "1.1 MB", saving: "−54 %")
             ProtoResultCard(picture: ProtoSamples.chart, state: .working(progress: 0.62, left: "4 s"))
-            ProtoResultCard(picture: ProtoSamples.screenshot, state: .hover)
+            ProtoResultCard(picture: ProtoSamples.photo, state: .done, size: "1.1 MB", saving: Proto.percent(54))
+            ProtoResultCard(picture: ProtoSamples.screenshot, state: .done, hover: true)
+        }
+    }
+}
+
+/// The detail lies over its neighbours, which stay where they are and dim.
+struct ProtoStackWithDetail: View {
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            VStack(alignment: .trailing, spacing: Proto.gap) {
+                ProtoResultCard(picture: ProtoSamples.chart, state: .done, size: "88 kB", saving: Proto.percent(89), dimmed: true)
+                ProtoResultCard(picture: ProtoSamples.photo, state: .done, size: "1.1 MB", saving: Proto.percent(54)).hidden()
+                ProtoResultCard(picture: ProtoSamples.screenshot, state: .done).hidden()
+            }
+            ProtoDetailCard()
         }
     }
 }
