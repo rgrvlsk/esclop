@@ -6,6 +6,21 @@ use crate::{Ctx, Options, budget, cff, fonts, inline, integrity, rewrite};
 use lopdf::{Document, LoadOptions};
 use std::collections::BTreeSet;
 
+/// Gives freed memory back to the system after each input. libFuzzer's memory limit reads the
+/// process's peak RSS, and macOS's allocator keeps freed pages, so without this the peak
+/// creeps up over many inputs (a single 700 KB input peaks at 300 MB, the same input 30 times
+/// stays at 300 MB, a mixed corpus reached 1 GB). With it, the limit measures one input.
+fn release_freed_memory() {
+    #[cfg(target_os = "macos")]
+    {
+        unsafe extern "C" {
+            fn malloc_zone_pressure_relief(zone: *mut std::ffi::c_void, goal: usize) -> usize;
+        }
+        // SAFETY: a null zone means every zone; the call only returns free pages to the system.
+        unsafe { malloc_zone_pressure_relief(std::ptr::null_mut(), 0) };
+    }
+}
+
 /// libfuzzer-sys aborts on every panic, caught or not. The font subsetter catches skera's (a
 /// dependency that unwraps a glyph-map entry a malformed font may lack) and keeps that font
 /// whole; those are let through, every other panic still aborts.
@@ -32,6 +47,7 @@ pub fn optimise(data: &[u8]) {
         Options::builder().aggressive().max_dpi(72).strip_metadata(true).build().expect("valid")
     };
     let _ = crate::optimise(data.to_vec(), &options);
+    release_freed_memory();
 }
 
 /// Loading as the rewrite does (load filter, stream limits, page-tree rebuild) and the checks
@@ -70,6 +86,7 @@ pub fn font(data: &[u8]) {
     let Some((&pick, font)) = data.split_first() else { return };
     let gids: BTreeSet<u16> = (0..512u16).filter(|g| (g % 8) as u8 <= pick % 8).collect();
     let _ = fonts::subset(font, &gids);
+    release_freed_memory();
 }
 
 /// Inline-image extraction: `data` as the content of a one-page PDF whose inline images are

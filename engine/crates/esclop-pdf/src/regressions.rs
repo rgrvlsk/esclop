@@ -46,6 +46,16 @@ fn a_loca_claiming_gigabytes_is_not_given_to_skera() {
 }
 
 #[test]
+fn a_last_loca_offset_claiming_704_mb_is_not_given_to_skera() {
+    // `Loca::len` counts glyphs, not offsets: the check once missed the last one.
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("fuzz/regressions/font/skera-last-loca-704mb-allocation");
+    let Ok(data) = std::fs::read(path) else { return };
+    let gids = (0..512u16).filter(|g| g % 8 <= u16::from(data[0] % 8)).collect();
+    let err = crate::fonts::subset(&data[1..], &gids).unwrap_err();
+    assert!(err.contains("loca"), "{err}");
+}
+
+#[test]
 fn optimise_inputs() {
     each("optimise", crate::fuzzing::optimise);
 }

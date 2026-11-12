@@ -755,13 +755,17 @@ fn subset_unguarded(data: &[u8], gids: &BTreeSet<u16>) -> Result<Vec<u8>, String
     // stay inside `glyf`.
     let loca = font.loca(None).map_err(|e| format!("loca: {e}"))?;
     let glyf_len = glyf.offset_data().len() as u64;
+    // `Loca::len` counts glyphs; the table holds one offset more, the end of the last glyph
+    // (the one a crafted font set to 704 MB): every offset present is checked.
     let mut last = 0u64;
-    for i in 0..loca.len() {
-        let o = u64::from(loca.get_raw(i).ok_or("loca")?);
+    let mut i = 0;
+    while let Some(o) = loca.get_raw(i) {
+        let o = u64::from(o);
         if o < last || o > glyf_len {
             return Err("loca points outside glyf".into());
         }
         last = o;
+        i += 1;
     }
     let total = font.maxp().map_err(|e| format!("maxp: {e}"))?.num_glyphs();
     let mut input = IntSet::<GlyphId>::empty();
