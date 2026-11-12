@@ -18,7 +18,7 @@ struct ProtoBatch: View {
         ("Harbour.heic", "3.2 MB → 2 MB", Proto.percent(39), ProtoSamples.poster, false),
         ("Menu scan.pdf", "13 MB → 3.1 MB", Proto.percent(76), ProtoSamples.page, false),
         ("Map.png", "Already optimised · 180 kB", nil, ProtoSamples.chart, false),
-        ("Sunset walk.mov", "Not a video L’Esclop can read", nil, ProtoSamples.photo, false),
+        ("Sunset walk.mov", "Not optimised: not a video L’Esclop can read", nil, ProtoSamples.photo, false),
     ]
 
     var body: some View {
@@ -66,17 +66,13 @@ struct ProtoBatch: View {
                                     ProtoIconButton(symbol: "arrow.uturn.backward", name: "Undo")
                                     ProtoIconButton(symbol: "rectangle.split.2x1", name: "Compare")
                                     ProtoIconButton(symbol: "folder", name: "Show in Finder")
+                                    ProtoIconButton(symbol: "ellipsis", name: "Options")
                                 }
                             }
                             if let saving = row.2 {
                                 Text(saving).font(.system(size: 13, weight: .medium)).frame(width: 58, alignment: .trailing)
                             } else if index == 5 {
-                                Button("Retry") {}
-                                    .buttonStyle(.plain)
-                                    .font(.system(size: 12, weight: .medium))
-                                    .padding(.horizontal, 12)
-                                    .frame(height: Proto.hit)
-                                    .background(Capsule().fill(Color.primary.opacity(0.14)))
+                                ProtoIconButton(symbol: "folder", name: "Show in Finder")
                             }
                         }
                         .monospacedDigit()
@@ -133,7 +129,7 @@ struct ProtoSettings: View {
             List(Pane.allCases, selection: $pane) { pane in
                 Label(pane.rawValue, systemImage: pane.symbol).tag(pane)
             }
-            .navigationSplitViewColumnWidth(210)
+            .navigationSplitViewColumnWidth(230)
             .searchable(text: .constant(""), placement: .sidebar, prompt: "Search")
         } detail: {
             Group {
@@ -198,7 +194,7 @@ struct ProtoSettings: View {
             }
             Section("Rules") {
                 LabeledContent("Screenshots") { Text("WebP, adaptive").foregroundStyle(.secondary) }
-                LabeledContent("Photos exports") { Text("JPEG, no location").foregroundStyle(.secondary) }
+                LabeledContent("Exports from Photos") { Text("JPEG, no location").foregroundStyle(.secondary) }
             }
         }
     }
@@ -253,7 +249,7 @@ struct ProtoOnboarding: View {
             Spacer(minLength: 0)
             Divider()
             HStack {
-                Button("Skip") {}.buttonStyle(.plain).foregroundStyle(.secondary).opacity(step == .menuBar ? 0 : 1)
+                Button("Skip") {}.buttonStyle(.plain).opacity(step == .menuBar ? 0 : 1)
                 Spacer()
                 HStack(spacing: 6) {
                     ForEach(0 ..< 3, id: \.self) { index in
@@ -286,7 +282,7 @@ struct ProtoOnboarding: View {
                 .font(.system(size: 13))
             } else {
                 Text("It was smaller before you could paste it. The original is kept for 7 days.")
-                    .font(.system(size: 13)).foregroundStyle(.secondary)
+                    .font(.system(size: 13))
             }
             ZStack {
                 RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.primary.opacity(0.06))
@@ -309,7 +305,7 @@ struct ProtoOnboarding: View {
                         if Proto.own { ProtoClog(width: 52) } else {
                             Image(systemName: "camera.viewfinder").font(.system(size: 30, weight: .light)).foregroundStyle(.secondary)
                         }
-                        Text("Waiting for a screenshot").font(.system(size: 13)).foregroundStyle(.secondary)
+                        Text("Waiting for a screenshot").font(.system(size: 13))
                         Button("Use a Sample Instead") {}.controlSize(.small)
                     }
                 }
@@ -324,7 +320,7 @@ struct ProtoOnboarding: View {
             ProtoClog(width: 64, template: true)
             Text("It lives in the menu bar").font(.system(size: 28, weight: .semibold))
             Text("Results, undo and pause are there. These work from anywhere:")
-                .font(.system(size: 13)).foregroundStyle(.secondary)
+                .font(.system(size: 13))
             Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
                 GridRow { ProtoKeys(keys: ["⌃", "⇧", "C"]); Text("Optimise the clipboard") }
                 GridRow { ProtoKeys(keys: ["⌃", "⇧", "P"]); Text("Pause") }
@@ -556,6 +552,7 @@ struct ProtoAllResults: View {
                                     ProtoIconButton(symbol: "arrow.uturn.backward", name: "Undo")
                                     ProtoIconButton(symbol: "rectangle.split.2x1", name: "Compare")
                                     ProtoIconButton(symbol: "folder", name: "Show in Finder")
+                                    ProtoIconButton(symbol: "ellipsis", name: "Options")
                                 }
                             }
                             Text(Proto.percent(row.2)).font(.system(size: 13, weight: .medium)).frame(width: 58, alignment: .trailing)

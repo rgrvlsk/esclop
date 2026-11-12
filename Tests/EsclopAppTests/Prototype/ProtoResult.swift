@@ -59,7 +59,7 @@ struct ProtoResultCard: View {
                             }
                         }
                         .frame(height: 2)
-                        .padding(.horizontal, 10)
+                        .padding(.horizontal, 8)
                         .offset(y: 2)
                     }
                 }
@@ -94,15 +94,16 @@ struct ProtoResultCard: View {
 
     private var isFailed: Bool { state == .failed || state == .failedOpen || state == .unreadable }
 
-    /// What the pointer can do in each state: every state defines its buttons. The first slot
-    /// is always the way back or forward (Undo, Optimise Again), so a second click stays on it.
+    /// What the pointer can do in each state: every state defines its buttons. The way back or
+    /// forward (Stop, Undo, Optimise Again) is always the last one, in the same trailing slot, so
+    /// a second click stays on it and Options keeps its place across the change.
     private var tools: [(String, String)] {
         switch state {
         case .working: return [("stop.fill", "Stop")]
-        case .done, .aggressive, .ruled: return [("arrow.uturn.backward", "Undo"), ("square.on.square", "Copy"), ("ellipsis", "Options")]
+        case .done, .aggressive, .ruled: return [("square.on.square", "Copy"), ("ellipsis", "Options"), ("arrow.uturn.backward", "Undo")]
         case .already: return [("square.on.square", "Copy"), ("ellipsis", "Options")]
-        case .restored: return [("arrow.uturn.forward", "Optimise Again"), ("ellipsis", "Options")]
-        case .uploaded: return [("link", "Copy Link"), ("ellipsis", "Options")]
+        case .restored: return [("ellipsis", "Options"), ("arrow.uturn.forward", "Optimise Again")]
+        case .uploaded: return [("square.on.square", "Copy Link"), ("ellipsis", "Options")]
         case .failed, .failedOpen, .unreadable: return []
         }
     }
@@ -135,9 +136,12 @@ struct ProtoResultCard: View {
                 label(catalan ? "Original recuperat" : "Original restored")
             case .failed, .failedOpen, .unreadable:
                 mark("exclamationmark.triangle.fill", Proto.error)
+                // The label says what did not happen: an upload, or the optimising itself.
                 label(failures > 1
-                    ? (catalan ? "\(failures) no optimitzats" : "\(failures) not optimised")
-                    : (catalan ? "No optimitzat" : "Not optimised"))
+                    ? (catalan ? "\(failures) han fallat" : "\(failures) failed")
+                    : state == .unreadable
+                        ? (catalan ? "No optimitzat" : "Not optimised")
+                        : (catalan ? "No s’ha pujat" : "Not uploaded"))
             case .uploaded:
                 mark("link")
                 label(catalan ? "Enllaç copiat" : "Link copied")

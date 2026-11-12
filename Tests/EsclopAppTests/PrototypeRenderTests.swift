@@ -60,7 +60,7 @@ import Testing
             HStack(alignment: .top, spacing: 20) { ProtoMenuPanel(catalan: true); ProtoMenuPanel(mode: .paused, catalan: true); ProtoPauseMenu(catalan: true); ProtoPauseMenu() },
             size: CGSize(width: 1150, height: 520), name: "menu-panel-ca", scheme: scheme, alignment: .top
         )
-        try await ProtoRender.floating(ProtoMenuPanel(), size: CGSize(width: 380, height: 520), name: "menu-panel-busy", scheme: scheme, busy: true, alignment: .top)
+        try await ProtoRender.floating(ProtoMenuPanel(), size: CGSize(width: 380, height: 560), name: "menu-panel-busy", scheme: scheme, busy: true, alignment: .top)
         try await ProtoRender.floating(ProtoGlyphStrip(), size: CGSize(width: 520, height: 120), name: "glyph", scheme: scheme)
     }
 
@@ -123,6 +123,7 @@ import Testing
             Proto.own = own
             defer { Proto.own = false }
             let inks: [(String, Color)] = [("saving", Proto.saving), ("warm", Proto.warm), ("secondary", Proto.quiet), ("text", Proto.ink)]
+            // `error` marks a symbol; the sentence beside it is set in text ink.
             let probe = HStack(spacing: 20) {
                 ForEach(inks, id: \.0) { Rectangle().fill($0.1).frame(width: 20, height: 20) }
             }

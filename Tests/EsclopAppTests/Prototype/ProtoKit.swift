@@ -188,7 +188,9 @@ struct ProtoSplitBar: View {
             let gap: CGFloat = 2
             let keptWidth = max(height, (proxy.size.width - gap) * kept)
             HStack(spacing: gap) {
-                Capsule().fill(Proto.kept).frame(width: keptWidth)
+                // What is left is hollow: an outline in secondary ink. No fill tone holds 3:1
+                // against both the ground and the green, an outline does.
+                Capsule().fill(Proto.quiet.opacity(0.1)).overlay(Capsule().strokeBorder(Proto.quiet, lineWidth: 1)).frame(width: keptWidth)
                 Capsule().fill(Proto.saving)
             }
         }

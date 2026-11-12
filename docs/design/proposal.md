@@ -1,11 +1,14 @@
 # Design proposal
 
-Status: round 4, under review. It answers [critique.md](critique.md). Nothing here is built into
+Status: the council's four rounds are done (blocking issues per round: 17, 12, 8, 2). The
+two raised in the last round are fixed here and have not been before the council again. It
+awaits the owner. It answers [critique.md](critique.md). Nothing here is built into
 the app yet: the pictures come from prototype views in `Tests/EsclopAppTests/Prototype`, drawn
 with real SwiftUI and AppKit and captured as real windows, so glass is the system's Liquid Glass.
 Render them with `ESCLOP_RENDER_DIR=<folder> Scripts/test.sh --filter 'PrototypeRenderTests'`.
 A render is named `proto-<name>-light.png` or `-dark.png`; the second direction's renders are
-`proto-own-<name>-…`.
+`proto-own-<name>-…`. The final set is in [renders/](renders) as WebP, without the `proto-`
+prefix: `result-states-light.webp` is direction A, `own-result-states-light.webp` direction B.
 
 ## The owner's answers
 
@@ -44,7 +47,6 @@ Everything below holds for both unless a line says "A" or "B".
 | `saving` | `#176B59` light, `#63D6B8` dark | same |
 | `warm` (aggressive) | `#8F5510` light, `#E0A040` dark | same |
 | `error` | `#C4281C` light, `#FF6961` dark | same |
-| Kept part of a split bar | ink at 32 % | pale wood `#D8BF9F` light, dark wood `#6E5746` dark: 3:1 against `saving` by lightness, not by hue |
 | Text on the surface | black at 88 % light, white at 92 % dark | same |
 | Secondary text on the surface | black at 62 % light, white at 62 % dark | `#625C56` light, `#B9AFA5` dark |
 | Fill of a filled control | system accent | `#176B59` light, `#1C8068` dark (white content holds 4.5:1); rings and strokes use `saving` |
@@ -101,14 +103,14 @@ file, either opens the detail.
 |---|---|---|---|
 | Working | "Optimising" | time left ("4 s") for jobs over 2 s | Stop |
 | Uploading | "Uploading" | "40 %" | Stop |
-| Done | **−75 %** in `saving` | "612 kB" | Undo, Copy, Options |
-| Done, aggressive | **−75 %**, `bolt.fill` in `warm` | "612 kB" | Undo, Copy, Options |
-| Done by a rule | **−75 %**, `pin.fill` | "612 kB" | Undo, Copy, Options |
+| Done | **−75 %** in `saving` | "612 kB" | Copy, Options, Undo |
+| Done, aggressive | **−75 %**, `bolt.fill` in `warm` | "612 kB" | Copy, Options, Undo |
+| Done by a rule | **−75 %**, `pin.fill` | "612 kB" | Copy, Options, Undo |
 | Nothing to gain | "Already optimised" | "612 kB" | Copy, Options |
-| Undone | "Original restored" | "2.4 MB" | Optimise Again, Options |
+| Undone | "Original restored" | "2.4 MB" | Options, Optimise Again |
 | Uploaded | `link`, "Link copied" | "−75 %" in secondary | Copy Link, Options |
-| Failed, another try can help (upload refused, file busy) | `exclamationmark.triangle.fill` in `error`, "Not optimised" | **Retry** (always shown, 28 pt) | |
-| Failed, it cannot (unreadable file) | the same | **Show in Finder** (always shown) | |
+| Failed, another try can help (upload refused, file busy) | `exclamationmark.triangle.fill` in `error`, and what did not happen in text ink: "Not uploaded", "Not optimised" | **Retry** (always shown, 28 pt) | |
+| Failed, it cannot (unreadable file) | the same, "Not optimised" | **Show in Finder** (always shown) | |
 
 Working shows progress as one 2 pt neutral line at the footer's top edge, wholly inside the
 footer and inside the picture's corners (track ink 24 %, fill ink 70 %). There is no sheen, rim,
@@ -122,9 +124,11 @@ Pointer:
   top corner (28 pt target, clipped to the card's own slot and half the gap, so it never takes
   a click meant for the card above). The footer keeps one baseline in every state: the buttons
   lie over its right side, so the figure does not move by a pixel; the card keeps its size; no
-  neighbour moves. The first button is always the way back or forward (Undo, then Optimise
-  Again), so a second click stays on it. The buttons stay while a popover, a menu or the detail
-  of that card is open.
+  neighbour moves. The way back or forward (Stop, then Undo, then Optimise Again) is always
+  the last button, in the same trailing slot, so a second click stays on it and Options keeps
+  its place across the change. A click on a button's place before its fade has ended is
+  swallowed, not passed to the footer. The buttons stay while a popover, a menu or the detail of
+  that card is open.
 - **Click** the picture or the footer: opens the detail. Nothing opens because the pointer
   rested.
 - **Drag** the picture or the footer: drags the file out; the card's picture and ink dim, its
@@ -145,8 +149,9 @@ returns to the app that had it; the cards stay and their timers resume with at l
 Esc never removes anything.
 
 Stack: three slots, always (`proto-result-stack`, `-stack-failures`). A new result enters at the
-end away from the corner and the oldest leaves. Failures share one slot: "3 not optimised" with
-one Retry for all; clicking it opens All Results. A card is held while it is hovered, pressed,
+end away from the corner and the oldest leaves. Failures share one slot: "3 failed" with one
+Retry for all (shown only if one of them can be retried); clicking it opens All Results, where
+they have a section of their own. A card is held while it is hovered, pressed,
 focused, dragged or open, and every card is held while a file drag is live anywhere. While the
 pointer is within the stack (plus 8 pt) or any card is held, no slot moves: an arrival replaces
 the oldest card that is not held, in place, with a 150 ms crossfade, and that slot takes no
@@ -166,8 +171,9 @@ card), "Original 2.4 MB" and "612 kB Optimised" under their
 halves, the figure at 34 pt with "1.8 MB saved", the split bar, one caption of facts, and Undo,
 Compare, Options…. Esc, the close button or a click outside closes it.
 
-**Split bar.** The whole width is the original. The left part is what is left (ink at 32 % in
-A, `wood` in B); the right part, in `saving`, is what was saved. It is 6 pt tall everywhere, and
+**Split bar.** The whole width is the original. The left part is what is left, drawn hollow (a
+1 pt outline in secondary ink over a 10 % fill): no fill tone holds 3:1 against both the ground
+and the green, an outline does. The right part, solid `saving`, is what was saved. It is 6 pt tall everywhere, and
 is hidden from VoiceOver, which reads the figure.
 
 A notice (the pause hotkey) is a 34 pt capsule with a symbol, one line and the keys. Ink on a
@@ -198,7 +204,8 @@ back. Pressing the glyph, dragging to a command and releasing activates it, as i
 - **Recent results:** the last six as 92 × 64 pt pictures, 8 pt apart, each with its saving
   under it in secondary 11 pt. A picture drags out as the file. One is always selected, the
   newest when the panel opens: a row under the grid shows its name, sizes and Undo, Compare,
-  Show in Finder. The row is always there, paused or not, so the commands never shift and ⌘Z
+  Show in Finder and Options…, which opens the options popover hung from the row. So every verb
+  a result has stays reachable after its card has gone; ⌘C copies the selected one. The row is always there, paused or not, so the commands never shift and ⌘Z
   has a visible target. With the grid focused, Return opens Compare, ⌘R reveals, Space is Quick
   Look, ⌘Z undoes. Double-click opens Compare. Nothing happens at the far corner.
 - **Commands:** Optimise Files… ⌘O · Optimise Clipboard ⌃⇧C · All Results · Pipelines. (No
@@ -215,8 +222,10 @@ back. Pressing the glyph, dragging to a command and releasing activates it, as i
   Compare and Show in Finder as actions.
 
 **All Results** (`proto-all-results`) is a window: every original still kept (7 days), by day,
-searchable, with the week's saving as its figure and the same row actions as the batch window.
-It is where "put it back" always works.
+searchable, with the week's saving as its figure, failures in a section of their own, and on
+each row Undo, Compare, Show in Finder and Options… (the same popover, hung from the row), in a
+context menu and as VoiceOver actions too. It is where everything about a past result always
+works.
 
 ## Options popover
 
@@ -280,8 +289,8 @@ while a file is in the air.
   to Finder; they get no show. It never appears for a drag that started on one of the app's own
   cards.
 - **It comes alive when the drag is over a tile:** that tile lights (white on the lit fill) and
-  grows to 104 % from its centre; on the others the symbol recedes to 40 % and the name
-  keeps its contrast, since they are still targets. Lit means "a drop here is accepted",
+  grows to 104 % from its centre; on the others the symbol (or the clog) recedes to 40 % and
+  every word keeps its contrast, since they are still targets. Lit means "a drop here is accepted",
   nothing else. Within 120 pt of the row, before any tile is under the drag, the row rises 4 pt
   and no tile lights.
 - **⌥** turns the main tile into "Optimise Aggressively" in `warm` (⌘ is Finder's Move).
@@ -302,8 +311,10 @@ Show in Finder always, each with a tooltip and a VoiceOver name.
   spinner at the right: progress is a count, and the bar keeps one meaning. Finished with
   failures, a red "1 failed" scrolls to the first.
 - **Rows:** a 40 pt picture, the name, the sizes, and the saving at the right in ink. On hover
-  or focus, Undo, Compare and Show in Finder arrive beside the saving; the saving stays. A
-  failed row loses its colour, says why in `error` and has Retry.
+  or focus, Undo, Compare, Show in Finder and Options… arrive beside the saving; the saving
+  stays. A
+  failed row loses its colour, says why, and has Retry or, when a retry cannot help, Show in
+  Finder.
 
 ## Compare window
 
@@ -427,7 +438,7 @@ One name per thing, in both languages. Catalan uses the comma for decimals ("2,4
 | Again, after going back | Optimise Again | Torna a optimitzar |
 | No gain | Already optimised | Ja estava optimitzat |
 | Working | Optimising / Uploading | S'està optimitzant / S'està pujant |
-| Failure | Not optimised / 3 not optimised / Retry | No optimitzat / 3 no optimitzats / Torna-hi |
+| Failure | Not optimised / Not uploaded / 3 failed / Retry | No optimitzat / No s'ha pujat / 3 han fallat / Torna-hi |
 | A change failed | Not converted. The PNG is kept. | No s'ha convertit. Es conserva el PNG. |
 | Upload done | Link copied / Copy Link | Enllaç copiat / Copia l'enllaç |
 | Tabs | Format · Size · Actions | Format · Mida · Accions |
@@ -445,10 +456,10 @@ One name per thing, in both languages. Catalan uses the comma for decimals ("2,4
 | PDF pages | Pages as Images | Pàgines com a imatges |
 | Clipboard | Put the result back on the clipboard | Torna el resultat al porta-retalls |
 | Spoken marks | optimised aggressively / by your rule | optimitzat a fons / segons una regla teva |
-| Spoken result | Screenshot, 75 % smaller, 612 kilobytes | Captura, un 75 % més petita, 612 kilobytes |
+| Spoken result | Screenshot, 75 % smaller, 612 kilobytes | Captura, un 75 % més petit, 612 quilobytes |
 | Settings panes | General · Automatic · Compression · Results · Uploads · Agents · Advanced | General · Automàtic · Compressió · Resultats · Pujades · Agents · Avançat |
 | Gear menu | Settings… · Check for Updates… · Show the Tour · About L'Esclop · Quit L'Esclop | Configuració… · Cerca actualitzacions… · Mostra la visita guiada · Quant a L'Esclop · Surt de L'Esclop |
-| Rule names | Screenshots · Photos exports | Captures · Exportacions de Fotos |
+| Rule names | Screenshots · Exports from Photos | Captures · Exportacions de Fotos |
 | Tiles | pipeline tiles | caselles de fluxos |
 | Keep both | Convert and Keep Both | Converteix i conserva tots dos |
 | Pipeline | Pipeline / Run a Pipeline | Flux / Aplica un flux |
@@ -456,11 +467,11 @@ One name per thing, in both languages. Catalan uses the comma for decimals ("2,4
 | Drop tile | Optimise · 3 files | Optimitza · 3 fitxers |
 | Panel figure | today, across 14 files | avui, en 14 fitxers |
 | Panel status | Watching the clipboard and 2 folders | Vigila el porta-retalls i 2 carpetes |
-| Panel, paused | Paused / Resumes at 14:32 / Until you resume / Resume / Watching nothing | En pausa / Es reprèn a les 14:32 / Fins que ho reprenguis / Reprèn / No vigila res |
+| Panel, paused | Paused / Resumes at 14:32 / Until you resume / Resume / Watching nothing | En pausa / Es reprèn a les 14:32 / Fins que es reprengui / Reprèn / No vigila res |
 | Panel, empty | Ready / Nothing optimised yet / Copy a screenshot. It lands here, smaller. | A punt / Encara no s'ha optimitzat res / Copia una captura de pantalla. Apareixerà aquí, més petita. |
 | Panel commands | Optimise Files… · Optimise Clipboard · All Results · Pipelines | Optimitza fitxers… · Optimitza el porta-retalls · Tots els resultats · Fluxos |
-| Panel, batch | Optimising 7 of 9 / Show | S'està optimitzant, 7 de 9 / Mostra |
-| Pause menu | For the Next Copy · For 5 Minutes · For an Hour · Until I Resume | Per a la pròxima còpia · Durant 5 minuts · Durant una hora · Fins que ho reprengui |
+| Panel, batch | Optimising 7 of 9 / Show | S'està optimitzant: 7 de 9 / Mostra |
+| Pause menu | For the Next Copy · For 5 Minutes · For an Hour · Until I Resume | Per a la pròxima còpia · Durant 5 minuts · Durant una hora · Fins que es reprengui |
 | Notice | The next copy won't be optimised | La pròxima còpia no s'optimitzarà |
 | Originals kept | The original is kept for 7 days. Put it back from All Results. | L'original es conserva 7 dies. Recupera'l des de Tots els resultats. |
 | First run | Copy a screenshot / That is all it does / It lives in the menu bar | Copia una captura / Això és tot el que fa / Viu a la barra de menús |
@@ -500,5 +511,37 @@ what was kept, and the way out is a button.
 4. B's wooden clog is a rendered picture beside SF Symbols. It appears only where the app
    speaks as itself (the main drop tile at rest, the empty panel, the first run's stage), never
    as a control.
-5. A against B: the owner chooses. Round 2: interaction and visual system preferred A;
-   accessibility preferred B before A's glass got its backing.
+5. A against B: the owner chooses. In the last round the visual-system member called A the
+   stronger system, narrowly (green means the saving and nothing else, on surfaces that match
+   the stock windows), and B the better material (the same contrast on every ground, honestly
+   opaque).
+
+## For the implementation plan
+
+Raised in the last round and not blocking; each belongs to the pull request that builds its
+surface.
+
+- Stack: an arrival that replaces a card in place takes that slot's frame and springs to its
+  own height when the slots settle. Hold Working for at least 500 ms once shown, and start the
+  arrival after the entrance has settled.
+- Keyboard: Space presses a Tab-focused button and is Quick Look only on the card; ↓ from the
+  grid's last row enters the commands; ⌘⇧Z is Optimise Again wherever ⌘Z works; ⌃⇧R again
+  gives focus back; after ⌫ focus moves to the next card.
+- Chips (Crop, Fit under): clicking the selected one clears it.
+- Undo All becomes Optimise Again and keeps the outputs, so redo is instant.
+- Reduce Motion exempts direct manipulation: swipe, divider and list drag stay 1:1.
+- Motion rows to add: in-place crossfade 150 ms, drop row rises 4 pt (0.25 / 1.0), failed caption
+  closing, option revert 150 ms. The panel's selection row does not animate; it is always there.
+- Contrast test: extend it to `error` as text (the sentence beside the triangle is in text ink),
+  to text on the 6 % and 14 % fills, and to dimmed tiles; render the drop tiles and the panel on
+  white and black. Under Increase Contrast, secondary ink rises to 80 %.
+- A's surface tone varies a little with the shape's size (dark over white: `#2C2C2C` for the
+  card, `#3E3E3E` for a 60 pt shape); the lowest ink measured is 4.85:1.
+- Hairlines are one device pixel. Every picture gets an inner hairline (black 14 %), so a white
+  page does not dissolve into a light surface.
+- Formats by locale: en-GB "−75%", Catalan "−75 %"; sizes through `ByteCountFormatter`.
+- VoiceOver strings for Working (with the percentage), Failed (with the reason, at normal
+  priority), Undone, Uploaded and the group of failures.
+- Catalan still to write: the first run's body, the compare toolbar, the detail's labels, the
+  batch window.
+- The detail's divider strip shows a resize cursor.

@@ -56,7 +56,7 @@ struct ProtoMenuPanel: View {
 
     private var status: String {
         switch mode {
-        case .batch: return catalan ? "S’està optimitzant, 7 de 9" : "Optimising 7 of 9"
+        case .batch: return catalan ? "S’està optimitzant: 7 de 9" : "Optimising 7 of 9"
         case .paused, .pausedOpen: return catalan ? "No vigila res" : "Watching nothing"
         default: return catalan ? "Vigila el porta-retalls i 2 carpetes" : "Watching the clipboard and 2 folders"
         }
@@ -72,7 +72,7 @@ struct ProtoMenuPanel: View {
                 case .paused, .pausedOpen:
                     Text(catalan ? "En pausa" : "Paused").font(.system(size: 24, weight: .semibold))
                     Text(mode == .pausedOpen
-                        ? (catalan ? "Fins que ho reprenguis" : "Until you resume")
+                        ? (catalan ? "Fins que es reprengui" : "Until you resume")
                         : (catalan ? "Es reprèn a les 14:32" : "Resumes at 14:32")).font(.system(size: 11)).foregroundStyle(Proto.quiet)
                 case .empty:
                     Text(catalan ? "A punt" : "Ready").font(.system(size: 24, weight: .semibold))
@@ -144,6 +144,7 @@ struct ProtoMenuPanel: View {
             ProtoIconButton(symbol: "arrow.uturn.backward", name: "Undo")
             ProtoIconButton(symbol: "rectangle.split.2x1", name: "Compare")
             ProtoIconButton(symbol: "folder", name: "Show in Finder")
+            ProtoIconButton(symbol: "ellipsis", name: "Options")
         }
         .padding(.leading, 10)
         .padding(.trailing, 4)
@@ -168,7 +169,7 @@ struct ProtoPauseMenu: View {
     var catalan = false
     var body: some View {
         let items = catalan
-            ? ["Per a la pròxima còpia", "Durant 5 minuts", "Durant una hora", "Fins que ho reprengui"]
+            ? ["Per a la pròxima còpia", "Durant 5 minuts", "Durant una hora", "Fins que es reprengui"]
             : ["For the Next Copy", "For 5 Minutes", "For an Hour", "Until I Resume"]
         VStack(alignment: .leading, spacing: 0) {
             ForEach(items, id: \.self) { title in

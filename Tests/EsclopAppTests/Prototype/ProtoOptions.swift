@@ -118,7 +118,7 @@ struct ProtoOptions: View {
                 Text(catalan ? "Sol anar bé per a les captures" : "Usually right for screenshots").font(.system(size: 11)).foregroundStyle(Proto.quiet)
             }
             Spacer(minLength: 4)
-            Button(catalan ? "Converteix" : "Convert") {}.controlSize(.small).buttonStyle(.borderedProminent)
+            Button(catalan ? "Converteix" : "Convert") {}.controlSize(.small).buttonStyle(.borderedProminent).buttonBorderShape(.capsule)
                 .accessibilityLabel(catalan ? "Converteix a WebP" : "Convert to WebP")
             Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundStyle(Proto.quiet)
                 .frame(width: 20, height: Proto.hit).accessibilityLabel("Dismiss the suggestion")
@@ -318,7 +318,7 @@ struct ProtoDropZone: View {
         let hot = mode == .target || mode == .aggressive
         let tint: Color? = mode == .aggressive ? Proto.litWarm : (mode == .target ? Proto.lit : nil)
         return HStack(spacing: 10) {
-            ProtoClog(width: 34, template: hot)
+            ProtoClog(width: 34, template: hot).opacity(mode == .preset ? 0.4 : 1)
             VStack(alignment: .leading, spacing: 1) {
                 Text(mode == .aggressive
                     ? (catalan ? "Optimitza a fons" : "Optimise Aggressively")
@@ -330,7 +330,6 @@ struct ProtoDropZone: View {
         .padding(.horizontal, 16)
         .frame(width: Proto.cardWidth, height: 92, alignment: .leading)
         .foregroundStyle(hot ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
-        .opacity(mode == .preset ? 0.55 : 1)
         .protoGlass(Proto.tileRadius, tint: tint)
         .scaleEffect(hot ? 1.04 : 1)
     }
