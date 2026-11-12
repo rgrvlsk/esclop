@@ -106,6 +106,12 @@ struct SettingRow: View {
             HoverButtonSwitches(descriptor: descriptor, model: model, label: AnyView(label))
         case .presetZones:
             PresetZoneList(descriptor: descriptor, model: model, label: AnyView(label))
+        case .uploadTargets:
+            UploadTargetList(descriptor: descriptor, model: model, label: AnyView(label))
+        case .uploadTarget:
+            UploadTargetPicker(descriptor: descriptor, model: model, label: AnyView(label))
+        case .uploadSources:
+            UploadSourceSwitches(descriptor: descriptor, model: model, label: AnyView(label))
         }
     }
 

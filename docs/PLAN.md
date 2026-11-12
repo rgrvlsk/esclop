@@ -32,6 +32,9 @@ in a floating card and restore the original. CLI and MCP workflows already run w
   settings and "Check for Updates…".
 - Preset zones beside the drop zone, from pipelines and built-in templates, ordered in Settings.
 
+- Uploads to S3-compatible targets with Keychain keys, from the Share tab, a pipeline step,
+  automatic sources, `esclop upload` and MCP.
+
 ## Next
 
 - A crop window for files that are not on screen as a floating result.
@@ -41,7 +44,8 @@ in a floating card and restore the original. CLI and MCP workflows already run w
 - PDF: a streaming load and write in `pdf.optimise`, so a large file is not held twice while it
   loads (peak memory is now about twice the input above roughly 256 MB; see
   `docs/engines.md`, PDF memory).
-- Uploads and shelf integrations.
+- Shelf integrations.
+- More upload targets (WebDAV, a custom command) if they are asked for.
 - App release validation, notarisation, a beta update channel and a Homebrew cask.
 
 ## Quality targets

@@ -61,7 +61,7 @@ struct Session {
 
 @Suite(.serialized) struct MCPServerInMemory {
     static let expectedTools: Set<String> = [
-        "esclop_optimise", "esclop_convert", "esclop_downscale", "esclop_crop", "esclop_fit_under_size", "esclop_strip_metadata",
+        "esclop_optimise", "esclop_convert", "esclop_downscale", "esclop_crop", "esclop_fit_under_size", "esclop_strip_metadata", "esclop_upload",
         "esclop_crop_pdf", "esclop_uncrop_pdf", "esclop_pipeline_list", "esclop_pipeline_show", "esclop_pipeline_write",
         "esclop_pipeline_delete", "esclop_pipeline_run", "esclop_pipeline_attach", "esclop_pipeline_detach", "esclop_pipeline_preset",
         "esclop_settings_schema", "esclop_settings_get", "esclop_settings_set", "esclop_status", "esclop_start_app",

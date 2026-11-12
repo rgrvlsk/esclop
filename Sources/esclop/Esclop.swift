@@ -30,7 +30,7 @@ struct EsclopCommand: AsyncParsableCommand {
         """,
         version: EsclopVersion.string,
         subcommands: [
-            Optimise.self, Convert.self, Downscale.self, Crop.self, Fit.self, Strip.self,
+            Optimise.self, Convert.self, Downscale.self, Crop.self, Fit.self, Strip.self, Upload.self,
             PDF.self, Pipeline.self, Settings.self, Status.self, Logs.self, MCPCommand.self, InstallCLI.self,
         ]
     )

@@ -289,6 +289,32 @@ public enum ToolCatalog {
         ),
         ToolSpec(
             tool: MCP.Tool(
+                name: "esclop_upload",
+                title: "Upload files",
+                description: """
+                Upload files to one of the person's upload targets (S3-compatible storage they set up in L'Esclop \
+                Settings › Uploads) and return each file's public link; the last link also goes on the clipboard. \
+                target names the upload target; left out, the default one. Only the L'Esclop app holds the keys, \
+                so the upload runs there (the app is started if needed); this tool never sees them. Allowed only \
+                when the person turned on "Agents may upload files" (setting allowUploads), and only for images, \
+                videos, PDFs and audio files (followed through links); anything else is refused. A link may be \
+                public: anyone who has it can open the file if the bucket is public. Nothing is optimised \
+                or changed on disk. Returns one line per file with its link, and JSON with results[] (source, link) \
+                and failures[] (source, error, code).
+                """,
+                inputSchema: Schema.object([
+                    "paths": fileProperties["paths"]!,
+                    "target": Schema.string("The upload target's name, as Settings › Uploads lists it. Left out: the default one."),
+                ], required: ["paths"]),
+                annotations: MCP.Tool.Annotations(readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true)
+            ),
+            run: { call in
+                let request = try makeRequest(call)
+                return try await runJob(call, .upload(target: call.arguments.string("target")), request)
+            }
+        ),
+        ToolSpec(
+            tool: MCP.Tool(
                 name: "esclop_crop_pdf",
                 title: "Crop PDF pages",
                 description: """

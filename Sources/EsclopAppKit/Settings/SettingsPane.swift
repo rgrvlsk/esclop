@@ -7,7 +7,7 @@ import EsclopCore
 import Foundation
 
 public enum SettingsPane: String, CaseIterable, Identifiable, Hashable, Sendable {
-    case general, images, video, pdf, audio, clipboard, floatingResults, agents, advanced
+    case general, images, video, pdf, audio, clipboard, floatingResults, uploads, agents, advanced
 
     public var id: String { rawValue }
 
@@ -21,6 +21,7 @@ public enum SettingsPane: String, CaseIterable, Identifiable, Hashable, Sendable
         case .audio: return Strings.text("Audio")
         case .clipboard: return Strings.text("Clipboard")
         case .floatingResults: return Strings.text("Floating results")
+        case .uploads: return Strings.text("Uploads")
         case .agents: return Strings.text("Agents and MCP")
         case .advanced: return Strings.text("Advanced")
         }
@@ -31,7 +32,7 @@ public enum SettingsPane: String, CaseIterable, Identifiable, Hashable, Sendable
 
     static let english: [SettingsPane: String] = [
         .general: "General", .images: "Images", .video: "Video", .pdf: "PDF", .audio: "Audio", .clipboard: "Clipboard",
-        .floatingResults: "Floating results", .agents: "Agents and MCP", .advanced: "Advanced",
+        .floatingResults: "Floating results", .uploads: "Uploads", .agents: "Agents and MCP", .advanced: "Advanced",
     ]
 
     public var symbol: String {
@@ -43,6 +44,7 @@ public enum SettingsPane: String, CaseIterable, Identifiable, Hashable, Sendable
         case .audio: return "waveform"
         case .clipboard: return "doc.on.clipboard"
         case .floatingResults: return "rectangle.stack"
+        case .uploads: return "icloud.and.arrow.up"
         case .agents: return "sparkles"
         case .advanced: return "slider.horizontal.3"
         }
@@ -58,6 +60,7 @@ public enum SettingsPane: String, CaseIterable, Identifiable, Hashable, Sendable
         case .audio: return [.audio]
         case .clipboard: return [.clipboard]
         case .floatingResults: return [.interface]
+        case .uploads: return [.uploads]
         case .agents: return [.agents]
         case .advanced: return [.automation]
         }
@@ -110,7 +113,7 @@ public enum SettingsPane: String, CaseIterable, Identifiable, Hashable, Sendable
         case .pdf: return sections.count > 1 ? Strings.text("PDF") : nil
         case .audio: return sections.count > 1 ? Strings.text("Audio") : nil
         case .clipboard: return sections.count > 1 ? Strings.text("Clipboard") : nil
-
+        case .uploads: return nil
         }
     }
 }

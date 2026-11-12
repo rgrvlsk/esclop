@@ -89,6 +89,9 @@ public enum JobOperation: Codable, Hashable, Sendable {
     case cropPDF(PDFCropSpec)
     /// Removes a crop box set by `cropPDF`.
     case uncropPDF
+    /// Uploads the file to an upload target (by name; nil: the default one) and returns its link.
+    /// Only the app can: the credentials are in its Keychain.
+    case upload(target: String?)
 
     public var name: String {
         switch self {
@@ -101,6 +104,7 @@ public enum JobOperation: Codable, Hashable, Sendable {
         case .pipeline: return "pipeline"
         case .cropPDF: return "crop-pdf"
         case .uncropPDF: return "uncrop-pdf"
+        case .upload: return "upload"
         }
     }
 }

@@ -219,6 +219,8 @@ public struct ResultSummary: Codable, Sendable, Hashable {
     public var seconds: Double
     public var steps: [String]
     public var finishedAt: Date
+    /// The public link of an uploaded file.
+    public var link: String?
 
     public init(_ result: OptimisationResult) {
         id = result.id
@@ -233,6 +235,7 @@ public struct ResultSummary: Codable, Sendable, Hashable {
         width = result.width
         height = result.height
         duration = result.duration
+        link = result.link?.absoluteString
         seconds = (result.finishedAt.timeIntervalSince(result.startedAt) * 100).rounded() / 100
         steps = result.steps
         finishedAt = result.finishedAt
@@ -241,6 +244,7 @@ public struct ResultSummary: Codable, Sendable, Hashable {
     /// `photo.png 1.2 MB → 340 KB (−72%) → ~/Desktop/photo-optimised.png`
     public var line: String {
         let name = URL(fileURLWithPath: source).lastPathComponent
+        if let link { return "\(name) uploaded → \(link)" }
         let change = savedBytes >= 0 ? "−\(Self.percent(savedPercent))%" : "+\(Self.percent(-savedPercent))%"
         var text = "\(name) \(ByteSize.format(bytesBefore)) → \(ByteSize.format(bytesAfter)) (\(change))"
         if output != source { text += " → \(PathInput.abbreviate(output))" }

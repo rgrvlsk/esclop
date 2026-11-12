@@ -49,6 +49,8 @@ public final class AppModel {
     @ObservationIgnored let pasteboard: NSPasteboard
     @ObservationIgnored let reveal: ([URL]) -> Void
     @ObservationIgnored let gate: WorkGate
+    /// Uploads to the person's targets, with the keys from the Keychain (tests use memory).
+    @ObservationIgnored public var uploader: any FileUploading
     @ObservationIgnored var restoredIDs = Set<UUID>()
     @ObservationIgnored var onCardsChange: (() -> Void)?
     /// Replaces the auto-hide delays from the settings (tests).
@@ -75,6 +77,7 @@ public final class AppModel {
         self.pasteboard = pasteboard
         self.gate = gate
         self.reveal = reveal
+        uploader = AppUploader(settings: settings)
         factory = RequestFactory(settings: settings)
         paused = EsclopSettings.pauseAutomaticOptimisations.value(in: settings)
         recent = service.results.recent(limit: Self.recentLimit)
@@ -256,11 +259,17 @@ public final class AppModel {
     func executor(for origin: RequestOrigin) -> JobExecutor {
         let context = service.context
         let policy = AgentPolicy(origin: origin, permissions: context.settings)
+        // Agents upload only when the person allows it; the policy refuses before this, and an
+        // executor without an uploader cannot upload anyway.
+        let uploader: (any FileUploading)? = policy.allowed(.allowUploads) ? uploader : nil
+        let host = uploader.map { uploader in
+            AppPipelineHost(uploader: uploader) { [weak self] link in await self?.copyLink(link) }
+        }
         let runner = StorePipelineRunner(
             store: context.pipelines, allowRunScripts: policy.allowed(.allowRunScripts),
-            allowDelete: policy.allowed(.allowOverwriteOriginals), temporaryDirectory: Paths.temporary
+            allowDelete: policy.allowed(.allowOverwriteOriginals), temporaryDirectory: Paths.temporary, host: host
         )
-        return JobExecutor(engine: context.engine, pipelineRunner: runner, backups: context.locations.backups)
+        return JobExecutor(engine: context.engine, pipelineRunner: runner, uploader: uploader, backups: context.locations.backups)
     }
 
     private func process(
@@ -314,6 +323,11 @@ public final class AppModel {
             row?.state = .done(result)
             // A batch is announced once, when it ends, not file by file.
             if row == nil { announce(CardPresentation.announcement(for: result)) }
+            if let link = result.link {
+                copyLink(link)
+            } else if let card, uploadsAutomatically(job) {
+                upload(card)
+            }
             onResult?(result)
         case let .failure(error):
             events(.failure(FileFailure(source: source, error: error)))
@@ -444,7 +458,10 @@ public final class AppModel {
             card.dwellAnchor = pointerLocation()
         case .pointerExited: card.machine.pointerExited(at: time)
         case .pointerEnteredButtons: card.machine.pointerEnteredButtons(at: time)
-        case .capsuleClicked: effect = card.machine.capsuleClicked(at: time)
+        case .capsuleClicked:
+            // A failed upload's capsule uploads again, as a failed job's runs it again.
+            if case .failed = card.upload { return upload(card, to: card.uploadTarget) }
+            effect = card.machine.capsuleClicked(at: time)
         case .openDetail: card.machine.openDetail(at: time)
         case .closeDetail: card.machine.closeDetail(at: time)
         case let .focus(value): card.machine.setFocused(value, at: time)
@@ -499,7 +516,7 @@ public final class AppModel {
         }
     }
 
-    private func afterChange(_ card: ResultCard) {
+    func afterChange(_ card: ResultCard) {
         // Never two details open at once.
         if card.machine.level == .detail {
             for other in cards where other.id != card.id && other.machine.level == .detail {
@@ -607,6 +624,14 @@ public final class AppModel {
             writeClipboard(files: [card.shownFile])
         case .dismiss:
             dismiss(card)
+        case .upload:
+            upload(card)
+        case .cancelUpload:
+            card.uploadTask?.cancel()
+        case .retryUpload:
+            upload(card, to: card.uploadTarget)
+        case .copyLink:
+            if let link = card.link { copyLink(link) }
         }
     }
 

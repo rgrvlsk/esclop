@@ -58,6 +58,8 @@ let everyStep: [PipelineStep] = [
     .shelveWith(app: "yoink"),
     .uploadWith(app: "dropshare"),
     .openWith(app: "Pixelmator Pro"),
+    .upload(target: "R2"),
+    .upload(),
 ]
 
 @Test(arguments: everyStep)

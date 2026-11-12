@@ -30,7 +30,8 @@ introduces the app. The CLI and the MCP server run their jobs through the app wh
 
 It compares a result with its original, offers Finder Quick Actions and Shortcuts actions, and
 updates itself when a new release is published. While files are dragged, preset zones beside the
-drop zone run a pipeline on them. Planned: uploads. The app is in English and Catalan.
+drop zone run a pipeline on them, and results can be uploaded to your own S3-compatible storage
+with the link copied. The app is in English and Catalan.
 See the [roadmap](docs/PLAN.md) and [architecture](docs/ARCHITECTURE.md).
 
 ## Build

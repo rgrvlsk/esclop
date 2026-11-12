@@ -110,7 +110,7 @@ func scratchStore() -> SettingsStore {
         let keys = SettingsRegistry.shared.keys
         #expect(Set(keys).count == keys.count)
         #expect(SettingsRegistry.shared.search("strip metadata").map(\.key).contains("stripMetadata"))
-        #expect(SettingsRegistry.shared.settings(in: .agents).count == 4)
+        #expect(SettingsRegistry.shared.settings(in: .agents).count == 5)
     }
 
     @Test func otherModulesCanRegisterSettings() throws {

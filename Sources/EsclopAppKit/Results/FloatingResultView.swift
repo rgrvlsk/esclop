@@ -210,7 +210,7 @@ public struct FloatingResultView: View {
                     Text(title).font(.callout.weight(.semibold)).foregroundStyle(.red)
                     // Whole sentences: the messages are written to fit, and never end in an ellipsis.
                     Text(message).font(.subheadline).lineLimit(4).fixedSize(horizontal: false, vertical: true)
-                    Text(Strings.text("Original kept · Try again")).font(.subheadline).foregroundStyle(.secondary)
+                    Text(info.errorFooter).font(.subheadline).foregroundStyle(.secondary)
                 }
                 .frame(width: Metrics.thumbnailWidth - 24, alignment: .leading)
                 .padding(.horizontal, 12)
