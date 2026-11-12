@@ -148,6 +148,8 @@ struct ProtoIconButton: View {
 /// Keys as key caps: "⌃" "⇧" "C".
 struct ProtoKeys: View {
     let keys: [String]
+    /// A pinned ink, where the surface must not choose one.
+    var ink: Color?
     var body: some View {
         HStack(spacing: 3) {
             ForEach(keys, id: \.self) { key in
@@ -159,7 +161,7 @@ struct ProtoKeys: View {
                     .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.primary.opacity(0.12)))
             }
         }
-        .foregroundStyle(.secondary)
+        .foregroundStyle(ink.map { AnyShapeStyle($0) } ?? AnyShapeStyle(.secondary))
     }
 }
 

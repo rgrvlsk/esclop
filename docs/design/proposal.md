@@ -153,7 +153,9 @@ Compare, Options…. Esc, the close button or a click outside closes it.
 A, `wood` in B); the right part, in `saving`, is what was saved. It is 6 pt tall everywhere, and
 is hidden from VoiceOver, which reads the figure.
 
-A notice (the pause hotkey) is a 34 pt capsule with a symbol, one line and the keys.
+A notice (the pause hotkey) is a 34 pt capsule with a symbol, one line and the keys. Ink on a
+floating surface is pinned to the appearance: the system's glass may not flip it to suit the
+desktop, because the backing already bounds the ground (`-on-white`, `-on-black`).
 
 ## Menu bar
 

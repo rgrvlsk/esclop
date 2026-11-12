@@ -31,13 +31,13 @@ import Testing
         try await ProtoRender.floating(sheet(hover: true), size: CGSize(width: 780, height: 680), name: "result-states-hover", scheme: scheme)
         try await ProtoRender.floating(ProtoResultCard(state: .done), size: CGSize(width: 300, height: 240), name: "result-busy", scheme: scheme, busy: true)
         let edges = HStack(spacing: 24) { ProtoResultCard(state: .done); ProtoNotice() }
-        try await ProtoRender.floating(edges, size: CGSize(width: 560, height: 240), name: "result-on-white", scheme: scheme, flat: .white)
-        try await ProtoRender.floating(edges, size: CGSize(width: 560, height: 240), name: "result-on-black", scheme: scheme, flat: .black)
+        try await ProtoRender.floating(edges, size: CGSize(width: 640, height: 240), name: "result-on-white", scheme: scheme, flat: .white)
+        try await ProtoRender.floating(edges, size: CGSize(width: 640, height: 240), name: "result-on-black", scheme: scheme, flat: .black)
         try await ProtoRender.floating(ProtoStack(), size: CGSize(width: 300, height: 620), name: "result-stack", scheme: scheme, alignment: .bottomTrailing)
         try await ProtoRender.floating(ProtoStackWithFailures(), size: CGSize(width: 300, height: 620), name: "result-stack-failures", scheme: scheme, alignment: .bottomTrailing)
-        try await ProtoRender.floating(edges, size: CGSize(width: 560, height: 240), name: "result-on-busy", scheme: scheme, busy: true)
+        try await ProtoRender.floating(edges, size: CGSize(width: 640, height: 240), name: "result-on-busy", scheme: scheme, busy: true)
         try await ProtoRender.floating(ProtoStackWithDetail(), size: CGSize(width: 400, height: 620), name: "result-detail", scheme: scheme, alignment: .bottomTrailing)
-        try await ProtoRender.floating(ProtoNotice(), size: CGSize(width: 360, height: 110), name: "result-notice", scheme: scheme)
+        try await ProtoRender.floating(ProtoNotice(), size: CGSize(width: 420, height: 110), name: "result-notice", scheme: scheme)
     }
 
     @Test(arguments: schemes)

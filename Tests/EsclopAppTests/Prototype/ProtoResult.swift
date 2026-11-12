@@ -225,11 +225,16 @@ struct ProtoDetailCard: View {
 
 /// A message with no file: the pause hotkey.
 struct ProtoNotice: View {
+    @Environment(\.colorScheme) private var scheme
+
     var body: some View {
+        // Small glass lets the system flip its content to suit what is behind it. The ink is
+        // pinned to the appearance instead, since the backing already bounds the ground.
+        let ink = scheme == .dark ? Color.white : Color.black
         HStack(spacing: 8) {
-            Image(systemName: "forward.end.fill").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
-            Text("Skipping the next copy").font(.system(size: 12, weight: .medium))
-            ProtoKeys(keys: ["⌃", "⇧", "P"])
+            Image(systemName: "forward.end.fill").font(.system(size: 11, weight: .semibold)).foregroundStyle(ink.opacity(0.62))
+            Text("The next copy won’t be optimised").font(.system(size: 12, weight: .medium)).foregroundStyle(ink.opacity(0.9))
+            ProtoKeys(keys: ["⌃", "⇧", "P"], ink: ink.opacity(0.62))
         }
         .padding(.horizontal, 12)
         .frame(height: Proto.footerHeight)
