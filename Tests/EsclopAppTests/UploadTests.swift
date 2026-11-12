@@ -186,7 +186,7 @@ struct S3TestServer {
         let server = try await S3TestServer.start()
         defer { server.stop() }
         let harness = harness(server)
-        var job = harness.job(harness.temp.file("cli.png"), origin: .cli)
+        var job = harness.job(harness.temp.png("cli.png"), origin: .cli)
         job.operation = .upload(target: "Local")
         let report = await harness.model.run(job)
         let link = try #require(report.results.first?.link)
@@ -206,7 +206,7 @@ struct S3TestServer {
         defer { server.stop() }
         let harness = harness(server)
         try harness.model.service.context.pipelines.save(PipelineParser.parse("upload(to: \"Local\")", name: "Share"))
-        var job = harness.job(harness.temp.file("p.png"))
+        var job = harness.job(harness.temp.png("p.png"))
         job.operation = .pipeline("Share")
         let report = await harness.model.run(job)
         let result = try #require(report.results.first)
@@ -242,7 +242,9 @@ struct S3TestServer {
     }
 
     /// With uploads allowed, an agent still uploads only media: not a text file, not a file with
-    /// no extension (a key), not a link named like a photo that points at one. The person can.
+    /// no extension (a key), not a key or text renamed to a media extension, not an empty file,
+    /// not a link named like a photo that points at one. A PNG named .jpg is media. The person
+    /// uploads what they like.
     @Test func agentsUploadOnlyImagesVideosPDFsAndAudio() async throws {
         let settings = TestSettings()
         try EsclopSettings.allowUploads.set(true, in: settings.store)
@@ -254,14 +256,24 @@ struct S3TestServer {
         func job(_ file: URL, origin: RequestOrigin = .mcp) -> OptimisationJob {
             OptimisationJob(request: OptimisationRequest(sources: [file], origin: origin), operation: .upload(target: nil))
         }
-        for file in [temp.file("notes.txt"), key, disguised] {
+        let renamed = temp.url.appendingPathComponent("renamed.png")
+        try FileManager.default.createSymbolicLink(at: renamed, withDestinationURL: temp.file("id_ed25519.png"))
+        let pretenders = ["png", "mp4", "pdf", "mp3", "svg"].map { temp.file("key.\($0)") } + ["png", "mp4", "pdf", "mp3", "svg"].map { ext in
+            let url = temp.url.appendingPathComponent("notes.\(ext)")
+            try? "Notes, not media\n".write(to: url, atomically: true, encoding: .utf8)
+            return url
+        }
+        let empty = temp.url.appendingPathComponent("empty.png")
+        FileManager.default.createFile(atPath: empty.path, contents: Data())
+        for file in [temp.file("notes.txt"), key, disguised, renamed, empty] + pretenders {
             #expect(throws: EsclopError.self, "\(file.lastPathComponent) is refused") { try policy.check(job(file)) }
             do { try policy.check(job(file)) } catch let error as EsclopError {
                 guard case let .notPermitted(message) = error else { Issue.record("not notPermitted: \(error)"); continue }
                 #expect(message.contains("only images, videos, PDFs and audio"))
             }
         }
-        try policy.check(job(temp.file("photo.png")))
+        try policy.check(job(temp.png("photo.png")))
+        try policy.check(job(temp.png("really-a-png.jpg")))
         // The person's own uploads are not an agent's.
         try AgentPolicy(origin: .cli, permissions: RegistrySettingsProvider(store: settings.store)).check(job(key, origin: .cli))
         // The app applies the same rule to what an agent sends it.
