@@ -7,7 +7,13 @@ into the body of its GitHub release.
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+- The PDF engine is now a library of its own, `esclop-pdf` (`engine/crates/esclop-pdf`),
+  licensed MPL-2.0 so other programs can use it; L'Esclop's output is unchanged. It is fuzzed
+  (the whole rewrite, the loader, the font subsetters and inline images), which found three
+  problems, now fixed: a font whose `loca` table claims gigabytes made the font subsetter
+  allocate them, a crafted CFF font overflowed an offset, and a malformed TrueType font made
+  the subsetting library panic (that font is now kept whole).
 
 ## [0.1.1] - 2026-11-12
 

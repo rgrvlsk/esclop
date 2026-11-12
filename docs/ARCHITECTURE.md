@@ -45,7 +45,8 @@ pixel work happens in `esclop-engine` (Rust) or in system frameworks:
 - Video: ffmpeg built without x264/x265, using `h264_videotoolbox`/`hevc_videotoolbox`,
   `libsvtav1`, `libvpx`; speed, mute, cap fps, lower bitrate. Fit-under-size searches bitrate
   and resolution with VideoToolbox and falls back to AV1 when needed.
-- PDF: esclop-engine's `pdf.optimise` (images recompressed and downsampled at adaptive DPI stops
+- PDF: esclop-engine's `pdf.optimise`, which is the `esclop-pdf` crate (MPL-2.0) behind the
+  engine protocol (images recompressed and downsampled at adaptive DPI stops
   300, 250, 200, 150, 100, 72, 48, fonts subset, streams recompressed, encryption kept; files it
   cannot rewrite faithfully are refused); crop-pdf and uncrop; extract pages as images.
 - Audio: ffmpeg with `aac_at`, libopus, libmp3lame; cover art compression, loudness

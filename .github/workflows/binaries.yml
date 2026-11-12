@@ -67,6 +67,47 @@ jobs:
         working-directory: engine
         run: cargo test --locked
 
+  # The esclop-pdf crate on its own: the minimum Rust version it states, and its fuzz targets
+  # built and run briefly (the long campaigns run locally; see its README). Seeds are the inputs
+  # fuzzing found problems with.
+  pdf-crate:
+    name: esclop-pdf (MSRV 1.92, fuzz smoke)
+    # Not on release builds (`tool-sources`), which only package what CI already checked.
+    if: ${{ !inputs.tool-sources }}
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Rust toolchains (1.92, nightly for cargo-fuzz)
+        run: |
+          rustup toolchain install 1.92 --profile minimal
+          rustup toolchain install nightly --profile minimal
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: |
+            engine -> target
+            engine/crates/esclop-pdf/fuzz -> target
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@b80e2bb2635f28eb98b9fce1e2f0887e1535c6b2 # v2.90.0
+        with:
+          tool: cargo-fuzz
+      - name: cargo +1.92 check -p esclop-pdf
+        working-directory: engine
+        run: cargo +1.92 check --locked -p esclop-pdf --lib
+      - name: fuzz targets, 20 s each
+        working-directory: engine/crates/esclop-pdf
+        run: |
+          cargo +nightly fuzz build --sanitizer none --debug-assertions
+          for t in optimise load cff font inline; do
+            mkdir -p "fuzz/corpus/$t"
+            seeds=fuzz/regressions/$t; [ -d "$seeds" ] || seeds=
+            RAYON_NUM_THREADS=1 cargo +nightly fuzz run --sanitizer none --debug-assertions "$t" "fuzz/corpus/$t" $seeds -- \
+              -max_total_time=20 -timeout=30 -rss_limit_mb=1024 -max_len=1048576 &
+          done
+          wait_all=0
+          for job in $(jobs -p); do wait "$job" || wait_all=1; done
+          exit $wait_all
+
   engine:
     name: esclop-engine (arm64 + x86_64)
     runs-on: macos-15

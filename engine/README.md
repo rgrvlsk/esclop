@@ -16,6 +16,7 @@ separate process, so a file that crashes a decoder never takes the app down. It 
 | AVIF, optional (`avif-rav1e`) | `ravif` / `rav1e` (Rust) | BSD-3/BSD-2 |
 | resize | `fast_image_resize` (SIMD) | MIT/Apache-2.0 |
 | GIF frames to GIF | `gifski` | AGPL-3.0-or-later |
+| PDF (`pdf.optimise`) | `esclop-pdf` ([`crates/esclop-pdf`](crates/esclop-pdf), this repository's PDF compressor as a library: lopdf, skera, fontations, hayro-jpeg2000, mozjpeg) | MPL-2.0 |
 | GIF optimise | gifsicle, run as a separate process when present; otherwise built in | gifsicle GPL-2.0-only (never linked) |
 
 Metadata (JPEG segments, PNG chunks, WebP RIFF, GIF blocks, EXIF orientation) is handled by
