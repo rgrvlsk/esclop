@@ -1,20 +1,18 @@
 # Visual targets
 
-Generated mockups, one or two per build PR, for the look the build should reach: the weight of
-the saving figure, capsule buttons, small icon-and-value tiles, one shared material, spacing.
-They borrow the visual language of public UI work by @uiuxjosh on X, applied to our own surfaces.
+Generated mockups of the look the build should reach, one or more per build PR. They borrow the
+visual language of public UI work by @uiuxjosh on X, applied to our own surfaces, and were
+refined by a design council (craft, spec, spark) over three rounds against `../proposal.md`.
 
 They are targets for the look, not specs. Where one disagrees with `../proposal.md`, the proposal
-wins. Known disagreements:
+wins. Pictures, filenames, dates and sizes are filler. Known disagreements:
 
-- **All:** dates, filenames and pictures are filler. The generator drew the figure in a bold
-  sans; the proposal's SF Pro Compressed stands.
-- **pr2-result-card-dark:** the footer puts the size left and the figure right; the figure goes
-  left, as in pr2-result-card.
-- **pr4-options-popover:** the same footer swap on the card.
-- **pr5-drop-zone:** the tiles' sizes and the "71 %" are invented; tiles carry no figures.
-- **pr6-batch:** status chips are tinted green; only the saving is green, so chips stay neutral.
-  Queued rows show no sizes yet.
-- **pr7-settings-compression:** the three average tiles with green figures are not part of the
-  design (one green figure per surface, none in Settings).
-- **pr9-pipeline-editor:** the per-kind tints on step cards are not part of the design.
+- **All:** the generator only approximates SF Pro Compressed; the proposal's type and the
+  `saving` teal (#176B59 light, #63D6B8 dark) stand.
+- **pr2-result-card-dark-stack:** the light desktop behind the dark card is wrong; the amber
+  stroke is over-saturated.
+- **pr3-glyph-states:** the clog shapes are placeholders; draw the three glyph vectors as the
+  proposal's Menu bar section says.
+- **pr4-options-popover:** the saving figure appears twice (popover header and card); one
+  figure per surface, so the popover header shows sizes only.
+- **pr2-failed-not-uploaded:** the Finder thumbnail strip under the failed card is filler.
