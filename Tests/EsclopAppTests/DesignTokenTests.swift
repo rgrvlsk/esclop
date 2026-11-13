@@ -30,11 +30,54 @@ import Testing
     @Test func inkIsPinnedAndRisesUnderIncreaseContrast() {
         #expect(Ink.text.opacity(dark: false) == 0.88)
         #expect(Ink.text.opacity(dark: true) == 0.92)
-        #expect(Ink.text.opacity(dark: true, increasedContrast: true) == 0.92)
-        #expect(Ink.secondary.opacity(dark: false) == 0.62)
-        #expect(Ink.secondary.opacity(dark: false, increasedContrast: true) == 0.80)
-        #expect(Ink.secondary.opacity(dark: true, increasedContrast: true) == 0.80)
+        #expect(Ink.secondary.hex(dark: false) == 0x625C56)
+        #expect(Ink.secondary.hex(dark: true) == 0xB9AFA5)
+        // Under Increase Contrast secondary moves away from the surface.
+        let cream = (light: RGBA(0xF6F0E8), dark: RGBA(0x2B2521))
+        #expect(RGBA.contrast(RGBA(Ink.secondary.hex(dark: false, increasedContrast: true)), cream.light) > RGBA.contrast(RGBA(Ink.secondary.hex(dark: false)), cream.light))
+        #expect(RGBA.contrast(RGBA(Ink.secondary.hex(dark: true, increasedContrast: true)), cream.dark) > RGBA.contrast(RGBA(Ink.secondary.hex(dark: true)), cream.dark))
         #expect([NeutralFill.resting, NeutralFill.button, NeutralFill.pressed].map { $0.opacity(dark: false) } == [0.06, 0.14, 0.20])
+    }
+
+    /// The app's accent colour, compiled into the bundle for `NSAccentColorName`, is the charcoal
+    /// token: switches, checkboxes and default buttons are never the system blue.
+    @Test func theAccentColourIsCharcoal() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let data = try Data(contentsOf: root.appendingPathComponent("assets/Accent.xcassets/AccentColor.colorset/Contents.json"))
+        struct Catalog: Decodable {
+            struct Entry: Decodable {
+                struct Appearance: Decodable { var value: String }
+                struct Value: Decodable { var components: [String: String] }
+                var appearances: [Appearance]?
+                var color: Value
+            }
+            var colors: [Entry]
+        }
+        func hex(_ entry: Catalog.Entry) -> UInt32 {
+            ["red", "green", "blue"].reduce(0) { $0 << 8 | UInt32(entry.color.components[$1]!.dropFirst(2), radix: 16)! }
+        }
+        let colors = try JSONDecoder().decode(Catalog.self, from: data).colors
+        let light = try #require(colors.first { $0.appearances == nil })
+        let dark = try #require(colors.first { $0.appearances?.first?.value == "dark" })
+        let token = NSColor(Ink.charcoal)
+        for (entry, appearance) in [(light, NSAppearance.Name.aqua), (dark, .darkAqua)] {
+            var resolved = RGBA(0)
+            NSAppearance(named: appearance)!.performAsCurrentDrawingAppearance {
+                let c = token.usingColorSpace(.sRGB)!
+                resolved = RGBA(UInt32((c.redComponent * 255).rounded()) << 16 | UInt32((c.greenComponent * 255).rounded()) << 8 | UInt32((c.blueComponent * 255).rounded()))
+            }
+            #expect(resolved == RGBA(hex(entry)), "\(appearance.rawValue)")
+        }
+        let plist = try String(contentsOf: root.appendingPathComponent("Scripts/templates/Info.plist.in"), encoding: .utf8)
+        #expect(plist.contains("<key>NSAccentColorName</key>\n\t<string>AccentColor</string>"))
+    }
+
+    @Test func theGaugeRunsFromTheOriginalToTheNewSize() {
+        #expect(SavingGauge.dotAngle(saved: 0, shape: .ring) == -90)
+        #expect(SavingGauge.dotAngle(saved: 0.75, shape: .ring) == 180)
+        #expect(SavingGauge.dotAngle(saved: 2, shape: .ring) == 270, "clamped")
+        #expect(SavingGauge.dotAngle(saved: 0, shape: .arc) == 200)
+        #expect(SavingGauge.dotAngle(saved: 1, shape: .arc) == 340)
     }
 
     @Test func radiiAreConcentric() {
@@ -44,9 +87,9 @@ import Testing
         #expect(Spacing.hit >= 28)
     }
 
-    /// White text on a lit tile holds 4.5:1 in both appearances: the fill is one colour.
-    @Test func litTilesHoldWhiteText() {
-        for fill in [RGBA(0x0A60D8), RGBA(0x8F5510)] {
+    /// White on charcoal, in both appearances.
+    @Test func charcoalHoldsWhiteText() {
+        for fill in [RGBA(0x36322E), RGBA(0x7A7068)] {
             #expect(RGBA.contrast(.white, fill) >= 4.5)
         }
     }
