@@ -34,6 +34,9 @@ public struct CardPresentation: Equatable, Sendable {
         case copyLink
         /// Runs the file again from its original, keeping its metadata.
         case keepMetadata
+        /// Saves a copied image to Downloads in one click.
+        case save
+        case saveAs
 
         /// The label on a button in the detail card.
         public var title: String {
@@ -56,6 +59,16 @@ public struct CardPresentation: Equatable, Sendable {
             case .retryUpload: return Strings.text("Upload Again")
             case .copyLink: return Strings.text("Copy Link")
             case .keepMetadata: return Strings.text("Restore")
+            case .save: return Strings.text("Save")
+            case .saveAs: return Strings.text("Save as…")
+            }
+        }
+
+        /// The word under a round button in the detail: short, since three share a row.
+        public var caption: String {
+            switch self {
+            case .reveal: return "Finder"
+            default: return title
             }
         }
 
@@ -66,6 +79,7 @@ public struct CardPresentation: Equatable, Sendable {
             case .copy: return Strings.text("Copy the file")
             case .compare: return Strings.text("Compare the original and the optimised file")
             case .keepMetadata: return Strings.text("Restore the removed metadata")
+            case .save: return Strings.text("Save to Downloads")
             default: return title
 
             }
@@ -88,6 +102,7 @@ public struct CardPresentation: Equatable, Sendable {
             case .cancelUpload: return "xmark.circle"
             case .copyLink: return "link"
             case .keepMetadata: return "arrow.uturn.backward.circle"
+            case .save, .saveAs: return "square.and.arrow.down"
             }
         }
     }
@@ -290,16 +305,18 @@ public struct CardPresentation: Equatable, Sendable {
     }
 
     /// The detail's actions, 1 + 2 + "…" (docs/design/targets/README.md › Detail card). A copied
-    /// screenshot goes back to the clipboard; any other file is shown in Finder, with Copy beside
-    /// it. Undo while a backup exists. Everything else is in "…", ending with the options.
+    /// screenshot goes back to the clipboard, with Save beside it (Show in Finder once saved); any
+    /// other file is shown in Finder, with Copy beside it. Undo while a backup exists. Everything
+    /// else is in "…", ending with Save As and the options.
     @MainActor private static func detail(
         _ card: ResultCard, undo: Bool, menu rest: [Action], t: (String) -> String
     ) -> (Action?, String?, [Action], [Action]) {
         let clipboard = card.origin == .clipboard
         let detail = clipboard
-            ? t("Put it back on the clipboard")
+            ? t("To the clipboard")
             : FileManager.default.displayName(atPath: card.shownFile.deletingLastPathComponent().path)
-        return (clipboard ? .copy : .reveal, detail, (clipboard ? [] : [.copy]) + (undo ? [.undo] : []), rest + [.more])
+        let beside: Action = clipboard ? (card.savedCopy == nil ? .save : .reveal) : .copy
+        return (clipboard ? .copy : .reveal, detail, [beside] + (undo ? [.undo] : []), rest + [.saveAs, .more])
     }
 
     /// "Location, camera, date": the kinds in a sentence, the first capitalised.

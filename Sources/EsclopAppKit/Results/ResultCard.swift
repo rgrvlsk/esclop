@@ -52,6 +52,8 @@ public final class ResultCard: Identifiable {
     public var appliedRule: ClipboardRule?
     /// Which tab the options popover opens on (Crop opens Size).
     public var optionsTab: OptionsTab = .optimise
+    /// Where Save put a copy of a copied image; Show in Finder shows it from then on.
+    public var savedCopy: URL?
     /// What optimising took from the picture's metadata, worked out when the detail opens
     /// (`RemovedMetadata`). Empty until then, and for anything but a picture.
     public var removedMetadata: [MetadataKind] = []

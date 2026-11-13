@@ -141,7 +141,7 @@ struct DetailActions: View {
             ForEach(info.secondary, id: \.self) { action in
                 VStack(spacing: 4) {
                     PillButton(action: action, size: Self.round, perform: perform)
-                    Text(action.title.uppercased(with: Strings.locale))
+                    Text(action.caption.uppercased(with: Strings.locale))
                         .font(Typeface.section)
                         .tracking(0.5)
                         .foregroundStyle(Ink.secondary)
