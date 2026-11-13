@@ -118,16 +118,17 @@ holds the rest, in folders by feature:
   writes and nspasteboard.org transient types, ignored apps, pause, and per-kind settings.
   Copied pixels are saved to a temporary file, optimised in place (the backup is the original)
   and put back on the clipboard.
-- `Results`: the floating result (DESIGN.md). `ResultCard` is one result's model;
-  `FloatingResultMachine` is its state as a value (thumbnail or detail level, hover buttons,
-  the activity capsule, the 600 ms dwell, auto-hide paused while hovered, focused, dragged or
-  open), driven by a clock passed in, so tests run it on a fixed one. `CardPresentation` holds
-  the copy and figures (`Figures`: "612 kB · −75 %"), `JobEstimate` the expected duration
-  (bytes, or frames for video via AVFoundation) behind the two-second activity rule.
-  `FloatingResultView` draws the glass thumbnail, capsule, hover buttons and activity capsule,
-  `DetailCard` the 320 pt card with the before/after comparison. Glass is Liquid Glass on
-  macOS 26 (one `GlassEffectContainer` per result, shared glass IDs so levels morph), the HUD
-  material before, opaque under Reduce Transparency. `FloatingPanelController` is a
+- `Results`: the floating result (docs/design/targets). `ResultCard` is one result's model;
+  `FloatingResultMachine` is its state as a value (card or detail level, hover buttons, the
+  600 ms dwell, auto-hide paused while hovered, focused, dragged or open), driven by a clock
+  passed in, so tests run it on a fixed one. `CardPresentation` holds the copy and figures
+  (`Figures`: "612 kB · −75 %") and the card's buttons, chosen by where the file came from;
+  `JobEstimate` the expected duration (bytes, or frames for video via AVFoundation) behind the
+  time left. `FloatingResultView` takes the keys and VoiceOver's actions and shows `CardFace`
+  (the picture over a footer on the cream surface: the saving ring, the aqua tint and straight
+  bar of work in progress, the amber of a failure; the buttons over the picture on hover; the
+  `PointerGlow` halo in the picture's tone) or `DetailCard`, the 320 pt card with the
+  before/after comparison. `FloatingPanelController` is a
   non-activating `NSPanel` at the chosen corner of the screen with the pointer; it grows at
   once and shrinks after animations, and a two-finger swipe toward the edge dismisses.
 - `Batch`: jobs with `batchWindowFrom` files or more (four by default) get a `Batch` instead of
