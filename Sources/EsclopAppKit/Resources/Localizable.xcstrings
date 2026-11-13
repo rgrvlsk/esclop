@@ -5321,16 +5321,6 @@
         }
       }
     },
-    "Put it back on the clipboard": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Torna’l al porta-retalls"
-          }
-        }
-      }
-    },
     "Put on a shelf": {
       "localizations": {
         "ca": {
@@ -6061,6 +6051,16 @@
         }
       }
     },
+    "Save to Downloads": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desa a Baixades"
+          }
+        }
+      }
+    },
     "Saved in the Keychain": {
       "localizations": {
         "ca": {
@@ -6077,6 +6077,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pipeline desat"
+          }
+        }
+      }
+    },
+    "Saved to Downloads": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’ha desat a Baixades"
           }
         }
       }
@@ -7337,6 +7347,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Per trobar les imatges que copies. El macOS pot preguntar abans que L’Esclop el llegeixi; tria Permet sempre a Privadesa i seguretat → Enganxar des d’altres apps perquè no pregunti cada vegada."
+          }
+        }
+      }
+    },
+    "To the clipboard": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Al porta-retalls"
           }
         }
       }

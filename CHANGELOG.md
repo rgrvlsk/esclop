@@ -10,6 +10,8 @@ into the body of its GitHub release.
 ### Added
 - The detail says what optimising removed from a photo's metadata (location, camera, date) and
   offers Restore, which runs the file again from its original and keeps the metadata.
+- Save for a copied screenshot: one click puts it in Downloads as "Copied image" with the date
+  and time, and the button then shows it in Finder. "Save as…" is in the detail's "…".
 
 ### Changed
 - The floating result is a cream card: the picture over a footer with the saving's ring, the

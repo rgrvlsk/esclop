@@ -58,6 +58,8 @@ public final class AppModel {
     @ObservationIgnored public var loadsThumbnails = true
     /// The clock the floating results run on (tests move it by hand).
     @ObservationIgnored public var now: () -> Date = Date.init
+    /// Where Save puts a copied image (tests point it elsewhere).
+    @ObservationIgnored public var downloads: () -> URL = { FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0] }
     /// Announces results to VoiceOver; tests record them instead.
     @ObservationIgnored public var announce: (String) -> Void = AppModel.postAnnouncement
     /// The app in front when a copy happens: one of the origin signals. Tests set it.
@@ -591,7 +593,7 @@ public final class AppModel {
         case .retry:
             card.retry?()
         case .reveal:
-            reveal([card.shownFile])
+            reveal([card.savedCopy ?? card.shownFile])
         case .copy:
             writeClipboard(files: [card.shownFile])
         case .dismiss, .stop:
@@ -604,6 +606,10 @@ public final class AppModel {
             upload(card, to: card.uploadTarget)
         case .copyLink:
             if let link = card.link { copyLink(link) }
+        case .save:
+            save(card)
+        case .saveAs:
+            saveAs(card)
         case .keepMetadata:
             // From the original again, the same choice, the metadata kept.
             var choice = card.choice
