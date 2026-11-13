@@ -14,6 +14,11 @@ into the body of its GitHub release.
   round buttons lie over the picture (Copy for a copied screenshot, Show in Finder for a file,
   then Undo and "…") with a close button in its corner, and the card glows in the picture's
   tone. The activity capsule beside long jobs is gone.
+- The detail opens on a click, Return or Space, never because the pointer rested on the card.
+  It shows the picture, the name with format and dimensions, the saving at a larger size, and
+  the actions as one charcoal button (Show in Finder with the folder, or Copy for a copied
+  screenshot), up to two round buttons (Copy, Undo) and "…" for the rest. The before/after
+  slider moves to the Compare window, in "…".
 
 ### Removed
 - The `hoverButtons` setting and "Customise buttons…": the card's buttons now follow where the

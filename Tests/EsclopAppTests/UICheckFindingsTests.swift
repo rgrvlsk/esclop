@@ -58,7 +58,7 @@ import UniformTypeIdentifiers
         let info = CardPresentation(card: flat, locale: en)
         #expect(info.capsule == .status(symbol: "checkmark", text: "Already optimised · 379\u{00A0}kB"))
         #expect(info.tone == .neutral)
-        #expect(info.percent == nil)
+        #expect(info.headline == "Already optimised", "the detail shows the same footer, so no figure there either")
         #expect(CardPresentation.announcement(for: renders.saved(before: 379_000, after: 378_990), locale: en) == "Already optimised · 379\u{00A0}kB")
         // A real saving, however small, still shows.
         let small = CardPresentation(card: renders.card(.done(renders.saved(before: 100_000, after: 99_000))), locale: en)

@@ -38,7 +38,7 @@ public struct FloatingResultView: View {
             if case .notice = card.phase {
                 NoticeCapsule(info: info)
             } else if card.machine.level == .detail {
-                DetailCard(card: card, info: info, perform: perform)
+                DetailCard(card: card, info: info, corner: corner, perform: perform, interact: interact)
                     .transition(reduceMotion ? .opacity : .scale(scale: 0.62, anchor: anchor).combined(with: .opacity))
             } else {
                 CardFace(
@@ -84,10 +84,12 @@ public struct FloatingResultView: View {
     }
 
     /// The named actions for the level shown: an open detail offers "Hide details" in place of
-    /// "Show details", so VoiceOver can close it without Esc.
+    /// "Show details", so VoiceOver can close it without Esc, and everything its buttons and its
+    /// "…" menu do.
     static func actions(_ info: CardPresentation, level: FloatingResultMachine.Level) -> [CardPresentation.Action] {
         guard level == .detail else { return info.actions }
-        return info.actions.map { $0 == .openDetail ? .closeDetail : $0 }
+        let shown = info.actions.map { $0 == .openDetail ? .closeDetail : $0 }
+        return CardPresentation.distinct(shown + [info.primary].compactMap { $0 } + info.secondary + info.menu)
     }
 
     private var anchor: UnitPoint {
@@ -113,14 +115,7 @@ struct Picture: View {
     let card: ResultCard
     let width: CGFloat
     let radius: CGFloat
-    var image: NSImage?
-
-    init(card: ResultCard, width: CGFloat, radius: CGFloat, image: NSImage? = nil) {
-        self.card = card
-        self.width = width
-        self.radius = radius
-        self.image = image
-    }
+    var heights: ClosedRange<CGFloat> = Picture.heights
 
     /// The card's picture keeps its aspect ratio within these heights.
     static let heights: ClosedRange<CGFloat> = 72...190
@@ -131,8 +126,8 @@ struct Picture: View {
     }
 
     var body: some View {
-        let picture = image ?? card.thumbnail
-        let height = Self.height(for: picture, width: width, range: Self.heights)
+        let picture = card.thumbnail
+        let height = Self.height(for: picture, width: width, range: heights)
         Group {
             if let picture {
                 Image(nsImage: picture).resizable().aspectRatio(contentMode: .fill)

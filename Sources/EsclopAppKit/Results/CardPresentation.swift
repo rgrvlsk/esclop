@@ -112,18 +112,22 @@ public struct CardPresentation: Equatable, Sendable {
     /// Every action, for the keyboard and VoiceOver.
     public var actions: [Action]
 
-    // The detail card
-    public var detailTitle: String
-    public var detailSymbol: String
+    // The detail card (docs/design/targets: pr2-detail-card)
+    /// "2.4 MB → 612 kB", or the one size when nothing changed.
     public var change: String
-    public var percent: String?
-    /// Where the deflate bar ends, as a fraction of the original size.
-    public var barEnd: Double
     /// "PNG → WebP"
     public var formats: String
     /// "2940 × 1912", or the duration for video and audio.
     public var dimensions: String?
-    public var detailActions: [Action]
+    /// The charcoal button: what the person most likely does next. The same choice as the card's
+    /// first round button.
+    public var primary: Action?
+    /// Under its title: the folder the file is in, or what Copy does.
+    public var primaryDetail: String?
+    /// Up to two round buttons beside it.
+    public var secondary: [Action]
+    /// What "…" lists: everything else.
+    public var menu: [Action]
 
     public var accessibilityLabel: String
 
@@ -138,14 +142,11 @@ public struct CardPresentation: Equatable, Sendable {
         progress = nil
         isWorking = false
         tools = []
-        detailTitle = ""
-        detailSymbol = "checkmark"
         change = Figures.bytes(card.bytesBefore, locale: locale)
-        percent = nil
-        barEnd = 1
         formats = Self.formatName(of: card.source)
         dimensions = nil
-        detailActions = []
+        secondary = []
+        menu = []
         let editing = Self.editingActions(for: card.source, kind: kind)
 
         switch card.phase {
@@ -176,16 +177,14 @@ public struct CardPresentation: Equatable, Sendable {
             let undo: [Action] = result.backup != nil ? [.undo] : []
             let resultEditing = Self.editingActions(for: result.output, kind: result.kind)
             tools = Self.tools(for: card.origin, undo: !undo.isEmpty)
-            let noSaving = Figures.isNoSaving(before: result.bytesBefore, after: result.bytesAfter)
-            detailTitle = noSaving ? t("Already optimised") : t("Optimised")
             change = Figures.change(before: result.bytesBefore, after: result.bytesAfter, locale: locale)
-            percent = noSaving ? nil : Figures.percent(before: result.bytesBefore, after: result.bytesAfter, locale: locale)
-            barEnd = result.bytesBefore > 0 ? min(1, max(0, Double(result.bytesAfter) / Double(result.bytesBefore))) : 1
-            formats = "\(Self.formatName(of: result.source)) → \(Self.formatName(of: result.output))"
+            formats = Self.formatName(of: result.source) == Self.formatName(of: result.output)
+                ? Self.formatName(of: result.output)
+                : "\(Self.formatName(of: result.source)) → \(Self.formatName(of: result.output))"
             dimensions = Self.dimensions(result)
             // Compare only when there is an original to compare with.
             let comparable = result.backup != nil || result.output.standardizedFileURL != result.source.standardizedFileURL
-            detailActions = undo + (comparable ? [.compare] : []) + resultEditing
+            (primary, primaryDetail, secondary, menu) = Self.detail(card, undo: !undo.isEmpty, menu: resultEditing + (comparable ? [.compare] : []), t: t)
 
             actions = Self.distinct([.openDetail] + tools + [.reveal, .copy, .dismiss])
             accessibilityLabel = "\(fileName), \(Self.announcement(for: result, locale: locale))"
@@ -195,9 +194,8 @@ public struct CardPresentation: Equatable, Sendable {
             caption = f("%@, left as it was", Figures.bytes(bytes, locale: locale))
             tone = .neutral
             tools = Self.tools(for: card.origin, undo: false)
-            detailTitle = t("Already optimised")
             change = f("Kept the original, %@", Figures.bytes(bytes, locale: locale))
-            detailActions = editing
+            (primary, primaryDetail, secondary, menu) = Self.detail(card, undo: false, menu: editing, t: t)
             actions = Self.distinct([.openDetail] + tools + [.reveal, .copy, .dismiss])
             accessibilityLabel = f("%@, already optimised, kept the original", name)
         case let .restored(result):
@@ -208,12 +206,10 @@ public struct CardPresentation: Equatable, Sendable {
             tone = .neutral
             let restoredEditing = Self.editingActions(for: result.source, kind: result.kind)
             tools = Self.tools(for: card.origin, undo: false)
-            detailTitle = t("Original restored")
-            detailSymbol = "arrow.uturn.backward"
             change = Figures.bytes(result.bytesBefore, locale: locale)
             formats = Self.formatName(of: result.source)
             dimensions = Self.dimensions(result)
-            detailActions = restoredEditing
+            (primary, primaryDetail, secondary, menu) = Self.detail(card, undo: false, menu: restoredEditing, t: t)
             actions = Self.distinct([.openDetail] + tools + [.reveal, .copy, .dismiss])
             accessibilityLabel = f("%@, original restored", fileName)
         case let .failed(message):
@@ -243,7 +239,7 @@ public struct CardPresentation: Equatable, Sendable {
             headline = f("Uploading… %d %%", Int((min(1, max(0, fraction)) * 100).rounded()))
             caption = name
             progress = min(1, max(0, fraction))
-            detailActions = [.cancelUpload] + detailActions
+            promote(.cancelUpload)
             actions = [.cancelUpload] + actions.filter { $0 != .dismiss } + [.dismiss]
             accessibilityLabel = f("%@, uploading", name)
         case .uploaded:
@@ -252,7 +248,7 @@ public struct CardPresentation: Equatable, Sendable {
             caption = name
             tone = .saving
             tools = [.copyLink, .more]
-            detailActions = [.copyLink] + detailActions
+            promote(.copyLink)
             actions = [.copyLink] + actions
             accessibilityLabel = f("%@, uploaded, the link is on the clipboard", name)
         case let .failed(message):
@@ -260,7 +256,7 @@ public struct CardPresentation: Equatable, Sendable {
             headline = t("Couldn’t upload")
             caption = message
             tone = .error
-            detailActions = [.retryUpload] + detailActions
+            promote(.retryUpload)
             actions = [.retryUpload] + actions
             accessibilityLabel = f("%@, not uploaded: %@ The file is kept.", name, message)
         case nil:
@@ -269,12 +265,33 @@ public struct CardPresentation: Equatable, Sendable {
                 headline = t("Link copied")
                 caption = name
                 tools = [.copyLink, .more]
-                detailActions = [.copyLink] + detailActions
+                promote(.copyLink)
                 actions = [.copyLink] + actions
                 // VoiceOver hears what the capsule shows, not the result under it.
                 accessibilityLabel = f("%@, uploaded, the link is on the clipboard", name)
             }
         }
+    }
+
+    /// The detail's actions, 1 + 2 + "…" (docs/design/targets/README.md › Detail card). A copied
+    /// screenshot goes back to the clipboard; any other file is shown in Finder, with Copy beside
+    /// it. Undo while a backup exists. Everything else is in "…", ending with the options.
+    @MainActor private static func detail(
+        _ card: ResultCard, undo: Bool, menu rest: [Action], t: (String) -> String
+    ) -> (Action?, String?, [Action], [Action]) {
+        let clipboard = card.origin == .clipboard
+        let detail = clipboard
+            ? t("Put it back on the clipboard")
+            : FileManager.default.displayName(atPath: card.shownFile.deletingLastPathComponent().path)
+        return (clipboard ? .copy : .reveal, detail, (clipboard ? [] : [.copy]) + (undo ? [.undo] : []), rest + [.more])
+    }
+
+    /// An upload's own action takes the detail's charcoal button; the one it replaces goes first
+    /// in "…".
+    private mutating func promote(_ action: Action) {
+        if let primary { menu.insert(primary, at: 0) }
+        primary = action
+        primaryDetail = nil
     }
 
     /// Convert, downscale and crop, where they apply to the file.
