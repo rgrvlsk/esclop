@@ -212,6 +212,10 @@ import Testing
         let working = open(card(.done(saved(beach)), source: beach, origin: .dropZone))
         working.phase = .working(fraction: 0.45)
         working.machine.restarted()
+        // A photo that lost its location, camera and date shows the "Removed" strip.
+        let stripped = open(card(.done(saved(beach)), source: beach, origin: .dropZone))
+        stripped.thumbnail = Self.sunset
+        stripped.removedMetadata = [.location, .camera, .date]
         // A tall and a wide picture are fitted whole, not cropped.
         let tall = open(card(.done(saved(beach)), source: beach, origin: .dropZone))
         tall.thumbnail = Self.framed(NSSize(width: 300, height: 600))
@@ -224,6 +228,7 @@ import Testing
             ("detail-already-optimised", open(card(.unchanged(bytes: 41_200), origin: .dropZone))),
             ("detail-uploading", uploading),
             ("detail-working", working),
+            ("detail-metadata", stripped),
             ("detail-tall", tall),
             ("detail-wide", wide),
         ]

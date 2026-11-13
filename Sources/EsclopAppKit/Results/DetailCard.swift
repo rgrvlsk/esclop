@@ -42,16 +42,88 @@ struct DetailCard: View {
             .padding(.horizontal, 6)
             .padding(.top, 10)
             CardFooter(card: card, info: info, perform: perform, large: true)
+            if !info.removedMetadata.isEmpty {
+                MetadataStrip(info: info, perform: perform).padding(.bottom, 8)
+            }
             DetailActions(info: info, perform: perform)
         }
         .padding(Metrics.detailPadding)
         .frame(width: Metrics.detailWidth)
         .floatingSurface(Metrics.detailRadius, fill: info.surface)
+        .task(id: card.result?.id) { await findRemovedMetadata() }
+    }
+
+    /// Reads the original's and the result's metadata off the main thread when a result shows.
+    private func findRemovedMetadata() async {
+        guard case let .done(result) = card.phase, let original = RemovedMetadata.original(of: result, origin: card.origin) else {
+            card.removedMetadata = []
+            return
+        }
+        let output = result.output
+        let removed = await Task.detached(priority: .utility) {
+            RemovedMetadata.between(original: original, output: output)
+        }.value
+        guard card.result?.id == result.id else { return }
+        card.removedMetadata = removed
     }
 
     /// "JPEG · 4032 × 3024", "PNG → WebP · 2880 × 1800".
     private var facts: String {
         [info.formats, info.dimensions].compactMap { $0 }.joined(separator: " · ")
+    }
+}
+
+/// What optimising took from the picture's metadata, and the way to keep it: "Removed", a
+/// symbol per kind, the kinds in words, Restore.
+struct MetadataStrip: View {
+    let info: CardPresentation
+    let perform: (CardPresentation.Action) -> Void
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(Strings.text("Removed").uppercased(with: Strings.locale))
+                .font(Typeface.caption.weight(.semibold))
+                .tracking(0.5)
+                .foregroundStyle(Ink.secondary)
+                .fixedSize()
+            // The symbols and the words when both fit; else the words, which say more; else the
+            // symbols, whose tooltips name them.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 6) { symbols; words }
+                words
+                symbols
+            }
+            Spacer(minLength: 4)
+            Button(CardPresentation.Action.keepMetadata.title) { perform(.keepMetadata) }
+                .font(Typeface.label.weight(.semibold))
+                .foregroundStyle(Ink.text)
+                .buttonStyle(.plain)
+                .fixedSize()
+                .help(CardPresentation.Action.keepMetadata.accessibilityName)
+        }
+        .padding(.leading, 10)
+        .padding(.trailing, 12)
+        .frame(minHeight: 36)
+        .background(Capsule().fill(NeutralFill.resting))
+    }
+
+    private var symbols: some View {
+        HStack(spacing: 4) {
+            ForEach(info.removedMetadata, id: \.self) { kind in
+                Image(systemName: kind.symbol)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Ink.text)
+                    .frame(width: 24, height: 24)
+                    .background(Circle().fill(Surface.cream))
+                    .overlay(Circle().strokeBorder(Ink.secondary.opacity(0.22), lineWidth: 0.5))
+            }
+        }
+        .fixedSize()
+        .help(info.removedSummary)
+    }
+
+    private var words: some View {
+        Text(info.removedSummary).font(Typeface.caption).foregroundStyle(Ink.secondary).lineLimit(1).fixedSize()
     }
 }
 

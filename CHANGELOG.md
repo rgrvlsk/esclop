@@ -7,6 +7,10 @@ into the body of its GitHub release.
 
 ## [Unreleased]
 
+### Added
+- The detail says what optimising removed from a photo's metadata (location, camera, date) and
+  offers Restore, which runs the file again from its original and keeps the metadata.
+
 ### Changed
 - The floating result is a cream card: the picture over a footer with the saving's ring, the
   original size in red beside the new one, and the file's name. Work in progress tints it aqua

@@ -3,6 +3,7 @@
 import EsclopCore
 @testable import EsclopAppKit
 import Foundation
+import ImageIO
 import Testing
 
 @MainActor
@@ -70,6 +71,44 @@ import Testing
         #expect(info.actions == [.openDetail, .copy, .undo, .more, .reveal, .dismiss])
         #expect(info.accessibilityLabel == "shot.png, Optimised, 600\(nbsp)kB, 75\(nbsp)% smaller")
         #expect(CardPresentation.announcement(for: output, locale: en) == "Optimised, 600\(nbsp)kB, 75\(nbsp)% smaller")
+    }
+
+    /// The "Removed" strip compares the original with the result, so it holds whatever path the
+    /// engine took; a copied image never shows it.
+    @Test func theRemovedStripListsWhatTheResultLost() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        func jpeg(_ name: String, _ properties: [CFString: Any]) throws -> URL {
+            let url = folder.appendingPathComponent(name)
+            let context = try #require(CGContext(data: nil, width: 8, height: 8, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
+            let image = try #require(context.makeImage())
+            let destination = try #require(CGImageDestinationCreateWithURL(url as CFURL, "public.jpeg" as CFString, 1, nil))
+            CGImageDestinationAddImage(destination, image, properties as CFDictionary)
+            #expect(CGImageDestinationFinalize(destination))
+            return url
+        }
+        let original = try jpeg("original.jpg", [
+            kCGImagePropertyGPSDictionary: [kCGImagePropertyGPSLatitude: 41.38, kCGImagePropertyGPSLatitudeRef: "N"],
+            kCGImagePropertyTIFFDictionary: [kCGImagePropertyTIFFMake: "Camera"],
+            kCGImagePropertyExifDictionary: [kCGImagePropertyExifDateTimeOriginal: "2026:06:09 09:41:00"],
+        ])
+        let stripped = try jpeg("stripped.jpg", [:])
+        let keptCamera = try jpeg("camera.jpg", [kCGImagePropertyTIFFDictionary: [kCGImagePropertyTIFFMake: "Camera"]])
+        #expect(RemovedMetadata.between(original: original, output: stripped) == [.location, .camera, .date])
+        #expect(RemovedMetadata.between(original: original, output: keptCamera) == [.location, .date])
+        #expect(RemovedMetadata.between(original: stripped, output: stripped).isEmpty)
+
+        let card = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/tmp/Beach.jpg"), origin: .dropZone, bytesBefore: 2_400_000)
+        card.phase = .done(result(before: 2_400_000, after: 600_000))
+        card.removedMetadata = [.location, .camera, .date]
+        let info = CardPresentation(card: card, locale: en)
+        #expect(info.removedSummary == "Location, camera, date")
+        #expect(FloatingResultView.actions(info, level: .detail).contains(.keepMetadata), "VoiceOver can restore it")
+        let copied = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/tmp/shot.png"), origin: .clipboard, bytesBefore: 2_400_000)
+        copied.phase = .done(result(before: 2_400_000, after: 600_000))
+        copied.removedMetadata = [.date]
+        #expect(CardPresentation(card: copied, locale: en).removedMetadata.isEmpty, "a copied image has nothing of the person's")
     }
 
     @Test func noBackupMeansNoUndoAndAggressiveIsWarm() {

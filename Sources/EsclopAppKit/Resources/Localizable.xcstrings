@@ -5611,6 +5611,16 @@
         }
       }
     },
+    "Removed": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminat"
+          }
+        }
+      }
+    },
     "Rename": {
       "localizations": {
         "ca": {
@@ -5721,6 +5731,16 @@
         }
       }
     },
+    "Restore": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaura"
+          }
+        }
+      }
+    },
     "Restore All": {
       "localizations": {
         "ca": {
@@ -5777,6 +5797,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vols restaurar l’original?"
+          }
+        }
+      }
+    },
+    "Restore the removed metadata": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaura les metadades eliminades"
           }
         }
       }
@@ -8441,6 +8471,26 @@
         }
       }
     },
+    "camera": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "càmera"
+          }
+        }
+      }
+    },
+    "date": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "data"
+          }
+        }
+      }
+    },
     "days": {
       "localizations": {
         "ca": {
@@ -8507,6 +8557,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "claus al clauer"
+          }
+        }
+      }
+    },
+    "location": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ubicació"
           }
         }
       }
