@@ -149,17 +149,13 @@ import UniformTypeIdentifiers
         let rules = try #require(settings.descriptor(EsclopSettings.clipboardRules.key))
         #expect(SettingPresentation.control(for: rules) == .clipboardRules)
         #expect(settings.pane(of: rules.key) == .clipboard, "the rules sit in Settings › Clipboard")
-        let hover = try #require(settings.descriptor(EsclopSettings.hoverButtons.key))
-        #expect(SettingsPane.pane(for: SettingsViewModel.section(of: hover)) == .floatingResults)
         let label = AnyView(SettingLabel(title: rules.title, summary: rules.summary))
         let list = Form { ClipboardRuleList(descriptor: rules, model: settings, label: label) }.formStyle(.grouped).frame(width: 480, height: 240)
         try await snapshot(list, name: "settings-clipboard-rules", scheme: scheme)
 
-        // Search finds the rules and the hover buttons.
+        // Search finds the rules.
         settings.query = "clipboard rules"
         #expect(settings.hits.contains { $0.id == EsclopSettings.clipboardRules.key && $0.pane == .clipboard })
-        settings.query = "hover buttons"
-        #expect(settings.hits.contains { $0.id == EsclopSettings.hoverButtons.key && $0.pane == .floatingResults })
 
         // Deleting goes through the registry, like any other setting.
         let stored = EsclopSettings.clipboardRules.value(in: harness.settings.store)

@@ -54,33 +54,3 @@ struct ClipboardRuleList: View {
         }
     }
 }
-
-struct HoverButtonSwitches: View {
-    let descriptor: SettingDescriptor
-    let model: SettingsViewModel
-    let label: AnyView
-    static let order = ["undo", "convert", "downscale", "crop"]
-
-    var body: some View {
-        let shown = Set((descriptor.value?.arrayValue ?? []).compactMap(\.stringValue))
-        VStack(alignment: .leading, spacing: 6) {
-            label
-            ForEach(Self.order, id: \.self) { name in
-                Toggle(CardPresentation.hoverButtonTitle(name), isOn: Binding(
-                    get: { shown.contains(name) },
-                    set: { on in
-                        var next = shown
-                        if on { next.insert(name) } else { next.remove(name) }
-                        model.set(descriptor.key, to: .array(Self.order.filter(next.contains).map { .string($0) }))
-                    }
-                ))
-                .toggleStyle(.switch)
-                .controlSize(.small)
-                .padding(.leading, 12)
-            }
-            Text(Strings.text("“…” always stays, so the options are one click away."))
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        }
-    }
-}

@@ -403,17 +403,15 @@ public final class AppModel {
     /// A card runs again in place: back to working with its new choice.
     private func restart(_ card: ResultCard, context: CardContext?) {
         card.phase = .working(fraction: 0)
-        card.hasPlayedArrival = false
         if let context {
             card.choice = context.choice
             card.appliedRule = context.rule
         }
-        card.machine.restarted(expectedDuration: card.expectedDuration)
+        card.machine.restarted()
         afterChange(card)
     }
 
     func add(_ card: ResultCard) {
-        card.hoverButtons = EsclopSettings.hoverButtons.value(in: settings)
         cards.append(card)
         reschedule(card)
     }
@@ -441,14 +439,12 @@ public final class AppModel {
     /// What the person does to a floating result.
     public enum Interaction: Equatable, Sendable {
         case pointerEntered, pointerMoved, pointerExited, pointerEnteredButtons
-        case capsuleClicked
         case openDetail, closeDetail
         case focus(Bool), dragging(Bool), menu(Bool)
     }
 
     public func interact(_ card: ResultCard, _ interaction: Interaction) {
         let time = now()
-        var effect: FloatingResultMachine.Effect?
         switch interaction {
         case .pointerEntered:
             card.machine.pointerEntered(at: time)
@@ -458,10 +454,6 @@ public final class AppModel {
             card.dwellAnchor = pointerLocation()
         case .pointerExited: card.machine.pointerExited(at: time)
         case .pointerEnteredButtons: card.machine.pointerEnteredButtons(at: time)
-        case .capsuleClicked:
-            // A failed upload's capsule uploads again, as a failed job's runs it again.
-            if case .failed = card.upload { return upload(card, to: card.uploadTarget) }
-            effect = card.machine.capsuleClicked(at: time)
         case .openDetail: card.machine.openDetail(at: time)
         case .closeDetail: card.machine.closeDetail(at: time)
         case let .focus(value): card.machine.setFocused(value, at: time)
@@ -470,7 +462,6 @@ public final class AppModel {
             if value { watchDragEnd(card) }
         case let .menu(value): card.machine.setMenuOpen(value, at: time)
         }
-        apply(effect, to: card)
         afterChange(card)
     }
 
@@ -511,7 +502,6 @@ public final class AppModel {
     private func apply(_ effect: FloatingResultMachine.Effect?, to card: ResultCard) {
         switch effect {
         case .dismiss: dismiss(card)
-        case .retry: card.retry?()
         case nil: break
         }
     }
@@ -577,7 +567,6 @@ public final class AppModel {
         Task { [weak card] in
             guard let card, let seconds = await JobEstimate.videoSeconds(of: card.source, aggressive: card.aggressive) else { return }
             card.expectedDuration = seconds
-            card.machine.estimateChanged(seconds)
         }
     }
 
@@ -622,7 +611,7 @@ public final class AppModel {
             reveal([card.shownFile])
         case .copy:
             writeClipboard(files: [card.shownFile])
-        case .dismiss:
+        case .dismiss, .stop:
             dismiss(card)
         case .upload:
             upload(card)
@@ -723,7 +712,6 @@ public final class AppModel {
 
         if cards.contains(where: { $0.result?.id == result.id }) { return }
         let card = ResultCard(jobID: result.id, source: result.source, origin: .app, bytesBefore: result.bytesBefore, phase: .done(result))
-        card.hasPlayedArrival = true
         add(card)
         loadThumbnail(card, url: result.output)
         if let backup = result.backup { loadThumbnail(card, url: backup, original: true) }

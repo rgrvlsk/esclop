@@ -43,7 +43,6 @@ public final class AppServices {
             provider: model.service.context.settings, defaults: settings.defaults, extraRows: SettingsPaneView.extraRows
         ) { [weak model] key, value in
             if key == EsclopSettings.pauseAutomaticOptimisations.key { model?.pauseChanged(value.boolValue ?? false) }
-            if key == EsclopSettings.hoverButtons.key { model?.hoverButtonsChanged() }
         }
         self.settingsModel = settingsModel
         settingsModel.pipelines = model.service.context.pipelines
