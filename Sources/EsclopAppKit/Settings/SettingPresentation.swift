@@ -25,8 +25,6 @@ public enum SettingControl: Equatable, Sendable {
     case apps
     /// The rules made with "Always apply" in the options popover, each with a delete button.
     case clipboardRules
-    /// A switch for each round button above a floating result.
-    case hoverButtons
     /// The preset zones: a switch for each pipeline that can be one, and its place in the order.
     case presetZones
     /// The upload targets, with Add, Edit and Remove; their keys go to the Keychain.
@@ -70,7 +68,6 @@ public enum SettingPresentation {
         if key.hasSuffix("Dirs") { return .folders }
         if key == EsclopSettings.clipboardIgnoredAppBundleIds.key { return .apps }
         if key == EsclopSettings.clipboardRules.key { return .clipboardRules }
-        if key == EsclopSettings.hoverButtons.key { return .hoverButtons }
         if key == EsclopSettings.presetZones.key { return .presetZones }
         if key == EsclopSettings.uploadTargets.key { return .uploadTargets }
         if key == EsclopSettings.uploadTarget.key { return .uploadTarget }
@@ -151,9 +148,6 @@ public enum SettingPresentation {
         case .clipboardRules:
             let rules = ClipboardRuleList.decode(value)
             return rules.isEmpty ? Strings.text("none") : rules.map { $0.subject() }.joined(separator: ", ")
-        case .hoverButtons:
-            let names = (value?.arrayValue ?? []).compactMap(\.stringValue)
-            return names.isEmpty ? Strings.text("none") : names.map(CardPresentation.hoverButtonTitle).joined(separator: ", ")
         case .presetZones:
             let names = (value?.arrayValue ?? []).compactMap(\.stringValue)
             return names.isEmpty ? Strings.text("none") : names.joined(separator: ", ")

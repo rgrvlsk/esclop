@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The floating surfaces' material (DESIGN.md › Layout, Color, Motion):
-// - macOS 26 and later, built with Xcode 26 or later (Swift 6.2): Liquid Glass (`glassEffect`), inside a `GlassEffectContainer` so shapes
-//   with a shared glass ID morph into each other;
+// The drop zone's glass material until it moves to the cream surface (FloatingSurface):
+// - macOS 26 and later, built with Xcode 26 or later (Swift 6.2): Liquid Glass (`glassEffect`);
 // - macOS 14–25: the `.hudWindow` visual effect material with a 1 pt hairline;
 // - Reduce Transparency: an opaque system background with a contrasting border;
 // - still renders (`PanelBackdrop.flat`): ImageRenderer draws neither, so a translucent fill of the
@@ -20,8 +19,6 @@ public enum PanelBackdrop: Sendable {
 
 extension EnvironmentValues {
     @Entry public var panelBackdrop: PanelBackdrop = .material
-    /// The namespace glass IDs live in, set by the floating stack's glass container.
-    @Entry var glassNamespace: Namespace.ID?
 }
 
 struct VisualEffectBackground: NSViewRepresentable {
@@ -36,11 +33,9 @@ struct VisualEffectBackground: NSViewRepresentable {
     func updateNSView(_ view: NSVisualEffectView, context: Context) {}
 }
 
-/// Glass in a shape. `id` ties it to the same glass in another state, so the system morphs one
-/// into the other (thumbnail into detail, activity capsule out of the thumbnail).
+/// Glass in a shape: the drop zone's surface until it moves to the cream material.
 struct GlassSurface<S: InsettableShape>: ViewModifier {
     let shape: S
-    var id: String?
     /// A border colour that replaces the hairline (the error state's red rim).
     var rim: Color?
     var interactive = false
@@ -48,7 +43,6 @@ struct GlassSurface<S: InsettableShape>: ViewModifier {
     @Environment(\.panelBackdrop) private var backdrop
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.glassNamespace) private var namespace
 
     func body(content: Content) -> some View {
         if reduceTransparency {
@@ -79,49 +73,22 @@ struct GlassSurface<S: InsettableShape>: ViewModifier {
 
     #if compiler(>=6.2)
     @available(macOS 26, *)
-    @ViewBuilder private func glass(_ content: Content) -> some View {
+    private func glass(_ content: Content) -> some View {
         let glass = interactive ? Glass.regular.interactive() : Glass.regular
-        // The rim is part of the glass's content: a glass container draws its glass over anything
-        // laid outside it.
-        let surface = content
+        return content
             .overlay { if let rim { shape.strokeBorder(rim, lineWidth: 1.5).allowsHitTesting(false) } }
             .glassEffect(glass, in: shape)
-        if let id, let namespace {
-            surface.glassEffectID(id, in: namespace)
-        } else {
-            surface
-        }
     }
     #endif
 }
 
 extension View {
-    func glassSurface(_ shape: some InsettableShape, id: String? = nil, rim: Color? = nil, interactive: Bool = false) -> some View {
-        modifier(GlassSurface(shape: shape, id: id, rim: rim, interactive: interactive))
+    func glassSurface(_ shape: some InsettableShape, rim: Color? = nil, interactive: Bool = false) -> some View {
+        modifier(GlassSurface(shape: shape, rim: rim, interactive: interactive))
     }
 
     /// The drop zone's surface: one rounded glass shape.
     func panelSurface() -> some View {
         glassSurface(RoundedRectangle(cornerRadius: Metrics.panelRadius, style: .continuous))
-    }
-}
-
-/// Wraps glass siblings so they blend and morph on macOS 26; a plain container before.
-struct GlassGroup<Content: View>: View {
-    var spacing: CGFloat = 12
-    @ViewBuilder var content: Content
-    @Namespace private var namespace
-
-    var body: some View {
-        #if compiler(>=6.2)
-        if #available(macOS 26, *) {
-            GlassEffectContainer(spacing: spacing) { content }
-                .environment(\.glassNamespace, namespace)
-        } else {
-            content
-        }
-        #else
-        content
-        #endif
     }
 }

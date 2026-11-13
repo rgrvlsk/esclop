@@ -95,11 +95,6 @@ public enum EsclopSettings {
         description: "Optimising this many files or more at once lists them in the batch window, with their progress and the total saving, instead of a floating result each.",
         section: .interface, minimum: 2, maximum: 1000
     )
-    public static let hoverButtons = Setting<[String]>(
-        "hoverButtons", default: ["undo", "convert", "downscale", "crop"], title: "Hover buttons",
-        description: "The round buttons above a floating result, in order: undo, convert, downscale, crop. \"…\" is always last.",
-        section: .interface
-    )
     public static let presetZones = Setting<[String]>(
         "presetZones", default: [], title: "Preset zones",
         description: "The targets beside the drop zone that run a pipeline on what you drop, in order. Saved pipelines whose triggers include a preset zone are always shown; the built-in templates named here are added.",
@@ -510,7 +505,7 @@ public enum EsclopSettings {
     public static let all: [AnySetting] = [
         stripMetadata.erased, preserveDates.erased, keepHDR.erased,
         floatingResultsCorner.erased, followCursorScreen.erased, autoHideFloatingResults.erased,
-        autoHideFloatingResultsAfter.erased, autoHideClipboardResultAfter.erased, batchWindowFrom.erased, hoverButtons.erased, enableDragAndDrop.erased, presetZones.erased,
+        autoHideFloatingResultsAfter.erased, autoHideClipboardResultAfter.erased, batchWindowFrom.erased, enableDragAndDrop.erased, presetZones.erased,
         imageCompression.erased, imageAggressiveCompression.erased,
         useAggressiveOptimisationJPEG.erased, useAggressiveOptimisationPNG.erased, useAggressiveOptimisationGIF.erased,
         adaptiveImageSize.erased, formatsToConvertToJPEG.erased, formatsToConvertToPNG.erased,

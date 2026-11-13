@@ -86,7 +86,7 @@ struct DetailCard: View {
         }
         .padding(Metrics.detailPadding)
         .frame(width: Metrics.detailWidth)
-        .glassSurface(RoundedRectangle(cornerRadius: Metrics.detailRadius, style: .continuous), id: "shell-\(card.id)")
+        .floatingSurface(Metrics.detailRadius)
         .onAppear {
             if reduceMotion { contracted = true } else {
                 withAnimation(Motion.bar.delay(0.1)) { contracted = true }

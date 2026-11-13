@@ -175,13 +175,13 @@ import Testing
         #expect(harness.requests.requests.last?.format == .webp, "the card's choice stays; downscale adds to it")
     }
 
-    @Test func clickingAnErrorRetriesTheFile() async throws {
+    @Test func retryOnAnErrorRunsTheFileAgain() async throws {
         // The delay holds the engine between logging the request and failing, the window a busy
         // CI runner opens by chance.
         let harness = Harness(failure: .toolMissing("ffmpeg"), delay: .milliseconds(300))
         _ = await harness.model.run(harness.job(harness.temp.file("a.mov")))
         let card = try #require(harness.model.cards.first)
-        harness.model.interact(card, .capsuleClicked)
+        harness.model.perform(.retry, on: card)
         // The engine logs the request before it throws; the card turns to an error only after
         // the job has settled, so wait for that, not for the request.
         #expect(await eventually {
@@ -199,7 +199,7 @@ import Testing
         #expect(harness.model.cards.count == 4)
         #expect(harness.model.visibleCards.map(\.id) == harness.model.cards.suffix(3).map(\.id), "older ones live on in Recent Results")
         let (first, second) = (harness.model.cards[1], harness.model.cards[2])
-        harness.model.interact(first, .capsuleClicked)
+        harness.model.interact(first, .openDetail)
         #expect(first.machine.level == .detail)
         harness.model.interact(second, .openDetail)
         #expect(second.machine.level == .detail)

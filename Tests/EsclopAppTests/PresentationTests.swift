@@ -30,7 +30,6 @@ import Testing
         #expect(Figures.percent(before: 1000, after: 996, locale: en) == "−0.4\(nbsp)%")
         #expect(Figures.percent(before: 1000, after: 1120, locale: en) == "+12\(nbsp)%")
         #expect(Figures.percent(before: 0, after: 0, locale: en) == "0\(nbsp)%")
-        #expect(Figures.percent(before: 2_400_000, after: 600_000, progress: 0.5, locale: en) == "−38\(nbsp)%", "the count-down halfway")
         #expect(Figures.change(before: 2_400_000, after: 612_000, locale: en) == "2.4\(nbsp)MB → 612\(nbsp)kB")
         #expect(Figures.duration(37) == "0:37")
         #expect(Figures.duration(3725) == "1:02:05")
@@ -59,7 +58,7 @@ import Testing
         let info = CardPresentation(card: card, locale: en)
         #expect(info.capsule == .result(before: 2_400_000, after: 600_000))
         #expect(info.tone == .saving)
-        #expect(info.tools == [.undo, .convert(.webp), .downscale, .crop, .more])
+        #expect(info.tools == [.copy, .undo, .more], "a copied screenshot goes back to the clipboard")
         #expect(info.detailTitle == "Optimised")
         #expect(info.change == "2.4\(nbsp)MB → 600\(nbsp)kB")
         #expect(info.percent == "−75\(nbsp)%")
@@ -67,8 +66,7 @@ import Testing
         #expect(info.formats == "PNG → PNG")
         #expect(info.dimensions == "2940 × 1912")
         #expect(info.detailActions == [.undo, .compare, .convert(.webp), .downscale, .crop])
-        #expect(info.actions.first == .openDetail)
-        #expect(info.actions.suffix(3) == [.reveal, .copy, .dismiss])
+        #expect(info.actions == [.openDetail, .copy, .undo, .more, .reveal, .dismiss])
         #expect(info.accessibilityLabel == "shot.png, Optimised, 600\(nbsp)kB, 75\(nbsp)% smaller")
         #expect(CardPresentation.announcement(for: output, locale: en) == "Optimised, 600\(nbsp)kB, 75\(nbsp)% smaller")
     }
@@ -96,7 +94,7 @@ import Testing
         #expect(target("a.pdf") == nil)
         let pdf = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/tmp/a.pdf"), origin: .app, bytesBefore: 10)
         pdf.phase = .unchanged(bytes: 10)
-        #expect(pdf.presentation.tools == [.more], "no convert, downscale or crop for a PDF")
+        #expect(pdf.presentation.tools == [.reveal, .more], "convert, downscale and crop live behind \"…\"")
     }
 
     @Test func onlyAFinishedCardCanBeDraggedOutAndItGivesTheFileItShows() {
@@ -126,6 +124,8 @@ import Testing
         #expect(card.presentation.progress == 0.4)
         #expect(card.presentation.isWorking)
         #expect(card.presentation.tools.isEmpty)
+        #expect(card.presentation.actions == [.stop], "Stop, for the button and for VoiceOver")
+        #expect(CardPresentation(card: card, locale: en).headline == "Optimising…")
         card.phase = .working(fraction: -1)
         #expect(card.presentation.progress == nil)
         card.phase = .unchanged(bytes: 412_000)

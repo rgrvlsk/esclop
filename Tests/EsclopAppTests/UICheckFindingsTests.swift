@@ -96,7 +96,7 @@ import UniformTypeIdentifiers
     // F8: closing the detail by hand gives the result its whole hide delay again.
     @Test func closingTheDetailRestartsTheHideDelay() {
         let start = Date(timeIntervalSince1970: 0)
-        var machine = FloatingResultMachine(expectedDuration: 0)
+        var machine = FloatingResultMachine()
         machine.finished(at: start, hideAfter: 10)
         machine.openDetail(at: start + 1)
         #expect(machine.advance(to: start + 30) == nil, "an open detail never hides")
@@ -105,19 +105,6 @@ import UniformTypeIdentifiers
         #expect(machine.hideDeadline == start + 40, "the full ten seconds, not the late two")
         #expect(machine.advance(to: start + 32) == nil)
         #expect(machine.advance(to: start + 40) == .dismiss)
-    }
-
-    // F2: a result's row of buttons gets room, so it never covers the result above.
-    @Test func theButtonRowGetsRoom() {
-        let card = renders.card(.done(renders.saved()))
-        let row = Metrics.toolSize + Metrics.toolLift
-        #expect(FloatingStackView.rowRoom(for: card, isFirst: false, corner: .bottomRight) == 0)
-        card.machine.pointerEnteredButtons(at: Date())
-        #expect(FloatingStackView.rowRoom(for: card, isFirst: false, corner: .bottomRight) == row, "the results above move up")
-        #expect(FloatingStackView.rowRoom(for: card, isFirst: true, corner: .bottomRight) == 0, "the top one uses the stack's padding")
-        let still = renders.card(.done(renders.saved()))
-        #expect(FloatingStackView.rowRoom(for: still, isFirst: false, corner: .topRight) == row, "at the top the room is always there")
-        #expect(Metrics.stackGap >= 12, "capsules do not touch the next thumbnail")
     }
 
     // F9: what the Settings window shows is written for a person.
