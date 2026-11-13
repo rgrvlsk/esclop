@@ -1,32 +1,71 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The design overhaul's tokens (docs/design/proposal.md › Tokens, direction A): one green with
-// one job, pinned inks for the floating surfaces, six radii, a 4 pt grid and the type scale.
-// Surfaces move onto these one pull request at a time; until a surface has moved it keeps
-// `Palette` and `Metrics`.
+// The design overhaul's tokens (docs/design/proposal.md › Tokens, and the owner's visual
+// grammar in docs/design/targets/README.md, which wins over it): one green with one job, an
+// opaque cream material, charcoal for what is selected or on, aqua for work in progress, amber
+// for what needs a decision, brick red for the original size, six radii, a 4 pt grid and the type
+// scale. There is no system blue. Surfaces move onto these one pull request at a time; until a
+// surface has moved it keeps `Palette` and `Metrics`.
 
 import AppKit
 import SwiftUI
 
-/// Colours. `saving` marks the saving and nothing else: the figure and the saved part of a bar,
-/// at most one green figure per surface.
+/// Inks. Each signal has one meaning on every surface.
 public enum Ink {
-    /// The saving figure and the saved part of a bar.
+    /// The saving: the figure, and the arc or ring of a finished result. Nothing else.
     public static let saving = Color(nsColor: Palette.dynamic(light: 0x176B59, dark: 0x63D6B8))
-    /// Aggressive compression, as a mark (the bolt): 3:1 on a floating surface.
+    /// The original size, beside the new one in grey.
+    public static let original = Color(nsColor: Palette.dynamic(light: 0xB83A2B, dark: 0xE0705E))
+    /// Needs a decision (a suggestion, a failure, a missing permission), and the aggressive mark: 3:1.
     public static let warm = Color(nsColor: Palette.dynamic(light: 0x8F5510, dark: 0xE0A040))
     /// The failure triangle; the sentence beside it is set in `text`.
     public static let error = Color(nsColor: Palette.dynamic(light: 0xC4281C, dark: 0xFF6961))
-    /// Text on a floating surface: black at 88 % or white at 92 %, never the system's vibrant label.
+    /// The straight bar of work in progress, on `Surface.progress`. Progress is never a ring.
+    public static let progress = Color(nsColor: Palette.dynamic(light: 0x1F8A80, dark: 0x5FD0C2))
+    /// Text: black at 88 % or white at 92 %.
     public static let text = PinnedInk(light: 0.88, dark: 0.92)
-    /// Secondary text on a floating surface: 62 %, and 80 % under Increase Contrast.
-    public static let secondary = PinnedInk(light: 0.62, dark: 0.62, increased: 0.80)
-    /// A lit drop tile: one fill in both appearances, so its white text always holds 4.5:1.
-    public static let lit = Color(nsColor: Palette.color(0x0A60D8))
-    /// A lit tile in aggressive mode.
-    public static let litWarm = Color(nsColor: Palette.color(0x8F5510))
-    /// Text and symbols on a lit tile.
-    public static let onLit = Color.white
+    /// Secondary text, and the new size; darker (lighter in dark) under Increase Contrast.
+    public static let secondary = ToneInk(light: 0x625C56, dark: 0xB9AFA5, increasedLight: 0x48433E, increasedDark: 0xD6CDC3)
+    /// Selected or on: a selected tile or chip, a switch that is on, the most likely action.
+    /// The app's accent colour (`assets/Accent.xcassets`, `NSAccentColorName`) is the same.
+    public static let charcoal = Color(nsColor: Palette.dynamic(light: 0x36322E, dark: 0x7A7068))
+    /// Text and symbols on `charcoal`.
+    public static let onCharcoal = Color.white
+}
+
+/// Fills.
+public enum Surface {
+    /// The one material every floating object shares, and the content of every window: opaque,
+    /// so the ground under the ink is the same over any desktop.
+    public static let cream = Color(nsColor: Palette.dynamic(light: 0xF6F0E8, dark: 0x2B2521))
+    /// Resting content inside a surface. In dark it is inset, darker than the surface: brick red
+    /// on anything lighter than the surface falls under 4.5:1.
+    public static let tile = Color(nsColor: Palette.dynamic(light: 0xFBF8F3, dark: 0x241F1B))
+    /// Work in progress.
+    public static let progress = Color(nsColor: Palette.dynamic(light: 0xDCF2EE, dark: 0x1F3D3A))
+    /// Needs a decision.
+    public static let decision = Color(nsColor: Palette.dynamic(light: 0xFBE6BF, dark: 0x4A3517))
+}
+
+/// A colour for each appearance, and another for each under Increase Contrast.
+public struct ToneInk: ShapeStyle, Sendable {
+    public var light: UInt32
+    public var dark: UInt32
+    public var increasedLight: UInt32
+    public var increasedDark: UInt32
+
+    public func hex(dark isDark: Bool, increasedContrast: Bool = false) -> UInt32 {
+        switch (isDark, increasedContrast) {
+        case (false, false): light
+        case (true, false): dark
+        case (false, true): increasedLight
+        case (true, true): increasedDark
+        }
+    }
+
+    public func resolve(in environment: EnvironmentValues) -> Color {
+        Color(nsColor: Palette.color(hex(dark: environment.colorScheme == .dark, increasedContrast: environment.colorSchemeContrast == .increased)))
+    }
 }
 
 /// Neutral fills on a floating surface, in the appearance's own ink: resting, a button or a
@@ -107,6 +146,19 @@ public enum Typeface {
     public static let label = Font.system(size: 12, weight: .medium)
     /// Secondary. Nothing is smaller, anywhere.
     public static let caption = Font.system(size: 11)
+    /// The one heading of a surface, in New York: a window or the panel ("Today").
+    public static let heading = Font.system(size: 28, weight: .medium, design: .serif)
+    /// The one heading of a popover or a card.
+    public static let smallHeading = Font.system(size: 20, weight: .medium, design: .serif)
+    /// One section label per tile ("SAVED"), in small caps; never data. Use `sectionLabel()`.
+    public static let section = Font.system(size: 11, weight: .semibold)
+}
+
+extension View {
+    /// A tile's section label: small caps, tracked, in secondary ink.
+    public func sectionLabel() -> some View {
+        font(Typeface.section).textCase(.uppercase).tracking(1.6).foregroundStyle(Ink.secondary)
+    }
 }
 
 /// The one elevation every floating object shares.
