@@ -32,12 +32,6 @@ public enum Figures {
         return after <= before && Double(before - after) / Double(before) * 100 < 0.05
     }
 
-    /// The fraction animated from 0 to 1 while the capsule counts down.
-    public static func percent(before: Int, after: Int, progress: Double, locale: Locale = Strings.locale) -> String {
-        let shown = Double(before) - Double(before - after) * progress
-        return percent(before: before, after: Int(shown.rounded()), locale: locale)
-    }
-
     /// "2.4 MB → 612 kB"
     public static func change(before: Int, after: Int, locale: Locale = Strings.locale) -> String {
         bytes(before, locale: locale) + " → " + bytes(after, locale: locale)

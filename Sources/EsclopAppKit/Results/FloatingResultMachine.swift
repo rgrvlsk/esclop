@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // What one floating result is doing, as a value (DESIGN.md › Floating result): its level, whether
-// the hover buttons show, the activity capsule and when it hides. Time comes in from outside as
+// the hover buttons show and when it hides. Time comes in from outside as
 // `now`, so tests drive it with a fixed clock and the app with the real one; the app model sleeps
 // until `nextDeadline` and calls `advance(to:)`.
 
@@ -24,25 +24,12 @@ public struct FloatingResultMachine: Equatable, Sendable {
         case failed
     }
 
-    public enum Activity: Equatable, Sendable {
-        case hidden
-        /// The capsule out of the thumbnail's left edge, with the ring and the time left.
-        case running
-        /// Showing the result until the date, then it retracts.
-        case finished(until: Date)
-    }
-
     public enum Effect: Equatable, Sendable {
         case dismiss
-        case retry
     }
 
     /// A still pointer opens the detail after this long; a plain pass only shows the buttons.
     public static let dwell: TimeInterval = 0.6
-    /// Jobs expected to take longer than this get the activity capsule.
-    public static let activityThreshold: TimeInterval = 2
-    /// The activity capsule shows the result this long, then retracts.
-    public static let activityLinger: TimeInterval = 2
     /// The pointer can cross the gap between the thumbnail and its buttons without them fading.
     public static let leaveGrace: TimeInterval = 0.15
     /// A result whose time ran out while dismissal was paused goes this long after the pause ends.
@@ -50,7 +37,6 @@ public struct FloatingResultMachine: Equatable, Sendable {
 
     public private(set) var level: Level = .thumbnail
     public private(set) var stage: Stage = .working
-    public private(set) var activity: Activity
     public private(set) var hovering = false
     public private(set) var focused = false
     public private(set) var dragging = false
@@ -62,9 +48,7 @@ public struct FloatingResultMachine: Equatable, Sendable {
     /// The result's own hide delay, given again when the person closes its detail.
     private var hideAfter: TimeInterval?
 
-    public init(expectedDuration: TimeInterval) {
-        activity = expectedDuration > Self.activityThreshold ? .running : .hidden
-    }
+    public init() {}
 
     // MARK: Derived
 
@@ -85,40 +69,30 @@ public struct FloatingResultMachine: Equatable, Sendable {
 
     public var nextDeadline: Date? {
         var dates = [dwellDeadline, leaveDeadline].compactMap { $0 }
-        if case let .finished(until) = activity { dates.append(until) }
         if !isDismissalPaused, let hideDeadline { dates.append(hideDeadline) }
         return dates.min()
     }
 
     // MARK: Job
 
-    /// A better estimate arrived while the job runs (a video's metadata loaded).
-    public mutating func estimateChanged(_ expectedDuration: TimeInterval) {
-        guard stage == .working else { return }
-        activity = expectedDuration > Self.activityThreshold ? .running : .hidden
-    }
-
     /// The same file runs again with another choice (from the options popover or a hover
     /// button): back to working, keeping the level, the pointer and the open popover.
-    public mutating func restarted(expectedDuration: TimeInterval) {
+    public mutating func restarted() {
         stage = .working
-        activity = expectedDuration > Self.activityThreshold ? .running : .hidden
         dwellDeadline = nil
         hideDeadline = nil
     }
 
     public mutating func finished(at now: Date, hideAfter: TimeInterval?) {
         stage = .finished
-        if activity == .running { activity = .finished(until: now + Self.activityLinger) }
         self.hideAfter = hideAfter
-        hideDeadline = hideAfter.map { now + max($0, activityDeadline.map { $0.timeIntervalSince(now) } ?? 0) }
+        hideDeadline = hideAfter.map { now + $0 }
         if hovering { armDwell(now) }
     }
 
     public mutating func failed(at now: Date, hideAfter: TimeInterval?) {
         stage = .failed
         level = .thumbnail
-        activity = .hidden
         dwellDeadline = nil
         self.hideAfter = hideAfter
         hideDeadline = hideAfter.map { now + $0 }
@@ -126,7 +100,6 @@ public struct FloatingResultMachine: Equatable, Sendable {
 
     public mutating func notice(at now: Date, hideAfter: TimeInterval) {
         stage = .notice
-        activity = .hidden
         self.hideAfter = hideAfter
         hideDeadline = now + hideAfter
     }
@@ -187,16 +160,6 @@ public struct FloatingResultMachine: Equatable, Sendable {
 
     // MARK: Levels
 
-    /// A click on the capsule: the detail for a result, another try for an error.
-    public mutating func capsuleClicked(at now: Date) -> Effect? {
-        switch stage {
-        case .failed: return .retry
-        case .finished: openDetail(at: now)
-        case .working, .notice: break
-        }
-        return nil
-    }
-
     public mutating func openDetail(at now: Date) {
         guard stage == .finished else { return }
         level = .detail
@@ -227,7 +190,6 @@ public struct FloatingResultMachine: Equatable, Sendable {
             self.dwellDeadline = nil
             if hovering, stage == .finished, !menuOpen, !dragging { level = .detail }
         }
-        if let until = activityDeadline, until <= now { activity = .hidden }
         if !isDismissalPaused, let hideDeadline, hideDeadline <= now {
             self.hideDeadline = nil
             return .dismiss
@@ -236,11 +198,6 @@ public struct FloatingResultMachine: Equatable, Sendable {
     }
 
     // MARK: Private
-
-    private var activityDeadline: Date? {
-        if case let .finished(until) = activity { return until }
-        return nil
-    }
 
     private mutating func armDwell(_ now: Date) {
         dwellDeadline = stage == .finished && level == .thumbnail && !menuOpen && !dragging ? now + Self.dwell : nil

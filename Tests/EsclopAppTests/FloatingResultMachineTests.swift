@@ -13,7 +13,7 @@ import Testing
     func at(_ seconds: TimeInterval) -> Date { start.addingTimeInterval(seconds) }
 
     func finished(hideAfter: TimeInterval? = 10) -> FloatingResultMachine {
-        var machine = FloatingResultMachine(expectedDuration: 0.5)
+        var machine = FloatingResultMachine()
         machine.finished(at: at(0), hideAfter: hideAfter)
         return machine
     }
@@ -55,46 +55,24 @@ import Testing
     }
 
     @Test func noDetailOrButtonsWhileWorkingOrFailed() {
-        var machine = FloatingResultMachine(expectedDuration: 0.5)
+        var machine = FloatingResultMachine()
         machine.pointerEntered(at: at(0))
         #expect(!machine.showsHoverButtons)
         #expect(machine.nextDeadline == nil)
-        #expect(machine.capsuleClicked(at: at(0.1)) == nil)
-        #expect(machine.level == .thumbnail)
+        machine.openDetail(at: at(0.1))
+        #expect(machine.level == .thumbnail, "no detail while working")
         machine.failed(at: at(1), hideAfter: 10)
-        #expect(machine.capsuleClicked(at: at(1.1)) == .retry, "clicking an error's capsule retries")
+        machine.openDetail(at: at(1.1))
         _ = machine.advance(to: at(3))
         #expect(machine.level == .thumbnail)
     }
 
-    @Test func theCapsuleOpensAndTheCloseButtonClosesTheDetail() {
+    @Test func aClickOpensAndTheCloseButtonClosesTheDetail() {
         var machine = finished()
-        #expect(machine.capsuleClicked(at: at(1)) == nil)
+        machine.openDetail(at: at(1))
         #expect(machine.level == .detail)
         machine.closeDetail(at: at(2))
         #expect(machine.level == .thumbnail)
-    }
-
-    @Test func onlyJobsExpectedToTakeOverTwoSecondsGetTheActivityCapsule() {
-        #expect(FloatingResultMachine(expectedDuration: 2).activity == .hidden)
-        var long = FloatingResultMachine(expectedDuration: 2.1)
-        #expect(long.activity == .running)
-        long.finished(at: at(12), hideAfter: 30)
-        #expect(long.activity == .finished(until: at(14)), "it shows the result for two seconds")
-        _ = long.advance(to: at(13.9))
-        #expect(long.activity == .finished(until: at(14)))
-        _ = long.advance(to: at(14))
-        #expect(long.activity == .hidden, "then retracts")
-
-        var refined = FloatingResultMachine(expectedDuration: 6)
-        refined.estimateChanged(1.2)
-        #expect(refined.activity == .hidden, "the frames said it is quick after all")
-        refined.estimateChanged(20)
-        #expect(refined.activity == .running)
-
-        var failing = FloatingResultMachine(expectedDuration: 30)
-        failing.failed(at: at(3), hideAfter: 10)
-        #expect(failing.activity == .hidden)
     }
 
     @Test func theEstimateDecidesWhichJobsAreLong() {
@@ -175,11 +153,11 @@ import Testing
     }
 
     @Test func noticesHaveNoDetailAndHideAfterTheirTime() {
-        var machine = FloatingResultMachine(expectedDuration: 0)
+        var machine = FloatingResultMachine()
         machine.notice(at: at(0), hideAfter: 3)
         machine.pointerEntered(at: at(0.5))
         #expect(!machine.showsHoverButtons)
-        #expect(machine.capsuleClicked(at: at(0.6)) == nil)
+        machine.openDetail(at: at(0.6))
         #expect(machine.level == .thumbnail)
         machine.pointerExited(at: at(1))
         _ = machine.advance(to: at(1.5))

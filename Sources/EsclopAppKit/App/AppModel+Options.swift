@@ -215,22 +215,6 @@ extension AppModel {
             try? EsclopSettings.autoHideFloatingResultsAfter.set(seconds, in: settings)
         }
     }
-
-    public var hoverButtons: [String] { EsclopSettings.hoverButtons.value(in: settings) }
-
-    public func setHoverButton(_ name: String, shown: Bool) {
-        let order = ["undo", "convert", "downscale", "crop"]
-        var current = Set(hoverButtons)
-        if shown { current.insert(name) } else { current.remove(name) }
-        try? EsclopSettings.hoverButtons.set(order.filter(current.contains), in: settings)
-        hoverButtonsChanged()
-    }
-
-    /// The setting changed, here or in Settings: the rows on screen follow.
-    public func hoverButtonsChanged() {
-        let shownNow = hoverButtons
-        cards.forEach { $0.hoverButtons = shownNow }
-    }
 }
 
 /// Quick Look for one file from a panel that never activates the app.

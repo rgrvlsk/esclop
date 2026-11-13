@@ -271,6 +271,16 @@
         }
       }
     },
+    "%@, left as it was": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, tal com era"
+          }
+        }
+      }
+    },
     "%@, not optimised: %@ The original is kept.": {
       "localizations": {
         "ca": {
@@ -2241,16 +2251,6 @@
         }
       }
     },
-    "Customise buttons…": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Personalitza els botons…"
-          }
-        }
-      }
-    },
     "Custom…": {
       "localizations": {
         "ca": {
@@ -2831,16 +2831,6 @@
         }
       }
     },
-    "File kept · Upload again": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fitxer conservat · Torna a pujar"
-          }
-        }
-      }
-    },
     "File name": {
       "localizations": {
         "ca": {
@@ -3311,16 +3301,6 @@
         }
       }
     },
-    "Hover buttons": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Botons sobre la miniatura"
-          }
-        }
-      }
-    },
     "How the two files are shown": {
       "localizations": {
         "ca": {
@@ -3697,6 +3677,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Línia %d: %@"
+          }
+        }
+      }
+    },
+    "Link copied": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enllaç copiat"
           }
         }
       }
@@ -4897,16 +4887,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Original"
-          }
-        }
-      }
-    },
-    "Original kept · Try again": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "L’original es conserva · Torna-ho a provar"
           }
         }
       }
@@ -9441,26 +9421,6 @@
         }
       }
     },
-    "setting.hoverButtons.summary": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Els botons rodons a sobre d’un resultat flotant, en ordre: desfés, converteix, redueix, retalla. «…» sempre és l’últim."
-          }
-        }
-      }
-    },
-    "setting.hoverButtons.title": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Botons sobre la miniatura"
-          }
-        }
-      }
-    },
     "setting.imageAggressiveCompression.summary": {
       "localizations": {
         "ca": {
@@ -11427,16 +11387,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "«%@» hi coincideix: el pipeline s’hi executa."
-          }
-        }
-      }
-    },
-    "“…” always stays, so the options are one click away.": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "“…” sempre hi és, perquè les opcions quedin a un clic."
           }
         }
       }
