@@ -3981,6 +3981,16 @@
         }
       }
     },
+    "Move to Trash": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mou a la Paperera"
+          }
+        }
+      }
+    },
     "Move to the Trash": {
       "localizations": {
         "ca": {
@@ -4017,6 +4027,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Puja «%@»"
+          }
+        }
+      }
+    },
+    "Moved to the Trash": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’ha mogut a la Paperera"
           }
         }
       }

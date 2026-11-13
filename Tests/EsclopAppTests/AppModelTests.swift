@@ -173,6 +173,16 @@ import Testing
         #expect(harness.revealed.urls.last == card.savedCopy)
     }
 
+    @Test func shareFromVoiceOverOpensTheShareTab() async throws {
+        let harness = Harness()
+        _ = await harness.model.run(harness.job(harness.temp.file("a.png", bytes: 100_000)))
+        let card = try #require(harness.model.cards.first)
+        harness.model.perform(.openDetail, on: card)
+        harness.model.perform(.share, on: card)
+        #expect(card.optionsTab == .share)
+        #expect(card.machine.menuOpen && card.machine.level == .thumbnail)
+    }
+
     @Test func restoreRunsAgainKeepingTheMetadata() async throws {
         let harness = Harness()
         let file = harness.temp.file("a.png", bytes: 100_000)

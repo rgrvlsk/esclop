@@ -606,6 +606,12 @@ public final class AppModel {
             upload(card, to: card.uploadTarget)
         case .copyLink:
             if let link = card.link { copyLink(link) }
+        case .share:
+            // VoiceOver's route; the pointer's is the Share submenu in the detail's "…".
+            card.optionsTab = .share
+            openOptions(card)
+        case .trash:
+            trash(card)
         case .save:
             save(card)
         case .saveAs:
