@@ -31,6 +31,13 @@ public enum Ink {
     public static let charcoal = Color(nsColor: Palette.dynamic(light: 0x36322E, dark: 0x7A7068))
     /// Text and symbols on `charcoal`.
     public static let onCharcoal = Color.white
+    /// Charcoal as ink: a text button, a word or symbol marked done or on. In dark it is the
+    /// text ink, since dark charcoal is a fill and holds only 3.1:1 as text on the surface.
+    public static let charcoalText = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            ? NSColor(white: 1, alpha: 0.92)
+            : Palette.color(0x36322E)
+    })
 }
 
 /// Fills.

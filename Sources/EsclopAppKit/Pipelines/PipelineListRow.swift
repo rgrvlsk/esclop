@@ -14,7 +14,7 @@ struct PipelineListRow: View {
         HStack(spacing: 8) {
             Image(systemName: icon.isEmpty ? "wand.and.rays" : icon)
                 .frame(width: 18)
-                .foregroundStyle(Palette.accent)
+                .foregroundStyle(Ink.charcoalText)
                 .accessibilityHidden(true)
             Text(name).lineLimit(1)
             Spacer()

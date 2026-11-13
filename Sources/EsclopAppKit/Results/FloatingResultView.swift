@@ -237,7 +237,7 @@ public struct FloatingResultView: View {
     }
 
     @ViewBuilder private func capsuleLabel(_ info: CardPresentation) -> some View {
-        let tint = info.tone == .warm ? Palette.warm : Palette.accent
+        let tint = info.tone == .warm ? Palette.warm : Ink.saving
         switch info.capsule {
         case let .working(text):
             Text(text).font(.callout.weight(.semibold))
@@ -427,18 +427,18 @@ struct ProgressRim: View {
         let style = StrokeStyle(lineWidth: 1.5, lineCap: .round)
         Group {
             if let progress {
-                shape.trim(from: 0, to: max(0.02, progress)).stroke(Palette.accent, style: style)
+                shape.trim(from: 0, to: max(0.02, progress)).stroke(Ink.progress, style: style)
                     .animation(.linear(duration: 0.2), value: progress)
             } else if animated {
                 TimelineView(.animation) { context in
                     let start = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.6) / 1.6
                     ZStack {
-                        shape.trim(from: start, to: min(1, start + 0.22)).stroke(Palette.accent, style: style)
-                        if start + 0.22 > 1 { shape.trim(from: 0, to: start + 0.22 - 1).stroke(Palette.accent, style: style) }
+                        shape.trim(from: start, to: min(1, start + 0.22)).stroke(Ink.progress, style: style)
+                        if start + 0.22 > 1 { shape.trim(from: 0, to: start + 0.22 - 1).stroke(Ink.progress, style: style) }
                     }
                 }
             } else {
-                shape.trim(from: 0, to: 0.22).stroke(Palette.accent, style: style)
+                shape.trim(from: 0, to: 0.22).stroke(Ink.progress, style: style)
             }
         }
         .allowsHitTesting(false)
@@ -479,7 +479,7 @@ struct ActivityWing: View {
             if let result = card.result {
                 Image(systemName: "checkmark")
                     .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(Palette.accent)
+                    .foregroundStyle(Ink.saving)
                     .frame(width: 29, height: 29)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("\(Figures.bytes(result.bytesAfter)) · \(Figures.percent(before: result.bytesBefore, after: result.bytesAfter))")
@@ -536,10 +536,10 @@ struct ProgressRing: View {
 
     var body: some View {
         ZStack {
-            Circle().stroke(Palette.accent.opacity(0.2), lineWidth: 3)
+            Circle().stroke(Ink.progress.opacity(0.2), lineWidth: 3)
             Circle()
                 .trim(from: 0, to: max(0.04, progress ?? 0.25))
-                .stroke(Palette.accent, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                .stroke(Ink.progress, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .animation(.linear(duration: 0.3), value: progress)
         }

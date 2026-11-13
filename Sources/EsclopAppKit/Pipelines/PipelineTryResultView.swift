@@ -63,7 +63,7 @@ struct PipelineTryResultView: View {
 
     private func color(_ outcome: PipelineLogEntry.Outcome) -> Color {
         switch outcome {
-        case .done: Palette.accent
+        case .done: Ink.charcoalText
         case .failed: Palette.error
         default: .secondary
         }

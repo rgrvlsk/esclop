@@ -179,7 +179,7 @@ extension View {
     func highlighted(_ on: Bool) -> some View {
         background {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Palette.accent.opacity(on ? 0.16 : 0))
+                .fill(Ink.charcoal.opacity(on ? 0.16 : 0))
                 .padding(.horizontal, -8)
                 .padding(.vertical, -5)
                 .allowsHitTesting(false)

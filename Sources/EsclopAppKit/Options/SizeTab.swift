@@ -23,7 +23,6 @@ struct SizeTab: View {
                 Slider(value: $model.scale, in: 0.1 ... 1, step: 0.1) { editing in
                     if !editing, model.scale < 1 { model.commitScale() }
                 }
-                .tint(Palette.accent)
                 .disabled(model.card.isWorking)
                 .accessibilityLabel(Strings.text("Downscale"))
                 .accessibilityValue("\(Int((model.scale * 100).rounded()))\u{00A0}%")

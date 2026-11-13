@@ -23,14 +23,11 @@ public struct SettingsView: View {
         NavigationSplitView {
             SettingsSidebar(model: model)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 280)
-                // The selection in the app's accent, like its switches.
-                .tint(Palette.accent)
         } detail: {
             SettingsPaneView(pane: model.pane, model: model, agents: agents, actions: actions)
                 .navigationTitle(model.pane.title)
         }
         .searchable(text: $model.query, placement: .sidebar, prompt: Strings.text("Search settings"))
-        .tint(Palette.accent)
         .frame(minWidth: 720, idealWidth: 800, minHeight: 480, idealHeight: 620)
     }
 }

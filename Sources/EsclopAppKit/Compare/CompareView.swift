@@ -27,7 +27,6 @@ public struct CompareView: View {
             Divider()
             CompareFooter(model: model)
         }
-        .tint(Palette.accent)
         .task(id: model.loadKey) { await model.load() }
         .background {
             // Esc closes, as in Clop.
@@ -57,7 +56,7 @@ public struct CompareView: View {
             if let result = model.result, !Figures.isNoSaving(before: result.bytesBefore, after: result.bytesAfter) {
                 Text(Figures.percent(before: result.bytesBefore, after: result.bytesAfter))
                     .font(.system(.title2, design: .rounded).weight(.semibold))
-                    .foregroundStyle(result.bytesAfter < result.bytesBefore ? Palette.accent : Color.secondary)
+                    .foregroundStyle(result.bytesAfter < result.bytesBefore ? Ink.saving : Color.secondary)
                     .monospacedDigit()
             }
             Spacer(minLength: 12)
@@ -225,7 +224,7 @@ struct CompareAudio: View {
 
     private func card(title: String, url: URL?) -> some View {
         VStack(spacing: 10) {
-            Image(systemName: "waveform").font(.system(size: 42)).foregroundStyle(Palette.accent).accessibilityHidden(true)
+            Image(systemName: "waveform").font(.system(size: 42)).foregroundStyle(Ink.charcoalText).accessibilityHidden(true)
             Text(title).font(.headline)
             if let url {
                 Text(CompareMedia.formatName(url) + " · " + Figures.bytes(AppModel.size(of: url))).foregroundStyle(.secondary).monospacedDigit()

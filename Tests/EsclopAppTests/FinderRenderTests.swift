@@ -19,7 +19,7 @@ import Testing
         let model = PipelineEditorModel(store: store, engine: ShrinkingEngine(backups: temp.url.appendingPathComponent("backups", isDirectory: true)))
         model.open(name: "Web")
         let sizes = try await SettingsRenderTests.renderBoth({ _ in
-            Form { PipelineTriggersSection(model: model) }.formStyle(.grouped).tint(Palette.accent)
+            Form { PipelineTriggersSection(model: model) }.formStyle(.grouped)
         }, size: CGSize(width: 640, height: 560), name: "finder-trigger")
         #expect(sizes.allSatisfy { $0.width == 640 })
         #expect(model.draft.has(.rightClick))

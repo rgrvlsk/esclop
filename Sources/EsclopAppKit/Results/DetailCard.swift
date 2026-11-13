@@ -17,7 +17,7 @@ struct DetailCard: View {
     @State private var contracted = false
 
     var body: some View {
-        let tint = info.tone == .warm ? Palette.warm : (info.tone == .neutral ? Color.primary : Palette.accent)
+        let tint = info.tone == .warm ? Palette.warm : (info.tone == .neutral ? Color.primary : Ink.saving)
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Label(info.detailTitle, systemImage: info.detailSymbol)
