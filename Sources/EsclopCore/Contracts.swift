@@ -178,7 +178,8 @@ public struct OptimisationRequest: Codable, Identifiable, Sendable {
     public var downscale: Double?          // 0.1...1.0
     public var crop: CropSize?
     public var targetBytes: Int?           // "fit under size"
-    public var stripMetadata: Bool
+    /// true removes EXIF, GPS and other metadata, false keeps it, nil follows the setting.
+    public var stripMetadata: Bool?
     public var removeAudio: Bool
     public var playbackSpeed: Double?
     public var videoEncoder: VideoEncoder?
@@ -200,7 +201,7 @@ public struct OptimisationRequest: Codable, Identifiable, Sendable {
     public init(
         id: UUID = UUID(), sources: [URL], origin: RequestOrigin, quality: CompressionQuality = .normal,
         format: OutputFormat? = nil, downscale: Double? = nil, crop: CropSize? = nil, targetBytes: Int? = nil,
-        stripMetadata: Bool = false, removeAudio: Bool = false, playbackSpeed: Double? = nil,
+        stripMetadata: Bool? = nil, removeAudio: Bool = false, playbackSpeed: Double? = nil,
         videoEncoder: VideoEncoder? = nil, pdfDPI: Int? = nil, location: OutputLocation = .inPlace,
         pipeline: String? = nil, showResultUI: Bool = true,
         fpsCap: Double? = nil, videoBitrateKbps: Int? = nil, audioBitrateKbps: Int? = nil,
