@@ -45,7 +45,7 @@ struct DetailCard: View {
             if !info.removedMetadata.isEmpty {
                 MetadataStrip(info: info, perform: perform).padding(.bottom, 8)
             }
-            DetailActions(info: info, perform: perform)
+            DetailActions(info: info, file: card.savedCopy ?? card.shownFile, perform: perform)
         }
         .padding(Metrics.detailPadding)
         .frame(width: Metrics.detailWidth)
@@ -131,6 +131,8 @@ struct MetadataStrip: View {
 /// names under them, and the menu for the rest.
 struct DetailActions: View {
     let info: CardPresentation
+    /// What Share… in the menu shares.
+    let file: URL
     let perform: (CardPresentation.Action) -> Void
 
     var body: some View {
@@ -152,7 +154,7 @@ struct DetailActions: View {
                 .frame(minWidth: Self.round + 8)
             }
             if !info.menu.isEmpty {
-                MoreMenu(actions: info.menu, size: Self.round, perform: perform)
+                MoreMenu(actions: info.menu, file: file, size: Self.round, perform: perform)
             }
         }
     }
@@ -193,13 +195,23 @@ struct PrimaryButton: View {
 /// "…": a plain menu of the actions that did not get a button, the options last.
 struct MoreMenu: View {
     let actions: [CardPresentation.Action]
+    let file: URL
     let size: CGFloat
     let perform: (CardPresentation.Action) -> Void
 
     var body: some View {
         Menu {
             ForEach(actions, id: \.self) { action in
-                Button(action.title) { perform(action) }
+                switch action {
+                case .share:
+                    // The system's Share submenu.
+                    ShareLink(item: file) { Text(action.title) }
+                case .trash:
+                    Divider()
+                    Button(action.title, role: .destructive) { perform(action) }
+                default:
+                    Button(action.title) { perform(action) }
+                }
             }
         } label: {
             PillButton.face("ellipsis", size: size, glyph: 0.4).contentShape(Circle())

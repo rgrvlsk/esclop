@@ -133,6 +133,19 @@ extension AppModel {
         try? FileManager.default.copyItem(at: file, to: target)
     }
 
+    /// Moves an optimised file to the Trash and removes its card. Its backup stays, as for any
+    /// result; Finder's Put Back brings the file back.
+    func trash(_ card: ResultCard) {
+        guard case .done = card.phase, card.origin != .clipboard else { return }
+        do {
+            try FileManager.default.trashItem(at: card.shownFile, resultingItemURL: nil)
+            dismiss(card)
+            announce(Strings.text("Moved to the Trash"))
+        } catch {
+            NSSound.beep()
+        }
+    }
+
     /// Saves a copied image to Downloads in one click, named for what it is and when it was made:
     /// "Copied image 2026-11-14 09.41.12.png". A copied image otherwise lives in a temporary folder.
     /// ponytail: always Downloads. The specific-folder setting resolves into that temporary folder

@@ -37,6 +37,10 @@ public struct CardPresentation: Equatable, Sendable {
         /// Saves a copied image to Downloads in one click.
         case save
         case saveAs
+        /// The system's share services for the file.
+        case share
+        /// Moves the optimised file to the Trash and removes the card.
+        case trash
 
         /// The label on a button in the detail card.
         public var title: String {
@@ -61,6 +65,8 @@ public struct CardPresentation: Equatable, Sendable {
             case .keepMetadata: return Strings.text("Restore")
             case .save: return Strings.text("Save")
             case .saveAs: return Strings.text("Save as…")
+            case .share: return Strings.text("Share…")
+            case .trash: return Strings.text("Move to Trash")
             }
         }
 
@@ -103,6 +109,8 @@ public struct CardPresentation: Equatable, Sendable {
             case .copyLink: return "link"
             case .keepMetadata: return "arrow.uturn.backward.circle"
             case .save, .saveAs: return "square.and.arrow.down"
+            case .share: return "square.and.arrow.up"
+            case .trash: return "trash"
             }
         }
     }
@@ -211,7 +219,7 @@ public struct CardPresentation: Equatable, Sendable {
             dimensions = Self.dimensions(result)
             // Compare only when there is an original to compare with.
             let comparable = result.backup != nil || result.output.standardizedFileURL != result.source.standardizedFileURL
-            (primary, primaryDetail, secondary, menu) = Self.detail(card, undo: !undo.isEmpty, menu: resultEditing + (comparable ? [.compare] : []), t: t)
+            (primary, primaryDetail, secondary, menu) = Self.detail(card, undo: !undo.isEmpty, menu: resultEditing + (comparable ? [.compare] : []), trash: true, t: t)
 
             actions = Self.distinct([.openDetail] + tools + [.reveal, .copy, .dismiss])
             accessibilityLabel = "\(fileName), \(Self.announcement(for: result, locale: locale))"
@@ -309,14 +317,17 @@ public struct CardPresentation: Equatable, Sendable {
     /// other file is shown in Finder, with Copy beside it. Undo while a backup exists. Everything
     /// else is in "…", ending with Save As and the options.
     @MainActor private static func detail(
-        _ card: ResultCard, undo: Bool, menu rest: [Action], t: (String) -> String
+        _ card: ResultCard, undo: Bool, menu rest: [Action], trash: Bool = false, t: (String) -> String
     ) -> (Action?, String?, [Action], [Action]) {
         let clipboard = card.origin == .clipboard
         let detail = clipboard
             ? t("To the clipboard")
             : FileManager.default.displayName(atPath: card.shownFile.deletingLastPathComponent().path)
         let beside: Action = clipboard ? (card.savedCopy == nil ? .save : .reveal) : .copy
-        return (clipboard ? .copy : .reveal, detail, [beside] + (undo ? [.undo] : []), rest + [.saveAs, .more])
+        // Trash only for an optimised file of the person's: never a copied image's temporary file,
+        // and never an original left as it was or restored.
+        let end: [Action] = [.share, .saveAs] + (trash && !clipboard ? [.trash] : []) + [.more]
+        return (clipboard ? .copy : .reveal, detail, [beside] + (undo ? [.undo] : []), rest + end)
     }
 
     /// "Location, camera, date": the kinds in a sentence, the first capitalised.

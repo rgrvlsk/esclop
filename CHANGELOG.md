@@ -12,6 +12,9 @@ into the body of its GitHub release.
   offers Restore, which runs the file again from its original and keeps the metadata.
 - Save for a copied screenshot: one click puts it in Downloads as "Copied image" with the date
   and time, and the button then shows it in Finder. "Save as…" is in the detail's "…".
+- Share… and Move to Trash in the detail's "…". Share opens the system's share services; Move to
+  Trash takes an optimised file to the Trash (its backup stays) and removes the card. Neither a
+  copied image nor an untouched original can be trashed from there.
 
 ### Changed
 - The floating result is a cream card: the picture over a footer with the saving's ring, the
