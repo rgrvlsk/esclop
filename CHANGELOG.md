@@ -22,6 +22,12 @@ into the body of its GitHub release.
   charcoal button; when the file runs again from it, the detail turns aqua and the charcoal
   button is Stop. The detail shows the whole picture, never a crop.
 
+### Fixed
+- Turning "Strip metadata" off in a file's options now keeps its metadata while the setting is
+  on. A request's `stripMetadata` is now optional: `true` strips, `false` keeps, and leaving it
+  out follows the setting. For MCP, `stripMetadata: false` used to be ignored and now keeps
+  metadata.
+
 ### Removed
 - The `hoverButtons` setting and "Customise buttons…": the card's buttons now follow where the
   file came from. Convert, downscale and crop are in "…".

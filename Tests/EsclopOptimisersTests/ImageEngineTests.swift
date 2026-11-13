@@ -239,6 +239,23 @@ import UniformTypeIdentifiers
         #expect(Inspect.type(result.output) == .jpeg)
     }
 
+    /// The request's choice wins over the stripMetadata setting either way: Restore in the detail
+    /// and the options' switch keep a file's metadata with the setting on.
+    @Test func theRequestDecidesWhetherMetadataStays() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        #expect(EsclopSettings.stripMetadata.value(in: world.settings), "the setting is on by default")
+        for (keep, name) in [(true, "kept.jpg"), (false, "followed.jpg")] {
+            let jpeg = world.file(name)
+            try Fixture.jpeg(jpeg)
+            var request = world.request(jpeg)
+            request.stripMetadata = keep ? false : nil
+            let result = try await world.engine.optimise(jpeg, request: request, progress: { _ in })
+            let gps = Inspect.properties(result.output)[kCGImagePropertyGPSDictionary]
+            #expect((gps != nil) == keep, "\(name)")
+        }
+    }
+
     @Test func watermarkLandsOnThePicture() async throws {
         let world = try await TestWorld()
         defer { Task { await world.finish() } }
