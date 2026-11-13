@@ -261,7 +261,7 @@ import Testing
             for percent in 1 ... 99 {
                 let ink = try Self.ink(of: Figure(number: Figure.percentParts(percent).number, unit: "%", spoken: "", size: ring.figure))
                 for saved in [Double(percent) - 0.5, Double(percent), Double(percent) + 0.49].map({ $0 / 100 }) {
-                    let angle = SavingGauge.dotAngle(saved: saved, shape: .ring) * .pi / 180
+                    let angle = CGFloat(SavingGauge.dotAngle(saved: saved, shape: .ring) * .pi / 180)
                     let centre = CGPoint(x: radius * cos(angle), y: radius * sin(angle))
                     let gap = ink.map { hypot($0.x - centre.x, $0.y - centre.y) }.min()! - dot
                     #expect(gap >= 3, "\(ring.side) pt ring at \(saved): the dot is \(gap) pt from the figure")
