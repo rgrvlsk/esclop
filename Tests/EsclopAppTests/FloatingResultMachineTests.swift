@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The floating result's state machine on a clock the tests move by hand: levels, the 600 ms dwell
-// against a plain pass, the two-second activity rule and what pauses the auto-hide.
+// The floating result's state machine on a clock the tests move by hand: levels, the hover
+// buttons and what pauses the auto-hide.
 
 @testable import EsclopAppKit
 import Foundation
@@ -18,40 +18,17 @@ import Testing
         return machine
     }
 
-    @Test func aStillPointerOpensTheDetailAfter600ms() {
+    @Test func aRestingPointerOnlyShowsTheButtons() {
         var machine = finished()
         machine.pointerEntered(at: at(1))
         #expect(machine.showsHoverButtons)
-        #expect(machine.nextDeadline == at(1.6))
-        _ = machine.advance(to: at(1.59))
-        #expect(machine.level == .thumbnail)
-        _ = machine.advance(to: at(1.6))
-        #expect(machine.level == .detail)
-        #expect(!machine.showsHoverButtons, "the detail replaces the buttons")
-    }
-
-    @Test func aPlainPassOnlyShowsTheButtons() {
-        var machine = finished()
-        machine.pointerEntered(at: at(1))
-        machine.pointerMoved(at: at(1.3))
-        machine.pointerMoved(at: at(1.55))
-        _ = machine.advance(to: at(1.8))
-        #expect(machine.level == .thumbnail, "the pointer kept moving")
-        machine.pointerExited(at: at(1.9))
-        #expect(machine.showsHoverButtons, "crossing the gap to the buttons keeps them")
-        _ = machine.advance(to: at(2.1))
-        #expect(!machine.showsHoverButtons)
-        #expect(machine.level == .thumbnail)
-    }
-
-    @Test func restingOnAButtonNeverOpensTheDetail() {
-        var machine = finished()
-        machine.pointerEntered(at: at(1))
-        machine.pointerExited(at: at(1.2))
-        machine.pointerEnteredButtons(at: at(1.25))
+        #expect(machine.nextDeadline == nil, "nothing is timed while it is hovered")
         _ = machine.advance(to: at(5))
-        #expect(machine.level == .thumbnail)
-        #expect(machine.showsHoverButtons)
+        #expect(machine.level == .thumbnail, "only a click, Return or Space opens the detail")
+        machine.pointerExited(at: at(5.1))
+        #expect(machine.showsHoverButtons, "crossing the gap to the buttons keeps them")
+        _ = machine.advance(to: at(5.3))
+        #expect(!machine.showsHoverButtons)
     }
 
     @Test func noDetailOrButtonsWhileWorkingOrFailed() {
@@ -104,7 +81,7 @@ import Testing
     func dismissalPausesWhileHoveredFocusedDraggedOrOpen(reason: String) {
         var machine = finished(hideAfter: 10)
         switch reason {
-        case "hover": machine.pointerEnteredButtons(at: at(1))
+        case "hover": machine.pointerEntered(at: at(1))
         case "focus": machine.setFocused(true, at: at(1))
         case "drag": machine.setDragging(true, at: at(1))
         case "menu": machine.setMenuOpen(true, at: at(1))
@@ -138,18 +115,13 @@ import Testing
         #expect(machine.hideDeadline == at(10))
     }
 
-    @Test func dragsAndTheMenuStopTheDwell() {
+    @Test func theButtonsStayWhileThePopoverIsOpen() {
         var machine = finished()
         machine.pointerEntered(at: at(1))
-        machine.setDragging(true, at: at(1.2))
-        _ = machine.advance(to: at(2))
-        #expect(machine.level == .thumbnail, "dragging the file out is not a still hover")
-        machine.setDragging(false, at: at(3))
         machine.setMenuOpen(true, at: at(3))
-        machine.pointerMoved(at: at(3.1))
+        machine.pointerExited(at: at(3.1))
         _ = machine.advance(to: at(4))
-        #expect(machine.level == .thumbnail)
-        #expect(machine.showsHoverButtons, "the buttons stay while the popover is open")
+        #expect(machine.showsHoverButtons, "the popover keeps its anchor")
     }
 
     @Test func noticesHaveNoDetailAndHideAfterTheirTime() {
