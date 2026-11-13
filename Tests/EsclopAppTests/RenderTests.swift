@@ -71,6 +71,18 @@ import Testing
         return true
     }
 
+    /// A picture of `size` with a light frame round its edge, so a crop shows.
+    static func framed(_ size: NSSize) -> NSImage {
+        NSImage(size: size, flipped: false) { rect in
+            sunset.draw(in: rect)
+            NSColor.white.setStroke()
+            let edge = NSBezierPath(rect: rect.insetBy(dx: 6, dy: 6))
+            edge.lineWidth = 12
+            edge.stroke()
+            return true
+        }
+    }
+
     static let video = URL(fileURLWithPath: "/tmp/Screen Recording 2026-11-05 at 10.42.mov")
     static let shot = URL(fileURLWithPath: "/tmp/Screenshot 2026-11-05 at 10.42.png")
 
@@ -196,16 +208,79 @@ import Testing
         photo.thumbnail = Self.sunset
         let uploading = open(card(.done(saved())))
         uploading.upload = .uploading(fraction: 0.4)
+        // Run again from the open detail: it stays open, aqua, with Stop as its charcoal button.
+        let working = open(card(.done(saved(beach)), source: beach, origin: .dropZone))
+        working.phase = .working(fraction: 0.45)
+        working.machine.restarted()
+        // A tall and a wide picture are fitted whole, not cropped.
+        let tall = open(card(.done(saved(beach)), source: beach, origin: .dropZone))
+        tall.thumbnail = Self.framed(NSSize(width: 300, height: 600))
+        let wide = open(card(.done(saved(beach)), source: beach, origin: .dropZone))
+        wide.thumbnail = Self.framed(NSSize(width: 900, height: 200))
         let details: [(String, ResultCard)] = [
             ("detail-dropped", photo),
             ("detail-clipboard", open(card(.done(saved())))),
             ("detail-grew", open(card(.done(saved(after: 2_470_000)), origin: .dropZone))),
             ("detail-already-optimised", open(card(.unchanged(bytes: 41_200), origin: .dropZone))),
             ("detail-uploading", uploading),
+            ("detail-working", working),
+            ("detail-tall", tall),
+            ("detail-wide", wide),
         ]
         for (name, card) in details {
             #expect(card.machine.level == .detail, "\(name) opened")
             #expect(try render(object(card), name: name, scheme: scheme).width == Metrics.detailWidth, "\(name) is 320 pt")
+        }
+    }
+
+    /// The ring at a small, half, three-quarter and nearly whole saving: the dot never touches the
+    /// figure.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func savingRing(scheme: ColorScheme) throws {
+        for percent in [5, 50, 75, 99] {
+            let after = 2_400_000 * (100 - percent) / 100
+            try render(object(card(.done(saved(after: after)))), name: "result-saved-\(percent)", scheme: scheme)
+        }
+    }
+
+    /// The white dot clears the figure by 3 pt or more wherever the saving puts it, on the card
+    /// and in the detail. Measured on the figure's rendered ink, at both ends of each percentage.
+    @Test func theDotClearsTheFigure() throws {
+        for ring in [CardFooter.ring, CardFooter.largeRing] {
+            let radius = SavingGauge.radius(side: ring.side, lineWidth: ring.lineWidth)
+            let dot = SavingGauge.dotRadius(lineWidth: ring.lineWidth)
+            for percent in 1 ... 99 {
+                let ink = try Self.ink(of: Figure(number: Figure.percentParts(percent).number, unit: "%", spoken: "", size: ring.figure))
+                for saved in [Double(percent) - 0.5, Double(percent), Double(percent) + 0.49].map({ $0 / 100 }) {
+                    let angle = SavingGauge.dotAngle(saved: saved, shape: .ring) * .pi / 180
+                    let centre = CGPoint(x: radius * cos(angle), y: radius * sin(angle))
+                    let gap = ink.map { hypot($0.x - centre.x, $0.y - centre.y) }.min()! - dot
+                    #expect(gap >= 3, "\(ring.side) pt ring at \(saved): the dot is \(gap) pt from the figure")
+                }
+            }
+        }
+    }
+
+    /// The inked points of a view, in points from its centre, at 4x.
+    static func ink(of view: some View) throws -> [CGPoint] {
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 4
+        let rep = NSBitmapImageRep(cgImage: try #require(renderer.cgImage))
+        let width = CGFloat(rep.pixelsWide) / 4, height = CGFloat(rep.pixelsHigh) / 4
+        var points: [CGPoint] = []
+        for y in 0 ..< rep.pixelsHigh {
+            for x in 0 ..< rep.pixelsWide where (rep.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 0.1 {
+                points.append(CGPoint(x: (CGFloat(x) + 0.5) / 4 - width / 2, y: (CGFloat(y) + 0.5) / 4 - height / 2))
+            }
+        }
+        return points
+    }
+
+    /// A round button drawn smaller than the pointer minimum still takes the whole target.
+    @Test func smallRoundButtonsTakeAWholePointerTarget() throws {
+        for size in [CardFace.closeSize, DetailCard.closeSize, Metrics.toolSize] {
+            let image = try #require(ImageRenderer(content: PillButton(action: .dismiss, size: size) { _ in }).cgImage)
+            #expect(CGFloat(image.width) >= Spacing.hit && CGFloat(image.height) >= Spacing.hit, "\(size) pt button")
         }
     }
 

@@ -235,7 +235,7 @@ holds the rest, in folders by feature:
 - `Design`: the tokens of the design overhaul (`Ink`, `Surface`, `NeutralFill`, `Radius`,
   `Spacing`, `Typeface`, `Elevation`), the floating surface (`floatingSurface`: opaque cream or
   warm charcoal, or a state's fill), `Figure` (the compressed saving) and `SavingGauge` (the
-  ring or arc of a finished saving). The app's accent colour is charcoal
+  ring or arc of a finished saving, and the same ring empty where nothing was saved). The app's accent colour is charcoal
   (`assets/Accent.xcassets`, compiled by `Scripts/bundle-app.sh`, `NSAccentColorName`).
   `SurfaceRenderTests` measures every ink's contrast on rendered pixels. Surfaces move onto these
   one by one; until then they keep `Palette` and `Metrics`.

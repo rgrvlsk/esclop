@@ -56,7 +56,7 @@ import UniformTypeIdentifiers
     @Test func noSavingReadsAsAlreadyOptimised() {
         let flat = renders.card(.done(renders.saved(before: 379_000, after: 378_990)))
         let info = CardPresentation(card: flat, locale: en)
-        #expect(info.capsule == .status(symbol: "checkmark", text: "Already optimised · 379\u{00A0}kB"))
+        #expect(info.capsule == .status(symbol: nil, text: "Already optimised · 379\u{00A0}kB"))
         #expect(info.tone == .neutral)
         #expect(info.headline == "Already optimised", "the detail shows the same footer, so no figure there either")
         #expect(CardPresentation.announcement(for: renders.saved(before: 379_000, after: 378_990), locale: en) == "Already optimised · 379\u{00A0}kB")

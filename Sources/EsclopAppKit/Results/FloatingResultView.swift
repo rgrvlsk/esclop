@@ -62,9 +62,8 @@ public struct FloatingResultView: View {
             }
             return .handled
         }
-        // With the options popover open, Return and Space belong to it.
-        .onKeyPress(.return) { card.machine.menuOpen ? .ignored : run(.openDetail, in: info) }
-        .onKeyPress(.space) { card.machine.menuOpen ? .ignored : run(.openDetail, in: info) }
+        .onKeyPress(.return) { enter(info) }
+        .onKeyPress(.space) { enter(info) }
         .onKeyPress(characters: ["z", "c", "r"], phases: .down) { press in
             guard press.modifiers.contains(.command) else { return .ignored }
             switch press.characters {
@@ -101,6 +100,14 @@ public struct FloatingResultView: View {
         }
     }
 
+    /// Return and Space open the detail, and there run its charcoal button. With the options
+    /// popover open they belong to it.
+    private func enter(_ info: CardPresentation) -> KeyPress.Result {
+        if card.machine.menuOpen { return .ignored }
+        guard card.machine.level == .detail else { return run(.openDetail, in: info) }
+        return info.primary.map { run($0, in: info) } ?? .ignored
+    }
+
     private func run(_ action: CardPresentation.Action, in info: CardPresentation) -> KeyPress.Result {
         guard info.actions.contains(action) else { return .ignored }
         perform(action)
@@ -110,12 +117,14 @@ public struct FloatingResultView: View {
 
 // MARK: - Parts
 
-/// The file's picture at its own aspect ratio, or a symbol until the thumbnail loads.
+/// The file's picture at its own aspect ratio, or a symbol until the thumbnail loads. The card
+/// fills its frame; the detail fits the whole picture, on a neutral fill where it does not reach.
 struct Picture: View {
     let card: ResultCard
     let width: CGFloat
     let radius: CGFloat
     var heights: ClosedRange<CGFloat> = Picture.heights
+    var fits = false
 
     /// The card's picture keeps its aspect ratio within these heights.
     static let heights: ClosedRange<CGFloat> = 72...190
@@ -130,16 +139,17 @@ struct Picture: View {
         let height = Self.height(for: picture, width: width, range: heights)
         Group {
             if let picture {
-                Image(nsImage: picture).resizable().aspectRatio(contentMode: .fill)
+                Image(nsImage: picture).resizable().aspectRatio(contentMode: fits ? .fit : .fill)
             } else {
                 Image(systemName: symbol)
                     .font(.title2)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.primary.opacity(0.06))
+                    .foregroundStyle(Ink.secondary)
             }
         }
         .frame(width: width, height: height)
+        .background {
+            if picture == nil || fits { Rectangle().fill(NeutralFill.resting) }
+        }
         .clipped()
         .accessibilityHidden(true)
     }
