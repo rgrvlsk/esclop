@@ -1,22 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The design tokens from DESIGN.md: one accent, one warning colour, the panel geometry and the
+// The design tokens from DESIGN.md: one warning colour, the panel geometry and the
 // three durations. Views use these names, never raw values.
 
 import AppKit
 import SwiftUI
 
 extension View {
-    /// The default action of a window or sheet: prominent, in the app's accent rather than the
-    /// system blue, like the switches, savings and bars.
+    /// The default action of a window or sheet: prominent, in the app's accent colour
+    /// (`Ink.charcoal`, from the asset catalog), like the switches.
     func primaryButton() -> some View {
-        buttonStyle(.borderedProminent).tint(Palette.accent)
+        buttonStyle(.borderedProminent)
     }
 }
 
 public enum Palette {
-    /// Savings, progress, primary actions.
-    public static let accent = Color(nsColor: dynamic(light: 0x1E7F6A, dark: 0x3DBF9F))
     /// Aggressive mode, "fit under size".
     public static let warm = Color(nsColor: dynamic(light: 0xB8741C, dark: 0xE0A040))
     /// A folder L'Esclop cannot watch: 3:1 or more on a Settings row, marked or not (4.1:1 light, 4.6:1 dark).

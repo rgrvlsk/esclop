@@ -2,7 +2,7 @@
 //
 // The batch window: the aggregate saving with the deflate bar and the controls for the whole
 // batch on top, then one row per file with its progress, sizes, its own bar and its actions.
-// The same language as the floating result: Palette.accent, the rounded saving figure, the
+// The same language as the floating result: Ink.saving, the rounded saving figure, the
 // deflate bar contracting to the new proportion.
 
 import AppKit
@@ -58,12 +58,12 @@ struct BatchHeader: View {
                 if let percent = info.percent {
                     Text(percent)
                         .font(.system(.title, design: .rounded).weight(.semibold))
-                        .foregroundStyle(Palette.accent)
+                        .foregroundStyle(Ink.saving)
                         .monospacedDigit()
                         .contentTransition(.numericText())
                 }
             }
-            DeflateBar(end: info.barIsNeutral ? 0 : info.barEnd, progress: info.progress, tint: Palette.accent, filled: info.progress == nil && !info.barIsNeutral)
+            DeflateBar(end: info.barIsNeutral ? 0 : info.barEnd, progress: info.progress, tint: info.progress == nil ? Ink.saving : Ink.progress, filled: info.progress == nil && !info.barIsNeutral)
             Text(info.counts).font(.subheadline).foregroundStyle(.secondary).monospacedDigit()
             HStack(spacing: 8) {
                 if batch.isRunning {
@@ -124,7 +124,7 @@ struct BatchRowView: View {
             } else if let figure = BatchPresentation.figure(of: row) {
                 Text(figure)
                     .font(.system(.title3, design: .rounded).weight(.semibold))
-                    .foregroundStyle(Palette.accent)
+                    .foregroundStyle(Ink.saving)
                     .monospacedDigit()
             } else if case .working = row.state {
                 ProgressView().controlSize(.small)
@@ -168,11 +168,11 @@ struct BatchRowView: View {
     @ViewBuilder private var bar: some View {
         switch row.state {
         case let .working(fraction):
-            DeflateBar(end: 1, progress: fraction > 0 ? fraction : nil, tint: Palette.accent, filled: false)
+            DeflateBar(end: 1, progress: fraction > 0 ? fraction : nil, tint: Ink.progress, filled: false)
         case let .done(result):
-            DeflateBar(end: result.bytesBefore > 0 ? min(1, Double(result.bytesAfter) / Double(result.bytesBefore)) : 1, progress: nil, tint: Palette.accent, filled: true)
+            DeflateBar(end: result.bytesBefore > 0 ? min(1, Double(result.bytesAfter) / Double(result.bytesBefore)) : 1, progress: nil, tint: Ink.saving, filled: true)
         case .waiting:
-            DeflateBar(end: 1, progress: nil, tint: Palette.accent, filled: false).opacity(0.5)
+            DeflateBar(end: 1, progress: nil, tint: Ink.progress, filled: false).opacity(0.5)
         default:
             EmptyView()
         }

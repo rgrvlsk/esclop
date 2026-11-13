@@ -26,20 +26,21 @@ import Testing
     static let secondary = ("secondary", AnyShapeStyle(Ink.secondary), 4.5)
     static let original = ("original", AnyShapeStyle(Ink.original), 4.5)
     static let saving = ("saving", AnyShapeStyle(Ink.saving), 4.5)
+    static let charcoalText = ("charcoal-text", AnyShapeStyle(Ink.charcoalText), 4.5)
     static let warm = ("warm", AnyShapeStyle(Ink.warm), 3.0)
     static let error = ("error", AnyShapeStyle(Ink.error), 3.0)
 
     /// Every ink on every fill it is set on, measured on rendered pixels, over a white, a black
     /// and a busy desktop: the material is opaque, so all three must agree. Each ink is drawn as
     /// a square, so the sample is the ink itself and not an antialiased edge. Text, secondary
-    /// text (the new size), the original size and the saving hold 4.5:1; the amber mark, the
+    /// text (the new size), the original size, the saving and charcoal as text hold 4.5:1; the amber mark, the
     /// error triangle and the progress bar, which are not text, 3:1. On a charcoal fill (selected
     /// or on) white holds 4.5:1. On the 14 % fill words are set in text ink.
     @Test(arguments: schemes)
     func inkContrastOnRenderedSurfaces(scheme: ColorScheme) async throws {
         var probes = [
-            Probe(name: "surface", inks: [Self.text, Self.secondary, Self.original, Self.saving, Self.warm, Self.error]),
-            Probe(name: "tile", fill: AnyShapeStyle(Surface.tile), inks: [Self.text, Self.secondary, Self.original, Self.saving, Self.warm, Self.error]),
+            Probe(name: "surface", inks: [Self.text, Self.secondary, Self.original, Self.saving, Self.charcoalText, Self.warm, Self.error]),
+            Probe(name: "tile", fill: AnyShapeStyle(Surface.tile), inks: [Self.text, Self.secondary, Self.original, Self.saving, Self.charcoalText, Self.warm, Self.error]),
             Probe(name: "progress", fill: AnyShapeStyle(Surface.progress), inks: [Self.text, Self.secondary, ("bar", AnyShapeStyle(Ink.progress), 3.0)]),
             Probe(name: "decision", fill: AnyShapeStyle(Surface.decision), inks: [Self.text, Self.secondary, Self.warm, Self.error]),
             Probe(name: "charcoal", fill: AnyShapeStyle(Ink.charcoal), inks: [("on-charcoal", AnyShapeStyle(Ink.onCharcoal), 4.5)]),

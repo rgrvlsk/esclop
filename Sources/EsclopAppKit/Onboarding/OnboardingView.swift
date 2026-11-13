@@ -47,7 +47,6 @@ public struct OnboardingView: View {
             footer
         }
         .frame(width: 640, height: 560)
-        .tint(Palette.accent)
     }
 
     var transition: AnyTransition {
@@ -115,7 +114,7 @@ struct StepDots: View {
         HStack(spacing: 8) {
             ForEach(OnboardingModel.Step.allCases) { each in
                 Capsule()
-                    .fill(each == step ? AnyShapeStyle(Palette.accent) : AnyShapeStyle(.quaternary))
+                    .fill(each == step ? AnyShapeStyle(Ink.charcoal) : AnyShapeStyle(.quaternary))
                     .frame(width: each == step ? 18 : 7, height: 7)
             }
         }
@@ -188,7 +187,7 @@ struct WelcomePage: View {
         var body: some View {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Image(systemName: symbol)
-                    .foregroundStyle(Palette.accent)
+                    .foregroundStyle(Ink.charcoalText)
                     .frame(width: 22)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
@@ -289,7 +288,7 @@ struct AccessBadge: View {
     var body: some View {
         switch access {
         case .allowed:
-            Label(Strings.text("Allowed"), systemImage: "checkmark.circle.fill").foregroundStyle(Palette.accent)
+            Label(Strings.text("Allowed"), systemImage: "checkmark.circle.fill").foregroundStyle(Ink.charcoalText)
         case .asks:
             Label(Strings.text("Asks each time"), systemImage: "questionmark.circle").foregroundStyle(Palette.warm)
         case .denied:
@@ -338,7 +337,7 @@ struct DonePage: View {
             Spacer(minLength: 24)
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 56))
-                .foregroundStyle(Palette.accent)
+                .foregroundStyle(Ink.charcoalText)
                 .accessibilityHidden(true)
             Text(Strings.text("L'Esclop is in the menu bar"))
                 .font(.title.weight(.semibold))
