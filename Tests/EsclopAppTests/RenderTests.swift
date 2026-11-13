@@ -159,8 +159,6 @@ import Testing
         let toned = card(.done(saved()), origin: .dropZone)
         toned.thumbnail = Self.sunset
         toned.machine.pointerEntered(at: Date())
-        let detail = card(.done(saved()))
-        detail.machine.openDetail(at: Date())
         // A long video says the time left instead of the percentage.
         let long = card(.working(fraction: 0.3), source: Self.video, bytes: 148_000_000)
         long.startedAt = Date().addingTimeInterval(-5)
@@ -182,8 +180,33 @@ import Testing
             let size = try render(object(card), name: name, scheme: scheme)
             #expect(size.width == Metrics.thumbnailWidth, "\(name) is a 208 pt card")
         }
-        #expect(try render(object(detail), name: "result-detail", scheme: scheme).width == Metrics.detailWidth)
         try render(object(card(.notice(title: "Skipping the next copy", detail: "Press again to pause everything."))), name: "result-notice", scheme: scheme)
+    }
+
+    /// The detail (pr2-detail-card): a dropped photo shows its folder, a copied screenshot goes back
+    /// to the clipboard, and the states with no saving or an upload keep the same layout.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func detailStates(scheme: ColorScheme) throws {
+        let beach = URL(fileURLWithPath: "/tmp/Desktop/Beach.jpg")
+        func open(_ card: ResultCard) -> ResultCard {
+            card.machine.openDetail(at: Date())
+            return card
+        }
+        let photo = open(card(.done(saved(beach)), source: beach, origin: .dropZone))
+        photo.thumbnail = Self.sunset
+        let uploading = open(card(.done(saved())))
+        uploading.upload = .uploading(fraction: 0.4)
+        let details: [(String, ResultCard)] = [
+            ("detail-dropped", photo),
+            ("detail-clipboard", open(card(.done(saved())))),
+            ("detail-grew", open(card(.done(saved(after: 2_470_000)), origin: .dropZone))),
+            ("detail-already-optimised", open(card(.unchanged(bytes: 41_200), origin: .dropZone))),
+            ("detail-uploading", uploading),
+        ]
+        for (name, card) in details {
+            #expect(card.machine.level == .detail, "\(name) opened")
+            #expect(try render(object(card), name: name, scheme: scheme).width == Metrics.detailWidth, "\(name) is 320 pt")
+        }
     }
 
     @Test(arguments: [ColorScheme.light, .dark])

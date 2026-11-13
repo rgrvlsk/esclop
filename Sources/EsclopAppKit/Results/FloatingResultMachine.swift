@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // What one floating result is doing, as a value (DESIGN.md › Floating result): its level, whether
-// the hover buttons show and when it hides. Time comes in from outside as
+// the hover buttons show and when it hides. Nothing opens because the pointer rested: the detail
+// opens on a click, Return or Space, or VoiceOver's action. Time comes in from outside as
 // `now`, so tests drive it with a fixed clock and the app with the real one; the app model sleeps
 // until `nextDeadline` and calls `advance(to:)`.
 
@@ -28,8 +29,6 @@ public struct FloatingResultMachine: Equatable, Sendable {
         case dismiss
     }
 
-    /// A still pointer opens the detail after this long; a plain pass only shows the buttons.
-    public static let dwell: TimeInterval = 0.6
     /// The pointer can cross the gap between the thumbnail and its buttons without them fading.
     public static let leaveGrace: TimeInterval = 0.15
     /// A result whose time ran out while dismissal was paused goes this long after the pause ends.
@@ -42,7 +41,6 @@ public struct FloatingResultMachine: Equatable, Sendable {
     public private(set) var dragging = false
     /// The options popover is open.
     public private(set) var menuOpen = false
-    public private(set) var dwellDeadline: Date?
     public private(set) var leaveDeadline: Date?
     public private(set) var hideDeadline: Date?
     /// The result's own hide delay, given again when the person closes its detail.
@@ -68,7 +66,7 @@ public struct FloatingResultMachine: Equatable, Sendable {
     }
 
     public var nextDeadline: Date? {
-        var dates = [dwellDeadline, leaveDeadline].compactMap { $0 }
+        var dates = [leaveDeadline].compactMap { $0 }
         if !isDismissalPaused, let hideDeadline { dates.append(hideDeadline) }
         return dates.min()
     }
@@ -79,7 +77,6 @@ public struct FloatingResultMachine: Equatable, Sendable {
     /// button): back to working, keeping the level, the pointer and the open popover.
     public mutating func restarted() {
         stage = .working
-        dwellDeadline = nil
         hideDeadline = nil
     }
 
@@ -87,13 +84,11 @@ public struct FloatingResultMachine: Equatable, Sendable {
         stage = .finished
         self.hideAfter = hideAfter
         hideDeadline = hideAfter.map { now + $0 }
-        if hovering { armDwell(now) }
     }
 
     public mutating func failed(at now: Date, hideAfter: TimeInterval?) {
         stage = .failed
         level = .thumbnail
-        dwellDeadline = nil
         self.hideAfter = hideAfter
         hideDeadline = hideAfter.map { now + $0 }
     }
@@ -107,7 +102,6 @@ public struct FloatingResultMachine: Equatable, Sendable {
     /// The result changed in place (a restore): start its time again at the thumbnail.
     public mutating func refreshed(at now: Date, hideAfter: TimeInterval?) {
         level = .thumbnail
-        dwellDeadline = nil
         self.hideAfter = hideAfter
         hideDeadline = hideAfter.map { now + $0 }
     }
@@ -117,27 +111,11 @@ public struct FloatingResultMachine: Equatable, Sendable {
     public mutating func pointerEntered(at now: Date) {
         hovering = true
         leaveDeadline = nil
-        armDwell(now)
-    }
-
-    /// The pointer is on the row of buttons: the object stays hovered, but resting on a button
-    /// never opens the detail.
-    public mutating func pointerEnteredButtons(at now: Date) {
-        hovering = true
-        leaveDeadline = nil
-        dwellDeadline = nil
-    }
-
-    /// Any movement restarts the dwell: only a still pointer opens the detail.
-    public mutating func pointerMoved(at now: Date) {
-        guard hovering else { return }
-        armDwell(now)
     }
 
     public mutating func pointerExited(at now: Date) {
         guard hovering else { return }
         hovering = false
-        dwellDeadline = nil
         leaveDeadline = now + Self.leaveGrace
     }
 
@@ -148,13 +126,11 @@ public struct FloatingResultMachine: Equatable, Sendable {
 
     public mutating func setDragging(_ value: Bool, at now: Date) {
         dragging = value
-        if value { dwellDeadline = nil }
         resumeHide(now)
     }
 
     public mutating func setMenuOpen(_ value: Bool, at now: Date) {
         menuOpen = value
-        dwellDeadline = nil
         resumeHide(now)
     }
 
@@ -163,7 +139,6 @@ public struct FloatingResultMachine: Equatable, Sendable {
     public mutating func openDetail(at now: Date) {
         guard stage == .finished else { return }
         level = .detail
-        dwellDeadline = nil
     }
 
     /// Back to the thumbnail. Closed by hand, the result gets its whole hide delay again: its
@@ -171,7 +146,6 @@ public struct FloatingResultMachine: Equatable, Sendable {
     public mutating func closeDetail(at now: Date) {
         guard level == .detail else { return }
         level = .thumbnail
-        dwellDeadline = nil
         if let hideAfter, let deadline = hideDeadline {
             hideDeadline = max(deadline, now + hideAfter)
         }
@@ -186,10 +160,6 @@ public struct FloatingResultMachine: Equatable, Sendable {
             self.leaveDeadline = nil
             resumeHide(now)
         }
-        if let dwellDeadline, dwellDeadline <= now {
-            self.dwellDeadline = nil
-            if hovering, stage == .finished, !menuOpen, !dragging { level = .detail }
-        }
         if !isDismissalPaused, let hideDeadline, hideDeadline <= now {
             self.hideDeadline = nil
             return .dismiss
@@ -198,10 +168,6 @@ public struct FloatingResultMachine: Equatable, Sendable {
     }
 
     // MARK: Private
-
-    private mutating func armDwell(_ now: Date) {
-        dwellDeadline = stage == .finished && level == .thumbnail && !menuOpen && !dragging ? now + Self.dwell : nil
-    }
 
     /// When the pause ends after the time ran out, the result goes a little later, not at once.
     private mutating func resumeHide(_ now: Date) {

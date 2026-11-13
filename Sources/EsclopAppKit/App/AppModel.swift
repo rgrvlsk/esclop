@@ -58,9 +58,6 @@ public final class AppModel {
     @ObservationIgnored public var loadsThumbnails = true
     /// The clock the floating results run on (tests move it by hand).
     @ObservationIgnored public var now: () -> Date = Date.init
-    /// Where the pointer is. A panel in an inactive app hears the pointer enter and leave but not
-    /// every move, so the dwell checks this before it opens the detail. Tests move it by hand.
-    @ObservationIgnored public var pointerLocation: () -> CGPoint = { NSEvent.mouseLocation }
     /// Announces results to VoiceOver; tests record them instead.
     @ObservationIgnored public var announce: (String) -> Void = AppModel.postAnnouncement
     /// The app in front when a copy happens: one of the origin signals. Tests set it.
@@ -438,7 +435,7 @@ public final class AppModel {
 
     /// What the person does to a floating result.
     public enum Interaction: Equatable, Sendable {
-        case pointerEntered, pointerMoved, pointerExited, pointerEnteredButtons
+        case pointerEntered, pointerExited
         case openDetail, closeDetail
         case focus(Bool), dragging(Bool), menu(Bool)
     }
@@ -446,14 +443,8 @@ public final class AppModel {
     public func interact(_ card: ResultCard, _ interaction: Interaction) {
         let time = now()
         switch interaction {
-        case .pointerEntered:
-            card.machine.pointerEntered(at: time)
-            card.dwellAnchor = pointerLocation()
-        case .pointerMoved:
-            card.machine.pointerMoved(at: time)
-            card.dwellAnchor = pointerLocation()
+        case .pointerEntered: card.machine.pointerEntered(at: time)
         case .pointerExited: card.machine.pointerExited(at: time)
-        case .pointerEnteredButtons: card.machine.pointerEnteredButtons(at: time)
         case .openDetail: card.machine.openDetail(at: time)
         case .closeDetail: card.machine.closeDetail(at: time)
         case let .focus(value): card.machine.setFocused(value, at: time)
@@ -485,14 +476,6 @@ public final class AppModel {
     /// Applies the deadlines that passed; the timer calls it, and tests do with their own clock.
     public func advance(_ card: ResultCard) {
         let time = now()
-        if let deadline = card.machine.dwellDeadline, deadline <= time, let anchor = card.dwellAnchor {
-            // The pointer moved since the dwell started: it was a pass, so start counting again.
-            let point = pointerLocation()
-            if hypot(point.x - anchor.x, point.y - anchor.y) > 2 {
-                card.machine.pointerMoved(at: time)
-                card.dwellAnchor = point
-            }
-        }
         let effect = card.machine.advance(to: time)
         apply(effect, to: card)
         guard cards.contains(where: { $0.id == card.id }) else { return }

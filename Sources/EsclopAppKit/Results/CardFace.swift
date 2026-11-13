@@ -111,27 +111,12 @@ struct CardFace: View {
         }
     }
 
-    /// Where the round buttons lie, in the card's space: resting there never opens the detail.
-    private func onButtons(_ point: CGPoint) -> Bool {
-        let inset = Metrics.thumbnailPadding + Self.buttonInset
-        let count = CGFloat(info.tools.count)
-        let width = count * Metrics.toolSize + max(0, count - 1) * Self.buttonGap
-        let pictureBottom = Metrics.thumbnailPadding + Picture.height(for: card.thumbnail, width: Self.pictureWidth, range: Picture.heights)
-        let tools = CGRect(x: Metrics.thumbnailWidth - inset - width, y: pictureBottom - Self.buttonInset - Metrics.toolSize, width: width, height: Metrics.toolSize)
-        let closeX = corner.isRight ? Metrics.thumbnailWidth - inset - Self.closeSize : inset
-        let close = CGRect(x: closeX, y: inset, width: Self.closeSize, height: Self.closeSize)
-        return tools.contains(point) || close.contains(point)
-    }
-
+    /// A move only moves the glow; the card hears the pointer come and go.
     private func hover(_ phase: HoverPhase) {
         switch phase {
         case let .active(location):
             spot.location = location
-            if card.machine.showsHoverButtons, onButtons(location) {
-                interact(.pointerEnteredButtons)
-            } else {
-                interact(card.machine.hovering ? .pointerMoved : .pointerEntered)
-            }
+            if !card.machine.hovering { interact(.pointerEntered) }
         case .ended:
             spot.location = nil
             interact(.pointerExited)
@@ -142,15 +127,19 @@ struct CardFace: View {
 // MARK: - Footer
 
 /// What the card says under its picture. One baseline in every state; the card never resizes on
-/// hover.
+/// hover. The detail card shows it larger, without the name it already shows above.
 struct CardFooter: View {
     let card: ResultCard
     let info: CardPresentation
     let perform: (CardPresentation.Action) -> Void
+    var large = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    static let slot: CGFloat = 48
+    /// The ring's place, and the symbol's.
+    private let slot: CGFloat = 48
+    /// The detail's saving ring, where the figure takes the next size up.
+    private static let largeRing: CGFloat = 76
     /// A result that grew: its figure in the secondary ink, never the saving's teal.
     static let neutral = Color(nsColor: Palette.dynamic(light: 0x625C56, dark: 0xB9AFA5))
 
@@ -162,7 +151,7 @@ struct CardFooter: View {
             case .working:
                 working
             case let .status(symbol, _):
-                lines(slot: symbolSlot(info.headline == Strings.text("Already optimised") ? nil : symbol))
+                lines(mark: symbolSlot(info.headline == Strings.text("Already optimised") ? nil : symbol))
             case .error:
                 failed
             case .notice:
@@ -171,7 +160,7 @@ struct CardFooter: View {
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, minHeight: Self.slot + 12, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: slot + 12, alignment: .leading)
     }
 
     // A finished saving: the ring with the figure, the original size in brick red, the new one
@@ -182,19 +171,19 @@ struct CardFooter: View {
         let percent = Int((abs(saved) * 100).rounded())
         let figure = Figure(
             number: grew ? "+\(percent)" : Figure.percentParts(percent).number, unit: "%",
-            spoken: Figures.percent(before: before, after: after), size: 16,
+            spoken: Figures.percent(before: before, after: after), size: large ? 24 : 16,
             color: grew ? Self.neutral : Ink.saving
         )
         return HStack(spacing: 10) {
             ZStack {
-                if grew { emptyRing } else { SavingGauge(saved: saved, lineWidth: 4) }
+                if grew { emptyRing(lineWidth: large ? 6 : 4) } else { SavingGauge(saved: saved, lineWidth: large ? 6 : 4) }
                 figure
             }
-            .frame(width: Self.slot, height: Self.slot)
+            .frame(width: large ? Self.largeRing : slot, height: large ? Self.largeRing : slot)
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
+                HStack(spacing: large ? 8 : 4) {
                     Text(Figures.bytes(before)).foregroundStyle(Ink.original)
-                    Image(systemName: "arrow.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(Ink.secondary)
+                    Image(systemName: "arrow.right").font(.system(size: large ? 14 : 10, weight: .semibold)).foregroundStyle(Ink.secondary)
                     Text(Figures.bytes(after)).foregroundStyle(Ink.secondary)
                     if card.aggressive {
                         Image(systemName: "bolt.fill").foregroundStyle(Ink.warm).help(Strings.text("Optimise harder"))
@@ -203,28 +192,36 @@ struct CardFooter: View {
                         Image(systemName: "pin.fill").foregroundStyle(Ink.text).help(rule.tooltip())
                     }
                 }
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: large ? 17 : 13, weight: .semibold))
                 .monospacedDigit()
                 .lineLimit(1)
-                caption(info.caption)
+                if !large { caption(info.caption) }
             }
         }
     }
 
-    private var working: some View {
+    @ViewBuilder private var working: some View {
         let stop: CardPresentation.Action = info.actions.contains(.cancelUpload) ? .cancelUpload : .stop
-        return HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
+        if large {
+            // The detail already names the file, and its charcoal button stops the work.
+            VStack(alignment: .leading, spacing: 8) {
                 Text(info.headline).font(.system(size: 13, weight: .semibold)).foregroundStyle(Ink.text).lineLimit(1)
-                TimelineView(.periodic(from: card.startedAt, by: 1)) { context in
-                    caption(workCaption(at: context.date))
-                }
+                WorkBar(progress: info.progress, pulses: !reduceMotion)
             }
-            Spacer(minLength: 0)
-            if info.actions.contains(stop) { PillButton(action: stop, perform: perform) }
+        } else {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(info.headline).font(.system(size: 13, weight: .semibold)).foregroundStyle(Ink.text).lineLimit(1)
+                    TimelineView(.periodic(from: card.startedAt, by: 1)) { context in
+                        caption(workCaption(at: context.date))
+                    }
+                }
+                Spacer(minLength: 0)
+                if info.actions.contains(stop) { PillButton(action: stop, perform: perform) }
+            }
+            .frame(minHeight: slot)
+            .overlay(alignment: .top) { WorkBar(progress: info.progress, pulses: !reduceMotion).offset(y: -4) }
         }
-        .frame(minHeight: Self.slot)
-        .overlay(alignment: .top) { WorkBar(progress: info.progress, pulses: !reduceMotion).offset(y: -4) }
     }
 
     /// "Beach.jpg · 40 %", or the time left for a job expected to take more than two seconds.
@@ -241,7 +238,8 @@ struct CardFooter: View {
     /// The triangle, what did not happen and why, and the one way forward. The pill sits beside
     /// the words when they fit ("Retry"), under them when they do not ("Upload Again").
     private var failed: some View {
-        let action: CardPresentation.Action? = [.retryUpload, .retry, .reveal].first(where: info.actions.contains)
+        // In the detail, the charcoal button is the way forward.
+        let action: CardPresentation.Action? = large ? nil : [.retryUpload, .retry, .reveal].first(where: info.actions.contains)
         let words = VStack(alignment: .leading, spacing: 2) {
             Text(info.headline).font(.system(size: 13, weight: .semibold)).foregroundStyle(Ink.text).lineLimit(1)
             Text(info.caption)
@@ -253,7 +251,7 @@ struct CardFooter: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(Ink.error)
-                .frame(width: Self.slot, height: Self.slot)
+                .frame(width: slot, height: slot)
             if let action {
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 8) {
@@ -272,9 +270,9 @@ struct CardFooter: View {
         }
     }
 
-    private func lines(slot: some View) -> some View {
+    private func lines(mark: some View) -> some View {
         HStack(spacing: 10) {
-            slot.frame(width: Self.slot, height: Self.slot)
+            mark.frame(width: slot, height: slot)
             VStack(alignment: .leading, spacing: 2) {
                 Text(info.headline).font(.system(size: 13, weight: .semibold)).foregroundStyle(Ink.text).lineLimit(1)
                 caption(info.caption)
@@ -286,15 +284,15 @@ struct CardFooter: View {
     @ViewBuilder private func symbolSlot(_ symbol: String?) -> some View {
         if let symbol {
             Image(systemName: symbol).font(.system(size: 15, weight: .semibold)).foregroundStyle(Ink.text)
-                .frame(width: Self.slot - 8, height: Self.slot - 8)
+                .frame(width: slot - 8, height: slot - 8)
                 .background(Circle().fill(NeutralFill.resting))
         } else {
-            emptyRing
+            emptyRing()
         }
     }
 
-    private var emptyRing: some View {
-        Circle().inset(by: 2).stroke(Ink.secondary.opacity(0.25), lineWidth: 4)
+    private func emptyRing(lineWidth: CGFloat = 4) -> some View {
+        Circle().inset(by: lineWidth / 2).stroke(Ink.secondary.opacity(0.25), lineWidth: lineWidth)
     }
 
     private func caption(_ text: String) -> some View {
@@ -304,8 +302,7 @@ struct CardFooter: View {
 
 // MARK: - Parts
 
-/// The picture's tone, worked out once per picture and appearance: the card's body runs on every
-/// pointer move while it is hovered.
+/// The picture's tone, worked out once per picture and appearance, not on every redraw.
 @MainActor
 final class ToneMemo {
     private var key: (ObjectIdentifier, Bool)?
@@ -358,6 +355,8 @@ struct PillButton: View {
                 .foregroundStyle(Ink.text)
                 .frame(width: size, height: size)
                 .background(Circle().fill(Surface.cream))
+                // The rim keeps it apart from a cream or charcoal surface, not only from a picture.
+                .overlay(Circle().strokeBorder(Ink.secondary.opacity(0.22), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.18), radius: 3, y: 1)
                 .contentShape(Circle())
         }
