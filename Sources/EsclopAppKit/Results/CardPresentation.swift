@@ -92,7 +92,8 @@ public struct CardPresentation: Equatable, Sendable {
         case working(String)
         /// A saving: the ring, the figure, the original size and the new one.
         case result(before: Int, after: Int)
-        case status(symbol: String, text: String)
+        /// No symbol: the empty ring, nothing saved ("Already optimised").
+        case status(symbol: String?, text: String)
         case error(title: String, message: String)
         case notice(title: String, detail: String)
     }
@@ -160,12 +161,14 @@ public struct CardPresentation: Equatable, Sendable {
             // popover keeps its anchor while a choice from it runs.
             tools = card.machine.menuOpen ? [.more] : []
             actions = [.stop]
+            // A detail left open while the file runs again stops it with its charcoal button.
+            primary = .stop
             accessibilityLabel = f("%@, optimising, %@", name, Figures.bytes(card.bytesBefore, locale: locale))
         case let .done(result):
             fileName = card.displayName ?? result.output.lastPathComponent
             if Figures.isNoSaving(before: result.bytesBefore, after: result.bytesAfter) {
                 // Never "✓ 379 kB · −0 %": a result with no saving reads as already optimised.
-                capsule = .status(symbol: "checkmark", text: f("Already optimised · %@", Figures.bytes(result.bytesAfter, locale: locale)))
+                capsule = .status(symbol: nil, text: f("Already optimised · %@", Figures.bytes(result.bytesAfter, locale: locale)))
                 headline = t("Already optimised")
                 caption = f("%@, left as it was", Figures.bytes(result.bytesAfter, locale: locale))
                 tone = .neutral
@@ -189,7 +192,7 @@ public struct CardPresentation: Equatable, Sendable {
             actions = Self.distinct([.openDetail] + tools + [.reveal, .copy, .dismiss])
             accessibilityLabel = "\(fileName), \(Self.announcement(for: result, locale: locale))"
         case let .unchanged(bytes):
-            capsule = .status(symbol: "checkmark", text: f("Already optimised · %@", Figures.bytes(bytes, locale: locale)))
+            capsule = .status(symbol: nil, text: f("Already optimised · %@", Figures.bytes(bytes, locale: locale)))
             headline = t("Already optimised")
             caption = f("%@, left as it was", Figures.bytes(bytes, locale: locale))
             tone = .neutral

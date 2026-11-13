@@ -18,7 +18,9 @@ into the body of its GitHub release.
   It shows the picture, the name with format and dimensions, the saving at a larger size, and
   the actions as one charcoal button (Show in Finder with the folder, or Copy for a copied
   screenshot), up to two round buttons (Copy, Undo) and "…" for the rest. The before/after
-  slider moves to the Compare window, in "…".
+  slider moves to the Compare window, in "…". In the open detail Return or Space runs the
+  charcoal button; when the file runs again from it, the detail turns aqua and the charcoal
+  button is Stop. The detail shows the whole picture, never a crop.
 
 ### Removed
 - The `hoverButtons` setting and "Customise buttons…": the card's buttons now follow where the
