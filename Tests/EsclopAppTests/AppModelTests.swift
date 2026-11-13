@@ -154,6 +154,18 @@ import Testing
         #expect(harness.model.cards.last?.presentation.capsule == .notice(title: "Nothing to optimise", detail: "Drop images, videos, PDFs or audio files."))
     }
 
+    @Test func restoreRunsAgainKeepingTheMetadata() async throws {
+        let harness = Harness()
+        let file = harness.temp.file("a.png", bytes: 100_000)
+        _ = await harness.model.run(harness.job(file))
+        let card = try #require(harness.model.cards.first)
+        harness.model.perform(.keepMetadata, on: card)
+        #expect(await eventually { harness.requests.requests.count == 2 && card.result != nil })
+        let again = try #require(harness.requests.requests.last)
+        #expect(again.stripMetadata == false, "kept, whatever the setting says")
+        #expect(again.sources == [file], "from the original")
+    }
+
     @Test func convertAndDownscaleRunAgainFromTheOriginal() async throws {
         let harness = Harness()
         let file = harness.temp.file("a.png", bytes: 100_000)

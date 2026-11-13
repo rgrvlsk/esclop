@@ -604,6 +604,11 @@ public final class AppModel {
             upload(card, to: card.uploadTarget)
         case .copyLink:
             if let link = card.link { copyLink(link) }
+        case .keepMetadata:
+            // From the original again, the same choice, the metadata kept.
+            var choice = card.choice
+            choice.stripMetadata = false
+            reprocess(card, choice: choice)
         }
     }
 

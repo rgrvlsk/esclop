@@ -35,15 +35,14 @@ public final class ResultCard: Identifiable {
     public var displayName: String?
     /// The picture of the current file, at its own aspect ratio.
     public var thumbnail: NSImage?
-    /// The original's picture, for the before and after comparison in the detail.
+    /// The original's picture, for the crop editor in the options.
     public var originalThumbnail: NSImage?
-    /// Level, hover, activity and auto-hide (DESIGN.md › Floating result).
+    /// Level, hover and auto-hide (DESIGN.md › Floating result).
     public var machine: FloatingResultMachine
-    /// How long the job should take; over two seconds it gets the activity capsule.
+    /// How long the job should take; over two seconds the card shows the time left.
     public var expectedDuration: TimeInterval
     /// When the work started, for the time left.
     public var startedAt = Date()
-    /// The deflate plays once per card, the first time the result is drawn.
     /// Where the file came from and the format it arrived in (DESIGN.md › Origin rules).
     public var fileOrigin: FileOrigin?
     public var inputType: String?
@@ -53,6 +52,9 @@ public final class ResultCard: Identifiable {
     public var appliedRule: ClipboardRule?
     /// Which tab the options popover opens on (Crop opens Size).
     public var optionsTab: OptionsTab = .optimise
+    /// What optimising took from the picture's metadata, worked out when the detail opens
+    /// (`RemovedMetadata`). Empty until then, and for anything but a picture.
+    public var removedMetadata: [MetadataKind] = []
     /// The result's upload, from the Share tab or an automatic upload; nil when there is none.
     public var upload: UploadState?
     /// The target the last upload went to, for "Upload again".

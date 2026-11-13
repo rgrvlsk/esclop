@@ -32,6 +32,8 @@ public struct CardPresentation: Equatable, Sendable {
         case cancelUpload
         case retryUpload
         case copyLink
+        /// Runs the file again from its original, keeping its metadata.
+        case keepMetadata
 
         /// The label on a button in the detail card.
         public var title: String {
@@ -53,6 +55,7 @@ public struct CardPresentation: Equatable, Sendable {
             case .cancelUpload: return Strings.text("Stop Uploading")
             case .retryUpload: return Strings.text("Upload Again")
             case .copyLink: return Strings.text("Copy Link")
+            case .keepMetadata: return Strings.text("Restore")
             }
         }
 
@@ -62,6 +65,7 @@ public struct CardPresentation: Equatable, Sendable {
             case .undo: return Strings.text("Undo, restore the original")
             case .copy: return Strings.text("Copy the file")
             case .compare: return Strings.text("Compare the original and the optimised file")
+            case .keepMetadata: return Strings.text("Restore the removed metadata")
             default: return title
 
             }
@@ -83,6 +87,7 @@ public struct CardPresentation: Equatable, Sendable {
             case .upload, .retryUpload: return "icloud.and.arrow.up"
             case .cancelUpload: return "xmark.circle"
             case .copyLink: return "link"
+            case .keepMetadata: return "arrow.uturn.backward.circle"
             }
         }
     }
@@ -129,6 +134,10 @@ public struct CardPresentation: Equatable, Sendable {
     public var secondary: [Action]
     /// What "…" lists: everything else.
     public var menu: [Action]
+    /// What optimising took from the picture's metadata, for the "Removed" strip.
+    public var removedMetadata: [MetadataKind] = []
+    /// "Location, camera, date"
+    public var removedSummary = ""
 
     public var accessibilityLabel: String
 
@@ -191,6 +200,10 @@ public struct CardPresentation: Equatable, Sendable {
 
             actions = Self.distinct([.openDetail] + tools + [.reveal, .copy, .dismiss])
             accessibilityLabel = "\(fileName), \(Self.announcement(for: result, locale: locale))"
+            if RemovedMetadata.original(of: result, origin: card.origin) != nil {
+                removedMetadata = card.removedMetadata
+                removedSummary = Self.summary(of: card.removedMetadata, t: t)
+            }
         case let .unchanged(bytes):
             capsule = .status(symbol: nil, text: f("Already optimised · %@", Figures.bytes(bytes, locale: locale)))
             headline = t("Already optimised")
@@ -287,6 +300,19 @@ public struct CardPresentation: Equatable, Sendable {
             ? t("Put it back on the clipboard")
             : FileManager.default.displayName(atPath: card.shownFile.deletingLastPathComponent().path)
         return (clipboard ? .copy : .reveal, detail, (clipboard ? [] : [.copy]) + (undo ? [.undo] : []), rest + [.more])
+    }
+
+    /// "Location, camera, date": the kinds in a sentence, the first capitalised.
+    static func summary(of kinds: [MetadataKind], t: (String) -> String) -> String {
+        let words = kinds.map { kind -> String in
+            switch kind {
+            case .location: return t("location")
+            case .camera: return t("camera")
+            case .date: return t("date")
+            }
+        }
+        let text = words.joined(separator: ", ")
+        return text.prefix(1).uppercased() + text.dropFirst()
     }
 
     /// An upload's own action takes the detail's charcoal button; the one it replaces goes first
