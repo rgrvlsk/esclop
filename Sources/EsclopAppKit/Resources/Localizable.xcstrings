@@ -411,6 +411,26 @@
         }
       }
     },
+    "%d not optimised": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d no optimitzats"
+          }
+        }
+      }
+    },
+    "%d not uploaded": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d no pujats"
+          }
+        }
+      }
+    },
     "%d of %d files optimised": {
       "localizations": {
         "ca": {
@@ -2221,26 +2241,6 @@
         }
       }
     },
-    "Couldn’t optimise": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No s’ha pogut optimitzar"
-          }
-        }
-      }
-    },
-    "Couldn’t upload": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No s’ha pogut pujar"
-          }
-        }
-      }
-    },
     "Crop": {
       "localizations": {
         "ca": {
@@ -3337,6 +3337,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Amaga el detall"
+          }
+        }
+      }
+    },
+    "Hide the list": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amaga la llista"
           }
         }
       }
@@ -4521,12 +4531,32 @@
         }
       }
     },
+    "Not optimised": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No optimitzat"
+          }
+        }
+      }
+    },
     "Not set": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Sense definir"
+          }
+        }
+      }
+    },
+    "Not uploaded": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha pujat"
           }
         }
       }
@@ -5681,6 +5711,16 @@
         }
       }
     },
+    "Remove these notices; the files stay as they are": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Treu aquests avisos; els fitxers queden com estan"
+          }
+        }
+      }
+    },
     "Removed": {
       "localizations": {
         "ca": {
@@ -5897,6 +5937,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reprèn l’optimització automàtica"
+          }
+        }
+      }
+    },
+    "Retry": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Torna-ho a provar"
+          }
+        }
+      }
+    },
+    "Retry All": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Torna-ho a provar tot"
           }
         }
       }
@@ -6491,6 +6551,16 @@
         }
       }
     },
+    "Shows each file and why": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra cada fitxer i el motiu"
+          }
+        }
+      }
+    },
     "Side by side": {
       "localizations": {
         "ca": {
@@ -7051,12 +7121,32 @@
         }
       }
     },
+    "The file is kept.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El fitxer es conserva."
+          }
+        }
+      }
+    },
     "The file is not UTF-8 text.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "El fitxer no és text UTF-8."
+          }
+        }
+      }
+    },
+    "The file was moved or deleted.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El fitxer s’ha mogut o eliminat."
           }
         }
       }
@@ -7147,6 +7237,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "L’original ja no es conserva"
+          }
+        }
+      }
+    },
+    "The original is untouched.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’original no s’ha tocat."
           }
         }
       }
