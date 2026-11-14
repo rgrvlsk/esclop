@@ -28,14 +28,18 @@ struct DetailCard: View {
     @State private var share = SharingAnchor()
 
     var body: some View {
+        // The loupe needs both files: should one go (Undo, or deleted in Finder), the detail is
+        // itself again.
+        let sides = card.loupe == nil ? nil : card.loupeSides
+        let comparing = sides != nil
         VStack(alignment: .leading, spacing: 0) {
             Color.clear.frame(height: Self.closeBand)
             Picture(card: card, width: Self.pictureWidth, radius: Metrics.detailPictureRadius, heights: Self.pictureHeights, fits: true)
                 .clipShape(RoundedRectangle(cornerRadius: Metrics.detailPictureRadius, style: .continuous))
                 .pictureHairline(Metrics.detailPictureRadius)
-                .modifier(DragOut(file: card.loupe == nil ? card.draggableFile : nil) { interact(.dragging(true)) })
+                .modifier(DragOut(file: comparing ? nil : card.draggableFile) { interact(.dragging(true)) })
                 .overlay {
-                    if card.loupe != nil, let sides = card.loupeSides {
+                    if card.loupe != nil, let sides {
                         Loupe(card: card, before: sides.before, after: sides.after, share: share)
                     }
                 }
@@ -55,11 +59,11 @@ struct DetailCard: View {
             }
             // The loupe's hint takes the action row's place at its height, so nothing moves.
             DetailActions(card: card, info: info, leftward: corner.isRight, share: share, perform: perform, interact: interact)
-                .opacity(card.loupe == nil ? 1 : 0)
-                .allowsHitTesting(card.loupe == nil)
-                .accessibilityHidden(card.loupe != nil)
+                .opacity(comparing ? 0 : 1)
+                .allowsHitTesting(!comparing)
+                .accessibilityHidden(comparing)
                 .overlay {
-                    if let loupe = card.loupe {
+                    if comparing, let loupe = card.loupe {
                         LoupeHint(state: loupe) { card.loupe = nil }
                     }
                 }

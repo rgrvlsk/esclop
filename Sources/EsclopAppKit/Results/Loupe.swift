@@ -22,6 +22,10 @@ public struct LoupeState: Equatable, Sendable {
 
     public var showsOriginal: Bool { original != pressed }
 
+    /// A press shorter than 250 ms that moved less than 4 pt was a click: its swap stays. Held
+    /// longer, or moved, the side swaps back on release.
+    static func isClick(held: TimeInterval, moved: CGFloat) -> Bool { held < 0.25 && moved < 4 }
+
     /// What the hint under the picture says.
     var hint: String {
         switch (pressed, showsOriginal) {
@@ -110,7 +114,12 @@ struct Loupe: View {
     @Environment(\.colorScheme) private var scheme
     @State private var images: Sides?
     @State private var pointer: CGPoint?
-    @State private var pressedAt: (time: Date, point: CGPoint)?
+    /// When the button went down. Kept until the next press, so it does not matter whether the
+    /// release or the reset of `held` comes first.
+    @State private var pressedAt = Date.distantPast
+    /// The button is down. A gesture state, so a cancelled press (⌘-Tab with the button down)
+    /// resets it too.
+    @GestureState private var held = false
     @State private var keys = MenuKeys()
 
     struct Sides {
@@ -129,12 +138,19 @@ struct Loupe: View {
                         if case let .active(location) = phase { pointer = location }
                     }
                     .gesture(press)
+                    .onChange(of: held) { _, down in
+                        if down { pressedAt = Date() }
+                        card.loupe?.pressed = down
+                    }
                 lens(geometry, point: point)
                     .allowsHitTesting(false)
             }
             .onAppear { listen(size: proxy.size) }
         }
-        .task(id: after) { images = await Self.load(before: before, after: after) }
+        .task(id: after) {
+            let sides = await Self.load(before: before, after: after)
+            if !Task.isCancelled { images = sides }
+        }
         .onDisappear { keys.stop() }
     }
 
@@ -193,40 +209,29 @@ struct Loupe: View {
 
     static let labelHeight: CGFloat = 20
 
-    /// A press swaps at once. Released within 250 ms and 4 pt it was a click, and the swap stays;
-    /// held longer, or moved, the side swaps back on release. The lens follows the pointer
-    /// while the button is down.
+    /// A press swaps at once (`held`); a click's swap stays (`LoupeState.isClick`). The lens
+    /// follows the pointer while the button is down.
     private var press: some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .local)
-            .onChanged { value in
-                pointer = value.location
-                if pressedAt == nil {
-                    pressedAt = (Date(), value.startLocation)
-                    card.loupe?.pressed = true
-                }
-            }
+            .updating($held) { _, down, _ in down = true }
+            .onChanged { value in pointer = value.location }
             .onEnded { value in
-                guard let start = pressedAt else { return }
-                pressedAt = nil
-                let moved = hypot(value.location.x - start.point.x, value.location.y - start.point.y)
-                let click = Date().timeIntervalSince(start.time) < Self.click && moved < 4
-                if click { card.loupe?.original.toggle() }
-                card.loupe?.pressed = false
+                let moved = hypot(value.location.x - value.startLocation.x, value.location.y - value.startLocation.y)
+                if LoupeState.isClick(held: Date().timeIntervalSince(pressedAt), moved: moved) { card.loupe?.original.toggle() }
             }
     }
-
-    static let click: TimeInterval = 0.25
 
     /// Makes the panel key, so the keys reach the loupe even while another app is in front.
     private func listen(size: CGSize) {
         guard let window = share.window else { return }
         window.makeKey()
-        keys.start(window: window) { code in
+        keys.start(window: window) { code, repeated in
             switch code {
             case 49:
-                card.loupe?.original.toggle()
+                // A held Space would flicker.
+                if !repeated { card.loupe?.original.toggle() }
             case 36, 76, 53:
-                card.loupe = nil
+                if !repeated { card.loupe = nil }
             case 123, 124, 125, 126:
                 var point = pointer ?? CGPoint(x: size.width / 2, y: size.height / 2)
                 switch code {

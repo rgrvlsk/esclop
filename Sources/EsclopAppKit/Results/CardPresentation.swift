@@ -231,7 +231,9 @@ public struct CardPresentation: Equatable, Sendable {
             // Compare only when there is an original to compare with; for a picture, only when
             // optimising lost detail, and then it is the loupe.
             let comparable = result.backup != nil || result.output.standardizedFileURL != result.source.standardizedFileURL
-            loupe = comparable && result.kind == .image && Self.lossy(result.output)
+            // Not after a crop, downscale or fit: the two files no longer line up pixel for pixel,
+            // and the window compares them.
+            loupe = comparable && result.kind == .image && Self.lossy(result.output) && !card.adjusted
             let compare = result.kind == .image ? loupe : comparable
             (primary, primaryDetail, secondary, menu) = Self.detail(card, undo: !undo.isEmpty, editing: resultEditing, compare: compare, trash: true, t: t)
             self.editing = resultEditing

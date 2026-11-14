@@ -365,7 +365,7 @@ struct LiquidMenu: View {
     private func listen() {
         guard let window = anchor.share.window else { return }
         window.makeKey()
-        keys.start(window: window, key: key)
+        keys.start(window: window) { code, _ in key(code) }
     }
 
     private func animate(_ opening: Bool) {
@@ -441,11 +441,12 @@ struct LiquidMenuRow: View {
 final class MenuKeys {
     private var monitor: Any?
 
-    func start(window: NSWindow, key: @escaping (UInt16) -> Bool) {
+    /// `key` gets the key code and whether it is a repeat of a held key.
+    func start(window: NSWindow, key: @escaping (UInt16, Bool) -> Bool) {
         stop()
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak window] event in
             guard event.window === window, event.modifierFlags.intersection([.command, .control, .option]).isEmpty else { return event }
-            return MainActor.assumeIsolated { key(event.keyCode) } ? nil : event
+            return MainActor.assumeIsolated { key(event.keyCode, event.isARepeat) } ? nil : event
         }
     }
 

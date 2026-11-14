@@ -8,13 +8,13 @@ import Testing
 
 @MainActor
 @Suite struct LoupeTests {
-    /// A 4032 × 3024 photo in the detail's 296 × 222 picture, on a Retina screen.
-    let photo = LoupeGeometry(frame: CGSize(width: 296, height: 222), pixels: CGSize(width: 4032, height: 3024), scale: 2)
+    /// A 4032 × 3024 photo in the detail's tallest picture, 296 × 200, on a Retina screen.
+    let photo = LoupeGeometry(frame: CGSize(width: 296, height: 200), pixels: CGSize(width: 4032, height: 3024), scale: 2)
 
     @Test func theLensShowsTheFileAtTrueSize() {
         #expect(photo.zoom == 0.5, "one pixel of the file to one pixel of the screen")
         let small = LoupeGeometry(frame: photo.frame, pixels: CGSize(width: 400, height: 300), scale: 2)
-        #expect(abs(small.zoom - 2 * 296 / 400) < 0.001, "a small file still magnifies twice")
+        #expect(abs(small.zoom - 2 * photo.picture.width / 400) < 0.001, "a small file still magnifies twice")
         #expect(photo.diameter == 124, "about 40 % of the picture, as in the target")
     }
 
@@ -31,10 +31,10 @@ import Testing
 
     @Test func theLensStaysInsideThePicture() {
         let radius = photo.diameter / 2
-        for pointer in [CGPoint(x: 0, y: 0), CGPoint(x: 296, y: 222), CGPoint(x: 5, y: 220), CGPoint(x: 290, y: 3)] {
+        for pointer in [CGPoint(x: 0, y: 0), CGPoint(x: 296, y: 200), CGPoint(x: 5, y: 198), CGPoint(x: 290, y: 3)] {
             let centre = photo.centre(pointer)
             #expect(centre.x - radius >= LoupeGeometry.margin && centre.x + radius <= 296 - LoupeGeometry.margin, "\(pointer)")
-            #expect(centre.y - radius >= LoupeGeometry.margin + LoupeGeometry.label && centre.y + radius <= 222 - LoupeGeometry.margin, "\(pointer)")
+            #expect(centre.y - radius >= LoupeGeometry.margin + LoupeGeometry.label && centre.y + radius <= 200 - LoupeGeometry.margin, "\(pointer)")
         }
         let short = LoupeGeometry(frame: CGSize(width: 296, height: 120), pixels: CGSize(width: 4000, height: 1600), scale: 2)
         #expect(short.diameter + 2 * LoupeGeometry.margin + LoupeGeometry.label <= 120, "a short picture gets a smaller lens")
@@ -52,6 +52,10 @@ import Testing
         #expect(state.showsOriginal && state.hint == "Click or hold to see optimised", "clicked: it stays")
         state.pressed = true
         #expect(!state.showsOriginal && state.hint == "Release to see original")
+
+        #expect(LoupeState.isClick(held: 0.12, moved: 1), "a click")
+        #expect(!LoupeState.isClick(held: 0.4, moved: 0), "a hold")
+        #expect(!LoupeState.isClick(held: 0.1, moved: 6), "a drag")
     }
 
     @Test func onlyAPictureThatLostDetailGetsTheLoupe() {
@@ -91,5 +95,10 @@ import Testing
         #expect(card.loupe == nil)
         harness.model.perform(.openDetail, on: card)
         #expect(card.loupe == nil, "the detail opens without it")
+
+        harness.model.perform(.downscale, on: card)
+        #expect(await eventually { harness.requests.requests.count == 2 && card.result != nil })
+        #expect(card.adjusted)
+        #expect(!card.presentation.loupe, "a downscaled file no longer lines up with its original")
     }
 }
