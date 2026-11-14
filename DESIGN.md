@@ -209,11 +209,14 @@ Symbols; checkmarks are symbols, not text glyphs.
   `.hudWindow` material and a 1 pt hairline border; geometry and motion stay the same.
 - Radii: the 208 pt result card is 20 pt with a 14 pt picture inset 9 pt, a photo in a mount
   rather than concentric corners; 24 pt detail card with a 12 pt picture, 22 pt popover. Controls use capsules or the system's control radius.
-- Drop zone: a single rounded glass shape at the cursor or screen edge, label "Drop to
-  optimise"; holding Command changes it to "Drop to optimise harder". Preset zones sit beside
-  it, toward the screen, as a 2 × 2 grid of 92 × 64 pt dashed squares (symbol and name, two
-  lines at most); the one under the drag fills with the selected fill and its symbol turns
-  accent. Text and icons use the popover's inks on its near-opaque surface.
+- Drop zone (`pr5-drop-zone`): at the results corner, above the result cards, so a drop lands
+  where its result appears; it works with the menu bar hidden, in full-screen apps and on any
+  display. One row of raised tiles on the popover's surface (22 pt radius): "Optimise" with the
+  file count (124 × 104 pt), then up to four preset zones (100 × 104 pt, symbol in a flat circle,
+  name in two lines at most) toward the screen. The tile under the drag turns charcoal at the
+  same height. Under the row: "Drop to optimise · Hold ⌘ to optimise harder"; with ⌘ the tile
+  reads "Optimise harder" and the hint "With the aggressive settings" in the warm colour. Not ⌥:
+  in Finder ⌥ already means copy during a drag, and originals are always backed up.
 - Settings: sidebar panes with the search at the top of the sidebar, grouped forms with native
   controls (switches, menus, sliders with their figure, fields with a stepper and unit). Each
   row has its title and a one-line explanation; a reset arrow appears beside the title while
