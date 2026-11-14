@@ -34,6 +34,8 @@ public final class AppServices {
     let finderServices: FinderServices
     /// Sparkle: checks for, downloads and installs new versions.
     public let updater: Updater
+    /// The menu bar glyph and its panel, once the app runs (`startStatusItem`).
+    public private(set) var statusItem: StatusItemController?
     private let log = Logger(subsystem: Paths.bundleIdentifier, category: "app")
 
     public init(settings: SettingsStore = .shared) {
@@ -111,6 +113,20 @@ public final class AppServices {
     }
 
     /// Starts everything. Throws when another L'Esclop already serves the CLI.
+    /// The glyph in the menu bar, and the panel it opens.
+    public func startStatusItem() {
+        let model = model, settingsWindow = settingsWindow, onboarding = onboarding
+        statusItem = StatusItemController(model: model) { close in
+            MenuPanelActions(
+                settings: { settingsWindow.show() },
+                pipelines: { model.onOpenPipelines?(nil) },
+                welcome: { onboarding.show() },
+                checkForUpdates: model.onCheckForUpdates,
+                close: close
+            )
+        }
+    }
+
     public func start() throws {
         try server.start()
         watcher.start()

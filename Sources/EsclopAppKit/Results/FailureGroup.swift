@@ -173,7 +173,7 @@ struct FailureRow: View {
                 Text(reason)
                     .font(.system(size: 12))
                     .foregroundStyle(Ink.secondary)
-                    .lineLimit(2)
+                    .lineLimit(4)
                     .fixedSize(horizontal: false, vertical: true)
                     .help(reason)
             }

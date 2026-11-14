@@ -308,4 +308,43 @@ final class EventLog: @unchecked Sendable {
         log.append((0 ..< 10).map { sampleResult("\($0).png") })
         #expect(log.recent(limit: 100).count <= 6)
     }
+
+    /// Recent's Clear: no file name or path is left anywhere in the log, the CLI and MCP list
+    /// nothing, and the saving still counts.
+    @Test func clearingLeavesNoNameOrPathAndKeepsTheSaving() throws {
+        let temp = TempDir()
+        let url = temp.url.appendingPathComponent("r.jsonl")
+        let log = ResultsLog(url: url)
+        log.append([sampleResult("Holiday in Mallorca.png"), sampleResult("Secret plans.png")])
+        let sizes = log.savings().map(\.bytesBefore)
+        try log.redactAll()
+        let text = try String(contentsOf: url, encoding: .utf8)
+        for word in ["Holiday", "Mallorca", "Secret", "/tmp", "out-", "backup", ".png", "pngquant", "oxipng"] {
+            #expect(!text.contains(word), "\(word) is still in the log")
+        }
+        #expect(log.recent(limit: 10).isEmpty, "the CLI and MCP list nothing")
+        #expect(log.savings().map(\.bytesBefore) == sizes && log.savings().allSatisfy { $0.redacted == true }, "the saving stays")
+        log.append([sampleResult("new.png")])
+        #expect(log.recent(limit: 10).map(\.output.lastPathComponent) == ["out-new.png"], "what comes after is listed again")
+    }
+
+    @Test func theTrimKeepsTheLastEightDays() {
+        let temp = TempDir()
+        let log = ResultsLog(url: temp.url.appendingPathComponent("r.jsonl"), keep: 3)
+        var fresh = (0 ..< 8).map { sampleResult("\($0).png") }
+        for index in fresh.indices { fresh[index].finishedAt = Date().addingTimeInterval(-Double(index) * 3600) }
+        // The log is in the order results finish: the old ones first.
+        log.append((0 ..< 8).map { sampleResult("old-\($0).png") })
+        log.append(fresh.reversed())
+        #expect(Set(log.savings().map(\.id)).isSuperset(of: fresh.map(\.id)), "the week's results stay for its saving")
+        #expect(log.savings().count < 16, "old ones beyond the last three go")
+
+        // All from this week: nothing can go, and the file is not rewritten on each append.
+        let week = ResultsLog(url: temp.url.appendingPathComponent("w.jsonl"), keep: 2)
+        week.append(Array(fresh.prefix(5)))
+        let written = try? FileManager.default.attributesOfItem(atPath: week.url.path)[.systemFileNumber] as? Int
+        week.append([fresh[5]])
+        #expect(week.savings().count == 6)
+        #expect((try? FileManager.default.attributesOfItem(atPath: week.url.path)[.systemFileNumber] as? Int) == written, "appended in place, not replaced")
+    }
 }

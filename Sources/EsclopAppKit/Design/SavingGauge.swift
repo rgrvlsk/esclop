@@ -13,7 +13,8 @@ public struct SavingGauge: View {
     public enum Shape: Sendable {
         /// A full circle around the figure (a card, the detail, a batch).
         case ring
-        /// An open arc over the figure, the original size at its left end (the panel, results).
+        /// A flat, open arc over the figure, the original size under its left end (the panel,
+        /// results; docs/design/targets: pr3-menu-panel). It spans the box's width.
         case arc
     }
 
@@ -32,7 +33,7 @@ public struct SavingGauge: View {
     static func sweep(_ shape: Shape) -> (start: Double, span: Double) {
         switch shape {
         case .ring: (-90, 360)
-        case .arc: (200, 140)
+        case .arc: (230, 80)
         }
     }
 
@@ -45,6 +46,18 @@ public struct SavingGauge: View {
     /// The radius of the stroke's centre line in a box `side` wide: the stroke fills the box.
     static func radius(side: CGFloat, lineWidth: CGFloat) -> CGFloat { side / 2 - lineWidth / 2 }
 
+    /// The arc's radius: its ends span the box's width, inside the stroke.
+    static func arcRadius(width: CGFloat, lineWidth: CGFloat) -> CGFloat {
+        let half = sweep(.arc).span / 2 * .pi / 180
+        return (width / 2 - lineWidth) / sin(half)
+    }
+
+    /// How tall the arc is, from its top to its ends, with the dot's overhang.
+    static func arcHeight(width: CGFloat, lineWidth: CGFloat) -> CGFloat {
+        let half = sweep(.arc).span / 2 * .pi / 180
+        return arcRadius(width: width, lineWidth: lineWidth) * (1 - cos(half)) + 2 * lineWidth
+    }
+
     /// The track's width under a stroke of `lineWidth`: a hairline, never under 1 pt.
     static func trackWidth(lineWidth: CGFloat) -> CGFloat { max(1, lineWidth * 0.4) }
 
@@ -55,8 +68,8 @@ public struct SavingGauge: View {
         let (start, span) = Self.sweep(shape)
         GeometryReader { proxy in
             let side = min(proxy.size.width, shape == .ring ? proxy.size.height : proxy.size.width)
-            let radius = Self.radius(side: side, lineWidth: lineWidth)
-            let centre = CGPoint(x: proxy.size.width / 2, y: shape == .ring ? proxy.size.height / 2 : radius + lineWidth / 2)
+            let radius = shape == .ring ? Self.radius(side: side, lineWidth: lineWidth) : Self.arcRadius(width: proxy.size.width, lineWidth: lineWidth)
+            let centre = CGPoint(x: proxy.size.width / 2, y: shape == .ring ? proxy.size.height / 2 : radius + lineWidth)
             ZStack {
                 arc(centre, radius, from: start, to: start + span)
                     .stroke(Ink.secondary.opacity(0.3), style: StrokeStyle(lineWidth: Self.trackWidth(lineWidth: lineWidth), lineCap: .round))

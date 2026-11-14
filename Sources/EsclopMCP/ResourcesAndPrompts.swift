@@ -16,7 +16,7 @@ enum MCPResources {
 
     static func list(service: EsclopService) -> [Resource] {
         var resources = [
-            Resource(name: "recent-results", uri: recentURI, title: "Recent results", description: "The last 50 optimisation results, newest first, as JSON.", mimeType: "application/json"),
+            Resource(name: "recent-results", uri: recentURI, title: "Recent results", description: "The last 50 optimisation results, newest first, as JSON. Results cleared from the menu bar panel are not listed.", mimeType: "application/json"),
             Resource(name: "settings", uri: settingsURI, title: "Settings", description: "Every esclop setting with its current value and schema, as JSON.", mimeType: "application/json"),
         ]
         for entry in (try? service.context.pipelines.entries()) ?? [] {

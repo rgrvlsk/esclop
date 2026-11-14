@@ -40,8 +40,6 @@ public final class AppModel {
     public private(set) var activeFiles = 0
     /// Mirrors the `pauseAutomaticOptimisations` setting, which the CLI can change too.
     public private(set) var paused: Bool
-    /// The pause hotkey's middle state: the next copy is left alone.
-    public var skipNextCopy = false
 
     public let settings: SettingsStore
     public let service: EsclopService
@@ -151,7 +149,6 @@ public final class AppModel {
     /// Called when the setting changed, here or in another process.
     public func pauseChanged(_ value: Bool) {
         paused = value
-        if value { skipNextCopy = false }
         onPauseChange?()
     }
 
@@ -166,13 +163,6 @@ public final class AppModel {
     @ObservationIgnored public var onOpenPipelines: ((String?) -> Void)?
     /// The menu's "Check for Updates…"; nil when the app cannot update itself (no bundle key).
     @ObservationIgnored public var onCheckForUpdates: (() -> Void)?
-
-    public var status: String {
-        if activeFiles > 0 { return activeFiles == 1 ? Strings.text("Optimising 1 file") : Strings.format("Optimising %d files", activeFiles) }
-        if paused { return Strings.text("Paused") }
-        if skipNextCopy { return Strings.text("Skipping the next copy") }
-        return EsclopSettings.enableClipboardOptimiser.value(in: settings) ? Strings.text("Watching the clipboard") : Strings.text("Ready")
-    }
 
     /// Results whose original can still be put back.
     public var restorable: [OptimisationResult] {
@@ -401,6 +391,19 @@ public final class AppModel {
         var job = factory.job(for: file, origin: .watchedFolder)
         job.operation = .pipeline(name)
         Task { await run(job) }
+    }
+
+    /// Recent's Clear (privacy): the names go from the panel and from the shared log, which the
+    /// CLI and MCP server read too; the sizes stay, so the saving still counts them. The files,
+    /// their backups and the cards on screen are not touched.
+    public func clearRecent() {
+        do {
+            try service.results.redactAll()
+            recent = []
+        } catch {
+            // The names are still on disk: the list stays, so the panel does not claim otherwise.
+            NSSound.beep()
+        }
     }
 
     func record(_ result: OptimisationResult) {

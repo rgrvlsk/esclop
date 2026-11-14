@@ -93,15 +93,6 @@ import Testing
         #expect(Burst(kind: .image, files: files, limit: 4).isTooLarge)
     }
 
-    @Test func theMenuSaysHowManyFoldersAreWatched() {
-        #expect(MenuContent.foldersLine(count: 0, paused: false) == nil)
-        #expect(MenuContent.foldersLine(count: 1, paused: false) == "Watching 1 folder")
-        #expect(MenuContent.foldersLine(count: 3, paused: false) == "Watching 3 folders")
-        #expect(MenuContent.foldersLine(count: 3, paused: true) == nil, "the menu already says it is paused")
-        let ca = Locale(identifier: "ca_ES")
-        #expect(Strings.format("Watching %d folders", 3, locale: ca) == "S’estan vigilant 3 carpetes")
-    }
-
     @Test func aFolderThatIsNotThereIsMissing() {
         let temp = TempDir()
         #expect(FolderStatus.check(temp.url) == .watching)

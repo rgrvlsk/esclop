@@ -123,24 +123,6 @@ import Testing
         #expect(await eventually { Clipboard.isOwnWrite(harness.pasteboard) })
     }
 
-    @Test func pauseCyclesLikeClop() throws {
-        let harness = Harness()
-        let model = harness.model
-        #expect(model.status == "Watching the clipboard")
-        model.cyclePause()
-        #expect(model.skipNextCopy)
-        #expect(model.status == "Skipping the next copy")
-        model.handleClipboard(.optimiseFiles([harness.temp.file("a.png")]))
-        #expect(!model.skipNextCopy, "one copy was skipped")
-        #expect(model.cards.count == 1, "only the notice card")
-        model.cyclePause()
-        model.cyclePause()
-        #expect(model.paused)
-        #expect(EsclopSettings.pauseAutomaticOptimisations.value(in: harness.settings.store))
-        model.cyclePause()
-        #expect(!model.paused)
-    }
-
     @Test func droppedFoldersAreExpandedToMedia() async throws {
         let harness = Harness()
         let folder = harness.temp.url.appendingPathComponent("drop", isDirectory: true)
