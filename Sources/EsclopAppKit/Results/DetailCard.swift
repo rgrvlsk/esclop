@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The floating result's second level (DESIGN.md › Floating result): a 320 pt glass card grown from
-// the thumbnail's corner, with a before/after comparison and a draggable divider, the deflate bar,
-// the figures and the actions. It shares the thumbnail's glass ID, so one morphs into the other.
+// The floating result's second level (docs/design/targets: pr2-detail-card): the card grown to
+// 320 pt. The picture, the name and the file's facts, the saving at the next size up, and the
+// actions as 1 + 2 + "…": the most likely one in charcoal, two round ones beside it, the rest in a
+// menu. A click, Return or Space opens it; there Return or Space runs the charcoal button; × and
+// Esc close it. While the file runs again the charcoal button is Stop and the detail turns aqua.
 
 import EsclopCore
 import SwiftUI
@@ -10,173 +12,132 @@ import SwiftUI
 struct DetailCard: View {
     let card: ResultCard
     let info: CardPresentation
+    let corner: ScreenCorner
     let perform: (CardPresentation.Action) -> Void
+    let interact: (AppModel.Interaction) -> Void
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// The bar starts at the original size and contracts once the card is open.
-    @State private var contracted = false
+    static let pictureWidth = Metrics.detailWidth - 2 * Metrics.detailPadding
+    /// The detail's picture keeps its aspect ratio within these heights, fitted whole.
+    static let pictureHeights: ClosedRange<CGFloat> = 120...240
+    static let closeSize: CGFloat = 24
 
     var body: some View {
-        let tint = info.tone == .warm ? Palette.warm : (info.tone == .neutral ? Color.primary : Ink.saving)
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Label(info.detailTitle, systemImage: info.detailSymbol)
-                    .font(.headline)
-                    .labelStyle(DetailTitleStyle(tint: tint))
-                Spacer()
-                // The way to the options from the detail: it closes and the popover opens on
-                // the thumbnail's "…".
-                Button { perform(.more) } label: {
-                    Image(systemName: "ellipsis").font(.system(size: 12, weight: .semibold)).frame(width: 24, height: 24)
-                }
-                .buttonStyle(.plain)
-                .help(Strings.text("More options"))
-                Button { perform(.closeDetail) } label: {
-                    Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).frame(width: 24, height: 24)
-                }
-                .buttonStyle(.plain)
-                .help(Strings.text("Hide details"))
-            }
-            .padding(.horizontal, 2)
-            .padding(.bottom, 10)
-
-            Comparison(card: card, width: Metrics.detailWidth - 2 * Metrics.detailPadding)
+            Picture(card: card, width: Self.pictureWidth, radius: Metrics.detailPictureRadius, heights: Self.pictureHeights, fits: true)
                 .clipShape(RoundedRectangle(cornerRadius: Metrics.detailPictureRadius, style: .continuous))
-
-            HStack(alignment: .firstTextBaseline) {
-                Text(info.change).font(.callout)
-                Spacer(minLength: 8)
-                if let percent = info.percent {
-                    Text(percent)
-                        .font(.system(.title2, design: .rounded).weight(.semibold))
-                        .foregroundStyle(tint)
+                .pictureHairline(Metrics.detailPictureRadius)
+                .modifier(DragOut(file: card.draggableFile) { interact(.dragging(true)) })
+                .overlay(alignment: corner.isRight ? .topTrailing : .topLeading) {
+                    PillButton(action: .closeDetail, size: Self.closeSize, perform: perform)
+                        .padding(CardFace.buttonInset - PillButton.slack(Self.closeSize))
                 }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(info.fileName)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Ink.text)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(facts).font(.system(size: 12)).foregroundStyle(Ink.secondary).monospacedDigit().lineLimit(1)
             }
-            .monospacedDigit()
-            .padding(.top, 12)
-            .padding(.bottom, 10)
-
-            if info.percent != nil {
-                DeflateBar(end: contracted ? info.barEnd : 1, progress: nil, tint: tint, filled: true)
-            }
-
-            HStack {
-                Text(info.formats)
-                Spacer()
-                if let dimensions = info.dimensions { Text(dimensions) }
-            }
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .monospacedDigit()
-            .padding(.vertical, 10)
-
-            if !info.detailActions.isEmpty {
-                Grid(horizontalSpacing: 6, verticalSpacing: 6) {
-                    ForEach(Array(stride(from: 0, to: info.detailActions.count, by: 2)), id: \.self) { index in
-                        GridRow {
-                            ForEach(info.detailActions[index ..< min(index + 2, info.detailActions.count)], id: \.self) { action in
-                                Button(action.title) { perform(action) }
-                                    .buttonStyle(CapsuleButtonStyle())
-                                    .help(action.accessibilityName)
-                            }
-                        }
-                    }
-                }
-            }
+            .padding(.horizontal, 6)
+            .padding(.top, 10)
+            CardFooter(card: card, info: info, perform: perform, large: true)
+            DetailActions(info: info, perform: perform)
         }
         .padding(Metrics.detailPadding)
         .frame(width: Metrics.detailWidth)
-        .floatingSurface(Metrics.detailRadius)
-        .onAppear {
-            if reduceMotion { contracted = true } else {
-                withAnimation(Motion.bar.delay(0.1)) { contracted = true }
-            }
-        }
+        .floatingSurface(Metrics.detailRadius, fill: info.surface)
+    }
+
+    /// "JPEG · 4032 × 3024", "PNG → WebP · 2880 × 1800".
+    private var facts: String {
+        [info.formats, info.dimensions].compactMap { $0 }.joined(separator: " · ")
     }
 }
 
-private struct DetailTitleStyle: LabelStyle {
-    let tint: Color
-
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(spacing: 5) {
-            configuration.icon.foregroundStyle(tint)
-            configuration.title
-        }
-    }
-}
-
-/// A capsule button on glass-coloured fill, for the detail's actions.
-struct CapsuleButtonStyle: ButtonStyle {
-    @Environment(\.colorScheme) private var colorScheme
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.subheadline.weight(.medium))
-            .lineLimit(1)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
-            .padding(.horizontal, 8)
-            .background(Capsule().fill(Color.primary.opacity(configuration.isPressed ? 0.16 : 0.07)))
-            .overlay(Capsule().strokeBorder(Color.white.opacity(colorScheme == .dark ? 0.18 : 0.6), lineWidth: 1))
-            .contentShape(Capsule())
-    }
-}
-
-/// The original and the optimised picture, split by a divider the person can drag.
-struct Comparison: View {
-    let card: ResultCard
-    let width: CGFloat
-    @State private var split: CGFloat = 0.5
+/// 1 + 2 + "…": the charcoal button with what it acts on, up to two round buttons with their
+/// names under them, and the menu for the rest.
+struct DetailActions: View {
+    let info: CardPresentation
+    let perform: (CardPresentation.Action) -> Void
 
     var body: some View {
-        let after = card.thumbnail
-        let height = Picture.height(for: after, width: width, range: 120...260)
-        if let before = card.originalThumbnail, card.result != nil {
-            ZStack(alignment: .topLeading) {
-                Picture(card: card, width: width, radius: Metrics.detailPictureRadius)
-                Picture(card: card, width: width, radius: Metrics.detailPictureRadius, image: before)
-                    .mask(alignment: .leading) { Rectangle().frame(width: width * split) }
-                HStack {
-                    tag(Strings.text("Original"))
-                    Spacer()
-                    tag(Strings.text("Optimised"))
-                }
-                .padding(8)
-                divider(height: height)
-                    .offset(x: width * split - 11.5)
+        HStack(alignment: .top, spacing: Spacing.hitGap) {
+            if let primary = info.primary {
+                PrimaryButton(action: primary, detail: info.primaryDetail, perform: perform)
             }
-            .frame(width: width, height: height)
-            .contentShape(Rectangle())
-            .gesture(DragGesture(minimumDistance: 0).onChanged { value in
-                split = min(1, max(0, value.location.x / width))
-            })
-            .accessibilityHidden(true)
-        } else {
-            Picture(card: card, width: width, radius: Metrics.detailPictureRadius)
-                .frame(height: height)
+            ForEach(info.secondary, id: \.self) { action in
+                VStack(spacing: 4) {
+                    PillButton(action: action, size: Self.round, perform: perform)
+                    Text(action.title.uppercased(with: Strings.locale))
+                        .font(Typeface.section)
+                        .tracking(0.5)
+                        .foregroundStyle(Ink.secondary)
+                        .lineLimit(1)
+                        .fixedSize()
+                        .accessibilityHidden(true)
+                }
+                .frame(minWidth: Self.round + 8)
+            }
+            if !info.menu.isEmpty {
+                MoreMenu(actions: info.menu, size: Self.round, perform: perform)
+            }
         }
     }
 
-    private func tag(_ text: String) -> some View {
-        Text(text)
-            .font(.subheadline)
-            .foregroundStyle(Color(white: 0.16))
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .background(Capsule().fill(Color.white.opacity(0.9)))
-    }
+    static let round: CGFloat = 36
+}
 
-    private func divider(height: CGFloat) -> some View {
-        ZStack {
-            Rectangle().fill(.white).frame(width: 1, height: height).shadow(color: .black.opacity(0.5), radius: 1.5)
-            Image(systemName: "chevron.left.chevron.right")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(Color(white: 0.16))
-                .frame(width: 23, height: 29)
-                .background(Capsule().fill(Color.white.opacity(0.92)))
+/// The detail's charcoal button: an icon, the action and what it acts on.
+struct PrimaryButton: View {
+    let action: CardPresentation.Action
+    let detail: String?
+    let perform: (CardPresentation.Action) -> Void
+
+    var body: some View {
+        Button { perform(action) } label: {
+            HStack(spacing: 8) {
+                Image(systemName: action.symbol).font(.system(size: 16, weight: .medium)).frame(width: 20)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(action.title).font(.system(size: 13, weight: .semibold))
+                    if let detail {
+                        // Full white: 80 % held only 3.7:1 on dark charcoal.
+                        Text(detail).font(Typeface.caption)
+                    }
+                }
+                .lineLimit(1)
+            }
+            .foregroundStyle(Ink.onCharcoal)
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .background(Capsule().fill(Ink.charcoal))
+            .contentShape(Capsule())
         }
-        .frame(width: 23, height: height)
+        .buttonStyle(PressScale())
+        .help(action.accessibilityName)
+    }
+}
+
+/// "…": a plain menu of the actions that did not get a button, the options last.
+struct MoreMenu: View {
+    let actions: [CardPresentation.Action]
+    let size: CGFloat
+    let perform: (CardPresentation.Action) -> Void
+
+    var body: some View {
+        Menu {
+            ForEach(actions, id: \.self) { action in
+                Button(action.title) { perform(action) }
+            }
+        } label: {
+            PillButton.face("ellipsis", size: size, glyph: 0.4).contentShape(Circle())
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help(Strings.text("More options"))
+        .accessibilityLabel(Strings.text("More options"))
     }
 }
 

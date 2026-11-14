@@ -11,30 +11,27 @@ file operations and approximates glass with CSS; the rules below win where they 
 
 ## Floating result
 One object at the bottom-right corner of the screen, with the geometry and gesture of the
-system screenshot thumbnail. It has three levels; the person moves between them on purpose.
+system screenshot thumbnail. The look follows [docs/design/targets](docs/design/targets) on the
+`design/ui-overhaul` branch. It has two levels; the person moves between them on purpose.
 
-1. **Thumbnail (default).** About 200 pt wide, slides in from the right edge. While
-   compressing, a specular sheen sweeps the picture and a progress hairline runs along the
-   glass rim. On finish the picture deflates in one spring (scale 1 → 0.95 → 1) and a glass
-   capsule pinned to the bottom edge counts down to the result: "612 kB · −75 %".
-2. **Detail.** Opened by clicking the capsule or holding the pointer still for 600 ms. A plain
-   pass of the pointer only shows the hover buttons. The card grows from the bottom-right
-   anchor to 320 pt: before/after comparison with a draggable divider, the deflate bar (full
-   original size contracting to the new proportion), metrics, a quality chip shown only when
-   the engine can justify it, and actions.
-3. **Activity.** Only when a job is expected to take longer than 2 s (video, large PDFs). A
-   glass capsule grows out of the thumbnail's left edge with a progress ring and the time left,
-   turns into the result, and retracts after 2 s.
+1. **Card (default).** A 208 pt cream card: the picture at its own aspect ratio over a footer.
+   Work in progress tints it aqua with a straight bar and the time left for long jobs; a saving
+   gets the ring with the figure, the original size in brick red and the new one in grey; a
+   failure tints it amber with the one way forward (Retry, Upload Again).
+2. **Detail.** Opened by a click, Return or Space, or VoiceOver's action; never because the
+   pointer rested. The card grows to 320 pt: the picture, the name with format and
+   dimensions, the saving at the next size up, and the actions as 1 + 2 + "…": the most likely
+   action in charcoal with what it acts on (Show in Finder and the folder, or Copy for a copied
+   screenshot), up to two round buttons (Copy, Undo), and a menu for the rest (convert,
+   downscale, crop, Compare, More options). × and Esc close it.
 
-Hover shows a row of 28 pt round glass buttons above the thumbnail: Undo, Convert, Downscale,
-Crop and "…". The set is configurable. The buttons float above the thumbnail, so the
-object never changes size under the pointer. The thumbnail drags out as the file (the original
-after a restore). Errors keep the original and say so in a capsule under the thumbnail, in
-plain words ("This file isn't a video L'Esclop can read. It may be damaged."); clicking it
-retries. Several results in a row: show the newest three with 12 pt between one capsule and
-the next thumbnail, newest at the bottom, older ones go to the menu-bar history; never stack
-expanded details. A result's row of buttons never covers the result above: at the bottom
-corners the results above move up while it shows, at the top corners the room is always there.
+Hover shows three round buttons over the picture's corner (Copy for a copied screenshot, Show
+in Finder for a file, then Undo and "…") and a close button over its outer corner, so the
+object never changes size under the pointer. The card glows in the picture's tone. The picture
+drags out as the file (the original after a restore). Errors keep the original and say so in
+plain words ("This file isn't a video L'Esclop can read. It may be damaged.").
+Several results in a row: show the newest three, newest at the bottom, older ones go to the
+menu-bar history; never stack expanded details.
 Dismissal pauses while the object is hovered, focused, dragged or open.
 
 ## Options popover

@@ -32,7 +32,7 @@ import Testing
     @Test func nothingSmallerAndFailuresGetTheirOwnCards() async throws {
         let unchanged = Harness(failure: .alreadySmaller)
         _ = await unchanged.model.run(unchanged.job(unchanged.temp.file("a.png", bytes: 5000)))
-        #expect(unchanged.model.cards.first?.presentation.detailTitle == "Already optimised")
+        #expect(unchanged.model.cards.first?.presentation.headline == "Already optimised")
 
         let failing = Harness(failure: .toolMissing("ffmpeg"))
         let events = EventLog()
@@ -57,7 +57,7 @@ import Testing
         _ = await harness.model.run(harness.job(harness.temp.file("a.png")))
         _ = await harness.model.run(harness.job(harness.temp.file("b.png")))
         let hovered = try #require(harness.model.cards.last)
-        harness.model.interact(hovered, .pointerEnteredButtons)
+        harness.model.interact(hovered, .pointerEntered)
         #expect(await eventually { harness.model.cards.count == 1 })
         try await Task.sleep(for: .milliseconds(200))
         #expect(harness.model.cards.first?.id == hovered.id, "the hovered card stays")
@@ -206,26 +206,20 @@ import Testing
         #expect(first.machine.level == .thumbnail, "details never stack")
     }
 
-    @Test func aStillPointerOpensTheDetailOnTheModelsClock() async throws {
+    @Test func anOpenDetailHidesOnTheModelsClockOnceClosed() async throws {
         let harness = Harness()
         var clock = Date(timeIntervalSinceReferenceDate: 800_000_000)
         harness.model.now = { clock }
         _ = await harness.model.run(harness.job(harness.temp.file("a.png")))
         let card = try #require(harness.model.cards.first)
-        var pointer = CGPoint(x: 100, y: 100)
-        harness.model.pointerLocation = { pointer }
         harness.model.interact(card, .pointerEntered)
-        // The panel does not hear every move: the pointer slides on without an event.
-        pointer.x += 40
-        clock += 0.61
+        clock += 5
         harness.model.advance(card)
-        #expect(card.machine.level == .thumbnail, "it moved, so that was a pass")
-        clock += 0.3
+        #expect(card.machine.level == .thumbnail, "a resting pointer never opens the detail")
+        harness.model.interact(card, .openDetail)
+        clock += 3600
         harness.model.advance(card)
-        #expect(card.machine.level == .thumbnail)
-        clock += 0.31
-        harness.model.advance(card)
-        #expect(card.machine.level == .detail)
+        #expect(harness.model.cards.count == 1, "an open detail stays")
         harness.model.interact(card, .closeDetail)
         harness.model.interact(card, .pointerExited)
         clock += 3600

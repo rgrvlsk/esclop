@@ -5321,6 +5321,16 @@
         }
       }
     },
+    "Put it back on the clipboard": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Torna’l al porta-retalls"
+          }
+        }
+      }
+    },
     "Put on a shelf": {
       "localizations": {
         "ca": {
