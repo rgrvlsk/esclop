@@ -60,6 +60,8 @@ public final class ResultCard: Identifiable {
     /// The last run cropped, downscaled or fitted the file. Restore runs the choice again without
     /// that change, so it is not offered then.
     public var adjusted = false
+    /// The detail's picture is a loupe (Compare); nil when it is not.
+    public var loupe: LoupeState?
     /// The row of the detail's "…" menu under the pointer or the arrow keys.
     public var menuHighlight: Int?
     /// The result's upload, from the Share tab or an automatic upload; nil when there is none.
@@ -71,6 +73,12 @@ public final class ResultCard: Identifiable {
     var retry: (() -> Void)?
     var cancelWork: (() -> Void)?
     var timer: Task<Void, Never>?
+
+    /// The two files the loupe shows, while both are there.
+    var loupeSides: (before: URL, after: URL)? {
+        guard case let .done(result) = phase, case let .ready(before, after) = CompareSides.resolve(result, restored: false) else { return nil }
+        return (before, after)
+    }
 
     public init(
         jobID: UUID, source: URL, origin: RequestOrigin, aggressive: Bool = false,

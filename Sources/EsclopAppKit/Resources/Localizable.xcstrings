@@ -1661,6 +1661,26 @@
         }
       }
     },
+    "Click or hold to see optimised": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clica o mantén per veure l'optimitzat"
+          }
+        }
+      }
+    },
+    "Click or hold to see original": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clica o mantén per veure l'original"
+          }
+        }
+      }
+    },
     "Clipboard": {
       "localizations": {
         "ca": {
@@ -2647,6 +2667,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Els PDF xifrats de més de 64 MB es deixen tal com estan."
+          }
+        }
+      }
+    },
+    "End the comparison": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acaba la comparació"
           }
         }
       }
@@ -5517,6 +5547,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Relatiu a"
+          }
+        }
+      }
+    },
+    "Release to see optimised": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deixa anar per veure l'optimitzat"
+          }
+        }
+      }
+    },
+    "Release to see original": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deixa anar per veure l'original"
           }
         }
       }

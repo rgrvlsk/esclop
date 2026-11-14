@@ -451,9 +451,11 @@ public final class AppModel {
             // The options popover belongs to the card; the detail opens without it, and without
             // its "…" menu open.
             card.machine.setMenuOpen(false, at: time)
+            card.loupe = nil
             card.machine.openDetail(at: time)
         case .closeDetail:
             card.machine.setMenuOpen(false, at: time)
+            card.loupe = nil
             card.machine.closeDetail(at: time)
         case let .focus(value): card.machine.setFocused(value, at: time)
         case let .dragging(value):
@@ -593,7 +595,13 @@ public final class AppModel {
             card.optionsTab = .optimise
             openOptions(card)
         case .compare:
-            if let result = card.result { onCompare?(result) }
+            // In the detail a picture compares in place, with the loupe; the rest in the window,
+            // and everything with VoiceOver, which can read the window and not the lens.
+            if card.machine.level == .detail, card.presentation.loupe, card.loupeSides != nil, !NSWorkspace.shared.isVoiceOverEnabled {
+                card.loupe = LoupeState()
+            } else if let result = card.result {
+                onCompare?(result)
+            }
         case .openDetail:
             interact(card, .openDetail)
         case .closeDetail:
@@ -641,6 +649,7 @@ public final class AppModel {
         let origin = card.origin, displayName = card.displayName
         let wasClipboardImage = card.source.path.hasPrefix(Paths.temporary.path)
         card.adjusted = adjust != nil
+        card.loupe = nil
         let choice = choice ?? card.choice
         let rule = card.appliedRule?.choice == choice ? card.appliedRule : nil
         let context = CardContext(origin: card.fileOrigin ?? .unknown, inputType: card.inputType, choice: choice, rule: rule)
@@ -684,6 +693,7 @@ public final class AppModel {
             noteWritten([result.source, result.output])
             if let card {
                 card.phase = .restored(result)
+                card.loupe = nil
                 loadThumbnail(card, url: result.source)
                 settle(card)
             } else {
