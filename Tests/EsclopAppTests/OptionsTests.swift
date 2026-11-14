@@ -114,7 +114,7 @@ import UniformTypeIdentifiers
         #expect(request.quality == CompressionQuality(tier: .custom, factor: 18), "the slider runs the other way from the factor")
         #expect(OptimiseChoice.quality(for: .adaptive) == 70)
         OptimiseChoice(format: .hevc, stripMetadata: true, fps: 30).apply(to: &request)
-        #expect(request.fpsCap == 30 && request.stripMetadata && request.format == .hevc)
+        #expect(request.fpsCap == 30 && request.stripMetadata == true && request.format == .hevc)
     }
 }
 
