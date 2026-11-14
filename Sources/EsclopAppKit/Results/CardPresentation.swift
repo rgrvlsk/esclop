@@ -56,7 +56,7 @@ public struct CardPresentation: Equatable, Sendable {
             case .compare: return Strings.text("Compare")
             case .openDetail: return Strings.text("Show details")
             case .closeDetail: return Strings.text("Hide details")
-            case .retry: return Strings.text("Try again")
+            case .retry: return Strings.text("Retry")
             case .reveal: return Strings.text("Show in Finder")
             case .copy: return Strings.text("Copy")
             case .dismiss: return Strings.text("Dismiss")
@@ -272,8 +272,8 @@ public struct CardPresentation: Equatable, Sendable {
             actions = Self.distinct([.openDetail] + tools + [.reveal, .copy, .dismiss])
             accessibilityLabel = f("%@, original restored", fileName)
         case let .failed(message):
-            capsule = .error(title: t("Couldn’t optimise"), message: message)
-            headline = t("Couldn’t optimise")
+            capsule = .error(title: t("Not optimised"), message: message)
+            headline = t("Not optimised")
             caption = message
             tone = .error
             let exists = FileManager.default.fileExists(atPath: card.source.path)
@@ -311,8 +311,8 @@ public struct CardPresentation: Equatable, Sendable {
             actions = [.copyLink] + actions
             accessibilityLabel = f("%@, uploaded, the link is on the clipboard", name)
         case let .failed(message):
-            capsule = .error(title: t("Couldn’t upload"), message: message)
-            headline = t("Couldn’t upload")
+            capsule = .error(title: t("Not uploaded"), message: message)
+            headline = t("Not uploaded")
             caption = message
             tone = .error
             promote(.retryUpload)

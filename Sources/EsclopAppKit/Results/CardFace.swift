@@ -133,9 +133,9 @@ struct CardFooter: View {
 
     /// The ring's box, its stroke and its figure. The white dot clears the figure by 3 pt or more
     /// at every percentage (`RenderTests.theDotClearsTheFigure`).
-    static let ring = (side: CGFloat(50), lineWidth: CGFloat(3), figure: CGFloat(17))
+    static let ring = (side: CGFloat(50), lineWidth: CGFloat(3), figure: Figure.Size.card.rawValue)
     /// The detail's ring, where the figure takes the next size up.
-    static let largeRing = (side: CGFloat(62), lineWidth: CGFloat(5), figure: CGFloat(20))
+    static let largeRing = (side: CGFloat(62), lineWidth: CGFloat(5), figure: Figure.Size.detail.rawValue)
     /// The ring's place, and the symbol's.
     private var slot: CGFloat { Self.ring.side }
 
@@ -236,37 +236,49 @@ struct CardFooter: View {
 
     /// The triangle, what did not happen and why, and the one way forward. The pill sits beside
     /// the words when they fit ("Retry"), under them when they do not ("Upload Again").
+    // A failure (docs/design/targets: pr2-failed-not-uploaded): what did not happen, with the way
+    // forward beside it, and under them why, across the width, and that nothing was lost.
     private var failed: some View {
         // In the detail, the charcoal button is the way forward.
         let action: CardPresentation.Action? = large ? nil : [.retryUpload, .retry, .reveal].first(where: info.actions.contains)
-        let words = VStack(alignment: .leading, spacing: 2) {
-            Text(info.headline).font(.system(size: 13, weight: .semibold)).foregroundStyle(Ink.text).lineLimit(1)
-            Text(info.caption)
-                .font(.system(size: 11)).foregroundStyle(Ink.text)
-                .lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                .help(info.caption)
-        }
-        return HStack(alignment: .center, spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 18, weight: .semibold))
+        let kept = card.failure == .upload ? Strings.text("The file is kept.") : Strings.text("The original is untouched.")
+        let title = HStack(spacing: 7) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Ink.error)
-                .frame(width: slot, height: slot)
+            Text(info.headline)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Ink.text)
+                .lineLimit(1)
+        }
+        return VStack(alignment: .leading, spacing: 5) {
             if let action {
                 ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) {
-                        words.fixedSize(horizontal: true, vertical: false)
+                    HStack(spacing: 6) {
+                        title.fixedSize()
                         Spacer(minLength: 0)
-                        TextPill(action: action, perform: perform)
+                        TextPill(action: action, title: Self.retryTitle(action), perform: perform)
                     }
                     VStack(alignment: .leading, spacing: 6) {
-                        words
-                        TextPill(action: action, perform: perform)
+                        title
+                        TextPill(action: action, title: Self.retryTitle(action), perform: perform)
                     }
                 }
             } else {
-                words
+                title
             }
+            Text("\(info.caption) \(kept)")
+                .font(.system(size: 11.5))
+                .foregroundStyle(Ink.secondary)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+                .help(info.caption)
         }
+    }
+
+    /// A failure's way forward reads "Retry", whether it optimises or uploads again.
+    static func retryTitle(_ action: CardPresentation.Action) -> String? {
+        action == .retry || action == .retryUpload ? Strings.text("Retry") : nil
     }
 
     private func lines(mark: some View) -> some View {
@@ -374,11 +386,14 @@ struct PillButton: View {
 /// A white pill with a charcoal word: Retry, Show in Finder.
 struct TextPill: View {
     let action: CardPresentation.Action
+    /// The words on the pill when the place says more than the action's own title: a failure's
+    /// way forward is "Retry", for an upload too.
+    var title: String?
     let perform: (CardPresentation.Action) -> Void
 
     var body: some View {
         Button { perform(action) } label: {
-            Text(action.title)
+            Text(title ?? action.title)
                 .font(.system(size: 12, weight: .semibold))
                 // Always on white, so always the light appearance's charcoal.
                 .foregroundStyle(Ink.charcoal)

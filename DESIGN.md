@@ -17,7 +17,9 @@ system screenshot thumbnail. The look follows [docs/design/targets](docs/design/
 1. **Card (default).** A 208 pt cream card: the picture at its own aspect ratio over a footer.
    Work in progress tints it aqua with a straight bar and the time left for long jobs; a saving
    gets the ring with the figure, the original size in brick red and the new one in grey; a
-   failure tints it amber with the one way forward (Retry, Upload Again).
+   failure tints it amber (`pr2-failed-not-uploaded`): a red triangle and what did not happen
+   ("Not optimised", "Not uploaded") with Retry beside it, and under them, across the card,
+   why and that nothing was lost ("The original is untouched.", "The file is kept.").
 2. **Detail.** Opened by a click, Return or Space, or VoiceOver's action; never because the
    pointer rested. The card grows to 320 pt: the picture, the name with format and
    dimensions, the saving at the next size up, and the actions as 1 + 2 + "…": the most likely
@@ -55,7 +57,14 @@ object never changes size under the pointer. The card glows in the picture's ton
 drags out as the file (the original after a restore). Errors keep the original and say so in
 plain words ("This file isn't a video L'Esclop can read. It may be damaged.").
 Several results in a row: show the newest three, newest at the bottom, older ones go to the
-menu-bar history; never stack expanded details.
+menu-bar history; never stack expanded details. Two or more failures share one of the three
+places (`pr2-failures`): an amber pill, "3 not optimised" ("not uploaded" for uploads, "failed"
+for a mix), that a click opens into their list, 320 pt wide, under an amber header in the serif:
+each file with its picture, why, and Retry, or no button when the file is gone ("The file was
+moved or deleted."); four rows show, more scroll; Retry All and Dismiss close it. An open list
+stays while one failure is left, headed with the single card's words ("Not optimised"), and a
+failure under the pointer, focused or open stays its own card until it is left, so nothing
+changes under the pointer. Failures never hide on their own.
 Dismissal pauses while the object is hovered, focused, dragged or open.
 
 ## Options popover

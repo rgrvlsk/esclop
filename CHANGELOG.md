@@ -18,8 +18,14 @@ into the body of its GitHub release.
 - Compare in the detail is a loupe for a picture that lost detail: a lens at true size follows
   the pointer; a click shows the original and stays, holding shows it until release. Space,
   the arrows and Esc work from the keyboard.
+- Two or more failures share one place in the stack: an amber pill ("3 not optimised") that
+  opens into their list, each with why and Retry, and Retry All and Dismiss. They no longer push
+  the results off the screen.
 
 ### Changed
+- A failed card says what did not happen ("Not optimised", "Not uploaded") with Retry beside it,
+  and why across the card, with "The original is untouched." or "The file is kept."
+- The saving figure's sizes come from one token: 17 pt in the card's ring, 20 pt in the detail's.
 - The detail's × has its own band above the picture, and the picture is at most 200 pt tall.
 - The detail's "…" opens the design's own menu instead of a system menu: a cream panel beside
   the card, joined to "…" by a liquid neck, that opens as a drop and sinks back when it closes.

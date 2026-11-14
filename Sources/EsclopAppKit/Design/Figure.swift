@@ -10,12 +10,12 @@ import SwiftUI
 public struct Figure: View {
     /// The four sizes.
     public enum Size: CGFloat, CaseIterable, Sendable {
-        /// The card, compare.
-        case card = 24
+        /// The card, inside its 50 pt ring (`CardFooter.ring`).
+        case card = 17
         /// The menu panel, the options popover.
         case panel = 32
-        /// The detail, batch, All Results.
-        case detail = 48
+        /// The detail, inside its 62 pt ring; batch and All Results until they have their own.
+        case detail = 20
         /// The first run.
         case firstRun = 72
     }
