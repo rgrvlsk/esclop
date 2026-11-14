@@ -7,6 +7,15 @@ into the body of its GitHub release.
 
 ## [Unreleased]
 
+### Added
+- The detail says what optimising removed from a photo's metadata (location, camera, date) and
+  offers Restore, which runs the file again from its original and keeps the metadata.
+- Save for a copied screenshot: one click puts it in Downloads as "Copied image" with the date
+  and time, and the button then shows it in Finder. "Save as…" is in the detail's "…".
+- Share… and Move to Trash in the detail's "…". Share opens the system's share services; Move to
+  Trash takes an optimised file to the Trash (its backup stays) and removes the card. Neither a
+  copied image nor an untouched original can be trashed from there.
+
 ### Changed
 - The floating result is a cream card: the picture over a footer with the saving's ring, the
   original size in red beside the new one, and the file's name. Work in progress tints it aqua
@@ -21,6 +30,12 @@ into the body of its GitHub release.
   slider moves to the Compare window, in "…". In the open detail Return or Space runs the
   charcoal button; when the file runs again from it, the detail turns aqua and the charcoal
   button is Stop. The detail shows the whole picture, never a crop.
+
+### Fixed
+- Turning "Strip metadata" off in a file's options now keeps its metadata while the setting is
+  on. A request's `stripMetadata` is now optional: `true` strips, `false` keeps, and leaving it
+  out follows the setting. For MCP, `stripMetadata: false` used to be ignored and now keeps
+  metadata.
 
 ### Removed
 - The `hoverButtons` setting and "Customise buttons…": the card's buttons now follow where the

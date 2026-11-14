@@ -45,7 +45,7 @@ struct Plan: Sendable {
         format = request.format
         downscale = request.downscale.flatMap { $0 > 0 && $0 < 1 ? $0 : nil }
         crop = request.crop
-        strip = request.stripMetadata || env.value(EsclopSettings.stripMetadata)
+        strip = request.stripMetadata ?? env.value(EsclopSettings.stripMetadata)
         keepHDR = request.keepHDR ?? env.value(EsclopSettings.keepHDR)
         automatic = [.app, .clipboard, .dropZone, .watchedFolder, .hotkey].contains(request.origin)
     }

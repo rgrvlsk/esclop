@@ -3981,6 +3981,16 @@
         }
       }
     },
+    "Move to Trash": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mou a la Paperera"
+          }
+        }
+      }
+    },
     "Move to the Trash": {
       "localizations": {
         "ca": {
@@ -4017,6 +4027,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Puja «%@»"
+          }
+        }
+      }
+    },
+    "Moved to the Trash": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’ha mogut a la Paperera"
           }
         }
       }
@@ -5321,16 +5341,6 @@
         }
       }
     },
-    "Put it back on the clipboard": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Torna’l al porta-retalls"
-          }
-        }
-      }
-    },
     "Put on a shelf": {
       "localizations": {
         "ca": {
@@ -5611,6 +5621,16 @@
         }
       }
     },
+    "Removed": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminat"
+          }
+        }
+      }
+    },
     "Rename": {
       "localizations": {
         "ca": {
@@ -5721,6 +5741,16 @@
         }
       }
     },
+    "Restore": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaura"
+          }
+        }
+      }
+    },
     "Restore All": {
       "localizations": {
         "ca": {
@@ -5777,6 +5807,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vols restaurar l’original?"
+          }
+        }
+      }
+    },
+    "Restore the removed metadata": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaura les metadades eliminades"
           }
         }
       }
@@ -6031,6 +6071,16 @@
         }
       }
     },
+    "Save to Downloads": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desa a Baixades"
+          }
+        }
+      }
+    },
     "Saved in the Keychain": {
       "localizations": {
         "ca": {
@@ -6047,6 +6097,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pipeline desat"
+          }
+        }
+      }
+    },
+    "Saved to Downloads": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’ha desat a Baixades"
           }
         }
       }
@@ -7311,6 +7371,16 @@
         }
       }
     },
+    "To the clipboard": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Al porta-retalls"
+          }
+        }
+      }
+    },
     "Top left": {
       "localizations": {
         "ca": {
@@ -8441,6 +8511,26 @@
         }
       }
     },
+    "camera": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "càmera"
+          }
+        }
+      }
+    },
+    "date": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "data"
+          }
+        }
+      }
+    },
     "days": {
       "localizations": {
         "ca": {
@@ -8507,6 +8597,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "claus al clauer"
+          }
+        }
+      }
+    },
+    "location": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ubicació"
           }
         }
       }

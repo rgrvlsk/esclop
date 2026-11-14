@@ -133,6 +133,56 @@ extension AppModel {
         try? FileManager.default.copyItem(at: file, to: target)
     }
 
+    /// Moves an optimised file to the Trash and removes its card. Its backup stays, as for any
+    /// result; Finder's Put Back brings the file back.
+    func trash(_ card: ResultCard) {
+        guard case .done = card.phase, card.origin != .clipboard else { return }
+        do {
+            try FileManager.default.trashItem(at: card.shownFile, resultingItemURL: nil)
+            dismiss(card)
+            announce(Strings.text("Moved to the Trash"))
+        } catch {
+            NSSound.beep()
+        }
+    }
+
+    /// Saves a copied image to Downloads in one click, named for what it is and when it was made:
+    /// "Copied image 2026-11-14 09.41.12.png". A copied image otherwise lives in a temporary folder.
+    /// ponytail: always Downloads. The specific-folder setting resolves into that temporary folder
+    /// for a copied image; honour it here once someone sets an absolute folder and asks.
+    func save(_ card: ResultCard) {
+        guard let result = card.result else { return }
+        let file = card.shownFile
+        let stamp = Self.saveStamp.string(from: result.finishedAt)
+        let base = (card.displayName ?? file.deletingPathExtension().lastPathComponent) + " " + stamp
+        let target = Self.unused(base, extension: file.pathExtension, in: downloads())
+        do {
+            try FileManager.default.copyItem(at: file, to: target)
+            card.savedCopy = target
+            announce(Strings.text("Saved to Downloads"))
+        } catch {
+            NSSound.beep()
+        }
+    }
+
+    private static let saveStamp: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd HH.mm.ss"
+        return formatter
+    }()
+
+    /// "name.png", else "name 2.png", "name 3.png"…
+    static func unused(_ base: String, extension ext: String, in folder: URL) -> URL {
+        var number = 1
+        while true {
+            let name = number == 1 ? base : "\(base) \(number)"
+            let url = folder.appendingPathComponent(name).appendingPathExtension(ext)
+            if !FileManager.default.fileExists(atPath: url.path) { return url }
+            number += 1
+        }
+    }
+
     public func airDrop(_ card: ResultCard) {
         NSSharingService(named: .sendViaAirDrop)?.perform(withItems: [card.shownFile])
     }

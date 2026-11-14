@@ -32,6 +32,15 @@ public struct CardPresentation: Equatable, Sendable {
         case cancelUpload
         case retryUpload
         case copyLink
+        /// Runs the file again from its original, keeping its metadata.
+        case keepMetadata
+        /// Saves a copied image to Downloads in one click.
+        case save
+        case saveAs
+        /// The system's share services for the file.
+        case share
+        /// Moves the optimised file to the Trash and removes the card.
+        case trash
 
         /// The label on a button in the detail card.
         public var title: String {
@@ -53,6 +62,19 @@ public struct CardPresentation: Equatable, Sendable {
             case .cancelUpload: return Strings.text("Stop Uploading")
             case .retryUpload: return Strings.text("Upload Again")
             case .copyLink: return Strings.text("Copy Link")
+            case .keepMetadata: return Strings.text("Restore")
+            case .save: return Strings.text("Save")
+            case .saveAs: return Strings.text("Save as…")
+            case .share: return Strings.text("Share…")
+            case .trash: return Strings.text("Move to Trash")
+            }
+        }
+
+        /// The word under a round button in the detail: short, since three share a row.
+        public var caption: String {
+            switch self {
+            case .reveal: return "Finder"
+            default: return title
             }
         }
 
@@ -62,6 +84,8 @@ public struct CardPresentation: Equatable, Sendable {
             case .undo: return Strings.text("Undo, restore the original")
             case .copy: return Strings.text("Copy the file")
             case .compare: return Strings.text("Compare the original and the optimised file")
+            case .keepMetadata: return Strings.text("Restore the removed metadata")
+            case .save: return Strings.text("Save to Downloads")
             default: return title
 
             }
@@ -83,6 +107,10 @@ public struct CardPresentation: Equatable, Sendable {
             case .upload, .retryUpload: return "icloud.and.arrow.up"
             case .cancelUpload: return "xmark.circle"
             case .copyLink: return "link"
+            case .keepMetadata: return "arrow.uturn.backward.circle"
+            case .save, .saveAs: return "square.and.arrow.down"
+            case .share: return "square.and.arrow.up"
+            case .trash: return "trash"
             }
         }
     }
@@ -129,6 +157,10 @@ public struct CardPresentation: Equatable, Sendable {
     public var secondary: [Action]
     /// What "…" lists: everything else.
     public var menu: [Action]
+    /// What optimising took from the picture's metadata, for the "Removed" strip.
+    public var removedMetadata: [MetadataKind] = []
+    /// "Location, camera, date"
+    public var removedSummary = ""
 
     public var accessibilityLabel: String
 
@@ -187,10 +219,14 @@ public struct CardPresentation: Equatable, Sendable {
             dimensions = Self.dimensions(result)
             // Compare only when there is an original to compare with.
             let comparable = result.backup != nil || result.output.standardizedFileURL != result.source.standardizedFileURL
-            (primary, primaryDetail, secondary, menu) = Self.detail(card, undo: !undo.isEmpty, menu: resultEditing + (comparable ? [.compare] : []), t: t)
+            (primary, primaryDetail, secondary, menu) = Self.detail(card, undo: !undo.isEmpty, menu: resultEditing + (comparable ? [.compare] : []), trash: true, t: t)
 
             actions = Self.distinct([.openDetail] + tools + [.reveal, .copy, .dismiss])
             accessibilityLabel = "\(fileName), \(Self.announcement(for: result, locale: locale))"
+            if RemovedMetadata.original(of: result, origin: card.origin) != nil {
+                removedMetadata = card.removedMetadata
+                removedSummary = Self.summary(of: card.removedMetadata, t: t)
+            }
         case let .unchanged(bytes):
             capsule = .status(symbol: nil, text: f("Already optimised · %@", Figures.bytes(bytes, locale: locale)))
             headline = t("Already optimised")
@@ -277,16 +313,34 @@ public struct CardPresentation: Equatable, Sendable {
     }
 
     /// The detail's actions, 1 + 2 + "…" (docs/design/targets/README.md › Detail card). A copied
-    /// screenshot goes back to the clipboard; any other file is shown in Finder, with Copy beside
-    /// it. Undo while a backup exists. Everything else is in "…", ending with the options.
+    /// screenshot goes back to the clipboard, with Save beside it (Show in Finder once saved); any
+    /// other file is shown in Finder, with Copy beside it. Undo while a backup exists. Everything
+    /// else is in "…", ending with Save As and the options.
     @MainActor private static func detail(
-        _ card: ResultCard, undo: Bool, menu rest: [Action], t: (String) -> String
+        _ card: ResultCard, undo: Bool, menu rest: [Action], trash: Bool = false, t: (String) -> String
     ) -> (Action?, String?, [Action], [Action]) {
         let clipboard = card.origin == .clipboard
         let detail = clipboard
-            ? t("Put it back on the clipboard")
+            ? t("To the clipboard")
             : FileManager.default.displayName(atPath: card.shownFile.deletingLastPathComponent().path)
-        return (clipboard ? .copy : .reveal, detail, (clipboard ? [] : [.copy]) + (undo ? [.undo] : []), rest + [.more])
+        let beside: Action = clipboard ? (card.savedCopy == nil ? .save : .reveal) : .copy
+        // Trash only for an optimised file of the person's: never a copied image's temporary file,
+        // and never an original left as it was or restored.
+        let end: [Action] = [.share, .saveAs] + (trash && !clipboard ? [.trash] : []) + [.more]
+        return (clipboard ? .copy : .reveal, detail, [beside] + (undo ? [.undo] : []), rest + end)
+    }
+
+    /// "Location, camera, date": the kinds in a sentence, the first capitalised.
+    static func summary(of kinds: [MetadataKind], t: (String) -> String) -> String {
+        let words = kinds.map { kind -> String in
+            switch kind {
+            case .location: return t("location")
+            case .camera: return t("camera")
+            case .date: return t("date")
+            }
+        }
+        let text = words.joined(separator: ", ")
+        return text.prefix(1).uppercased() + text.dropFirst()
     }
 
     /// An upload's own action takes the detail's charcoal button; the one it replaces goes first

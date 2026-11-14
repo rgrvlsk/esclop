@@ -154,6 +154,47 @@ import Testing
         #expect(harness.model.cards.last?.presentation.capsule == .notice(title: "Nothing to optimise", detail: "Drop images, videos, PDFs or audio files."))
     }
 
+    @Test func saveCopiesACopiedImageToDownloadsUnderAFreeName() async throws {
+        let harness = Harness()
+        let downloads = harness.temp.url.appendingPathComponent("Downloads", isDirectory: true)
+        try FileManager.default.createDirectory(at: downloads, withIntermediateDirectories: true)
+        harness.model.downloads = { downloads }
+        _ = await harness.model.run(harness.job(harness.temp.file("Clipboard.png", bytes: 100_000), origin: .clipboard), displayName: "Copied image")
+        let card = try #require(harness.model.cards.first)
+        harness.model.perform(.save, on: card)
+        let saved = try #require(card.savedCopy)
+        #expect(saved.deletingLastPathComponent().standardizedFileURL == downloads.standardizedFileURL)
+        #expect(saved.lastPathComponent.hasPrefix("Copied image 20") && saved.pathExtension == "png", "\(saved.lastPathComponent)")
+        #expect(FileManager.default.contentsEqual(atPath: saved.path, andPath: card.shownFile.path))
+        #expect(harness.announcements.texts.last == "Saved to Downloads")
+        harness.model.perform(.save, on: card)
+        #expect(card.savedCopy?.deletingPathExtension().lastPathComponent == saved.deletingPathExtension().lastPathComponent + " 2", "never over the first")
+        harness.model.perform(.reveal, on: card)
+        #expect(harness.revealed.urls.last == card.savedCopy)
+    }
+
+    @Test func shareFromVoiceOverOpensTheShareTab() async throws {
+        let harness = Harness()
+        _ = await harness.model.run(harness.job(harness.temp.file("a.png", bytes: 100_000)))
+        let card = try #require(harness.model.cards.first)
+        harness.model.perform(.openDetail, on: card)
+        harness.model.perform(.share, on: card)
+        #expect(card.optionsTab == .share)
+        #expect(card.machine.menuOpen && card.machine.level == .thumbnail)
+    }
+
+    @Test func restoreRunsAgainKeepingTheMetadata() async throws {
+        let harness = Harness()
+        let file = harness.temp.file("a.png", bytes: 100_000)
+        _ = await harness.model.run(harness.job(file))
+        let card = try #require(harness.model.cards.first)
+        harness.model.perform(.keepMetadata, on: card)
+        #expect(await eventually { harness.requests.requests.count == 2 && card.result != nil })
+        let again = try #require(harness.requests.requests.last)
+        #expect(again.stripMetadata == false, "kept, whatever the setting says")
+        #expect(again.sources == [file], "from the original")
+    }
+
     @Test func convertAndDownscaleRunAgainFromTheOriginal() async throws {
         let harness = Harness()
         let file = harness.temp.file("a.png", bytes: 100_000)

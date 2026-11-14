@@ -43,7 +43,7 @@ struct Optimise: AsyncParsableCommand {
         let crop = try self.crop.map(parseCrop)
         try await runFileJob(.optimise, files: files, global: global) { request in
             request.quality = quality.quality
-            request.stripMetadata = quality.stripMetadata
+            request.stripMetadata = quality.stripMetadata ? true : nil
             request.downscale = downscaleFactor
             request.crop = crop
             request.pdfDPI = pdfDPI
@@ -67,7 +67,7 @@ struct Convert: AsyncParsableCommand {
         try await runFileJob(.convert(to), files: files, global: global) { request in
             request.format = to
             request.quality = quality.quality
-            request.stripMetadata = quality.stripMetadata
+            request.stripMetadata = quality.stripMetadata ? true : nil
         }
     }
 }
@@ -105,7 +105,7 @@ struct Downscale: AsyncParsableCommand {
         try await runFileJob(.downscale(factor), files: files, global: global) { request in
             request.downscale = factor
             request.quality = quality.quality
-            request.stripMetadata = quality.stripMetadata
+            request.stripMetadata = quality.stripMetadata ? true : nil
         }
     }
 }
@@ -137,7 +137,7 @@ struct Crop: AsyncParsableCommand {
         try await runFileJob(.crop(size), files: files, global: global) { request in
             request.crop = size
             request.quality = quality.quality
-            request.stripMetadata = quality.stripMetadata
+            request.stripMetadata = quality.stripMetadata ? true : nil
         }
     }
 }
