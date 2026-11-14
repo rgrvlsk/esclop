@@ -24,7 +24,8 @@ system screenshot thumbnail. The look follows [docs/design/targets](docs/design/
    action in charcoal with what it acts on (Show in Finder and the folder, or Copy for a copied
    screenshot), up to two round buttons (Copy, Undo), and "…" for the rest: Convert… (the
    options: format, size, crop), Compare where there is an original, Share…, then Save as… for a
-   copied image or Move to Trash for a file of the person's. × and Esc close it.
+   copied image or Move to Trash for a file of the person's. × sits in its own band above the
+   picture; × and Esc close it. The picture is fitted whole, 120 to 200 pt tall.
    In a right-hand corner the row runs the other way, so "…" faces the screen.
 3. **"…" menu.** A panel in the card's fill outside the card, on the screen side, joined to "…"
    by a liquid neck: one outline for button, neck and panel, with one hairline and one shadow.
@@ -36,6 +37,17 @@ system screenshot thumbnail. The look follows [docs/design/targets](docs/design/
    turning to another window. The panel takes the keys while the menu is open, even with
    another app in front, without activating L'Esclop. Share… shows the system's share
    services at "…".
+4. **Loupe** (`pr6-compare-loupe`). Compare in the detail, for a picture that lost detail (JPEG,
+   WebP, AVIF, HEIC, JPEG XL, quantised PNG): the picture becomes a loupe. A lens 124 pt across
+   (smaller in a short picture) shows the file at true size, one file pixel to one screen pixel
+   and at least twice the picture's scale, up and to the left of the pointer, so the pointer
+   sits on its rim and never hides what it points at. A label on its top edge says which side
+   shows: ORIGINAL in charcoal, OPTIMISED in cream. A click swaps and stays; a press swaps
+   while held (over 250 ms or 4 pt) and swaps back on release. The swap is a cut. The action
+   row gives its place, at its height, to a hint ("Click or hold to see original", "Release to
+   see optimised") and Done, so nothing in the detail moves. Space swaps, the arrows move the
+   lens 8 pt, Esc, Return or Done end it; × still closes the detail. The picture does not drag
+   out while the loupe is on. Other files compare in the Compare window.
 
 Hover shows three round buttons over the picture's corner (Copy for a copied screenshot, Show
 in Finder for a file, then Undo and "…") and a close button over its outer corner, so the

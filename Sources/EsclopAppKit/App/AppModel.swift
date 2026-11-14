@@ -451,9 +451,11 @@ public final class AppModel {
             // The options popover belongs to the card; the detail opens without it, and without
             // its "…" menu open.
             card.machine.setMenuOpen(false, at: time)
+            card.loupe = nil
             card.machine.openDetail(at: time)
         case .closeDetail:
             card.machine.setMenuOpen(false, at: time)
+            card.loupe = nil
             card.machine.closeDetail(at: time)
         case let .focus(value): card.machine.setFocused(value, at: time)
         case let .dragging(value):
@@ -593,7 +595,12 @@ public final class AppModel {
             card.optionsTab = .optimise
             openOptions(card)
         case .compare:
-            if let result = card.result { onCompare?(result) }
+            // In the detail a picture compares in place, with the loupe; the rest in the window.
+            if card.machine.level == .detail, card.presentation.loupe, card.loupeSides != nil {
+                card.loupe = LoupeState()
+            } else if let result = card.result {
+                onCompare?(result)
+            }
         case .openDetail:
             interact(card, .openDetail)
         case .closeDetail:
@@ -641,6 +648,7 @@ public final class AppModel {
         let origin = card.origin, displayName = card.displayName
         let wasClipboardImage = card.source.path.hasPrefix(Paths.temporary.path)
         card.adjusted = adjust != nil
+        card.loupe = nil
         let choice = choice ?? card.choice
         let rule = card.appliedRule?.choice == choice ? card.appliedRule : nil
         let context = CardContext(origin: card.fileOrigin ?? .unknown, inputType: card.inputType, choice: choice, rule: rule)

@@ -168,6 +168,8 @@ public struct CardPresentation: Equatable, Sendable {
     public var removedMetadata: [MetadataKind] = []
     /// "Location, camera, date"
     public var removedSummary = ""
+    /// Compare is the detail's loupe: a picture that lost detail, with its original kept.
+    public var loupe = false
     /// Restore is offered for the removed metadata (not after a crop, downscale or fit).
     public var restorable = false
 
@@ -226,9 +228,12 @@ public struct CardPresentation: Equatable, Sendable {
                 ? Self.formatName(of: result.output)
                 : "\(Self.formatName(of: result.source)) → \(Self.formatName(of: result.output))"
             dimensions = Self.dimensions(result)
-            // Compare only when there is an original to compare with.
+            // Compare only when there is an original to compare with; for a picture, only when
+            // optimising lost detail, and then it is the loupe.
             let comparable = result.backup != nil || result.output.standardizedFileURL != result.source.standardizedFileURL
-            (primary, primaryDetail, secondary, menu) = Self.detail(card, undo: !undo.isEmpty, editing: resultEditing, compare: comparable, trash: true, t: t)
+            loupe = comparable && result.kind == .image && Self.lossy(result.output)
+            let compare = result.kind == .image ? loupe : comparable
+            (primary, primaryDetail, secondary, menu) = Self.detail(card, undo: !undo.isEmpty, editing: resultEditing, compare: compare, trash: true, t: t)
             self.editing = resultEditing
 
             actions = Self.distinct([.openDetail] + tools + [.reveal, .copy, .dismiss])
@@ -372,6 +377,14 @@ public struct CardPresentation: Equatable, Sendable {
         if let target = convertTarget(for: url, kind: kind) { actions.append(.convert(target)) }
         if kind == .image || kind == .video { actions += [.downscale, .crop] }
         return actions
+    }
+
+    /// Picture formats that lose detail when L'Esclop writes them, where the loupe is offered
+    /// ("Compare is a loupe … only when the loss is visible"). ponytail: a PNG counts, since the
+    /// default compression quantises it; at compression 0 the loupe shows two equal pictures.
+    /// Trigger: the engine reporting whether its encode was lossy, on the result.
+    static func lossy(_ file: URL) -> Bool {
+        ["jpg", "jpeg", "webp", "avif", "heic", "heif", "jxl", "png"].contains(file.pathExtension.lowercased())
     }
 
     /// Each action once, in its first place.
