@@ -50,12 +50,14 @@ struct ShareTab: View {
                 DrillRow(symbol: "square.2.layers.3d", title: Strings.text("Run a Shortcut")) { model.drill = .shortcut }
                 DrillRow(symbol: "arrow.up.forward.app", title: Strings.text("Open with")) { model.drill = .openWith }
             }
-            .padding(.horizontal, 4)
+            // The icon and chevron on the action rows' columns.
+            .padding(.leading, 20)
+            .padding(.trailing, 20)
             Button { app.onOpenPipelines?(nil) } label: {
                 Label(Strings.text("Edit Pipelines…"), systemImage: "plus")
                     .font(OptionsType.bodyStrong)
                     .frame(maxWidth: .infinity, minHeight: 40, alignment: .leading)
-                    .padding(.horizontal, 14)
+                    .padding(.horizontal, 23)
                     .overlay(RoundedRectangle(cornerRadius: OptionsType.radius, style: .continuous)
                         .strokeBorder(PopoverInk.secondary.color.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
                     .contentShape(Rectangle())
@@ -86,8 +88,8 @@ struct ActionRow: View {
                 Image(systemName: symbol)
                     .font(.system(size: 15, weight: .medium))
                     .frame(width: 38, height: 38)
-                    .background(Circle().fill(Surface.tile))
-                    .shadow(color: .black.opacity(0.08), radius: 1.5, y: 1)
+                    // Inside the raised row: flat, so nothing raised sits on something raised.
+                    .background(Circle().fill(Color.primary.opacity(0.06)))
                 VStack(alignment: .leading, spacing: 1) {
                     Text(title).font(OptionsType.bodyStrong).lineLimit(1)
                     if !detail.isEmpty {
@@ -105,16 +107,15 @@ struct ActionRow: View {
                     Image(systemName: "play.fill")
                         .font(.system(size: 10, weight: .bold))
                         .frame(width: 28, height: 28)
-                        .background(Circle().fill(Color.white.opacity(0.92)))
-                        .foregroundStyle(Ink.charcoal)
-                        .environment(\.colorScheme, .light)
-                        .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
+                        .background(Circle().fill(Color.primary.opacity(0.06)))
+                        .foregroundStyle(PopoverInk.primary.color)
                         .accessibilityHidden(true)
                 }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: OptionsType.radius, style: .continuous).fill(Surface.cream))
+            // The whole row runs it: raised, like every control.
+            .raised(RoundedRectangle(cornerRadius: OptionsType.radius, style: .continuous))
             .contentShape(Rectangle())
         }
         .buttonStyle(PressScale())

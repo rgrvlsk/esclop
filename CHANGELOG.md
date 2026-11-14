@@ -42,6 +42,8 @@ into the body of its GitHub release.
 - The drop zone takes the popover's opaque cream surface already; its own redesign is next.
 - The options popover stays open while a choice in it runs the file again, so sizes and formats
   can be tried one after another. The Crop tab shows the picture with its frame from the start.
+  Its tabs, tiles, chips, rows and fields share one geometry and one elevation, in light and
+  dark.
 - Compression's Adaptive · Lossless · Aggressive left the popover: the default stays in
   Settings, Lossless lives in Settings only, and "Optimise harder" in Format runs the file again
   aggressively.

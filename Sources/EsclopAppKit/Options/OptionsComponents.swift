@@ -17,6 +17,8 @@ enum OptionsType {
     static let width: CGFloat = 360
     static let maxHeight: CGFloat = 560
     static let radius: CGFloat = 12
+    /// A flat row that holds a control: a switch, a picker, two number fields.
+    static let rowHeight: CGFloat = 44
 }
 
 /// "Quality" on the left, "82 % · ≈ 612 kB" on the right.
@@ -121,11 +123,9 @@ struct TileStyle: ButtonStyle {
     var selected: Bool
 
     func makeBody(configuration: Configuration) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
         configuration.label
             .foregroundStyle(selected ? AnyShapeStyle(Ink.onCharcoal) : AnyShapeStyle(PopoverInk.primary.color))
-            .background(shape.fill(selected ? Ink.charcoal : Surface.cream))
-            .shadow(color: .black.opacity(selected ? 0.18 : 0.06), radius: selected ? 3 : 1.5, y: 1)
+            .raised(RoundedRectangle(cornerRadius: OptionsType.radius, style: .continuous), fill: selected ? Ink.charcoal : Surface.cream)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
     }
 }
@@ -152,8 +152,7 @@ struct ChipStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .foregroundStyle(selected ? AnyShapeStyle(Ink.onCharcoal) : AnyShapeStyle(PopoverInk.primary.color))
-            .background(Capsule().fill(selected ? Ink.charcoal : Surface.cream))
-            .overlay(Capsule().strokeBorder(PopoverInk.secondary.color.opacity(selected ? 0 : 0.25), lineWidth: 0.5))
+            .raised(Capsule(), fill: selected ? Ink.charcoal : Surface.cream)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
     }
 }
@@ -294,5 +293,83 @@ struct Segments<Value: Hashable>: View {
         .accessibilityElement(children: .contain)
         .padding(3)
         .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(Color.primary.opacity(0.07)))
+    }
+}
+
+// MARK: - One elevation
+
+/// Raised: a control resting on the panel, at the one height every pressable thing shares.
+struct Raised<S: InsettableShape>: ViewModifier {
+    let shape: S
+    var fill: Color = Surface.cream
+
+    @Environment(\.colorScheme) private var scheme
+
+    func body(content: Content) -> some View {
+        let dark = scheme == .dark
+        content
+            .background {
+                shape.fill(fill)
+                    .overlay(shape.strokeBorder(Elevation.controlEdge(dark: dark), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(Elevation.controlOpacity(dark: dark)), radius: Elevation.controlBlur / 2, y: Elevation.controlY)
+            }
+    }
+}
+
+/// Inset: what takes typing, a shade into the panel, with a hairline and no shadow.
+struct Inset<S: InsettableShape>: ViewModifier {
+    let shape: S
+
+    func body(content: Content) -> some View {
+        content.background {
+            shape.fill(Surface.tile)
+                .overlay(shape.strokeBorder(PopoverInk.secondary.color.opacity(0.3), lineWidth: 0.5))
+        }
+    }
+}
+
+extension View {
+    func raised<S: InsettableShape>(_ shape: S, fill: Color = Surface.cream) -> some View {
+        modifier(Raised(shape: shape, fill: fill))
+    }
+
+    func inset<S: InsettableShape>(_ shape: S) -> some View {
+        modifier(Inset(shape: shape))
+    }
+}
+
+/// The popover's number field (a width, a height, a size in kB): inset, centred digits.
+struct OptionsNumberField: View {
+    let title: String
+    @Binding var text: String
+    var width: CGFloat = 58
+
+    var body: some View {
+        TextField(title, text: $text)
+            .textFieldStyle(.plain)
+            .multilineTextAlignment(.center)
+            .font(OptionsType.body.monospacedDigit())
+            .frame(width: width, height: 26)
+            .inset(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .accessibilityLabel(title)
+    }
+}
+
+/// The popover's one charcoal action (Crop, Fit): raised like every control, chosen-charcoal.
+struct CharcoalButton: View {
+    let title: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(OptionsType.bodyStrong)
+                .foregroundStyle(Ink.onCharcoal)
+                .padding(.horizontal, 14)
+                .frame(height: 28)
+                .raised(Capsule(), fill: Ink.charcoal)
+                .contentShape(Capsule())
+        }
+        .buttonStyle(PressScale())
     }
 }
