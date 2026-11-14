@@ -25,7 +25,7 @@ struct CompareFooter: View {
             HStack(spacing: 8) {
                 if model.sides.after != nil {
                     tryAnother
-                    Button(Strings.text("Copy"), systemImage: "doc.on.doc") { model.copy() }
+                    Button(Strings.text("Copy"), systemImage: "square.on.square") { model.copy() }
                         .keyboardShortcut("c", modifiers: .command)
                     Button(Strings.text("Show in Finder"), systemImage: "folder") { model.reveal() }
                         .keyboardShortcut("r", modifiers: .command)

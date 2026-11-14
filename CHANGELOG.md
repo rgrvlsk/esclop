@@ -17,6 +17,10 @@ into the body of its GitHub release.
   copied image nor an untouched original can be trashed from there.
 
 ### Changed
+- The result card and the detail take the targets' proportions: the picture sits in a 9 pt mount
+  with softer corners, the saving ring is thinner with a hairline track, the detail's type and
+  buttons are smaller, and the surfaces are lit from above with a lighter shadow. Copy uses the
+  two-squares symbol everywhere.
 - The floating result is a cream card: the picture over a footer with the saving's ring, the
   original size in red beside the new one, and the file's name. Work in progress tints it aqua
   with a straight bar and the time left; a failure tints it amber with Retry. On hover, three
