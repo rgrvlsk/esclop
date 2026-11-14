@@ -9081,6 +9081,16 @@
         }
       }
     },
+    "about %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "uns %@"
+          }
+        }
+      }
+    },
     "camera": {
       "localizations": {
         "ca": {

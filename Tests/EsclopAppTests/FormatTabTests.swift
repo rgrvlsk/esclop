@@ -116,9 +116,22 @@ import Testing
         model.scale(to: 0.5)
         #expect(await eventually { harness.requests.requests.count == 2 && model.card.result != nil })
         #expect(harness.requests.requests.last?.downscale == 0.5)
+        #expect(model.currentScale == 0.5, "the Half tile is the chosen one")
+        model.scale(to: 0.5)
+        try await Task.sleep(for: .milliseconds(150))
+        #expect(harness.requests.requests.count == 2, "the size it already has runs nothing")
         model.scale(to: 1.4)
         #expect(await eventually { harness.requests.requests.count == 3 && model.card.result != nil })
         #expect(harness.requests.requests.last?.downscale == nil, "never enlarges: back to the original's size")
+        #expect(model.currentScale == 1)
+    }
+
+    /// A crop makes the file smaller, but it is not a scale: no size tile is chosen for it.
+    @Test func aCropIsNotAScale() async throws {
+        let (model, harness) = try await model(width: 4000, height: 2000)
+        model.app.crop(model.card, to: CropSize(width: 2000, height: 2000))
+        #expect(await eventually { harness.requests.requests.count == 2 && model.card.result != nil })
+        #expect(model.currentScale == 1, "Original stays the chosen tile")
     }
 
     @Test func everyKindHasTheTabsItCanUse() {

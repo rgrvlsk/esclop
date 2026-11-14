@@ -90,7 +90,8 @@ public struct OptionsPopover: View {
             Button("") { model.app.saveAs(model.card) }.keyboardShortcut("s")
             Button("") { model.app.perform(.reveal, on: model.card) }.keyboardShortcut("r")
             Button("") { model.app.perform(.undo, on: model.card) }.keyboardShortcut("z")
-            Button("") { model.app.quickLook(model.card) }.keyboardShortcut(.space, modifiers: [])
+            // ⌘Y as in Finder: a bare Space would take the key from a focused tile or checkbox.
+            Button("") { model.app.quickLook(model.card) }.keyboardShortcut("y")
         }
         .opacity(0)
         .allowsHitTesting(false)
