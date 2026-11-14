@@ -1991,6 +1991,16 @@
         }
       }
     },
+    "Convert…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Converteix…"
+          }
+        }
+      }
+    },
     "Copied file": {
       "localizations": {
         "ca": {

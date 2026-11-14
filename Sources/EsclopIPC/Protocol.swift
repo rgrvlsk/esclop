@@ -19,8 +19,13 @@ import EsclopCore
 import Foundation
 
 public enum IPCProtocol {
-    /// Bumped on any incompatible change to the envelopes below.
-    public static let version = 1
+    /// Bumped on any incompatible change to the envelopes below. 2: a request's `stripMetadata`
+    /// may be absent (follow the setting), which version 1 could not read.
+    public static let version = 2
+
+    static func mismatch(_ got: Int) -> EsclopError {
+        .other("IPC version mismatch: got \(got), expected \(version). Update the esclop CLI and app together.")
+    }
     /// `msgid` on every CFMessagePort message. The payload says what it is.
     public static let messageID: Int32 = 0x45_53_43_31 // "ESC1"
 }
@@ -63,13 +68,21 @@ public struct IPCEnvelope<Body: Codable & Sendable>: Codable, Sendable {
 
     public func encoded() throws -> Data { try JSONCoding.wireEncoder().encode(self) }
 
+    /// Checks the version before the body, so a body from another version fails as a mismatch
+    /// and not as a missing field.
     public static func decode(_ data: Data) throws -> IPCEnvelope<Body> {
-        let envelope = try JSONCoding.wireDecoder().decode(IPCEnvelope<Body>.self, from: data)
-        guard envelope.version == IPCProtocol.version else {
-            throw EsclopError.other("IPC version mismatch: got \(envelope.version), expected \(IPCProtocol.version). Update the esclop CLI and app together.")
-        }
-        return envelope
+        let header = try JSONCoding.wireDecoder().decode(IPCHeader.self, from: data)
+        guard header.version == IPCProtocol.version else { throw IPCProtocol.mismatch(header.version) }
+        return try JSONCoding.wireDecoder().decode(IPCEnvelope<Body>.self, from: data)
     }
+}
+
+/// The part of every envelope that survives a version change, so a refusal can be sent back
+/// and a reply from another version can be told apart.
+struct IPCHeader: Decodable {
+    var version: Int
+    var id: UUID
+    var replyPort: String?
 }
 
 // MARK: - Jobs

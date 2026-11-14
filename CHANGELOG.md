@@ -17,6 +17,18 @@ into the body of its GitHub release.
   copied image nor an untouched original can be trashed from there.
 
 ### Changed
+- The detail's "…" opens the design's own menu instead of a system menu: a cream panel beside
+  the card, joined to "…" by a liquid neck, that opens as a drop and sinks back when it closes.
+  It is the design's short menu: Convert… (the options popover), Compare, Share… and Move to
+  Trash, or Save as… for a copied image.
+  It works from the keyboard (arrows, Return, Esc), and Share… shows the system's share
+  services. In a right-hand corner the detail's buttons run the other way, so "…" faces the
+  screen and its menu has room.
+- An agent (MCP) can ask for metadata to be stripped but never kept: `stripMetadata: false`
+  follows the "Strip metadata" setting. Restore is not offered after a crop, downscale or fit,
+  which it would undo.
+- The CLI and MCP server talk to the app on IPC protocol 2. A CLI or app of the other version
+  is refused with a version message, never left waiting. Update the CLI and the app together.
 - The result card and the detail take the targets' proportions: the picture sits in a 9 pt mount
   with softer corners, the saving ring is thinner with a hairline track, the detail's type and
   buttons are smaller, and the surfaces are lit from above with a lighter shadow. Copy uses the

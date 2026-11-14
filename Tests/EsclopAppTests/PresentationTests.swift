@@ -67,7 +67,10 @@ import Testing
         #expect(info.primary == .copy)
         #expect(info.primaryDetail == "To the clipboard")
         #expect(info.secondary == [.save, .undo], "a copied screenshot can be saved")
-        #expect(info.menu == [.convert(.webp), .downscale, .crop, .compare, .share, .saveAs, .more], "no Trash for a copied image")
+        // The design's short menu: Convert… opens the options, no Trash for a copied image.
+        #expect(info.menu == [.convertOptions, .compare, .share, .saveAs], "no Trash for a copied image")
+        #expect(info.editing == [.convert(.webp), .downscale, .crop])
+        #expect(FloatingResultView.actions(info, level: .detail).contains(.convert(.webp)), "VoiceOver still converts in one step")
         card.savedCopy = URL(fileURLWithPath: "/tmp/Downloads/Copied image.png")
         #expect(CardPresentation(card: card, locale: en).secondary == [.reveal, .undo], "once saved, Show in Finder finds it")
         #expect(info.actions == [.openDetail, .copy, .undo, .more, .reveal, .dismiss])
@@ -107,7 +110,7 @@ import Testing
         let info = CardPresentation(card: card, locale: en)
         #expect(info.removedSummary == "Location, camera, date")
         #expect(FloatingResultView.actions(info, level: .detail).contains(.keepMetadata), "VoiceOver can restore it")
-        #expect(info.menu.suffix(4) == [.share, .saveAs, .trash, .more], "a dropped file's result can go to the Trash")
+        #expect(info.menu == [.convertOptions, .compare, .share, .trash], "a dropped file's result can go to the Trash")
         let copied = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/tmp/shot.png"), origin: .clipboard, bytesBefore: 2_400_000)
         copied.phase = .done(result(before: 2_400_000, after: 600_000))
         copied.removedMetadata = [.date]

@@ -41,6 +41,9 @@ public struct CardPresentation: Equatable, Sendable {
         case share
         /// Moves the optimised file to the Trash and removes the card.
         case trash
+        /// Opens the options on the Optimise tab: format, size, crop. The detail's "…" menu
+        /// names it Convert… (docs/design/targets: pr2-detail-card).
+        case convertOptions
 
         /// The label on a button in the detail card.
         public var title: String {
@@ -67,6 +70,7 @@ public struct CardPresentation: Equatable, Sendable {
             case .saveAs: return Strings.text("Save as…")
             case .share: return Strings.text("Share…")
             case .trash: return Strings.text("Move to Trash")
+            case .convertOptions: return Strings.text("Convert…")
             }
         }
 
@@ -94,7 +98,7 @@ public struct CardPresentation: Equatable, Sendable {
         public var symbol: String {
             switch self {
             case .undo: return "arrow.uturn.backward"
-            case .convert: return "arrow.left.arrow.right"
+            case .convert, .convertOptions: return "arrow.left.arrow.right"
             case .downscale: return "arrow.down.right.and.arrow.up.left"
             case .crop: return "crop"
             case .more: return "ellipsis"
@@ -157,10 +161,15 @@ public struct CardPresentation: Equatable, Sendable {
     public var secondary: [Action]
     /// What "…" lists: everything else.
     public var menu: [Action]
+    /// Convert, downscale and crop as direct actions, for VoiceOver; the menu reaches them
+    /// through Convert….
+    public var editing: [Action] = []
     /// What optimising took from the picture's metadata, for the "Removed" strip.
     public var removedMetadata: [MetadataKind] = []
     /// "Location, camera, date"
     public var removedSummary = ""
+    /// Restore is offered for the removed metadata (not after a crop, downscale or fit).
+    public var restorable = false
 
     public var accessibilityLabel: String
 
@@ -219,13 +228,15 @@ public struct CardPresentation: Equatable, Sendable {
             dimensions = Self.dimensions(result)
             // Compare only when there is an original to compare with.
             let comparable = result.backup != nil || result.output.standardizedFileURL != result.source.standardizedFileURL
-            (primary, primaryDetail, secondary, menu) = Self.detail(card, undo: !undo.isEmpty, menu: resultEditing + (comparable ? [.compare] : []), trash: true, t: t)
+            (primary, primaryDetail, secondary, menu) = Self.detail(card, undo: !undo.isEmpty, editing: resultEditing, compare: comparable, trash: true, t: t)
+            self.editing = resultEditing
 
             actions = Self.distinct([.openDetail] + tools + [.reveal, .copy, .dismiss])
             accessibilityLabel = "\(fileName), \(Self.announcement(for: result, locale: locale))"
             if RemovedMetadata.original(of: result, origin: card.origin) != nil {
                 removedMetadata = card.removedMetadata
                 removedSummary = Self.summary(of: card.removedMetadata, t: t)
+                restorable = !card.adjusted
             }
         case let .unchanged(bytes):
             capsule = .status(symbol: nil, text: f("Already optimised · %@", Figures.bytes(bytes, locale: locale)))
@@ -234,7 +245,8 @@ public struct CardPresentation: Equatable, Sendable {
             tone = .neutral
             tools = Self.tools(for: card.origin, undo: false)
             change = f("Kept the original, %@", Figures.bytes(bytes, locale: locale))
-            (primary, primaryDetail, secondary, menu) = Self.detail(card, undo: false, menu: editing, t: t)
+            (primary, primaryDetail, secondary, menu) = Self.detail(card, undo: false, editing: editing, t: t)
+            self.editing = editing
             actions = Self.distinct([.openDetail] + tools + [.reveal, .copy, .dismiss])
             accessibilityLabel = f("%@, already optimised, kept the original", name)
         case let .restored(result):
@@ -248,7 +260,8 @@ public struct CardPresentation: Equatable, Sendable {
             change = Figures.bytes(result.bytesBefore, locale: locale)
             formats = Self.formatName(of: result.source)
             dimensions = Self.dimensions(result)
-            (primary, primaryDetail, secondary, menu) = Self.detail(card, undo: false, menu: restoredEditing, t: t)
+            (primary, primaryDetail, secondary, menu) = Self.detail(card, undo: false, editing: restoredEditing, t: t)
+            self.editing = restoredEditing
             actions = Self.distinct([.openDetail] + tools + [.reveal, .copy, .dismiss])
             accessibilityLabel = f("%@, original restored", fileName)
         case let .failed(message):
@@ -314,10 +327,11 @@ public struct CardPresentation: Equatable, Sendable {
 
     /// The detail's actions, 1 + 2 + "…" (docs/design/targets/README.md › Detail card). A copied
     /// screenshot goes back to the clipboard, with Save beside it (Show in Finder once saved); any
-    /// other file is shown in Finder, with Copy beside it. Undo while a backup exists. Everything
-    /// else is in "…", ending with Save As and the options.
+    /// other file is shown in Finder, with Copy beside it. Undo while a backup exists. "…" holds
+    /// the design's short menu: Convert… (the options), Compare where there is an original,
+    /// Share…, then Save as… for a copied image or Move to Trash for a file of the person's.
     @MainActor private static func detail(
-        _ card: ResultCard, undo: Bool, menu rest: [Action], trash: Bool = false, t: (String) -> String
+        _ card: ResultCard, undo: Bool, editing: [Action], compare: Bool = false, trash: Bool = false, t: (String) -> String
     ) -> (Action?, String?, [Action], [Action]) {
         let clipboard = card.origin == .clipboard
         let detail = clipboard
@@ -326,8 +340,9 @@ public struct CardPresentation: Equatable, Sendable {
         let beside: Action = clipboard ? (card.savedCopy == nil ? .save : .reveal) : .copy
         // Trash only for an optimised file of the person's: never a copied image's temporary file,
         // and never an original left as it was or restored.
-        let end: [Action] = [.share, .saveAs] + (trash && !clipboard ? [.trash] : []) + [.more]
-        return (clipboard ? .copy : .reveal, detail, [beside] + (undo ? [.undo] : []), rest + end)
+        let menu: [Action] = [editing.isEmpty ? .more : .convertOptions] + (compare ? [.compare] : []) + [.share]
+            + (clipboard ? [.saveAs] : []) + (trash && !clipboard ? [.trash] : [])
+        return (clipboard ? .copy : .reveal, detail, [beside] + (undo ? [.undo] : []), menu)
     }
 
     /// "Location, camera, date": the kinds in a sentence, the first capitalised.
