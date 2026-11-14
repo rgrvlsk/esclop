@@ -22,8 +22,17 @@ system screenshot thumbnail. The look follows [docs/design/targets](docs/design/
    pointer rested. The card grows to 320 pt: the picture, the name with format and
    dimensions, the saving at the next size up, and the actions as 1 + 2 + "…": the most likely
    action in charcoal with what it acts on (Show in Finder and the folder, or Copy for a copied
-   screenshot), up to two round buttons (Copy, Undo), and a menu for the rest (convert,
-   downscale, crop, Compare, More options). × and Esc close it.
+   screenshot), up to two round buttons (Copy, Undo), and "…" for the rest (convert,
+   downscale, crop, Compare, Share…, Save as…, Move to Trash, More options). × and Esc close it.
+   In a right-hand corner the row runs the other way, so "…" faces the screen.
+3. **"…" menu.** A panel in the card's fill outside the card, on the screen side, joined to "…"
+   by a liquid neck: one outline for button, neck and panel, with one hairline and one shadow.
+   It opens as a drop that leaves the button, travels out round, then spreads into the panel
+   (spring, 0.34 s response, 0.72 damping); the rows fade in after 120 ms, 18 ms apart. It
+   closes the other way: rows out in 80 ms, the panel sinks back in 160 ms. Reduce Motion
+   crossfades the open shape in 120 ms. Arrows, Home and End move, Return or Space runs, Esc
+   or a click elsewhere closes, and so does turning to another window. Share… shows the
+   system's share services at "…".
 
 Hover shows three round buttons over the picture's corner (Copy for a copied screenshot, Show
 in Finder for a file, then Undo and "…") and a close button over its outer corner, so the

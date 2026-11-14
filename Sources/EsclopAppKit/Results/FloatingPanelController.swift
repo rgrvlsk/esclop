@@ -39,6 +39,7 @@ final class FloatingPanelController {
     private let panel: FloatingPanel
     private var screen: NSScreen?
     private var swipeMonitor: Any?
+    private var resignObserver: Any?
     private var swipe: CGFloat = 0
 
     init(model: AppModel) {
@@ -48,6 +49,10 @@ final class FloatingPanelController {
         panel = FloatingPanel(content: hosting)
         panel.title = "L'Esclop results"
         hosting.rootView = PanelRoot(model: model) { [weak self] size in self?.contentSize = size }
+        // A menu closes when the person turns to another window or app, as a system menu does.
+        resignObserver = NotificationCenter.default.addObserver(forName: NSWindow.didResignKeyNotification, object: panel, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.closeMenus() }
+        }
         swipeMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
             guard let self, event.window === self.panel else { return event }
             return self.swiped(event) ? nil : event
@@ -80,10 +85,16 @@ final class FloatingPanelController {
         }
     }
 
+    private func closeMenus() {
+        for card in model.visibleCards where card.machine.menuOpen && card.machine.level == .detail {
+            model.interact(card, .menu(false))
+        }
+    }
+
     /// A two-finger swipe toward the screen edge dismisses the result under the pointer, like the
     /// system screenshot thumbnail.
     private func swiped(_ event: NSEvent) -> Bool {
-        guard event.hasPreciseScrollingDeltas else { return false }
+        guard event.hasPreciseScrollingDeltas, !model.visibleCards.contains(where: { $0.machine.menuOpen }) else { return false }
         if event.phase == .began { swipe = 0 }
         // Finger movement, whatever the scroll direction setting.
         swipe += event.isDirectionInvertedFromDevice ? event.scrollingDeltaX : -event.scrollingDeltaX

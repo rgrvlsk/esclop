@@ -45,11 +45,21 @@ struct DetailCard: View {
             if !info.removedMetadata.isEmpty {
                 MetadataStrip(info: info, perform: perform).padding(.bottom, 8)
             }
-            DetailActions(info: info, file: card.savedCopy ?? card.shownFile, perform: perform)
+            DetailActions(card: card, info: info, leftward: corner.isRight, perform: perform, interact: interact)
         }
         .padding(Metrics.detailPadding)
         .frame(width: Metrics.detailWidth)
         .floatingSurface(Metrics.detailRadius, fill: info.surface)
+        // Tells the stack where "…" and the card are, so it can draw the menu outside the card.
+        .backgroundPreferenceValue(MoreButtonKey.self) { button in
+            Color.clear.anchorPreference(key: LiquidMenuKey.self, value: .bounds) { frame in
+                guard let button, !info.menu.isEmpty else { return [] }
+                return [LiquidMenuAnchor(
+                    card: card, actions: info.menu, file: card.savedCopy ?? card.shownFile,
+                    leftward: corner.isRight, fill: info.surface, button: button, frame: frame
+                )]
+            }
+        }
         .task(id: card.result?.id) { await findRemovedMetadata() }
     }
 
@@ -128,39 +138,71 @@ struct MetadataStrip: View {
 }
 
 /// 1 + 2 + "…": the charcoal button with what it acts on, up to two round buttons with their
-/// names under them, and the menu for the rest.
+/// names under them, and "…" for the rest. In a right-hand corner the row runs the other way,
+/// so "…" faces the screen and its menu has room (`LiquidMenu`).
 struct DetailActions: View {
+    let card: ResultCard
     let info: CardPresentation
-    /// What Share… in the menu shares.
-    let file: URL
+    let leftward: Bool
     let perform: (CardPresentation.Action) -> Void
+    let interact: (AppModel.Interaction) -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            if let primary = info.primary {
-                PrimaryButton(action: primary, detail: info.primaryDetail, perform: perform)
-            }
-            ForEach(info.secondary, id: \.self) { action in
-                VStack(spacing: 4) {
-                    PillButton(action: action, size: Self.round, perform: perform)
-                    Text(action.caption)
-                        .font(Typeface.section)
-                        .textCase(.uppercase)
-                        .tracking(1)
-                        .foregroundStyle(Ink.secondary)
-                        .lineLimit(1)
-                        .fixedSize()
-                        .accessibilityHidden(true)
-                }
-                .frame(minWidth: Self.round + 8)
-            }
-            if !info.menu.isEmpty {
-                MoreMenu(actions: info.menu, file: file, size: Self.round, perform: perform)
+            if leftward {
+                more
+                ForEach(info.secondary.reversed(), id: \.self, content: round)
+                primary
+            } else {
+                primary
+                ForEach(info.secondary, id: \.self, content: round)
+                more
             }
         }
     }
 
+    @ViewBuilder private var primary: some View {
+        if let primary = info.primary {
+            PrimaryButton(action: primary, detail: info.primaryDetail, perform: perform)
+        }
+    }
+
+    private func round(_ action: CardPresentation.Action) -> some View {
+        VStack(spacing: 4) {
+            PillButton(action: action, size: Self.round, perform: perform)
+            Text(action.caption)
+                .font(Typeface.section)
+                .textCase(.uppercase)
+                .tracking(1)
+                .foregroundStyle(Ink.secondary)
+                .lineLimit(1)
+                .fixedSize()
+                .accessibilityHidden(true)
+        }
+        .frame(minWidth: Self.round + 8)
+    }
+
+    @ViewBuilder private var more: some View {
+        if !info.menu.isEmpty {
+            Button { interact(.menu(!card.machine.menuOpen)) } label: {
+                PillButton.face("ellipsis", size: Self.round, glyph: 0.4).contentShape(Circle())
+            }
+            .buttonStyle(PressScale())
+            .anchorPreference(key: MoreButtonKey.self, value: .bounds) { $0 }
+            .help(Strings.text("More options"))
+            .accessibilityLabel(Strings.text("More options"))
+        }
+    }
+
     static let round: CGFloat = 30
+}
+
+/// Where the detail's "…" is.
+struct MoreButtonKey: PreferenceKey {
+    static let defaultValue: Anchor<CGRect>? = nil
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+        value = value ?? nextValue()
+    }
 }
 
 /// The detail's charcoal button: an icon, the action and what it acts on.
@@ -190,39 +232,6 @@ struct PrimaryButton: View {
         }
         .buttonStyle(PressScale())
         .help(action.accessibilityName)
-    }
-}
-
-/// "…": a plain menu of the actions that did not get a button, the options last.
-struct MoreMenu: View {
-    let actions: [CardPresentation.Action]
-    let file: URL
-    let size: CGFloat
-    let perform: (CardPresentation.Action) -> Void
-
-    var body: some View {
-        Menu {
-            ForEach(actions, id: \.self) { action in
-                switch action {
-                case .share:
-                    // The system's Share submenu.
-                    ShareLink(item: file) { Text(action.title) }
-                case .trash:
-                    Divider()
-                    Button(action.title, role: .destructive) { perform(action) }
-                default:
-                    Button(action.title) { perform(action) }
-                }
-            }
-        } label: {
-            PillButton.face("ellipsis", size: size, glyph: 0.4).contentShape(Circle())
-        }
-        .menuStyle(.button)
-        .buttonStyle(.plain)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .help(Strings.text("More options"))
-        .accessibilityLabel(Strings.text("More options"))
     }
 }
 
