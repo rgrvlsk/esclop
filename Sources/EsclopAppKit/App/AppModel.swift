@@ -397,8 +397,13 @@ public final class AppModel {
     /// CLI and MCP server read too; the sizes stay, so the saving still counts them. The files,
     /// their backups and the cards on screen are not touched.
     public func clearRecent() {
-        try? service.results.redactAll()
-        recent = []
+        do {
+            try service.results.redactAll()
+            recent = []
+        } catch {
+            // The names are still on disk: the list stays, so the panel does not claim otherwise.
+            NSSound.beep()
+        }
     }
 
     func record(_ result: OptimisationResult) {

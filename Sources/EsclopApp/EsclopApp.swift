@@ -22,6 +22,12 @@ enum EsclopMenuBarApp {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let services = AppServices()
 
+    /// The key equivalents text fields and windows rely on (⌘C, ⌘V, ⌘Z, ⌘W, ⌘Q). The app is a
+    /// menu bar app, so the menu itself never shows; SwiftUI's App made one, AppKit's loop does not.
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        NSApp.mainMenu = MainMenu.make()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Screenshots of both appearances without changing the system's (`open --env`).
         switch ProcessInfo.processInfo.environment["ESCLOP_APPEARANCE"] {

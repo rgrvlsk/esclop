@@ -333,9 +333,18 @@ final class EventLog: @unchecked Sendable {
         let log = ResultsLog(url: temp.url.appendingPathComponent("r.jsonl"), keep: 3)
         var fresh = (0 ..< 8).map { sampleResult("\($0).png") }
         for index in fresh.indices { fresh[index].finishedAt = Date().addingTimeInterval(-Double(index) * 3600) }
-        log.append(fresh)
+        // The log is in the order results finish: the old ones first.
         log.append((0 ..< 8).map { sampleResult("old-\($0).png") })
+        log.append(fresh.reversed())
         #expect(Set(log.savings().map(\.id)).isSuperset(of: fresh.map(\.id)), "the week's results stay for its saving")
         #expect(log.savings().count < 16, "old ones beyond the last three go")
+
+        // All from this week: nothing can go, and the file is not rewritten on each append.
+        let week = ResultsLog(url: temp.url.appendingPathComponent("w.jsonl"), keep: 2)
+        week.append(Array(fresh.prefix(5)))
+        let written = try? FileManager.default.attributesOfItem(atPath: week.url.path)[.systemFileNumber] as? Int
+        week.append([fresh[5]])
+        #expect(week.savings().count == 6)
+        #expect((try? FileManager.default.attributesOfItem(atPath: week.url.path)[.systemFileNumber] as? Int) == written, "appended in place, not replaced")
     }
 }

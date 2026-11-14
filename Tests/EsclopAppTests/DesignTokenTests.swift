@@ -77,8 +77,9 @@ import Testing
         #expect(SavingGauge.dotAngle(saved: 0, shape: .ring) == -90)
         #expect(SavingGauge.dotAngle(saved: 0.75, shape: .ring) == 180)
         #expect(SavingGauge.dotAngle(saved: 2, shape: .ring) == 270, "clamped")
-        #expect(SavingGauge.dotAngle(saved: 0, shape: .arc) == 200)
-        #expect(SavingGauge.dotAngle(saved: 1, shape: .arc) == 340)
+        #expect(SavingGauge.dotAngle(saved: 0, shape: .arc) == 230)
+        #expect(SavingGauge.dotAngle(saved: 1, shape: .arc) == 310)
+        #expect(SavingGauge.arcHeight(width: 236, lineWidth: 5) < 60, "a flat arc, as in pr3-menu-panel")
     }
 
     @Test func hitTargetsAreLargeEnough() {

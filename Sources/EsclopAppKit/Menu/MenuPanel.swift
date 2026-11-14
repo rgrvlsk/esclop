@@ -175,7 +175,7 @@ public struct MenuPanel: View {
                     Text(Figures.bytes(shown.after)).font(.system(size: 15, weight: .medium)).foregroundStyle(Ink.secondary)
                 }
                 .monospacedDigit()
-                .padding(.top, -10)
+                .padding(.top, -4)
             }
             .frame(maxWidth: .infinity)
             Text(caption(other))
@@ -185,12 +185,13 @@ public struct MenuPanel: View {
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous).fill(Surface.tile))
-        .accessibilityElement(children: .combine)
+        // The chips stay buttons of their own for VoiceOver.
+        .accessibilityElement(children: .contain)
     }
 
-    static let arcWidth: CGFloat = 214
-    /// Down to the arc's ends: 200° and 340° on a circle the arc's width across.
-    static let arcHeight: CGFloat = 76
+    static let arcWidth: CGFloat = 236
+    /// Down to the arc's ends, which sit over the two sizes.
+    static var arcHeight: CGFloat { SavingGauge.arcHeight(width: arcWidth, lineWidth: 5) }
 
     /// The other range, under the figure: "Last 7 days −19.6 GB", or "Today −2.8 GB".
     private func caption(_ other: SavingTotals) -> String {
