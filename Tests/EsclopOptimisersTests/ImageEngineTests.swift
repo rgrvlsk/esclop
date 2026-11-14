@@ -256,6 +256,26 @@ import UniformTypeIdentifiers
         }
     }
 
+    /// An agent may only add stripping: false from MCP never keeps what the setting strips.
+    @Test func anAgentCannotKeepMetadataTheSettingStrips() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let jpeg = world.file("agent.jpg")
+        try Fixture.jpeg(jpeg)
+        var request = world.request(jpeg, origin: .mcp, location: .sameFolder)
+        request.stripMetadata = false
+        let result = try await world.engine.optimise(jpeg, request: request, progress: { _ in })
+        #expect(Inspect.properties(result.output)[kCGImagePropertyGPSDictionary] == nil, "the setting strips, so it is stripped")
+
+        try EsclopSettings.stripMetadata.set(false, in: world.settings)
+        let kept = world.file("agent-kept.jpg")
+        try Fixture.jpeg(kept)
+        var adding = world.request(kept, origin: .mcp, location: .sameFolder)
+        adding.stripMetadata = true
+        let stripped = try await world.engine.optimise(kept, request: adding, progress: { _ in })
+        #expect(Inspect.properties(stripped.output)[kCGImagePropertyGPSDictionary] == nil, "an agent can still ask for more")
+    }
+
     @Test func watermarkLandsOnThePicture() async throws {
         let world = try await TestWorld()
         defer { Task { await world.finish() } }

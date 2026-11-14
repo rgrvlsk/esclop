@@ -168,6 +168,8 @@ public struct CardPresentation: Equatable, Sendable {
     public var removedMetadata: [MetadataKind] = []
     /// "Location, camera, date"
     public var removedSummary = ""
+    /// Restore is offered for the removed metadata (not after a crop, downscale or fit).
+    public var restorable = false
 
     public var accessibilityLabel: String
 
@@ -234,6 +236,7 @@ public struct CardPresentation: Equatable, Sendable {
             if RemovedMetadata.original(of: result, origin: card.origin) != nil {
                 removedMetadata = card.removedMetadata
                 removedSummary = Self.summary(of: card.removedMetadata, t: t)
+                restorable = !card.adjusted
             }
         case let .unchanged(bytes):
             capsule = .status(symbol: nil, text: f("Already optimised · %@", Figures.bytes(bytes, locale: locale)))

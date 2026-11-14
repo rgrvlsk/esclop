@@ -45,7 +45,9 @@ struct Plan: Sendable {
         format = request.format
         downscale = request.downscale.flatMap { $0 > 0 && $0 < 1 ? $0 : nil }
         crop = request.crop
-        strip = request.stripMetadata ?? env.value(EsclopSettings.stripMetadata)
+        let setting = env.value(EsclopSettings.stripMetadata)
+        // An agent may ask for more stripping, never less: false from MCP keeps the setting.
+        strip = request.origin == .mcp ? (request.stripMetadata == true || setting) : request.stripMetadata ?? setting
         keepHDR = request.keepHDR ?? env.value(EsclopSettings.keepHDR)
         automatic = [.app, .clipboard, .dropZone, .watchedFolder, .hotkey].contains(request.origin)
     }

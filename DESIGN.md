@@ -64,7 +64,7 @@ on that one file. It replaces a long context menu. It is not the menu-bar menu. 
   under 500 kB / 1 / 2 / 5 MB / custom, crop aspect chips and the crop editor.
 - **Share:** a row of round buttons (Copy ⌘C, AirDrop, Save as ⌘S, Show in Finder ⌘R, Quick
   Look Space, Share…), then drill-downs: Open with, Run a Shortcut, Run a pipeline, Add to
-  shelf app, Upload with Dropshare. Footer: keep visible duration, customise hover buttons.
+  shelf app, Upload with Dropshare. Footer: keep visible duration.
 - Every choice that changes size shows an estimate before it is applied. Long lists are
   drill-downs inside the popover, never inline walls. Only installed apps are listed.
 

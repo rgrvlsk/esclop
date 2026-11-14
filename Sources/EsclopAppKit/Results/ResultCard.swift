@@ -57,6 +57,9 @@ public final class ResultCard: Identifiable {
     /// What optimising took from the picture's metadata, worked out when the detail opens
     /// (`RemovedMetadata`). Empty until then, and for anything but a picture.
     public var removedMetadata: [MetadataKind] = []
+    /// The last run cropped, downscaled or fitted the file. Restore runs the choice again without
+    /// that change, so it is not offered then.
+    public var adjusted = false
     /// The row of the detail's "…" menu under the pointer or the arrow keys.
     public var menuHighlight: Int?
     /// The result's upload, from the Share tab or an automatic upload; nil when there is none.

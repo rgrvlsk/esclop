@@ -161,6 +161,12 @@ public struct AppClient: Sendable {
             if let envelope = try? IPCEnvelope<AppEvent>.decode(data), envelope.id == id {
                 heard.set()
                 continuation.yield(.event(envelope.body))
+            } else if let header = try? JSONCoding.wireDecoder().decode(IPCHeader.self, from: data), header.id == id,
+                      header.version != IPCProtocol.version {
+                // An app of another version answered: say so, instead of waiting for a reply
+                // this client cannot read.
+                heard.set()
+                continuation.yield(.event(.refused(IPCProtocol.mismatch(header.version))))
             }
         }
         defer {

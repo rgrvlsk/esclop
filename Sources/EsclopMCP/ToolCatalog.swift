@@ -45,7 +45,7 @@ public enum ToolCatalog {
     static let qualityProperties: [String: Value] = [
         "aggressive": Schema.bool("Trade visible quality for a smaller file."),
         "compression": Schema.integer("0 to 100, higher is smaller and lossier; overrides aggressive. Normal is 30, aggressive 64.", minimum: 0, maximum: 100),
-        "stripMetadata": Schema.bool("true removes EXIF, GPS and other metadata, false keeps it; omitted follows the stripMetadata setting."),
+        "stripMetadata": Schema.bool("true removes EXIF, GPS and other metadata. false or omitted follows the stripMetadata setting: an agent cannot keep metadata the person strips."),
     ]
 
     static func fileSchema(_ extra: [String: Value], required: [String] = ["paths"], quality: Bool = true) -> Value {
