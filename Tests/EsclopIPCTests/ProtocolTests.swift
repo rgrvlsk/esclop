@@ -92,6 +92,17 @@ import Testing
         #expect(throws: EsclopError.self) { try IPCEnvelope<ControlCommand>.decode(try envelope.encoded()) }
     }
 
+    @Test func anotherVersionsBodyFailsAsAMismatch() throws {
+        // A body this version cannot read (a field it needs is missing) still says "version".
+        let data = Data(#"{"version":1,"id":"\#(UUID().uuidString)","body":{"nope":1}}"#.utf8)
+        do {
+            _ = try IPCEnvelope<OptimisationJob>.decode(data)
+            Issue.record("expected a mismatch")
+        } catch {
+            #expect("\(error)".contains("version mismatch: got 1"))
+        }
+    }
+
     @Test func garbageIsRefused() {
         #expect(throws: (any Error).self) { try IPCEnvelope<OptimisationJob>.decode(Data("{\"nope\":1}".utf8)) }
     }
@@ -279,6 +290,28 @@ final class FakeHandler: AppRequestHandler, @unchecked Sendable {
             guard case let .refused(error) = event else { Issue.record("expected a refusal"); break }
             #expect(error.description.contains("version"))
             break
+        }
+    }
+
+    @Test func anAppOfAnotherVersionIsNamed() async throws {
+        let ports = ports()
+        // An app on version 1 answers in its own envelope, which this client cannot read.
+        let old = try LocalMessagePort(name: ports.control) { data in
+            guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let id = (object["id"] as? String).flatMap(UUID.init(uuidString:)),
+                  let port = object["replyPort"] as? String else { return }
+            var reply = IPCEnvelope(id: id, body: AppEvent.refused(.other("keyNotFound")))
+            reply.version = 1
+            if let encoded = try? reply.encoded() { try? RemoteMessagePort.send(encoded, to: port) }
+        }
+        defer { old.invalidate() }
+        let request = try LocalMessagePort(name: ports.request) { _ in }
+        defer { request.invalidate() }
+        do {
+            _ = try await AppClient(ports: ports).status()
+            Issue.record("expected an error")
+        } catch let error as EsclopError {
+            #expect(error.description.contains("version mismatch: got 1"), "\(error)")
         }
     }
 

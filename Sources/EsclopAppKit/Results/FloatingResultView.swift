@@ -53,6 +53,10 @@ public struct FloatingResultView: View {
         .focused($focused)
         .focusEffectDisabled()
         .onChange(of: focused && activeState == .key) { _, value in interact(.focus(value)) }
+        // The detail's "…" menu takes the keys while open; they come back here when it closes.
+        .onChange(of: card.machine.menuOpen) { _, open in
+            if !open, card.machine.level == .detail { focused = true }
+        }
         .onKeyPress(.escape) {
             // Innermost first: the popover, then the detail, then the result itself.
             if card.machine.menuOpen { interact(.menu(false)) } else if card.machine.level == .detail {
@@ -88,8 +92,8 @@ public struct FloatingResultView: View {
     static func actions(_ info: CardPresentation, level: FloatingResultMachine.Level) -> [CardPresentation.Action] {
         guard level == .detail else { return info.actions }
         let shown = info.actions.map { $0 == .openDetail ? .closeDetail : $0 }
-        let restore: [CardPresentation.Action] = info.removedMetadata.isEmpty ? [] : [.keepMetadata]
-        return CardPresentation.distinct(shown + [info.primary].compactMap { $0 } + info.secondary + restore + info.menu)
+        let restore: [CardPresentation.Action] = info.restorable && !info.removedMetadata.isEmpty ? [.keepMetadata] : []
+        return CardPresentation.distinct(shown + [info.primary].compactMap { $0 } + info.secondary + restore + info.editing + info.menu)
     }
 
     private var anchor: UnitPoint {

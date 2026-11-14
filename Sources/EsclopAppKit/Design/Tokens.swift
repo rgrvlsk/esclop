@@ -109,14 +109,10 @@ public struct PinnedInk: ShapeStyle, Sendable {
     }
 }
 
-/// Concentric radii, outer = inner + padding. Controls on a floating surface are capsules or circles.
+/// Radii. The result card's own are in `Metrics`. Controls on a floating surface are capsules or circles.
 public enum Radius {
     /// Key caps, 40 pt thumbnails in lists.
     public static let key: CGFloat = 6
-    /// The card's picture; anything inside a panel or popover (22 − 12).
-    public static let inner: CGFloat = 10
-    /// The card, the detail's picture.
-    public static let card: CGFloat = 14
     /// Drop tiles.
     public static let tile: CGFloat = 18
     /// The detail, the menu panel, the popover.
@@ -132,8 +128,6 @@ public enum Spacing {
     public static let xl: CGFloat = 24
     /// Every pointer target is at least this wide and tall.
     public static let hit: CGFloat = 28
-    /// Between pointer targets.
-    public static let hitGap: CGFloat = 4
     /// Between floating objects.
     public static let floating: CGFloat = 8
     /// Between drop tiles.

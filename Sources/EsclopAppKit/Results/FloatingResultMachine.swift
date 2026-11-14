@@ -39,8 +39,10 @@ public struct FloatingResultMachine: Equatable, Sendable {
     public private(set) var hovering = false
     public private(set) var focused = false
     public private(set) var dragging = false
-    /// The options popover is open.
+    /// The options popover, or the detail's "…" menu, is open.
     public private(set) var menuOpen = false
+    /// The detail's "…" menu is open. `menuOpen` alone also means the options popover is open.
+    public var detailMenuOpen: Bool { menuOpen && level == .detail }
     public private(set) var leaveDeadline: Date?
     public private(set) var hideDeadline: Date?
     /// The result's own hide delay, given again when the person closes its detail.
