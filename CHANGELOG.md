@@ -39,7 +39,9 @@ into the body of its GitHub release.
   and height and Fit under; Crop is a tab of its own; Actions lists the pipelines, Upload and
   Share… as rows, with Run a Shortcut and Open with. Copy, Save as, Show in Finder and Quick Look
   are the popover's keys; Compare is the detail's loupe; "Keep visible" is in Settings only.
-- The drop zone takes the popover's opaque cream surface already; its own redesign is next.
+- The drop zone is the design's row of tiles: "Optimise" with the file count and the preset
+  zones beside it, raised like the options popover's tiles, the one under the drag in charcoal,
+  and "Drop to optimise · Hold ⌘ to optimise harder" under them. No more dashed outlines.
 - The options popover stays open while a choice in it runs the file again, so sizes and formats
   can be tried one after another. The Crop tab shows the picture with its frame from the start.
   Its tabs, tiles, chips, rows and fields share one geometry and one elevation, in light and
