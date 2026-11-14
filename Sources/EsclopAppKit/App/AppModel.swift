@@ -615,7 +615,7 @@ public final class AppModel {
         case .copyLink:
             if let link = card.link { copyLink(link) }
         case .share:
-            // VoiceOver's route; the pointer's is the Share submenu in the detail's "…".
+            // VoiceOver's route; the pointer's is Share… in the detail's "…" menu.
             card.optionsTab = .share
             openOptions(card)
         case .trash:

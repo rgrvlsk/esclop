@@ -15,7 +15,7 @@ struct FloatingStackView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var menuOpen: Bool {
-        model.visibleCards.contains { $0.machine.menuOpen && $0.machine.level == .detail }
+        model.visibleCards.contains { $0.machine.detailMenuOpen }
     }
 
     var body: some View {

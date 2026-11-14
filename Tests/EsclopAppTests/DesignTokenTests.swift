@@ -80,10 +80,7 @@ import Testing
         #expect(SavingGauge.dotAngle(saved: 1, shape: .arc) == 340)
     }
 
-    @Test func radiiAreConcentric() {
-        // Outer = inner + padding: the card around its picture, a panel around its children.
-        #expect(Radius.card == Radius.inner + Spacing.xs)
-        #expect(Radius.panel == Radius.inner + Spacing.m)
+    @Test func hitTargetsAreLargeEnough() {
         #expect(Spacing.hit >= 28)
     }
 

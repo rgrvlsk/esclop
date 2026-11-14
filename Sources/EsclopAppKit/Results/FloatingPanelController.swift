@@ -86,7 +86,7 @@ final class FloatingPanelController {
     }
 
     private func closeMenus() {
-        for card in model.visibleCards where card.machine.menuOpen && card.machine.level == .detail {
+        for card in model.visibleCards where card.machine.detailMenuOpen {
             model.interact(card, .menu(false))
         }
     }
