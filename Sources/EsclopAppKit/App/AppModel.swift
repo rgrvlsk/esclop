@@ -631,7 +631,7 @@ public final class AppModel {
         case .downscale:
             reprocess(card) { $0.request.downscale = 0.5 }
         case .crop:
-            card.optionsTab = .size
+            card.optionsTab = .crop
             openOptions(card)
         case .more, .convertOptions:
             card.optionsTab = .optimise

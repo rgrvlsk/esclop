@@ -67,6 +67,7 @@ public struct OptionsPopover: View {
             switch model.tab {
             case .optimise: OptimiseTab(model: model)
             case .size: SizeTab(model: model)
+            case .crop: CropSection(model: model)
             case .sound: SoundTab(model: model)
             case .share: ShareTab(model: model)
             }
@@ -89,6 +90,7 @@ public struct OptionsPopover: View {
             Button("") { model.app.saveAs(model.card) }.keyboardShortcut("s")
             Button("") { model.app.perform(.reveal, on: model.card) }.keyboardShortcut("r")
             Button("") { model.app.perform(.undo, on: model.card) }.keyboardShortcut("z")
+            Button("") { model.app.quickLook(model.card) }.keyboardShortcut(.space, modifiers: [])
         }
         .opacity(0)
         .allowsHitTesting(false)

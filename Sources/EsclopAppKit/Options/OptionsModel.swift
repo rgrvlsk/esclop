@@ -13,7 +13,7 @@ import PDFKit
 import UniformTypeIdentifiers
 
 public enum OptionsTab: String, CaseIterable, Identifiable, Sendable {
-    case optimise, size, sound, share
+    case optimise, size, crop, sound, share
 
     public var id: String { rawValue }
 
@@ -23,6 +23,7 @@ public enum OptionsTab: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .optimise: return Strings.text("Format")
         case .size: return Strings.text("Size")
+        case .crop: return Strings.text("Crop")
         case .sound: return Strings.text("Sound")
         case .share: return Strings.text("Actions")
         }
@@ -33,14 +34,16 @@ public enum OptionsTab: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .optimise: return "doc"
         case .size: return "arrow.up.left.and.arrow.down.right"
+        case .crop: return "crop"
         case .sound: return "waveform"
         case .share: return "bolt"
         }
     }
 
-    /// Audio has no pixels to resize: Sound takes the place of Size.
+    /// The tabs that have something for the kind: audio has no pixels, so Sound takes the place
+    /// of Size and Crop.
     public static func tabs(for kind: MediaKind?) -> [OptionsTab] {
-        kind == .audio ? [.optimise, .sound, .share] : [.optimise, .size, .share]
+        kind == .audio ? [.optimise, .sound, .share] : [.optimise, .size, .crop, .share]
     }
 }
 
@@ -104,14 +107,14 @@ public final class OptionsModel {
     public private(set) var unavailable: Set<EstimateRequest> = []
     public private(set) var shortcuts: [String] = []
 
-    public enum Drill: Equatable { case openWith, shortcut, pipeline, keepVisible }
+    public enum Drill: Equatable { case openWith, shortcut, pipeline }
 
     public init(card: ResultCard, app: AppModel) {
         self.card = card
         self.app = app
         tab = OptionsTab.tabs(for: MediaKind.of(card.source)).contains(card.optionsTab) ? card.optionsTab : .optimise
         quality = Double(card.choice.effectiveQuality)
-        if card.optionsTab == .size { cropping = true }
+        if card.optionsTab == .crop { cropping = true }
     }
 
     // MARK: What the file is
@@ -212,10 +215,47 @@ public final class OptionsModel {
         return EstimateRequest(choice: card.choice, crop: size)
     }
 
-    /// "1470 × 956" at the slider's scale.
-    public var scaledDimensions: String? {
-        guard let width = facts.width, let height = facts.height else { return nil }
-        return "\(Int((Double(width) * scale).rounded())) × \(Int((Double(height) * scale).rounded()))"
+    /// One of the Size tab's tiles: the original, a long side in pixels, or half.
+    public struct SizePreset: Hashable, Identifiable {
+        public var title: String
+        /// The scale of the original, 1 for the original itself.
+        public var factor: Double
+        /// "Half, 1200 px": what VoiceOver says.
+        public var spoken: String
+        public var id: Double { factor }
+    }
+
+    /// Original, 2000 px and 1280 px when the picture is larger, and half (docs/design/targets:
+    /// pr4-options-popover-size-actions). Nothing that would enlarge it.
+    public var sizePresets: [SizePreset] {
+        guard let width = facts.width, let height = facts.height, width > 0, height > 0 else { return [] }
+        let long = Double(max(width, height))
+        var presets = [SizePreset(title: Strings.text("Original"), factor: 1, spoken: Strings.text("Original"))]
+        for side in [2000.0, 1280.0] where side < long * 0.95 {
+            presets.append(SizePreset(title: "\(Int(side))\u{00A0}px", factor: side / long, spoken: "\(Int(side)) px"))
+        }
+        let half = Int((long / 2).rounded())
+        if !presets.contains(where: { abs($0.factor - 0.5) < 0.05 }) {
+            presets.append(SizePreset(title: Strings.text("Half"), factor: 0.5, spoken: Strings.format("Half, %@ px", String(half))))
+        }
+        return Array(presets.prefix(4))
+    }
+
+    /// How the result's size compares with the original's: 1 when it was not scaled.
+    public var currentScale: Double {
+        guard let width = facts.width, width > 0, let result = card.result, let now = result.width else { return 1 }
+        return min(1, Double(now) / Double(width))
+    }
+
+    public func scaleRequest(_ factor: Double) -> EstimateRequest {
+        EstimateRequest(choice: card.choice, downscale: factor < 1 ? factor : nil)
+    }
+
+    /// A Size tile or Custom: scale to `factor` of the original (never above it).
+    public func scale(to factor: Double) {
+        let factor = min(1, max(0.01, factor))
+        scale = factor
+        factor < 1 ? commitScale() : restoreFullSize()
     }
 
     // MARK: Actions

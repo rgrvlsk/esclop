@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Size: downscale in 10 % steps with the live dimensions and size, back to 100 %, fit under a
-// size, and crop (aspect chips, then the editor with a free or locked rectangle and the size in
-// pixels). Sound takes its place for audio: bitrate, loudness, speed and fit.
+// Size (docs/design/targets: pr4-options-popover-size-actions): the original's size as the
+// heading, then Original, 2000 px, 1280 px and Half with their sizes, a custom width and height
+// that keep the aspect ratio, and fit under a size. Crop is a tab of its own (aspect chips, then
+// the editor with a free or locked rectangle and the size in pixels). Sound takes Size's place
+// for audio: bitrate, loudness, speed and fit.
 
 import EsclopCore
 import EsclopIPC
@@ -10,40 +12,99 @@ import SwiftUI
 
 struct SizeTab: View {
     @Bindable var model: OptionsModel
+    @State private var width = ""
+    @State private var height = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if model.kind != .pdf {
-                SectionLabel(title: Strings.text("Downscale")) {
-                    HStack(spacing: 0) {
-                        if let dimensions = model.scaledDimensions { Text(dimensions + " · ") }
-                        EstimateText(model: model, request: model.scaleRequest)
+        VStack(alignment: .leading, spacing: 10) {
+            if model.kind != .pdf, let originalWidth = model.facts.width, let originalHeight = model.facts.height {
+                Text(Strings.format("Original %@", Figures.bytes(model.card.result?.bytesBefore ?? model.card.bytesBefore)))
+                    .font(Typeface.smallHeading)
+                    .foregroundStyle(PopoverInk.primary.color)
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+                    ForEach(model.sizePresets) { preset in tile(preset) }
+                }
+                OptionsRow {
+                    HStack(spacing: 8) {
+                        Text(Strings.text("Custom")).font(OptionsType.bodyStrong)
+                        Spacer(minLength: 4)
+                        field($width, Strings.text("Width")) { value in
+                            height = String(Int((Double(value) * Double(originalHeight) / Double(originalWidth)).rounded()))
+                        }
+                        Image(systemName: "lock")
+                            .font(.system(size: 12))
+                            .foregroundStyle(PopoverInk.secondary.color)
+                            .help(Strings.text("Keeps the aspect ratio"))
+                        Text(verbatim: "×").foregroundStyle(PopoverInk.secondary.color)
+                        field($height, Strings.text("Height")) { value in
+                            width = String(Int((Double(value) * Double(originalWidth) / Double(originalHeight)).rounded()))
+                        }
                     }
+                    .padding(.vertical, 4)
                 }
-                Slider(value: $model.scale, in: 0.1 ... 1, step: 0.1) { editing in
-                    if !editing, model.scale < 1 { model.commitScale() }
-                }
-                .disabled(model.card.isWorking)
-                .accessibilityLabel(Strings.text("Downscale"))
-                .accessibilityValue("\(Int((model.scale * 100).rounded()))\u{00A0}%")
-                HStack {
-                    Text("10\u{00A0}%")
-                    Spacer()
-                    Text("50\u{00A0}%")
-                    Spacer()
-                    Text("100\u{00A0}%")
-                }
-                .font(OptionsType.label)
-                .foregroundStyle(PopoverInk.secondary.color)
-                Button(Strings.text("Restore original size (100 %)")) { model.restoreFullSize() }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(PopoverInk.accent.color)
-                    .font(OptionsType.body)
-                    .disabled(model.card.isWorking)
+                .onAppear { setCustom(originalWidth, originalHeight) }
+                .onChange(of: model.currentScale) { setCustom(originalWidth, originalHeight) }
+                Text(Strings.text("Never enlarges. Keeps the aspect ratio."))
+                    .font(OptionsType.label)
+                    .foregroundStyle(PopoverInk.secondary.color)
             }
             FitChips(model: model)
-            CropSection(model: model)
         }
+    }
+
+    private func tile(_ preset: OptionsModel.SizePreset) -> some View {
+        let selected = abs(model.currentScale - preset.factor) < 0.01
+        return Button { model.scale(to: preset.factor) } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(preset.title).font(OptionsType.bodyStrong)
+                Group {
+                    if preset.factor == 1 {
+                        Text(Figures.bytes(model.card.result?.bytesBefore ?? model.card.bytesBefore))
+                    } else if selected, let bytes = model.card.result?.bytesAfter {
+                        Text(Figures.bytes(bytes))
+                    } else {
+                        EstimateText(model: model, request: model.scaleRequest(preset.factor), silentWhenUnavailable: true)
+                    }
+                }
+                .font(OptionsType.label)
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.85)
+            .padding(.horizontal, 10)
+            .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(TileStyle(selected: selected))
+        .disabled(model.card.isWorking)
+        .accessibilityLabel(preset.spoken)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    /// A number field; Return scales to the width it gives.
+    private func field(_ text: Binding<String>, _ title: String, follow: @escaping (Int) -> Void) -> some View {
+        TextField(title, text: text)
+            .textFieldStyle(.plain)
+            .multilineTextAlignment(.center)
+            .font(OptionsType.body.monospacedDigit())
+            .frame(width: 58, height: 26)
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Surface.tile))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(PopoverInk.secondary.color.opacity(0.3), lineWidth: 0.5))
+            .onChange(of: text.wrappedValue) { _, value in
+                if let number = Int(value), number > 0 { follow(number) }
+            }
+            .onSubmit(applyCustom)
+            .accessibilityLabel(title)
+            .disabled(model.card.isWorking)
+    }
+
+    private func setCustom(_ originalWidth: Int, _ originalHeight: Int) {
+        width = String(Int((Double(originalWidth) * model.currentScale).rounded()))
+        height = String(Int((Double(originalHeight) * model.currentScale).rounded()))
+    }
+
+    private func applyCustom() {
+        guard let value = Int(width), value > 0, let original = model.facts.width, original > 0 else { return }
+        model.scale(to: Double(value) / Double(original))
     }
 }
 
@@ -83,8 +144,9 @@ struct CropSection: View {
     @Bindable var model: OptionsModel
 
     var body: some View {
-        SectionLabel(title: Strings.text("Crop")) {
-            if let crop = model.crop, model.cropping {
+        // The tab says "Crop"; while cropping, the line gives the size the crop makes.
+        if let crop = model.crop, model.cropping {
+            SectionLabel(title: Strings.text("Crop")) {
                 HStack(spacing: 0) {
                     Text(verbatim: "\(crop.outputWidth) × \(crop.outputHeight) · ")
                     EstimateText(model: model, request: model.cropRequest)

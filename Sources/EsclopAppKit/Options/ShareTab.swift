@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Share: a row of round buttons (Copy, AirDrop, Save as, Show in Finder, Quick Look, Share…),
-// then drill-downs (Open with, Run a Shortcut, Run a pipeline, Upload to each upload target, shelf
-// and upload apps when they are installed), and the footer: how long results stay visible, and which hover buttons show.
+// Actions (docs/design/targets: pr4-options-popover-size-actions): one row each, a round symbol,
+// what it does and what it gives, and a play button: the person's pipelines, Upload (the link on
+// the clipboard), Share… (the system's services), then Run a Shortcut › and Open with ›. Copy ⌘C,
+// Save as ⌘S, Show in Finder ⌘R and Quick Look (Space) are keys of the popover; Compare is the
+// detail's loupe; how long results stay is in Settings.
 
 import AppKit
 import EsclopCore
@@ -10,108 +12,105 @@ import SwiftUI
 
 struct ShareTab: View {
     let model: OptionsModel
+    @State private var share = SharingAnchor()
 
     var body: some View {
         let app = model.app, card = model.card
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .top, spacing: 2) {
-                RoundAction(symbol: "square.on.square", title: Strings.text("Copy"), shortcut: "⌘C") { app.perform(.copy, on: card) }
-                RoundAction(symbol: "airplayaudio", title: Strings.text("AirDrop")) { app.airDrop(card) }
-                RoundAction(symbol: "square.and.arrow.down", title: Strings.text("Save as…"), shortcut: "⌘S") { app.saveAs(card) }
-                RoundAction(symbol: "folder", title: Strings.text("Finder"), shortcut: "⌘R") { app.perform(.reveal, on: card) }
-                RoundAction(symbol: "eye", title: Strings.text("Quick Look"), shortcut: Strings.text("Space")) { app.quickLook(card) }
-                    .keyboardShortcut(.space, modifiers: [])
-                SharePickerButton(file: card.shownFile)
-            }
-            .padding(.vertical, 6)
-            Divider()
-            if let result = card.result {
-                DrillRow(symbol: "rectangle.lefthalf.inset.filled", title: Strings.text("Compare with the original…"), chevron: false) { app.onCompare?(result) }
-            }
-            DrillRow(symbol: "arrow.up.forward.app", title: Strings.text("Open with")) { model.drill = .openWith }
-
-            DrillRow(symbol: "square.2.layers.3d", title: Strings.text("Run a Shortcut")) { model.drill = .shortcut }
-            DrillRow(symbol: "wand.and.rays", title: Strings.text("Run a pipeline")) { model.drill = .pipeline }
-            ForEach(AppModel.installed(AppModel.shelfApps), id: \.self) { url in
-                DrillRow(symbol: "tray", title: Strings.format("Add to %@", Self.name(of: url)), chevron: false) { app.open(card, with: url) }
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(app.pipelineNames, id: \.self) { name in
+                ActionRow(symbol: "wand.and.rays", title: name, detail: Strings.text("Your pipeline")) { app.runPipeline(name, on: card) }
             }
             // Uploads to the person's own targets (Settings › Uploads), the link on the clipboard.
             let targets = app.uploadTargets
             ForEach(targets) { target in
-                DrillRow(symbol: "icloud.and.arrow.up", title: Strings.format("Upload to %@", target.name), chevron: false) { app.upload(card, to: target.name) }
+                ActionRow(
+                    symbol: "icloud.and.arrow.up", title: targets.count == 1 ? Strings.text("Upload") : Strings.format("Upload to %@", target.name),
+                    detail: Strings.text("Copies a link")
+                ) { app.upload(card, to: target.name) }
             }
             if targets.isEmpty {
-                DrillRow(symbol: "icloud.and.arrow.up", title: Strings.text("Set Up Uploads…"), chevron: false) {
+                ActionRow(symbol: "icloud.and.arrow.up", title: Strings.text("Set Up Uploads…"), detail: Strings.text("In Settings")) {
                     if let url = URL(string: "esclop://settings/uploads") { NSWorkspace.shared.open(url) }
                 }
             }
             if let link = card.link {
-                DrillRow(symbol: "link", title: Strings.text("Copy Link"), chevron: false) { app.copyLink(link) }
+                ActionRow(symbol: "link", title: Strings.text("Copy Link"), detail: link.host() ?? "") { app.copyLink(link) }
+            }
+            ActionRow(symbol: "square.and.arrow.up", title: Strings.text("Share…"), detail: Strings.text("AirDrop, Mail, Messages")) {
+                share.show(card.shownFile, leftward: false)
+            }
+            .background(share.view.allowsHitTesting(false).accessibilityHidden(true))
+            ForEach(AppModel.installed(AppModel.shelfApps), id: \.self) { url in
+                ActionRow(symbol: "tray", title: Strings.format("Add to %@", Self.name(of: url)), detail: Strings.text("Shelf app")) { app.open(card, with: url) }
             }
             ForEach(AppModel.installed(AppModel.uploadApps), id: \.self) { url in
-                DrillRow(symbol: "icloud.and.arrow.up", title: Strings.format("Upload with %@", Self.name(of: url)), chevron: false) { app.open(card, with: url) }
+                ActionRow(symbol: "icloud.and.arrow.up", title: Strings.format("Upload with %@", Self.name(of: url)), detail: Strings.text("Upload app")) { app.open(card, with: url) }
             }
-            Divider().padding(.top, 4)
-            HStack {
-                Button { model.drill = .keepVisible } label: {
-                    Text(Strings.text("Keep visible") + " · " + Self.keepVisible(app.keepVisibleSeconds(for: card)) + " ›")
-                }
-                Spacer()
+            VStack(spacing: 0) {
+                DrillRow(symbol: "square.2.layers.3d", title: Strings.text("Run a Shortcut")) { model.drill = .shortcut }
+                DrillRow(symbol: "arrow.up.forward.app", title: Strings.text("Open with")) { model.drill = .openWith }
+            }
+            .padding(.horizontal, 4)
+            Button { app.onOpenPipelines?(nil) } label: {
+                Label(Strings.text("Edit Pipelines…"), systemImage: "plus")
+                    .font(OptionsType.bodyStrong)
+                    .frame(maxWidth: .infinity, minHeight: 40, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .overlay(RoundedRectangle(cornerRadius: OptionsType.radius, style: .continuous)
+                        .strokeBorder(PopoverInk.secondary.color.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .font(OptionsType.label)
-            .foregroundStyle(PopoverInk.secondary.color)
+            .foregroundStyle(PopoverInk.primary.color)
         }
+        .disabled(card.isWorking)
     }
 
     static func name(of app: URL) -> String {
         FileManager.default.displayName(atPath: app.path).replacingOccurrences(of: ".app", with: "")
     }
-
-    static func keepVisible(_ seconds: Int?) -> String {
-        guard let seconds else { return Strings.text("Always") }
-        return seconds < 60 ? "\(seconds)\u{00A0}s" : "\(seconds / 60)\u{00A0}min"
-    }
 }
 
-/// A 32 pt round button with its name and shortcut under it.
-struct RoundAction: View {
+/// An action as a row: a round symbol, what it does and what it gives, and a play button.
+struct ActionRow: View {
     let symbol: String
     let title: String
-    var shortcut: String?
+    let detail: String
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 4) {
+            HStack(spacing: 12) {
                 Image(systemName: symbol)
-                    .font(.system(size: 13, weight: .medium))
-                    .frame(width: 32, height: 32)
-                    .background(Circle().fill(Color.primary.opacity(0.06)))
-                    .overlay(Circle().strokeBorder(Color.primary.opacity(0.12)))
-                // Two lines kept for every name, so the shortcuts sit on one line across the row.
-                Text(title).font(OptionsType.label).lineLimit(2, reservesSpace: true).multilineTextAlignment(.center)
-                if let shortcut { Text(shortcut).font(OptionsType.label).foregroundStyle(PopoverInk.secondary.color) }
+                    .font(.system(size: 15, weight: .medium))
+                    .frame(width: 38, height: 38)
+                    .background(Circle().fill(Surface.tile))
+                    .shadow(color: .black.opacity(0.08), radius: 1.5, y: 1)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title).font(OptionsType.bodyStrong).lineLimit(1)
+                    if !detail.isEmpty {
+                        Text(detail).font(OptionsType.label).foregroundStyle(PopoverInk.secondary.color).lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 6)
+                Image(systemName: "play.fill")
+                    .font(.system(size: 10, weight: .bold))
+                    .frame(width: 28, height: 28)
+                    .background(Circle().fill(Color.white.opacity(0.92)))
+                    .foregroundStyle(Ink.charcoal)
+                    .environment(\.colorScheme, .light)
+                    .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
+                    .accessibilityHidden(true)
             }
-            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: OptionsType.radius, style: .continuous).fill(Surface.cream))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(title)
-    }
-}
-
-/// "Share…": the system share picker, anchored to the button.
-struct SharePickerButton: View {
-    let file: URL
-
-    var body: some View {
-        RoundAction(symbol: "square.and.arrow.up", title: Strings.text("Share…")) {
-            guard let window = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible }), let view = window.contentView else { return }
-            let picker = NSSharingServicePicker(items: [file])
-            let point = window.mouseLocationOutsideOfEventStream
-            picker.show(relativeTo: NSRect(x: point.x, y: point.y, width: 1, height: 1), of: view, preferredEdge: .minY)
-        }
+        .buttonStyle(PressScale())
+        .foregroundStyle(PopoverInk.primary.color)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
     }
 }
 
@@ -158,19 +157,6 @@ struct OptionsDrill: View {
                     DrillRow(symbol: "wand.and.rays", title: name, chevron: false) { app.runPipeline(name, on: card) }
                 }
                 DrillRow(symbol: "slider.horizontal.3", title: Strings.text("Edit Pipelines…"), chevron: false) { app.onOpenPipelines?(nil) }
-            }
-        case .keepVisible:
-            DrillPage(title: Strings.text("Keep visible"), back: back) {
-                ForEach([5, 10, 30, 60, 300], id: \.self) { seconds in
-                    DrillRow(symbol: app.keepVisibleSeconds(for: card) == seconds ? "checkmark" : "clock", title: ShareTab.keepVisible(seconds), chevron: false) {
-                        app.setKeepVisible(seconds, for: card)
-                        back()
-                    }
-                }
-                DrillRow(symbol: app.keepVisibleSeconds(for: card) == nil ? "checkmark" : "pin", title: Strings.text("Always"), chevron: false) {
-                    app.setKeepVisible(nil, for: card)
-                    back()
-                }
             }
         }
     }

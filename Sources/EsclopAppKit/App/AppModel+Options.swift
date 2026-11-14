@@ -183,10 +183,6 @@ extension AppModel {
         }
     }
 
-    public func airDrop(_ card: ResultCard) {
-        NSSharingService(named: .sendViaAirDrop)?.perform(withItems: [card.shownFile])
-    }
-
     public func quickLook(_ card: ResultCard) {
         QuickLookPresenter.shared.show(card.shownFile)
     }
@@ -244,26 +240,6 @@ extension AppModel {
         var job = factory.job(for: card.shownFile, origin: .app)
         job.operation = .pipeline(name)
         Task { await run(job) }
-    }
-
-    // MARK: Popover footer
-
-    /// "Keep visible": how long results from this card's origin stay on screen.
-    public func keepVisibleSeconds(for card: ResultCard) -> Int? {
-        guard EsclopSettings.autoHideFloatingResults.value(in: settings) else { return nil }
-        return card.origin == .clipboard
-            ? EsclopSettings.autoHideClipboardResultAfter.value(in: settings)
-            : EsclopSettings.autoHideFloatingResultsAfter.value(in: settings)
-    }
-
-    public func setKeepVisible(_ seconds: Int?, for card: ResultCard) {
-        try? EsclopSettings.autoHideFloatingResults.set(seconds != nil, in: settings)
-        guard let seconds else { return }
-        if card.origin == .clipboard {
-            try? EsclopSettings.autoHideClipboardResultAfter.set(seconds, in: settings)
-        } else {
-            try? EsclopSettings.autoHideFloatingResultsAfter.set(seconds, in: settings)
-        }
     }
 }
 
