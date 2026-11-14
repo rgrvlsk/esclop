@@ -221,7 +221,7 @@ struct LiquidMenu: View {
     @State private var fade: Double = 1
     @State private var keys = MenuKeys()
 
-    private var open: Bool { anchor.card.machine.menuOpen }
+    private var open: Bool { anchor.card.machine.detailMenuOpen }
 
     /// The open panel, centred on "…" and kept within the card's height.
     static func panel(button: CGRect, card: CGRect, count: Int, leftward: Bool) -> CGRect {
@@ -274,6 +274,12 @@ struct LiquidMenu: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear { if open { animate(true) } }
         .onChange(of: open) { _, value in animate(value) }
+        // The keys hold the rows they were given; a new list (a clipboard card saved) gets new keys.
+        .onChange(of: anchor.actions) {
+            guard open else { return }
+            anchor.card.menuHighlight = nil
+            listen()
+        }
         .onDisappear { keys.stop() }
     }
 
@@ -286,7 +292,10 @@ struct LiquidMenu: View {
         case 126: return move(-1)
         case 115: return highlight(0)
         case 119: return highlight(anchor.actions.count - 1)
-        case 36, 76, 49: return runHighlighted()
+        case 36, 76, 49:
+            // Taken even with no row highlighted, so the system does not beep.
+            runHighlighted()
+            return true
         case 53:
             close()
             return true
@@ -330,10 +339,9 @@ struct LiquidMenu: View {
         return true
     }
 
-    private func runHighlighted() -> Bool {
-        guard open, let index = anchor.card.menuHighlight, anchor.actions.indices.contains(index) else { return false }
+    private func runHighlighted() {
+        guard open, let index = anchor.card.menuHighlight, anchor.actions.indices.contains(index) else { return }
         choose(anchor.actions[index])
-        return true
     }
 
     /// Runs a row: Share… shows the system's share services at "…"; the rest go to the model.
@@ -341,6 +349,8 @@ struct LiquidMenu: View {
     /// the detail away (Convert…, Move to Trash) would otherwise cut the menu off mid-way, and
     /// one that opens the options popover marks the card's menu open again, for the popover.
     private func choose(_ action: CardPresentation.Action) {
+        // A second click while the drop sinks would run the action twice.
+        guard open else { return }
         close()
         guard action != .share else {
             anchor.share.show(anchor.file, leftward: anchor.leftward)

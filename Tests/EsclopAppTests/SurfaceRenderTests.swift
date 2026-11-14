@@ -58,9 +58,9 @@ import Testing
             }
             .padding(.horizontal, 20)
             .frame(height: 44)
-            .background { if let fill = probe.fill { RoundedRectangle(cornerRadius: Radius.inner, style: .continuous).fill(fill) } }
+            .background { if let fill = probe.fill { RoundedRectangle(cornerRadius: Metrics.pictureRadius, style: .continuous).fill(fill) } }
             .padding(8)
-            .floatingSurface(Radius.card, tone: probe.tone)
+            .floatingSurface(Metrics.thumbnailRadius, tone: probe.tone)
             for (desktop, flat) in [("white", Color.white as Color?), ("black", Color.black as Color?), ("busy", nil)] {
                 try await SurfaceRender.floating(row, size: stage, name: "ink-probe-\(probe.name)-\(desktop)", scheme: scheme, busy: flat == nil, flat: flat)
                 guard let image = SurfaceRender.lastImage else { continue }
@@ -99,10 +99,10 @@ import Testing
                         .background(alignment: .leading) { Capsule().fill(Ink.secondary.opacity(0.2)).frame(width: 136, height: 4) }
                         .padding(.bottom, 6)
                 }
-                .floatingSurface(Radius.card, fill: Surface.progress)
+                .floatingSurface(Metrics.thumbnailRadius, fill: Surface.progress)
                 Label("Couldn't compress", systemImage: "exclamationmark.triangle").font(Typeface.label).foregroundStyle(Ink.text)
                     .padding(.horizontal, Spacing.m).frame(width: 160, height: 44)
-                    .floatingSurface(Radius.card, fill: Surface.decision)
+                    .floatingSurface(Metrics.thumbnailRadius, fill: Surface.decision)
                 VStack(spacing: 6) {
                     Image(systemName: "photo").font(.system(size: 20))
                     Text("Optimise").font(Typeface.label)
@@ -131,7 +131,7 @@ import Testing
                 .font(Typeface.body)
             }
             .padding(Spacing.m)
-            .background(RoundedRectangle(cornerRadius: Radius.inner, style: .continuous).fill(Surface.tile))
+            .background(RoundedRectangle(cornerRadius: Metrics.pictureRadius, style: .continuous).fill(Surface.tile))
         }
         .padding(Spacing.xl)
         .floatingSurface(Radius.panel)
@@ -188,8 +188,8 @@ private struct SurfaceSample: View {
         VStack(alignment: .leading, spacing: Spacing.s) {
             Image(nsImage: picture).resizable().aspectRatio(contentMode: .fill)
                 .frame(width: 200, height: 130)
-                .clipShape(RoundedRectangle(cornerRadius: Radius.inner, style: .continuous))
-                .pictureHairline(Radius.inner)
+                .clipShape(RoundedRectangle(cornerRadius: Metrics.pictureRadius, style: .continuous))
+                .pictureHairline(Metrics.pictureRadius)
             HStack(spacing: Spacing.s) {
                 ZStack {
                     SavingGauge(saved: 0.75, lineWidth: 4)
@@ -211,7 +211,7 @@ private struct SurfaceSample: View {
         }
         .padding(Spacing.xs)
         .frame(width: 208)
-        .floatingSurface(Radius.card, tone: toned ? PictureTone.of(picture, dark: scheme == .dark) : nil)
+        .floatingSurface(Metrics.thumbnailRadius, tone: toned ? PictureTone.of(picture, dark: scheme == .dark) : nil)
     }
 }
 
