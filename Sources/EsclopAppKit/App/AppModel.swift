@@ -626,6 +626,7 @@ public final class AppModel {
             saveAs(card)
         case .keepMetadata:
             // From the original again, the same choice, the metadata kept.
+            guard !card.adjusted else { return }
             var choice = card.choice
             choice.stripMetadata = false
             reprocess(card, choice: choice)
@@ -636,9 +637,10 @@ public final class AppModel {
     /// always from the original so quality is not lost twice. The card stays and shows the new
     /// result, so an open options popover keeps its anchor; a rule stays shown only while its
     /// choice is the one used.
-    func reprocess(_ card: ResultCard, choice: OptimiseChoice? = nil, adjust: @escaping (inout OptimisationJob) -> Void = { _ in }) {
+    func reprocess(_ card: ResultCard, choice: OptimiseChoice? = nil, adjust: ((inout OptimisationJob) -> Void)? = nil) {
         let origin = card.origin, displayName = card.displayName
         let wasClipboardImage = card.source.path.hasPrefix(Paths.temporary.path)
+        card.adjusted = adjust != nil
         let choice = choice ?? card.choice
         let rule = card.appliedRule?.choice == choice ? card.appliedRule : nil
         let context = CardContext(origin: card.fileOrigin ?? .unknown, inputType: card.inputType, choice: choice, rule: rule)
@@ -657,7 +659,7 @@ public final class AppModel {
             }
             var job = factory.job(for: source, origin: origin, location: wasClipboardImage ? .inPlace : nil)
             choice.apply(to: &job.request)
-            adjust(&job)
+            adjust?(&job)
             let copyBack = origin == .clipboard && EsclopSettings.autoCopyToClipboard.value(in: settings)
             await run(job, displayName: displayName, context: context, reusing: card, onResult: { result in
                 guard copyBack else { return }

@@ -79,19 +79,12 @@ public final class AppServer: @unchecked Sendable {
 
     // MARK: Receiving
 
-    /// The part of every envelope that survives a version change, so a refusal can be sent back.
-    private struct Header: Decodable {
-        var version: Int
-        var id: UUID
-        var replyPort: String?
-    }
-
     /// Decodes a message, or tells the sender why it could not (a newer or older client).
     private func decode<Body: Codable & Sendable>(_ data: Data, as _: Body.Type) -> IPCEnvelope<Body>? {
         do {
             return try IPCEnvelope<Body>.decode(data)
         } catch {
-            if let header = try? JSONCoding.wireDecoder().decode(Header.self, from: data), let port = header.replyPort {
+            if let header = try? JSONCoding.wireDecoder().decode(IPCHeader.self, from: data), let port = header.replyPort {
                 let reply = ReplySender(port: port, id: header.id)
                 reply.send(.refused(EsclopError.wrap(error)))
             }

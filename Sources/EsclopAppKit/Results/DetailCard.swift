@@ -104,12 +104,14 @@ struct MetadataStrip: View {
                 words
             }
             Spacer(minLength: 4)
-            Button(CardPresentation.Action.keepMetadata.title) { perform(.keepMetadata) }
-                .font(Typeface.label.weight(.semibold))
-                .foregroundStyle(Ink.text)
-                .buttonStyle(.plain)
-                .fixedSize()
-                .help(CardPresentation.Action.keepMetadata.accessibilityName)
+            if info.restorable {
+                Button(CardPresentation.Action.keepMetadata.title) { perform(.keepMetadata) }
+                    .font(Typeface.label.weight(.semibold))
+                    .foregroundStyle(Ink.text)
+                    .buttonStyle(.plain)
+                    .fixedSize()
+                    .help(CardPresentation.Action.keepMetadata.accessibilityName)
+            }
         }
         .padding(.leading, 12)
         .padding(.trailing, 14)
