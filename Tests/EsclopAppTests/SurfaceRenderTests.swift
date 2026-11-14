@@ -217,7 +217,49 @@ private struct SurfaceSample: View {
 
 @MainActor
 enum SurfaceSamples {
-    static let screenshot = RenderTests.screenshot
+    /// A stand-in screenshot: a window with a picture of hills, drawn, not captured.
+    static let screenshot: NSImage = {
+        let size = NSSize(width: 400, height: 260)
+        return NSImage(size: size, flipped: true) { rect in
+            NSColor(white: 0.97, alpha: 1).setFill()
+            rect.fill()
+            NSColor(white: 0.9, alpha: 1).setFill()
+            NSRect(x: 0, y: 0, width: rect.width, height: 22).fill()
+            for (index, color) in [0xFF5F57, 0xFEBC2E, 0x28C840].enumerated() {
+                Palette.color(UInt32(color)).setFill()
+                NSBezierPath(ovalIn: NSRect(x: 10 + index * 16, y: 6, width: 10, height: 10)).fill()
+            }
+            NSColor(white: 0.93, alpha: 1).setFill()
+            NSRect(x: 0, y: 22, width: 84, height: rect.height - 22).fill()
+            for row in 0 ..< 5 {
+                NSColor(white: 0.78, alpha: 1).setFill()
+                NSRect(x: 14, y: 40 + row * 18, width: 50, height: 5).fill()
+            }
+            NSColor(white: 0.2, alpha: 1).setFill()
+            NSRect(x: 104, y: 38, width: 140, height: 9).fill()
+            let frame = NSRect(x: 104, y: 62, width: 276, height: 150)
+            Palette.color(0xB7D3CB).setFill()
+            frame.fill()
+            let back = NSBezierPath()
+            back.move(to: NSPoint(x: frame.minX, y: frame.maxY))
+            back.line(to: NSPoint(x: frame.minX + 90, y: frame.minY + 40))
+            back.line(to: NSPoint(x: frame.minX + 170, y: frame.minY + 95))
+            back.line(to: NSPoint(x: frame.maxX, y: frame.minY + 30))
+            back.line(to: NSPoint(x: frame.maxX, y: frame.maxY))
+            Palette.color(0x5F9686).setFill()
+            back.fill()
+            let front = NSBezierPath()
+            front.move(to: NSPoint(x: frame.minX, y: frame.maxY))
+            front.line(to: NSPoint(x: frame.minX + 150, y: frame.minY + 85))
+            front.line(to: NSPoint(x: frame.maxX, y: frame.maxY - 10))
+            front.line(to: NSPoint(x: frame.maxX, y: frame.maxY))
+            Palette.color(0x2F6A5A).setFill()
+            front.fill()
+            NSColor(white: 0.85, alpha: 1).setFill()
+            NSRect(x: 104, y: 226, width: 200, height: 6).fill()
+            return true
+        }
+    }()
 
     /// A photograph stand-in: dusk over water.
     static let photo: NSImage = NSImage(size: NSSize(width: 400, height: 300), flipped: true) { rect in

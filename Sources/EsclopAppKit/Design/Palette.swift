@@ -38,12 +38,13 @@ public enum Palette {
 }
 
 public enum Metrics {
-    // The floating result's card (docs/design/targets: pr2-result-card-states): 208 pt wide, a
-    // 10 pt picture inset 4 pt in the 14 pt card, so the corners are concentric.
+    // The floating result's card, measured off docs/design/targets: pr2-result-card-states: 208 pt
+    // wide, a 14 pt picture inset 9 pt in the 20 pt card. The target's corners are not concentric
+    // (20 − 9 = 11), and the picture reads as a photo in a mount because of it.
     public static let thumbnailWidth: CGFloat = 208
-    public static let thumbnailPadding: CGFloat = 4
-    public static let thumbnailRadius: CGFloat = Radius.card
-    public static let pictureRadius: CGFloat = Radius.inner
+    public static let thumbnailPadding: CGFloat = 9
+    public static let thumbnailRadius: CGFloat = 20
+    public static let pictureRadius: CGFloat = 14
     public static let detailWidth: CGFloat = 320
     public static let detailPadding: CGFloat = 12
     public static let detailRadius: CGFloat = 24

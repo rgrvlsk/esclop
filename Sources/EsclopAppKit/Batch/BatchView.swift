@@ -189,7 +189,7 @@ struct BatchRowView: View {
             if row.isRunning {
                 RowButton(symbol: "stop.fill", title: Strings.text("Stop")) { row.cancel?() }
             } else {
-                RowButton(symbol: "doc.on.doc", title: Strings.text("Copy")) { app.writeClipboard(files: [row.shownFile]) }
+                RowButton(symbol: "square.on.square", title: Strings.text("Copy")) { app.writeClipboard(files: [row.shownFile]) }
                 RowButton(symbol: "folder", title: Strings.text("Show in Finder")) { app.reveal([row.shownFile]) }
             }
         }
