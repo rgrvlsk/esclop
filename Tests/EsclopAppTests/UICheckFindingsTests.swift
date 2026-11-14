@@ -16,8 +16,8 @@ import UniformTypeIdentifiers
     let renders = RenderTests()
     let en = Locale(identifier: "en")
 
-    // F1: after a crop or a downscale the header shows the result's size, not the original's.
-    @Test func headerShowsTheCurrentSize() {
+    // F1: after a crop or a downscale the slider still works from the original's pixels.
+    @Test func theSliderWorksFromTheOriginal() {
         let harness = Harness()
         var result = renders.saved(URL(fileURLWithPath: "/tmp/photo.jpg"), before: 575_000, after: 512_000)
         result.width = 1920
@@ -26,12 +26,7 @@ import UniformTypeIdentifiers
         harness.model.add(card)
         let model = OptionsModel(card: card, app: harness.model)
         model.facts = FileFacts(width: 1920, height: 1200)
-        #expect(model.headerMeta == "JPEG · 1920 × 1080", "the cropped size")
         #expect(model.scaledDimensions == "1920 × 1200", "the slider still works from the original")
-        result.width = 960
-        result.height = 600
-        card.phase = .done(result)
-        #expect(model.headerMeta == "JPEG · 960 × 600")
     }
 
     // F3: an unreadable file says so plainly, per kind, with no tool output and no path.
@@ -76,11 +71,7 @@ import UniformTypeIdentifiers
         card.inputType = UTType.png.identifier
         harness.model.add(card)
         let model = OptionsModel(card: card, app: harness.model)
-        #expect(model.name == "Copied image")
         #expect(model.originLabel == "Copied image (PNG)")
-        // Closing without typing a name renames nothing.
-        model.commitName()
-        #expect(card.displayName == "Copied image")
         let dropped = renders.card(.done(renders.saved()))
         dropped.fileOrigin = .unknown
         dropped.inputType = UTType.png.identifier

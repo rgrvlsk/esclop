@@ -58,6 +58,8 @@ public struct FloatingResultView: View {
             if !open, card.machine.level == .detail { focused = true }
         }
         .onKeyPress(.escape) {
+            // The detail's name being edited takes its own keys.
+            if Self.editingText { return .ignored }
             // Innermost first: the popover, then the detail, then the result itself.
             if card.machine.menuOpen { interact(.menu(false)) } else if card.machine.level == .detail {
                 interact(.closeDetail)
@@ -66,9 +68,10 @@ public struct FloatingResultView: View {
             }
             return .handled
         }
-        .onKeyPress(.return) { enter(info) }
-        .onKeyPress(.space) { enter(info) }
+        .onKeyPress(.return) { Self.editingText ? .ignored : enter(info) }
+        .onKeyPress(.space) { Self.editingText ? .ignored : enter(info) }
         .onKeyPress(characters: ["z", "c", "r"], phases: .down) { press in
+            if Self.editingText { return .ignored }
             guard press.modifiers.contains(.command) else { return .ignored }
             switch press.characters {
             case "z": return run(.undo, in: info)
@@ -103,6 +106,12 @@ public struct FloatingResultView: View {
         case .topRight: return .topTrailing
         case .topLeft: return .topLeading
         }
+    }
+
+    /// A text field has the keys (the detail's name being renamed): Return, Space, Esc and the
+    /// ⌘ keys are its own, not the card's.
+    static var editingText: Bool {
+        (NSApp.keyWindow?.firstResponder as? NSTextView)?.isFieldEditor == true
     }
 
     /// Return and Space open the detail, and there run its charcoal button. With the options

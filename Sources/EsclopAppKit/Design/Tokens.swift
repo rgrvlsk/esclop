@@ -48,6 +48,8 @@ public enum Surface {
     /// Resting content inside a surface. In dark it is inset, darker than the surface: brick red
     /// on anything lighter than the surface falls under 4.5:1.
     public static let tile = Color(nsColor: Palette.dynamic(light: 0xFBF8F3, dark: 0x241F1B))
+    /// Recessed under a raised panel: the options popover's tab bar, around its lighter panel.
+    public static let recessed = Color(nsColor: Palette.dynamic(light: 0xECE4D9, dark: 0x1C1815))
     /// Work in progress.
     public static let progress = Color(nsColor: Palette.dynamic(light: 0xDCF2EE, dark: 0x1F3D3A))
     /// Needs a decision.

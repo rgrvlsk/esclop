@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Optimise: the suggestion from the file's origin (or the rule that was applied) first, then the
-// folded "Format and options" group, then the rule checkbox (DESIGN.md › Options popover).
+// Format (docs/design/targets: pr4-options-popover-tabs): the suggestion first, when there is one
+// to make, then the format tiles with their sizes up front, quality, metadata and the kind's own
+// controls, then the rule. A click on an image's tile converts at once; a video's tile arms
+// Convert, since a video takes a while (owner's decision). Compression's Adaptive · Lossless ·
+// Aggressive lives in Settings; "Optimise harder" is one row here (lead's decision, after Clop).
 
 import AppKit
 import EsclopCore
@@ -11,27 +14,15 @@ struct OptimiseTab: View {
     @Bindable var model: OptionsModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SuggestionCard(model: model)
-            Button {
-                model.showsFormatOptions.toggle()
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "chevron.right")
-                        .font(OptionsType.label.weight(.semibold))
-                        .rotationEffect(.degrees(model.showsFormatOptions ? 90 : 0))
-                    Text(Strings.text("Format and options")).font(OptionsType.bodyStrong)
-                    Spacer()
-                }
-                .frame(minHeight: 28)
-                .contentShape(Rectangle())
+        VStack(alignment: .leading, spacing: 10) {
+            if !model.isSuggestionApplied, model.card.appliedRule == nil {
+                SuggestionCard(model: model)
+            } else if let rule = model.card.appliedRule {
+                Label(Strings.format("Rule: %@", rule.choice.summary(input: model.inputFormat)), systemImage: "wand.and.stars")
+                    .font(OptionsType.label)
+                    .foregroundStyle(PopoverInk.secondary.color)
             }
-            .buttonStyle(.plain)
-            .accessibilityValue(model.showsFormatOptions ? Strings.text("Expanded") : Strings.text("Collapsed"))
-
-            if model.showsFormatOptions {
-                FormatOptions(model: model).transition(.opacity)
-            }
+            FormatOptions(model: model)
             if model.canMakeRule {
                 RuleCheckbox(model: model)
             }
@@ -39,122 +30,220 @@ struct OptimiseTab: View {
     }
 }
 
-/// The origin, the suggestion and whether it is the one applied; with a rule, the rule's choice
-/// and the default suggestion as a secondary line.
+/// "WebP would be 410 kB · 33 % lighter, keep transparency", with Convert: the suggestion for the
+/// file's origin, only while it is not the one applied.
 struct SuggestionCard: View {
     let model: OptionsModel
 
     var body: some View {
-        let rule = model.card.appliedRule
-        VStack(alignment: .leading, spacing: 4) {
-            Label {
-                Text(model.originLabel)
-            } icon: {
-                Image(systemName: rule == nil ? model.origin.symbol : "wand.and.stars")
-            }
-            .font(OptionsType.label)
-            .foregroundStyle(PopoverInk.secondary.color)
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(rule == nil ? Strings.text("Suggestion") : Strings.text("Rule")).font(OptionsType.bodyStrong)
-                    Text(rule.map { $0.choice.summary(input: model.inputFormat) } ?? model.suggestionText).font(OptionsType.body)
-                    if rule != nil {
-                        Text(Strings.format("Suggested: %@", model.suggestionText)).font(OptionsType.label).foregroundStyle(PopoverInk.secondary.color)
-                    }
-                }
-                Spacer(minLength: 8)
-                if rule == nil {
-                    if model.isSuggestionApplied {
-                        Label(Strings.text("Applied"), systemImage: "checkmark").font(OptionsType.label).foregroundStyle(PopoverInk.accent.color)
+        let suggestion = model.suggestion
+        let request = EstimateRequest(choice: suggestion)
+        let converts = suggestion.format.map { $0 != model.currentFormat } ?? false
+        HStack(alignment: .center, spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                Group {
+                    if converts, let format = suggestion.format, model.unavailable.contains(request) {
+                        Text(Strings.format("Suggested: %@", format.displayName))
+                    } else if converts, let format = suggestion.format {
+                        HStack(spacing: 0) {
+                            Text(Strings.format("%@ would be ", format.displayName))
+                            EstimateText(model: model, request: request, approximate: false)
+                        }
                     } else {
-                        Button(Strings.text("Apply")) { model.apply(model.suggestion) }
-                            .controlSize(.small)
-                            .disabled(model.card.isWorking)
+                        Text(Strings.text("Suggested for this file"))
                     }
                 }
+                .font(Typeface.smallHeading)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                Text(subtitle(request))
+                    .font(OptionsType.label)
+                    .foregroundStyle(PopoverInk.primary.color.opacity(0.75))
+                    .lineLimit(2)
             }
+            Spacer(minLength: 6)
+            Button { model.apply(suggestion) } label: {
+                Text(converts ? Strings.text("Convert") : Strings.text("Apply"))
+                    .font(OptionsType.bodyStrong)
+                    .foregroundStyle(Ink.charcoal)
+                    .environment(\.colorScheme, .light)
+                    .padding(.horizontal, 14)
+                    .frame(height: 30)
+                    .background(Capsule().fill(Color.white.opacity(0.92)))
+                    .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(PressScale())
+            .disabled(model.card.isWorking)
+            .accessibilityLabel(converts ? Strings.format("Convert to %@", suggestion.format?.displayName ?? "") : Strings.text("Apply"))
         }
-        .padding(10)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: OptionsType.radius, style: .continuous).fill(Ink.warm.opacity(0.07)))
-        .overlay(RoundedRectangle(cornerRadius: OptionsType.radius, style: .continuous).strokeBorder(Ink.warm.opacity(0.18), lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: OptionsType.radius, style: .continuous).fill(Surface.decision))
         .accessibilityElement(children: .combine)
+    }
+
+    /// "33 % lighter, keep transparency", or the suggestion in words.
+    private func subtitle(_ request: EstimateRequest) -> String {
+        var parts: [String] = []
+        if let bytes = model.estimate(request), let now = model.card.result?.bytesAfter, bytes < now {
+            parts.append(Strings.format("%@ lighter", Figures.percent(before: now, after: bytes).replacingOccurrences(of: "−", with: "")))
+        }
+        parts.append(Suggestion.note(for: model.origin) ?? model.suggestionText)
+        return parts.joined(separator: ", ")
     }
 }
 
 struct FormatOptions: View {
     @Bindable var model: OptionsModel
 
+    /// Four tiles in a row; the rest are behind "More formats".
+    static let shown = 4
+
+    /// The tiles in view: the first four, with the file's own format always among them.
+    static func shownFormats(_ formats: [OutputFormat], current: OutputFormat?) -> [OutputFormat] {
+        let first = Array(formats.prefix(shown))
+        guard let current, formats.contains(current), !first.contains(current) else { return first }
+        return Array(first.prefix(shown - 1)) + [current]
+    }
+
     var body: some View {
         let choice = model.card.choice
-        VStack(alignment: .leading, spacing: 6) {
-            SectionLabel(title: Strings.text("Compression")) { Text(choice.compression.title) }
-            Segments(
-                options: OptimiseChoice.Compression.allCases,
-                selection: Binding(get: { choice.compression }, set: { model.choose(compression: $0) }),
-                title: { $0.title }, tint: { $0 == .aggressive ? PopoverInk.warm.color : nil }
-            )
-            .disabled(model.card.isWorking)
-            .accessibilityLabel(Strings.text("Compression"))
-
-            if !model.formats.isEmpty {
-                SectionLabel(title: Strings.text("Format")) { Text(Strings.text("⌥ keeps both")) }
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
-                    ForEach(model.formats, id: \.self) { format in
-                        FormatTile(
-                            title: format.displayName, model: model, request: model.request(format: format),
-                            selected: model.currentFormat == format
-                        ) {
-                            model.choose(format: format, keepBoth: NSEvent.modifierFlags.contains(.option))
+        let formats = model.formats
+        let tiles = Self.shownFormats(formats, current: model.currentFormat)
+        VStack(alignment: .leading, spacing: 8) {
+            if !formats.isEmpty {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: Self.shown), spacing: 8) {
+                    ForEach(tiles, id: \.self) { format in tile(format) }
+                }
+                HStack(alignment: .firstTextBaseline) {
+                    if let note = Self.note(for: model.armed ?? model.currentFormat) {
+                        Text(note).font(OptionsType.label).foregroundStyle(PopoverInk.secondary.color)
+                    }
+                    Spacer(minLength: 6)
+                    if formats.count > tiles.count {
+                        Menu(Strings.text("More formats")) {
+                            ForEach(formats.filter { !tiles.contains($0) }, id: \.self) { format in
+                                Button(format.displayName) { pick(format) }
+                            }
                         }
-                        .disabled(model.card.isWorking)
+                        .menuStyle(.borderlessButton)
+                        .fixedSize()
+                        .font(OptionsType.label)
                     }
+                }
+                if let armed = model.armed {
+                    // A video's tile arms; this runs it.
+                    Button { model.convertArmed() } label: {
+                        Text(Strings.format("Convert to %@", armed.displayName))
+                            .font(OptionsType.bodyStrong)
+                            .foregroundStyle(Ink.onCharcoal)
+                            .frame(maxWidth: .infinity, minHeight: 32)
+                            .background(Capsule().fill(Ink.charcoal))
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(PressScale())
                 }
             }
 
-            if model.kind == .image || model.kind == .video {
-                SectionLabel(title: Strings.text("Quality")) {
-                    HStack(spacing: 0) {
-                        Text(verbatim: "\(Int(model.quality.rounded()))\u{00A0}% · ")
-                        EstimateText(model: model, request: model.qualityRequest)
+            if Self.hasQuality(model.armed ?? model.currentFormat, kind: model.kind) {
+                HStack(spacing: 12) {
+                    Text(Strings.text("Quality")).sectionLabel()
+                    Slider(value: $model.quality, in: 5 ... 100) { editing in
+                        if !editing { model.commitQuality() }
                     }
+                    .tint(Ink.saving)
+                    .disabled(model.card.isWorking)
+                    .accessibilityLabel(Strings.text("Quality"))
+                    .accessibilityValue(Text(verbatim: "\(Int(model.quality.rounded()))"))
+                    Text(verbatim: "\(Int(model.quality.rounded()))")
+                        .font(OptionsType.bodyStrong)
+                        .monospacedDigit()
+                        .frame(minWidth: 26, alignment: .trailing)
                 }
-                Slider(value: $model.quality, in: 5 ... 100) { editing in
-                    if !editing { model.commitQuality() }
-                }
-                .disabled(model.card.isWorking)
-                .accessibilityLabel(Strings.text("Quality"))
+                .padding(.top, 2)
             }
 
-            SwitchRow(title: Strings.text("Strip metadata"), isOn: Binding(
-                get: { choice.stripMetadata ?? EsclopSettings.stripMetadata.value(in: model.app.settings) },
-                set: { value in model.update { $0.stripMetadata = value } }
-            ))
-            if model.facts.hdr {
-                SwitchRow(title: Strings.text("Convert HDR to SDR"), isOn: Binding(
-                    get: { choice.keepHDR == false },
-                    set: { value in model.update { $0.keepHDR = !value } }
+            OptionsRow {
+                SwitchRow(title: Strings.text("Remove metadata"), isOn: Binding(
+                    get: { choice.stripMetadata ?? EsclopSettings.stripMetadata.value(in: model.app.settings) },
+                    set: { value in model.update { $0.stripMetadata = value } }
                 ))
             }
-            kindControls(choice)
-            DrillRow(symbol: "arrow.uturn.backward", title: Strings.text("Restore original"), detail: "⌘Z", chevron: false) {
-                model.app.perform(.undo, on: model.card)
+            if model.facts.hdr {
+                OptionsRow {
+                    SwitchRow(title: Strings.text("Convert HDR to SDR"), isOn: Binding(
+                        get: { choice.keepHDR == false },
+                        set: { value in model.update { $0.keepHDR = !value } }
+                    ))
+                }
             }
-            .disabled(model.card.result?.backup == nil)
+            kindControls(choice)
+            HStack(spacing: 16) {
+                if model.card.result?.backup != nil {
+                    Button(Strings.text("Restore original")) { model.app.perform(.undo, on: model.card) }
+                        .help("⌘Z")
+                }
+                Button(Strings.text("Optimise harder")) { model.optimiseHarder() }
+                    .foregroundStyle(PopoverInk.warm.color)
+                    .help(Strings.text("Run it again with aggressive compression"))
+            }
+            .buttonStyle(.plain)
+            .font(OptionsType.label.weight(.semibold))
+            .disabled(model.card.isWorking)
+        }
+    }
+
+    private func tile(_ format: OutputFormat) -> some View {
+        FormatTile(
+            title: format.displayName, model: model, request: model.request(format: format),
+            selected: (model.armed ?? model.currentFormat) == format,
+            suggested: model.suggestion.format == format && model.currentFormat != format
+        ) { pick(format) }
+        .disabled(model.card.isWorking)
+        .contextMenu {
+            Button(Strings.text("Convert and Keep Both")) { model.choose(format: format, keepBoth: true) }
+        }
+    }
+
+    /// An image converts at once; a video arms. ⌥ keeps both files.
+    private func pick(_ format: OutputFormat) {
+        let keepBoth = NSEvent.modifierFlags.contains(.option)
+        if model.kind == .video, !keepBoth, format != model.currentFormat {
+            model.armed = model.armed == format ? nil : format
+        } else {
+            model.armed = nil
+            model.choose(format: format, keepBoth: keepBoth)
+        }
+    }
+
+    /// Formats with a quality to set: the lossy ones, and every video.
+    static func hasQuality(_ format: OutputFormat?, kind: MediaKind?) -> Bool {
+        if kind == .video { return true }
+        guard kind == .image, let format else { return false }
+        return [.jpeg, .webp, .avif, .heic].contains(format)
+    }
+
+    /// What the chosen format is good for, in one line.
+    static func note(for format: OutputFormat?) -> String? {
+        switch format {
+        case .png?: return Strings.text("PNG keeps sharp edges and transparency; its colours are reduced.")
+        case .jpeg?: return Strings.text("JPEG suits photos; it has no transparency.")
+        case .webp?: return Strings.text("WebP is small and opens everywhere.")
+        case .avif?: return Strings.text("AVIF is the smallest; older apps may not open it.")
+        default: return nil
         }
     }
 
     @ViewBuilder private func kindControls(_ choice: OptimiseChoice) -> some View {
         switch model.kind {
         case .video?:
-            DrillRow(symbol: "cpu", title: Strings.text("Re-optimise with"), detail: choice.videoEncoder?.displayName ?? Strings.text("Default")) {
-                model.drill = .encoder
+            OptionsRow { SpeedMenu(model: model) }
+            OptionsRow {
+                SwitchRow(title: Strings.text("Remove audio"), isOn: Binding(get: { choice.removeAudio }, set: { value in model.update { $0.removeAudio = value } }))
             }
-            SpeedMenu(model: model)
-            SwitchRow(title: Strings.text("Remove audio"), isOn: Binding(get: { choice.removeAudio }, set: { value in model.update { $0.removeAudio = value } }))
-            DrillRow(symbol: "photo", title: Strings.text("Convert to GIF"), chevron: false) { model.choose(format: .gifVideo, keepBoth: true) }
         case .pdf?:
-            SectionLabel(title: Strings.text("Resolution")) { Text(verbatim: "\(choice.pdfDPI ?? 150) DPI") }
+            Text(Strings.text("Resolution")).sectionLabel()
             Segments(options: [72, 150, 300], selection: Binding(get: { choice.pdfDPI ?? 150 }, set: { value in model.update { $0.pdfDPI = value } }), title: { "\($0) DPI" })
                 .accessibilityLabel(Strings.text("Resolution"))
         case .audio?:
@@ -162,6 +251,18 @@ struct FormatOptions: View {
         default:
             EmptyView()
         }
+    }
+}
+
+/// A row in a tile of its own, as in the target: "Remove metadata" with its switch.
+struct OptionsRow<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        content
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
+            .background(RoundedRectangle(cornerRadius: OptionsType.radius, style: .continuous).fill(Surface.cream))
     }
 }
 
@@ -215,7 +316,6 @@ struct RuleCheckbox: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Divider().padding(.vertical, 4)
             Toggle(isOn: $model.ruleOn) {
                 Text(ClipboardRule.checkboxTitle(origin: model.origin, inputType: model.card.inputType ?? "")).font(OptionsType.label)
             }
@@ -231,5 +331,9 @@ struct RuleCheckbox: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: OptionsType.radius, style: .continuous).fill(Surface.cream))
     }
 }

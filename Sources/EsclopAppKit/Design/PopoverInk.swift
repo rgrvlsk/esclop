@@ -62,8 +62,9 @@ public enum PopoverInk {
         }
     }
 
-    /// Laid over the popover's glass: nearly opaque, so the desktop behind barely shows.
-    public static let surface = Token(name: "Surface", light: RGBA(0xF7F7F7, alpha: 0.94), dark: RGBA(0x2A2C2E, alpha: 0.94))
+    /// The panel the popover's content sits on (`Surface.tile`), opaque like every floating
+    /// surface.
+    public static let surface = Token(name: "Surface", light: RGBA(0xFBF8F3), dark: RGBA(0x241F1B))
     public static let primary = Token(name: "Text", light: RGBA(0x1D1F20), dark: RGBA(0xF2F3F4))
     /// Labels, section names, estimates, sizes, shortcuts, footers.
     public static let secondary = Token(name: "Secondary text", light: RGBA(0x575C61), dark: RGBA(0xB3B8BD))
