@@ -75,9 +75,21 @@ struct LiquidMenuShape: Shape {
         if let neck = neck(centre: centre, radius: r, panel: rect, corner: corner) {
             shape = shape.union(neck)
         }
+        shape = fillet(shape, radius: Self.fillet)
         guard leftward else { return shape }
         var flip = mirror
         return shape.copy(using: &flip) ?? shape
+    }
+
+    /// Every inside corner of the outline rounded to `fillet`: where the drop still overlaps the
+    /// button, circle and drop meet in sharp notches that a liquid never shows (filmed in the
+    /// app). A morphological closing: grow the outline by the radius, then shrink it back;
+    /// outside curves come back as they were.
+    static let fillet: CGFloat = 6
+
+    static func fillet(_ shape: CGPath, radius: CGFloat) -> CGPath {
+        let grown = shape.union(shape.copy(strokingWithWidth: 2 * radius, lineCap: .round, lineJoin: .round, miterLimit: 1))
+        return grown.subtracting(grown.copy(strokingWithWidth: 2 * radius, lineCap: .round, lineJoin: .round, miterLimit: 1))
     }
 
     /// The neck between the circle and the panel's near side: two concave curves that leave the
@@ -150,8 +162,9 @@ struct LiquidMenuShape: Shape {
 struct LiquidMenuAnchor: Equatable {
     let card: ResultCard
     let actions: [CardPresentation.Action]
-    /// What Share… shares.
+    /// What Share… shares, and the view at the detail's own "…" the services open from.
     let file: URL
+    let share: SharingAnchor
     /// The panel goes to the left of the card (a right-hand corner).
     let leftward: Bool
     /// The card's own fill, so the menu reads as part of it.
@@ -160,7 +173,7 @@ struct LiquidMenuAnchor: Equatable {
     let frame: Anchor<CGRect>
 
     static func == (a: Self, b: Self) -> Bool {
-        a.card === b.card && a.actions == b.actions && a.file == b.file && a.leftward == b.leftward && a.fill == b.fill && a.button == b.button && a.frame == b.frame
+        a.card === b.card && a.actions == b.actions && a.file == b.file && a.share === b.share && a.leftward == b.leftward && a.fill == b.fill && a.button == b.button && a.frame == b.frame
     }
 }
 
@@ -206,7 +219,6 @@ struct LiquidMenu: View {
     @State private var mounted = false
     /// Reduce Motion's crossfade.
     @State private var fade: Double = 1
-    @State private var share = SharingAnchor()
     @FocusState private var focused: Bool
 
     private var open: Bool { anchor.card.machine.menuOpen }
@@ -255,11 +267,6 @@ struct LiquidMenu: View {
                     .frame(width: panel.width, height: panel.height)
                     .position(x: panel.midX, y: panel.midY)
                     .mask { shape }
-                share.view
-                    .frame(width: button.width, height: button.height)
-                    .position(x: button.midX, y: button.midY)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
             }
         }
         .opacity(fade)
@@ -325,15 +332,17 @@ struct LiquidMenu: View {
     }
 
     /// Runs a row: Share… shows the system's share services at "…"; the rest go to the model.
-    /// The menu closes first: an action that opens the options popover marks the card's menu
-    /// open again, for the popover.
+    /// The menu closes first, and the action runs once the drop has sunk back: one that takes
+    /// the detail away (Convert…, Move to Trash) would otherwise cut the menu off mid-way, and
+    /// one that opens the options popover marks the card's menu open again, for the popover.
     private func choose(_ action: CardPresentation.Action) {
         close()
-        if action == .share {
-            share.show(anchor.file, leftward: anchor.leftward)
-        } else {
-            perform(action)
+        guard action != .share else {
+            anchor.share.show(anchor.file, leftward: anchor.leftward)
+            return
         }
+        let perform = perform
+        DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0.12 : 0.2)) { perform(action) }
     }
 
     private func animate(_ opening: Bool) {
@@ -356,6 +365,7 @@ struct LiquidMenu: View {
             return
         }
         if opening {
+            fade = 1
             focused = true
             rows = true
             withAnimation(.spring(response: 0.34, dampingFraction: 0.72)) { progress = 1 }
@@ -401,7 +411,8 @@ struct LiquidMenuRow: View {
 
 // MARK: - Share
 
-/// An AppKit view at "…", so the system's share services open there, from a click or a key.
+/// An AppKit view behind the detail's "…", so the system's share services open there, from a
+/// click or a key.
 @MainActor
 final class SharingAnchor {
     private let host = NSView()
@@ -409,13 +420,13 @@ final class SharingAnchor {
 
     var view: some View { SharingAnchorView(host: host) }
 
-    /// Shows the services at "…". The picker hangs off the panel's content view, which outlives
-    /// this anchor: the menu sinks back while the picker is still open.
+    /// Shows the services beside the detail's "…". The anchor sits behind that button, which
+    /// stays put while the menu sinks back and the panel shrinks.
     func show(_ file: URL, leftward: Bool) {
-        guard let content = host.window?.contentView else { return }
+        guard host.window != nil else { return }
         let picker = NSSharingServicePicker(items: [file])
         self.picker = picker
-        picker.show(relativeTo: host.convert(host.bounds, to: content), of: content, preferredEdge: leftward ? .minX : .maxX)
+        picker.show(relativeTo: host.bounds, of: host, preferredEdge: leftward ? .minX : .maxX)
     }
 }
 

@@ -21,6 +21,8 @@ struct DetailCard: View {
     static let pictureHeights: ClosedRange<CGFloat> = 120...240
     static let closeSize: CGFloat = 24
 
+    @State private var share = SharingAnchor()
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Picture(card: card, width: Self.pictureWidth, radius: Metrics.detailPictureRadius, heights: Self.pictureHeights, fits: true)
@@ -45,7 +47,7 @@ struct DetailCard: View {
             if !info.removedMetadata.isEmpty {
                 MetadataStrip(info: info, perform: perform).padding(.bottom, 8)
             }
-            DetailActions(card: card, info: info, leftward: corner.isRight, perform: perform, interact: interact)
+            DetailActions(card: card, info: info, leftward: corner.isRight, share: share, perform: perform, interact: interact)
         }
         .padding(Metrics.detailPadding)
         .frame(width: Metrics.detailWidth)
@@ -55,7 +57,7 @@ struct DetailCard: View {
             Color.clear.anchorPreference(key: LiquidMenuKey.self, value: .bounds) { frame in
                 guard let button, !info.menu.isEmpty else { return [] }
                 return [LiquidMenuAnchor(
-                    card: card, actions: info.menu, file: card.savedCopy ?? card.shownFile,
+                    card: card, actions: info.menu, file: card.savedCopy ?? card.shownFile, share: share,
                     leftward: corner.isRight, fill: info.surface, button: button, frame: frame
                 )]
             }
@@ -144,6 +146,8 @@ struct DetailActions: View {
     let card: ResultCard
     let info: CardPresentation
     let leftward: Bool
+    /// Where Share… in the menu opens the system's services.
+    let share: SharingAnchor
     let perform: (CardPresentation.Action) -> Void
     let interact: (AppModel.Interaction) -> Void
 
@@ -188,6 +192,7 @@ struct DetailActions: View {
                 PillButton.face("ellipsis", size: Self.round, glyph: 0.4).contentShape(Circle())
             }
             .buttonStyle(PressScale())
+            .background(share.view.allowsHitTesting(false).accessibilityHidden(true))
             .anchorPreference(key: MoreButtonKey.self, value: .bounds) { $0 }
             .help(Strings.text("More options"))
             .accessibilityLabel(Strings.text("More options"))
