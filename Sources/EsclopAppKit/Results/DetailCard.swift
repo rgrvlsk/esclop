@@ -33,11 +33,11 @@ struct DetailCard: View {
                 }
             VStack(alignment: .leading, spacing: 1) {
                 Text(info.fileName)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Ink.text)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                Text(facts).font(.system(size: 12)).foregroundStyle(Ink.secondary).monospacedDigit().lineLimit(1)
+                Text(facts).font(Typeface.caption).foregroundStyle(Ink.secondary).monospacedDigit().lineLimit(1)
             }
             .padding(.horizontal, 6)
             .padding(.top, 10)
@@ -81,17 +81,15 @@ struct MetadataStrip: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Text(Strings.text("Removed").uppercased(with: Strings.locale))
-                .font(Typeface.caption.weight(.semibold))
-                .tracking(0.5)
-                .foregroundStyle(Ink.secondary)
+            Text(Strings.text("Removed"))
+                .sectionLabel()
                 .fixedSize()
-            // The symbols and the words when both fit; else the words, which say more; else the
-            // symbols, whose tooltips name them.
+            // The symbols and the words when both fit; else the symbols, which the target's strip
+            // is known by and whose tooltip and VoiceOver label name them; else the words.
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 6) { symbols; words }
-                words
                 symbols
+                words
             }
             Spacer(minLength: 4)
             Button(CardPresentation.Action.keepMetadata.title) { perform(.keepMetadata) }
@@ -101,25 +99,27 @@ struct MetadataStrip: View {
                 .fixedSize()
                 .help(CardPresentation.Action.keepMetadata.accessibilityName)
         }
-        .padding(.leading, 10)
-        .padding(.trailing, 12)
+        .padding(.leading, 12)
+        .padding(.trailing, 14)
         .frame(minHeight: 36)
-        .background(Capsule().fill(NeutralFill.resting))
+        .background(Capsule().fill(Surface.tile))
     }
 
     private var symbols: some View {
         HStack(spacing: 4) {
             ForEach(info.removedMetadata, id: \.self) { kind in
                 Image(systemName: kind.symbol)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 12, weight: .regular))
                     .foregroundStyle(Ink.text)
-                    .frame(width: 24, height: 24)
+                    .frame(width: 26, height: 26)
                     .background(Circle().fill(Surface.cream))
                     .overlay(Circle().strokeBorder(Ink.secondary.opacity(0.22), lineWidth: 0.5))
             }
         }
         .fixedSize()
         .help(info.removedSummary)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(info.removedSummary)
     }
 
     private var words: some View {
@@ -136,16 +136,17 @@ struct DetailActions: View {
     let perform: (CardPresentation.Action) -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: Spacing.hitGap) {
+        HStack(alignment: .top, spacing: 10) {
             if let primary = info.primary {
                 PrimaryButton(action: primary, detail: info.primaryDetail, perform: perform)
             }
             ForEach(info.secondary, id: \.self) { action in
                 VStack(spacing: 4) {
                     PillButton(action: action, size: Self.round, perform: perform)
-                    Text(action.caption.uppercased(with: Strings.locale))
+                    Text(action.caption)
                         .font(Typeface.section)
-                        .tracking(0.5)
+                        .textCase(.uppercase)
+                        .tracking(1)
                         .foregroundStyle(Ink.secondary)
                         .lineLimit(1)
                         .fixedSize()
@@ -159,7 +160,7 @@ struct DetailActions: View {
         }
     }
 
-    static let round: CGFloat = 36
+    static let round: CGFloat = 30
 }
 
 /// The detail's charcoal button: an icon, the action and what it acts on.
@@ -171,7 +172,7 @@ struct PrimaryButton: View {
     var body: some View {
         Button { perform(action) } label: {
             HStack(spacing: 8) {
-                Image(systemName: action.symbol).font(.system(size: 16, weight: .medium)).frame(width: 20)
+                Image(systemName: action.symbol).font(.system(size: 15, weight: .regular)).frame(width: 20)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(action.title).font(.system(size: 13, weight: .semibold))
                     if let detail {
@@ -183,7 +184,7 @@ struct PrimaryButton: View {
             }
             .foregroundStyle(Ink.onCharcoal)
             .padding(.horizontal, 12)
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 38, alignment: .leading)
             .background(Capsule().fill(Ink.charcoal))
             .contentShape(Capsule())
         }

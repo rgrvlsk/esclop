@@ -3,8 +3,9 @@
 // A finished saving, drawn (docs/design/targets/README.md › Visual grammar): an arc or a ring
 // from the original size to the new one, the saved part in `saving`, with a white dot where the
 // new size is. Only a finished result gets one; work in progress is a straight bar, never a ring.
-// The stroke fills the gauge's box; the dot overhangs it by 0.6 of the line width. With nothing
-// saved (already optimised, a result that grew) the same ring is drawn empty, without the dot.
+// The stroke fills the gauge's box; the dot overhangs it by 0.6 of the line width. The track is a
+// hairline under the stroke (docs/design/targets: pr2-result-card-states). With nothing saved
+// (already optimised, a result that grew) the track is drawn alone, without the dot.
 
 import SwiftUI
 
@@ -44,6 +45,9 @@ public struct SavingGauge: View {
     /// The radius of the stroke's centre line in a box `side` wide: the stroke fills the box.
     static func radius(side: CGFloat, lineWidth: CGFloat) -> CGFloat { side / 2 - lineWidth / 2 }
 
+    /// The track's width under a stroke of `lineWidth`: a hairline, never under 1 pt.
+    static func trackWidth(lineWidth: CGFloat) -> CGFloat { max(1, lineWidth * 0.4) }
+
     /// The white dot's radius; it overhangs the stroke on both sides.
     static func dotRadius(lineWidth: CGFloat) -> CGFloat { lineWidth * 1.1 }
 
@@ -55,16 +59,17 @@ public struct SavingGauge: View {
             let centre = CGPoint(x: proxy.size.width / 2, y: shape == .ring ? proxy.size.height / 2 : radius + lineWidth / 2)
             ZStack {
                 arc(centre, radius, from: start, to: start + span)
-                    .stroke(Ink.secondary.opacity(0.25), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                    .stroke(Ink.secondary.opacity(0.3), style: StrokeStyle(lineWidth: Self.trackWidth(lineWidth: lineWidth), lineCap: .round))
                 if let saved {
                     let fraction = min(max(saved, 0), 1)
                     let dot = Self.dotAngle(saved: fraction, shape: shape) * .pi / 180
                     let dotSide = 2 * Self.dotRadius(lineWidth: lineWidth)
                     arc(centre, radius, from: start, to: start + span * fraction)
                         .stroke(Ink.saving, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                    // A shadow, not an outline, sets the white dot off a cream card.
                     Circle()
                         .fill(.white)
-                        .overlay(Circle().strokeBorder(Ink.saving, lineWidth: 1.5))
+                        .shadow(color: .black.opacity(0.3), radius: 1.5, y: 0.5)
                         .frame(width: dotSide, height: dotSide)
                         .position(x: centre.x + radius * cos(dot), y: centre.y + radius * sin(dot))
                 }

@@ -170,9 +170,11 @@ extension View {
 
 /// The one elevation every floating object shares.
 public enum Elevation {
-    public static let shadowY: CGFloat = 8
-    public static let shadowBlur: CGFloat = 24
-    public static func shadowOpacity(dark: Bool) -> Double { dark ? 0.45 : 0.20 }
+    // Measured off docs/design/targets: pr2-result-card-states, where the shadow is gone 15 pt
+    // below the card.
+    public static let shadowY: CGFloat = 5
+    public static let shadowBlur: CGFloat = 16
+    public static func shadowOpacity(dark: Bool) -> Double { dark ? 0.45 : 0.14 }
     /// The inner rim, white.
     public static func rimOpacity(dark: Bool) -> Double { dark ? 0.14 : 0.35 }
     /// The outer hairline, black.

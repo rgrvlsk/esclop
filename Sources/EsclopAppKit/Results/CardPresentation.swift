@@ -103,7 +103,7 @@ public struct CardPresentation: Equatable, Sendable {
             case .closeDetail, .dismiss, .stop: return "xmark"
             case .retry: return "arrow.clockwise"
             case .reveal: return "folder"
-            case .copy: return "doc.on.doc"
+            case .copy: return "square.on.square"
             case .upload, .retryUpload: return "icloud.and.arrow.up"
             case .cancelUpload: return "xmark.circle"
             case .copyLink: return "link"
