@@ -60,6 +60,8 @@ public final class ResultCard: Identifiable {
     /// The last run cropped, downscaled or fitted the file. Restore runs the choice again without
     /// that change, so it is not offered then.
     public var adjusted = false
+    /// The detail's name is being edited: the card's keys stand aside, and come back after.
+    public var renaming = false
     /// The detail's picture is a loupe (Compare); nil when it is not.
     public var loupe: LoupeState?
     /// The row of the detail's "…" menu under the pointer or the arrow keys.

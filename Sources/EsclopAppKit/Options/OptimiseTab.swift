@@ -124,7 +124,7 @@ struct FormatOptions: View {
                     if formats.count > tiles.count {
                         Menu(Strings.text("More formats")) {
                             ForEach(formats.filter { !tiles.contains($0) }, id: \.self) { format in
-                                Button(format.displayName) { pick(format) }
+                                Button(format.displayName) { model.pick(format, keepBoth: NSEvent.modifierFlags.contains(.option)) }
                             }
                         }
                         .menuStyle(.borderlessButton)
@@ -199,29 +199,17 @@ struct FormatOptions: View {
             title: format.displayName, model: model, request: model.request(format: format),
             selected: (model.armed ?? model.currentFormat) == format,
             suggested: model.suggestion.format == format && model.currentFormat != format
-        ) { pick(format) }
+        ) { model.pick(format, keepBoth: NSEvent.modifierFlags.contains(.option)) }
         .disabled(model.card.isWorking)
         .contextMenu {
             Button(Strings.text("Convert and Keep Both")) { model.choose(format: format, keepBoth: true) }
         }
     }
 
-    /// An image converts at once; a video arms. ⌥ keeps both files.
-    private func pick(_ format: OutputFormat) {
-        let keepBoth = NSEvent.modifierFlags.contains(.option)
-        if model.kind == .video, !keepBoth, format != model.currentFormat {
-            model.armed = model.armed == format ? nil : format
-        } else {
-            model.armed = nil
-            model.choose(format: format, keepBoth: keepBoth)
-        }
-    }
-
-    /// Formats with a quality to set: the lossy ones, and every video.
+    /// Every picture and video has a quality: for PNG and GIF it sets how far their colours are
+    /// reduced, for the rest the encoder's quality.
     static func hasQuality(_ format: OutputFormat?, kind: MediaKind?) -> Bool {
-        if kind == .video { return true }
-        guard kind == .image, let format else { return false }
-        return [.jpeg, .webp, .avif, .heic].contains(format)
+        kind == .image || kind == .video
     }
 
     /// What the chosen format is good for, in one line.
