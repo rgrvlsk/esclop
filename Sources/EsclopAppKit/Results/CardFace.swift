@@ -35,7 +35,7 @@ struct CardFace: View {
         }
         .padding(Metrics.thumbnailPadding)
         .frame(width: Metrics.thumbnailWidth)
-        .floatingSurface(Metrics.thumbnailRadius, fill: fill)
+        .floatingSurface(Metrics.thumbnailRadius, fill: info.surface)
         .background {
             if lit, let tone = card.thumbnail.flatMap({ tones.tone(of: $0, dark: scheme == .dark) }) {
                 PointerGlow(tone: tone, radius: Metrics.thumbnailRadius, spot: spot, follows: !reduceMotion && card.machine.hovering)
@@ -53,11 +53,6 @@ struct CardFace: View {
 
     /// The glow shows while the card is hovered or has keyboard focus.
     private var lit: Bool { card.machine.hovering || focused }
-
-    private var fill: Color {
-        if case .working = info.capsule { return Surface.progress }
-        return info.tone == .error ? Surface.decision : Surface.cream
-    }
 
     // MARK: Picture
 
@@ -77,7 +72,7 @@ struct CardFace: View {
             .overlay(alignment: corner.isRight ? .topTrailing : .topLeading) {
                 if showsClose {
                     PillButton(action: .dismiss, size: Self.closeSize, perform: perform)
-                        .padding(Self.buttonInset)
+                        .padding(Self.buttonInset - PillButton.slack(Self.closeSize))
                         .transition(.opacity)
                 }
             }
@@ -111,27 +106,12 @@ struct CardFace: View {
         }
     }
 
-    /// Where the round buttons lie, in the card's space: resting there never opens the detail.
-    private func onButtons(_ point: CGPoint) -> Bool {
-        let inset = Metrics.thumbnailPadding + Self.buttonInset
-        let count = CGFloat(info.tools.count)
-        let width = count * Metrics.toolSize + max(0, count - 1) * Self.buttonGap
-        let pictureBottom = Metrics.thumbnailPadding + Picture.height(for: card.thumbnail, width: Self.pictureWidth, range: Picture.heights)
-        let tools = CGRect(x: Metrics.thumbnailWidth - inset - width, y: pictureBottom - Self.buttonInset - Metrics.toolSize, width: width, height: Metrics.toolSize)
-        let closeX = corner.isRight ? Metrics.thumbnailWidth - inset - Self.closeSize : inset
-        let close = CGRect(x: closeX, y: inset, width: Self.closeSize, height: Self.closeSize)
-        return tools.contains(point) || close.contains(point)
-    }
-
+    /// A move only moves the glow; the card hears the pointer come and go.
     private func hover(_ phase: HoverPhase) {
         switch phase {
         case let .active(location):
             spot.location = location
-            if card.machine.showsHoverButtons, onButtons(location) {
-                interact(.pointerEnteredButtons)
-            } else {
-                interact(card.machine.hovering ? .pointerMoved : .pointerEntered)
-            }
+            if !card.machine.hovering { interact(.pointerEntered) }
         case .ended:
             spot.location = nil
             interact(.pointerExited)
@@ -142,17 +122,22 @@ struct CardFace: View {
 // MARK: - Footer
 
 /// What the card says under its picture. One baseline in every state; the card never resizes on
-/// hover.
+/// hover. The detail card shows it larger, without the name it already shows above.
 struct CardFooter: View {
     let card: ResultCard
     let info: CardPresentation
     let perform: (CardPresentation.Action) -> Void
+    var large = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    static let slot: CGFloat = 48
-    /// A result that grew: its figure in the secondary ink, never the saving's teal.
-    static let neutral = Color(nsColor: Palette.dynamic(light: 0x625C56, dark: 0xB9AFA5))
+    /// The ring's box, its stroke and its figure. The white dot clears the figure by 3 pt or more
+    /// at every percentage (`RenderTests.theDotClearsTheFigure`).
+    static let ring = (side: CGFloat(48), lineWidth: CGFloat(4), figure: CGFloat(16))
+    /// The detail's ring, where the figure takes the next size up.
+    static let largeRing = (side: CGFloat(76), lineWidth: CGFloat(6), figure: CGFloat(24))
+    /// The ring's place, and the symbol's.
+    private var slot: CGFloat { Self.ring.side }
 
     var body: some View {
         Group {
@@ -162,7 +147,7 @@ struct CardFooter: View {
             case .working:
                 working
             case let .status(symbol, _):
-                lines(slot: symbolSlot(info.headline == Strings.text("Already optimised") ? nil : symbol))
+                lines(mark: symbolSlot(symbol))
             case .error:
                 failed
             case .notice:
@@ -171,30 +156,32 @@ struct CardFooter: View {
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, minHeight: Self.slot + 12, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: slot + 12, alignment: .leading)
     }
 
     // A finished saving: the ring with the figure, the original size in brick red, the new one
-    // in grey, the name as a caption.
+    // in grey, the name as a caption. A result that grew gets the empty ring and a grey figure,
+    // never the saving's teal.
     private func saving(before: Int, after: Int) -> some View {
         let saved = before > 0 ? Double(before - after) / Double(before) : 0
         let grew = after > before
         let percent = Int((abs(saved) * 100).rounded())
+        let ring = large ? Self.largeRing : Self.ring
         let figure = Figure(
             number: grew ? "+\(percent)" : Figure.percentParts(percent).number, unit: "%",
-            spoken: Figures.percent(before: before, after: after), size: 16,
-            color: grew ? Self.neutral : Ink.saving
+            spoken: Figures.percent(before: before, after: after), size: ring.figure,
+            color: grew ? AnyShapeStyle(Ink.secondary) : AnyShapeStyle(Ink.saving)
         )
         return HStack(spacing: 10) {
             ZStack {
-                if grew { emptyRing } else { SavingGauge(saved: saved, lineWidth: 4) }
+                SavingGauge(saved: grew ? nil : saved, lineWidth: ring.lineWidth)
                 figure
             }
-            .frame(width: Self.slot, height: Self.slot)
+            .frame(width: ring.side, height: ring.side)
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
+                HStack(spacing: large ? 8 : 4) {
                     Text(Figures.bytes(before)).foregroundStyle(Ink.original)
-                    Image(systemName: "arrow.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(Ink.secondary)
+                    Image(systemName: "arrow.right").font(.system(size: large ? 14 : 10, weight: .medium)).foregroundStyle(Ink.secondary)
                     Text(Figures.bytes(after)).foregroundStyle(Ink.secondary)
                     if card.aggressive {
                         Image(systemName: "bolt.fill").foregroundStyle(Ink.warm).help(Strings.text("Optimise harder"))
@@ -203,28 +190,36 @@ struct CardFooter: View {
                         Image(systemName: "pin.fill").foregroundStyle(Ink.text).help(rule.tooltip())
                     }
                 }
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: large ? 17 : 13, weight: .medium))
                 .monospacedDigit()
                 .lineLimit(1)
-                caption(info.caption)
+                if !large { caption(info.caption) }
             }
         }
     }
 
-    private var working: some View {
+    @ViewBuilder private var working: some View {
         let stop: CardPresentation.Action = info.actions.contains(.cancelUpload) ? .cancelUpload : .stop
-        return HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
+        if large {
+            // The detail already names the file, and its charcoal button stops the work.
+            VStack(alignment: .leading, spacing: 8) {
                 Text(info.headline).font(.system(size: 13, weight: .semibold)).foregroundStyle(Ink.text).lineLimit(1)
-                TimelineView(.periodic(from: card.startedAt, by: 1)) { context in
-                    caption(workCaption(at: context.date))
-                }
+                WorkBar(progress: info.progress, pulses: !reduceMotion)
             }
-            Spacer(minLength: 0)
-            if info.actions.contains(stop) { PillButton(action: stop, perform: perform) }
+        } else {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(info.headline).font(.system(size: 13, weight: .semibold)).foregroundStyle(Ink.text).lineLimit(1)
+                    TimelineView(.periodic(from: card.startedAt, by: 1)) { context in
+                        caption(workCaption(at: context.date))
+                    }
+                }
+                Spacer(minLength: 0)
+                if info.actions.contains(stop) { PillButton(action: stop, perform: perform) }
+            }
+            .frame(minHeight: slot)
+            .overlay(alignment: .top) { WorkBar(progress: info.progress, pulses: !reduceMotion).offset(y: -4) }
         }
-        .frame(minHeight: Self.slot)
-        .overlay(alignment: .top) { WorkBar(progress: info.progress, pulses: !reduceMotion).offset(y: -4) }
     }
 
     /// "Beach.jpg · 40 %", or the time left for a job expected to take more than two seconds.
@@ -241,7 +236,8 @@ struct CardFooter: View {
     /// The triangle, what did not happen and why, and the one way forward. The pill sits beside
     /// the words when they fit ("Retry"), under them when they do not ("Upload Again").
     private var failed: some View {
-        let action: CardPresentation.Action? = [.retryUpload, .retry, .reveal].first(where: info.actions.contains)
+        // In the detail, the charcoal button is the way forward.
+        let action: CardPresentation.Action? = large ? nil : [.retryUpload, .retry, .reveal].first(where: info.actions.contains)
         let words = VStack(alignment: .leading, spacing: 2) {
             Text(info.headline).font(.system(size: 13, weight: .semibold)).foregroundStyle(Ink.text).lineLimit(1)
             Text(info.caption)
@@ -253,7 +249,7 @@ struct CardFooter: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(Ink.error)
-                .frame(width: Self.slot, height: Self.slot)
+                .frame(width: slot, height: slot)
             if let action {
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 8) {
@@ -272,9 +268,9 @@ struct CardFooter: View {
         }
     }
 
-    private func lines(slot: some View) -> some View {
+    private func lines(mark: some View) -> some View {
         HStack(spacing: 10) {
-            slot.frame(width: Self.slot, height: Self.slot)
+            mark.frame(width: slot, height: slot)
             VStack(alignment: .leading, spacing: 2) {
                 Text(info.headline).font(.system(size: 13, weight: .semibold)).foregroundStyle(Ink.text).lineLimit(1)
                 caption(info.caption)
@@ -282,19 +278,15 @@ struct CardFooter: View {
         }
     }
 
-    /// The ring's place: an empty ring for "already optimised", else the state's symbol.
+    /// The ring's place: the empty ring for "already optimised", else the state's symbol.
     @ViewBuilder private func symbolSlot(_ symbol: String?) -> some View {
         if let symbol {
             Image(systemName: symbol).font(.system(size: 15, weight: .semibold)).foregroundStyle(Ink.text)
-                .frame(width: Self.slot - 8, height: Self.slot - 8)
+                .frame(width: slot - 8, height: slot - 8)
                 .background(Circle().fill(NeutralFill.resting))
         } else {
-            emptyRing
+            SavingGauge(saved: nil, lineWidth: Self.ring.lineWidth)
         }
-    }
-
-    private var emptyRing: some View {
-        Circle().inset(by: 2).stroke(Ink.secondary.opacity(0.25), lineWidth: 4)
     }
 
     private func caption(_ text: String) -> some View {
@@ -304,8 +296,7 @@ struct CardFooter: View {
 
 // MARK: - Parts
 
-/// The picture's tone, worked out once per picture and appearance: the card's body runs on every
-/// pointer move while it is hovered.
+/// The picture's tone, worked out once per picture and appearance, not on every redraw.
 @MainActor
 final class ToneMemo {
     private var key: (ObjectIdentifier, Bool)?
@@ -345,7 +336,8 @@ struct WorkBar: View {
     }
 }
 
-/// A round cream button with a symbol: the card's buttons, its close button, Stop.
+/// A round cream button with a symbol: the card's buttons, its close button, Stop. One drawn
+/// smaller than `Spacing.hit` still takes a whole pointer target around it.
 struct PillButton: View {
     let action: CardPresentation.Action
     var size: CGFloat = Metrics.toolSize
@@ -353,17 +345,28 @@ struct PillButton: View {
 
     var body: some View {
         Button { perform(action) } label: {
-            Image(systemName: action.symbol)
-                .font(.system(size: size * 0.45, weight: .semibold))
-                .foregroundStyle(Ink.text)
-                .frame(width: size, height: size)
-                .background(Circle().fill(Surface.cream))
-                .shadow(color: .black.opacity(0.18), radius: 3, y: 1)
+            Self.face(action.symbol, size: size)
+                .padding(Self.slack(size))
                 .contentShape(Circle())
         }
         .buttonStyle(PressScale())
         .help(action.accessibilityName)
         .accessibilityLabel(action.accessibilityName)
+    }
+
+    /// How far the pointer target reaches past a button drawn `size` wide.
+    static func slack(_ size: CGFloat) -> CGFloat { max(0, Spacing.hit - size) / 2 }
+
+    /// The round face: the card's buttons and the detail's, "…" included.
+    static func face(_ symbol: String, size: CGFloat, glyph: CGFloat = 0.45) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: size * glyph, weight: .semibold))
+            .foregroundStyle(Ink.text)
+            .frame(width: size, height: size)
+            .background(Circle().fill(Surface.cream))
+            // The rim keeps it apart from a cream or charcoal surface, not only from a picture.
+            .overlay(Circle().strokeBorder(Ink.secondary.opacity(0.22), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.18), radius: 3, y: 1)
     }
 }
 
@@ -376,8 +379,9 @@ struct TextPill: View {
         Button { perform(action) } label: {
             Text(action.title)
                 .font(.system(size: 12, weight: .semibold))
-                // Always on white, so always charcoal.
-                .foregroundStyle(Color(nsColor: Palette.color(0x36322E)))
+                // Always on white, so always the light appearance's charcoal.
+                .foregroundStyle(Ink.charcoal)
+                .environment(\.colorScheme, .light)
                 .padding(.horizontal, 12)
                 .frame(minHeight: Metrics.toolSize)
                 .background(Capsule().fill(Color.white.opacity(0.92)))
@@ -396,5 +400,14 @@ struct PressScale: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.96 : 1)
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
+extension CardPresentation {
+    /// The card's surface, and the detail's: aqua while it works or uploads, amber when it
+    /// failed, else cream.
+    var surface: Color {
+        if case .working = capsule { return Surface.progress }
+        return tone == .error ? Surface.decision : Surface.cream
     }
 }

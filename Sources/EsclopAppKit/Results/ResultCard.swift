@@ -53,8 +53,6 @@ public final class ResultCard: Identifiable {
     public var appliedRule: ClipboardRule?
     /// Which tab the options popover opens on (Crop opens Size).
     public var optionsTab: OptionsTab = .optimise
-    /// Where the pointer was when the dwell started counting.
-    var dwellAnchor: CGPoint?
     /// The result's upload, from the Share tab or an automatic upload; nil when there is none.
     public var upload: UploadState?
     /// The target the last upload went to, for "Upload again".

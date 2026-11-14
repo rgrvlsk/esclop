@@ -27,24 +27,25 @@ public struct Figure: View {
     /// The whole figure as the locale writes it, "−75%" or "−75 %": what VoiceOver reads.
     public let spoken: String
     public let size: CGFloat
-    public var color: Color
+    /// `saving`, or the secondary ink for a result that grew.
+    public var color: AnyShapeStyle
 
-    public init(number: String, unit: String, spoken: String, size: CGFloat, color: Color = Ink.saving) {
+    public init(number: String, unit: String, spoken: String, size: CGFloat, color: some ShapeStyle = Ink.saving) {
         self.number = number
         self.unit = unit
         self.spoken = spoken
         self.size = size
-        self.color = color
+        self.color = AnyShapeStyle(color)
     }
 
     /// A percentage saved: "−75 %".
-    public init(percentSaved: Int, size: Size, locale: Locale = .current, color: Color = Ink.saving) {
+    public init(percentSaved: Int, size: Size, locale: Locale = .current, color: some ShapeStyle = Ink.saving) {
         let parts = Self.percentParts(percentSaved, locale: locale)
         self.init(number: parts.number, unit: parts.unit, spoken: parts.text, size: size.rawValue, color: color)
     }
 
     /// Bytes saved: "−38 MB".
-    public init(bytesSaved: Int64, size: Size, color: Color = Ink.saving) {
+    public init(bytesSaved: Int64, size: Size, color: some ShapeStyle = Ink.saving) {
         let parts = Self.byteParts(bytesSaved)
         self.init(number: parts.number, unit: parts.unit, spoken: parts.text, size: size.rawValue, color: color)
     }

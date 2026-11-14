@@ -119,16 +119,16 @@ holds the rest, in folders by feature:
   Copied pixels are saved to a temporary file, optimised in place (the backup is the original)
   and put back on the clipboard.
 - `Results`: the floating result (docs/design/targets). `ResultCard` is one result's model;
-  `FloatingResultMachine` is its state as a value (card or detail level, hover buttons, the
-  600 ms dwell, auto-hide paused while hovered, focused, dragged or open), driven by a clock
+  `FloatingResultMachine` is its state as a value (card or detail level, hover buttons,
+  auto-hide paused while hovered, focused, dragged or open), driven by a clock
   passed in, so tests run it on a fixed one. `CardPresentation` holds the copy and figures
   (`Figures`: "612 kB · −75 %") and the card's buttons, chosen by where the file came from;
   `JobEstimate` the expected duration (bytes, or frames for video via AVFoundation) behind the
   time left. `FloatingResultView` takes the keys and VoiceOver's actions and shows `CardFace`
   (the picture over a footer on the cream surface: the saving ring, the aqua tint and straight
   bar of work in progress, the amber of a failure; the buttons over the picture on hover; the
-  `PointerGlow` halo in the picture's tone) or `DetailCard`, the 320 pt card with the
-  before/after comparison. `FloatingPanelController` is a
+  `PointerGlow` halo in the picture's tone) or `DetailCard`, the 320 pt card (the footer at
+  the next size up, and the actions as 1 + 2 + "…"). `FloatingPanelController` is a
   non-activating `NSPanel` at the chosen corner of the screen with the pointer; it grows at
   once and shrinks after animations, and a two-finger swipe toward the edge dismisses.
 - `Batch`: jobs with `batchWindowFrom` files or more (four by default) get a `Batch` instead of
@@ -235,7 +235,7 @@ holds the rest, in folders by feature:
 - `Design`: the tokens of the design overhaul (`Ink`, `Surface`, `NeutralFill`, `Radius`,
   `Spacing`, `Typeface`, `Elevation`), the floating surface (`floatingSurface`: opaque cream or
   warm charcoal, or a state's fill), `Figure` (the compressed saving) and `SavingGauge` (the
-  ring or arc of a finished saving). The app's accent colour is charcoal
+  ring or arc of a finished saving, and the same ring empty where nothing was saved). The app's accent colour is charcoal
   (`assets/Accent.xcassets`, compiled by `Scripts/bundle-app.sh`, `NSAccentColorName`).
   `SurfaceRenderTests` measures every ink's contrast on rendered pixels. Surfaces move onto these
   one by one; until then they keep `Palette` and `Metrics`.
