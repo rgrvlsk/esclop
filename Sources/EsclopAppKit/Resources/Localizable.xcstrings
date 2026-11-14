@@ -141,6 +141,16 @@
         }
       }
     },
+    "%@ lighter": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ més lleuger"
+          }
+        }
+      }
+    },
     "%@ of the pixels differ noticeably": {
       "localizations": {
         "ca": {
@@ -227,6 +237,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ no s’ha pujat"
+          }
+        }
+      }
+    },
+    "%@ would be ": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En %@ faria "
           }
         }
       }
@@ -851,12 +871,32 @@
         }
       }
     },
+    "AVIF is the smallest; older apps may not open it.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AVIF és el més lleuger; les apps antigues potser no l’obren."
+          }
+        }
+      }
+    },
     "Access key ID": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "ID de la clau d’accés"
+          }
+        }
+      }
+    },
+    "Actions": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accions"
           }
         }
       }
@@ -1741,6 +1781,16 @@
         }
       }
     },
+    "Click to rename": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fes clic per canviar el nom"
+          }
+        }
+      }
+    },
     "Clipboard": {
       "localizations": {
         "ca": {
@@ -2037,6 +2087,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Converteix l’HDR a SDR"
+          }
+        }
+      }
+    },
+    "Convert and Keep Both": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Converteix i conserva tots dos"
           }
         }
       }
@@ -3561,6 +3621,16 @@
         }
       }
     },
+    "JPEG suits photos; it has no transparency.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JPEG va bé per a fotos; no té transparència."
+          }
+        }
+      }
+    },
     "JSON, for most agents (mcpServers)": {
       "localizations": {
         "ca": {
@@ -3967,6 +4037,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Falta `->` entre passos. Escriu `step1 -> step2` o posa cada pas en una línia."
+          }
+        }
+      }
+    },
+    "More formats": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Més formats"
           }
         }
       }
@@ -5141,6 +5221,16 @@
         }
       }
     },
+    "PNG keeps sharp edges and transparency; its colours are reduced.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PNG conserva les vores nítides i la transparència; en redueix els colors."
+          }
+        }
+      }
+    },
     "Page %d of %d": {
       "localizations": {
         "ca": {
@@ -5761,6 +5851,16 @@
         }
       }
     },
+    "Remove metadata": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elimina les metadades"
+          }
+        }
+      }
+    },
     "Remove the sound": {
       "localizations": {
         "ca": {
@@ -6061,6 +6161,16 @@
         }
       }
     },
+    "Rule: %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regla: %@"
+          }
+        }
+      }
+    },
     "Rule: %@ → %@": {
       "localizations": {
         "ca": {
@@ -6137,6 +6247,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Executa un script"
+          }
+        }
+      }
+    },
+    "Run it again with aggressive compression": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Torna-ho a fer amb compressió agressiva"
           }
         }
       }
@@ -6957,6 +7077,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Elimina les metadades"
+          }
+        }
+      }
+    },
+    "Suggested": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggerit"
+          }
+        }
+      }
+    },
+    "Suggested for this file": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggerit per a aquest fitxer"
           }
         }
       }
@@ -8237,6 +8377,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Imatge de la marca d’aigua"
+          }
+        }
+      }
+    },
+    "WebP is small and opens everywhere.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WebP és lleuger i s’obre a tot arreu."
           }
         }
       }

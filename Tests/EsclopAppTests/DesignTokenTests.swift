@@ -16,6 +16,19 @@ import Testing
         #expect(Figure.percentParts(0, locale: Locale(identifier: "en_GB")).text == "0%")
     }
 
+    /// One formatter for every size: the panel's big figure and its rows used to disagree
+    /// ("−3,6 MB" over "2.4 MB → 612 kB").
+    @Test func theFigureAndARowWriteASizeTheSameWay() {
+        for (identifier, separator) in [("ca_ES", ","), ("en_GB", ".")] {
+            let locale = Locale(identifier: identifier)
+            let figure = Figure.byteParts(3_600_000, locale: locale)
+            let row = Figures.change(before: 3_600_000, after: 1_000_000, locale: locale)
+            #expect(figure.text == Figure.minus + Figures.bytes(3_600_000, locale: locale), "\(identifier)")
+            #expect(row.hasPrefix(Figures.bytes(3_600_000, locale: locale)), "\(identifier)")
+            #expect(figure.number == Figure.minus + "3\(separator)6" && figure.unit == "MB", "\(identifier): \(figure.number)")
+        }
+    }
+
     @Test func theFigureSplitsBytesIntoNumberAndUnit() {
         let parts = Figure.byteParts(38_000_000)
         #expect(parts.number.hasPrefix("\u{2212}38"))

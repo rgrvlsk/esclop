@@ -39,14 +39,14 @@ public struct Figure: View {
     }
 
     /// A percentage saved: "−75 %".
-    public init(percentSaved: Int, size: Size, locale: Locale = .current, color: some ShapeStyle = Ink.saving) {
+    public init(percentSaved: Int, size: Size, locale: Locale = Strings.locale, color: some ShapeStyle = Ink.saving) {
         let parts = Self.percentParts(percentSaved, locale: locale)
         self.init(number: parts.number, unit: parts.unit, spoken: parts.text, size: size.rawValue, color: color)
     }
 
     /// Bytes saved: "−38 MB".
-    public init(bytesSaved: Int64, size: Size, color: some ShapeStyle = Ink.saving) {
-        let parts = Self.byteParts(bytesSaved)
+    public init(bytesSaved: Int64, size: Size, locale: Locale = Strings.locale, color: some ShapeStyle = Ink.saving) {
+        let parts = Self.byteParts(bytesSaved, locale: locale)
         self.init(number: parts.number, unit: parts.unit, spoken: parts.text, size: size.rawValue, color: color)
     }
 
@@ -82,7 +82,7 @@ public struct Figure: View {
 
     /// A saving of `percent` (0...100) as the locale writes a percentage: whether a space goes
     /// before the sign comes from the locale; where it does, it is a narrow no-break space.
-    public static func percentParts(_ percent: Int, locale: Locale = .current) -> Parts {
+    public static func percentParts(_ percent: Int, locale: Locale = Strings.locale) -> Parts {
         let formatter = NumberFormatter()
         formatter.locale = locale
         formatter.numberStyle = .decimal
@@ -91,14 +91,12 @@ public struct Figure: View {
         return Parts(number: number, unit: "%", text: number + (spacedPercent(locale) ? "\u{202F}" : "") + "%")
     }
 
-    /// A saving of `bytes` through `ByteCountFormatter` (the system's language), split into
-    /// number and unit.
-    public static func byteParts(_ bytes: Int64) -> Parts {
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .file
-        formatter.formattingContext = .standalone
+    /// A saving of `bytes`, written by `Figures.bytes` like every other size in the app (one
+    /// formatter, the app's locale, so "−3.6 MB" and "2.4 MB → 612 kB" agree), split into number
+    /// and unit.
+    public static func byteParts(_ bytes: Int64, locale: Locale = Strings.locale) -> Parts {
         let sign = bytes > 0 ? minus : ""
-        let whole = formatter.string(fromByteCount: abs(bytes))
+        let whole = Figures.bytes(Int(clamping: abs(bytes)), locale: locale)
         // "38 MB", "38,2 MB": the unit is the last word.
         guard let space = whole.lastIndex(where: { $0 == " " || $0 == "\u{00A0}" || $0 == "\u{202F}" }) else {
             return Parts(number: sign + whole, unit: "", text: sign + whole)

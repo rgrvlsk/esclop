@@ -42,6 +42,22 @@ import Testing
         }
     }
 
+    /// The surfaces the popover draws since the design's shell: text on the chosen tile
+    /// (charcoal), on a row (cream) and on the tab bar (recessed), in both appearances.
+    @Test func theShellsSurfacesHoldTheirText() {
+        let pairs: [(String, RGBA, RGBA, RGBA, RGBA)] = [
+            // name, light ink, light ground, dark ink, dark ground
+            ("white on the chosen tile", .white, RGBA(0x36322E), .white, RGBA(0x7A7068)),
+            ("text on a row", PopoverInk.primary.light, RGBA(0xF6F0E8), PopoverInk.primary.dark, RGBA(0x2B2521)),
+            ("secondary on a row", PopoverInk.secondary.light, RGBA(0xF6F0E8), PopoverInk.secondary.dark, RGBA(0x2B2521)),
+            ("text on the tab bar", PopoverInk.primary.light, RGBA(0xECE4D9), PopoverInk.primary.dark, RGBA(0x1C1815)),
+        ]
+        for (name, lightInk, lightGround, darkInk, darkGround) in pairs {
+            #expect(RGBA.contrast(lightInk, lightGround) >= 4.5, "\(name), light: \(RGBA.contrast(lightInk, lightGround))")
+            #expect(RGBA.contrast(darkInk, darkGround) >= 4.5, "\(name), dark: \(RGBA.contrast(darkInk, darkGround))")
+        }
+    }
+
     /// The popover's views draw with these inks only: no system style that takes its contrast
     /// from the desktop behind the glass.
     @Test func thePopoverUsesOnlyItsOwnInks() throws {

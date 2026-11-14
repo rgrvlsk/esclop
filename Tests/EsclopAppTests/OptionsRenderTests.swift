@@ -69,7 +69,6 @@ import UniformTypeIdentifiers
         #expect(size.height <= OptionsType.maxHeight)
 
         let expanded = model(card(.done(renders.saved())), harness: harness) { model in
-            model.showsFormatOptions = true
             let sizes: [OutputFormat: Int] = [.png: 612_000, .jpeg: 320_000, .webp: 410_000, .avif: 285_000, .heic: 360_000, .gif: 1_100_000]
             for (format, bytes) in sizes { model.estimates[model.request(format: format)] = bytes }
             model.estimates[model.qualityRequest] = 612_000

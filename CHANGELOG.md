@@ -31,6 +31,16 @@ into the body of its GitHub release.
   not touched.
 
 ### Changed
+- The options popover takes the design's shell (`pr4-options-popover-tabs`): round tabs with the
+  chosen one fused into the panel, Format · Size · Actions, and no file header. Format shows the
+  suggestion as a card with Convert, then the format tiles with their sizes up front: a click
+  converts an image at once, a video's tile arms Convert. Rename moved to a click on the detail's
+  name.
+- Compression's Adaptive · Lossless · Aggressive left the popover: the default stays in
+  Settings, Lossless lives in Settings only, and "Optimise harder" in Format runs the file again
+  aggressively.
+- Every size in the app comes from one formatter in the app's locale, so the panel's figure and
+  its rows agree on the decimal separator.
 - A failed card says what did not happen ("Not optimised", "Not uploaded") with Retry beside it,
   and why across the card, with "The original is untouched." or "The file is kept."
 - The saving figure's sizes come from one token: 17 pt in the card's ring, 20 pt in the detail's.
