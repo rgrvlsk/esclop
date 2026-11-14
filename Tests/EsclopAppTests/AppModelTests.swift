@@ -40,7 +40,7 @@ import Testing
         #expect(report.failures.first?.error == .toolMissing("ffmpeg"))
         #expect(events.kinds == ["failure"])
         let card = try #require(failing.model.cards.first)
-        #expect(card.presentation.capsule == .error(title: "Couldn’t optimise", message: "ffmpeg is missing. Reinstall L’Esclop or run Scripts/build-tools.sh."))
+        #expect(card.presentation.capsule == .error(title: "Not optimised", message: "ffmpeg is missing. Reinstall L’Esclop or run Scripts/build-tools.sh."))
         #expect(failing.model.recent.isEmpty)
     }
 

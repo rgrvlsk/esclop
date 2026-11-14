@@ -125,6 +125,18 @@ public final class ResultCard: Identifiable {
         return false
     }
 
+    /// What did not happen: the file was not optimised, or the optimised file was not uploaded.
+    public enum Failure: Equatable, Sendable {
+        case optimise
+        case upload
+    }
+
+    public var failure: Failure? {
+        if case .failed = phase { return .optimise }
+        if case .failed = upload { return .upload }
+        return nil
+    }
+
     public var presentation: CardPresentation {
         CardPresentation(card: self)
     }

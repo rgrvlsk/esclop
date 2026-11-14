@@ -24,7 +24,8 @@ import Testing
     }
 
     @Test func theFigureHasFourSizes() {
-        #expect(Figure.Size.allCases.map(\.rawValue) == [24, 32, 48, 72])
+        #expect(Figure.Size.allCases.map(\.rawValue) == [17, 32, 20, 72])
+        #expect(CardFooter.ring.figure == Figure.Size.card.rawValue && CardFooter.largeRing.figure == Figure.Size.detail.rawValue, "the rings take theirs from the token")
     }
 
     @Test func inkIsPinnedAndRisesUnderIncreaseContrast() {
