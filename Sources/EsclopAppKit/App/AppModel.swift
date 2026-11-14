@@ -595,8 +595,9 @@ public final class AppModel {
             card.optionsTab = .optimise
             openOptions(card)
         case .compare:
-            // In the detail a picture compares in place, with the loupe; the rest in the window.
-            if card.machine.level == .detail, card.presentation.loupe, card.loupeSides != nil {
+            // In the detail a picture compares in place, with the loupe; the rest in the window,
+            // and everything with VoiceOver, which can read the window and not the lens.
+            if card.machine.level == .detail, card.presentation.loupe, card.loupeSides != nil, !NSWorkspace.shared.isVoiceOverEnabled {
                 card.loupe = LoupeState()
             } else if let result = card.result {
                 onCompare?(result)
@@ -692,6 +693,7 @@ public final class AppModel {
             noteWritten([result.source, result.output])
             if let card {
                 card.phase = .restored(result)
+                card.loupe = nil
                 loadThumbnail(card, url: result.source)
                 settle(card)
             } else {
