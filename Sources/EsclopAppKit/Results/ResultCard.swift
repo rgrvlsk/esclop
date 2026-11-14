@@ -57,6 +57,8 @@ public final class ResultCard: Identifiable {
     /// What optimising took from the picture's metadata, worked out when the detail opens
     /// (`RemovedMetadata`). Empty until then, and for anything but a picture.
     public var removedMetadata: [MetadataKind] = []
+    /// The row of the detail's "…" menu under the pointer or the arrow keys.
+    public var menuHighlight: Int?
     /// The result's upload, from the Share tab or an automatic upload; nil when there is none.
     public var upload: UploadState?
     /// The target the last upload went to, for "Upload again".

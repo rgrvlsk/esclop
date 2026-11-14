@@ -17,6 +17,11 @@ into the body of its GitHub release.
   copied image nor an untouched original can be trashed from there.
 
 ### Changed
+- The detail's "…" opens the design's own menu instead of a system menu: a cream panel beside
+  the card, joined to "…" by a liquid neck, that opens as a drop and sinks back when it closes.
+  It works from the keyboard (arrows, Return, Esc), and Share… shows the system's share
+  services. In a right-hand corner the detail's buttons run the other way, so "…" faces the
+  screen and its menu has room.
 - The result card and the detail take the targets' proportions: the picture sits in a 9 pt mount
   with softer corners, the saving ring is thinner with a hairline track, the detail's type and
   buttons are smaller, and the surfaces are lit from above with a lighter shadow. Copy uses the

@@ -448,12 +448,16 @@ public final class AppModel {
         case .pointerEntered: card.machine.pointerEntered(at: time)
         case .pointerExited: card.machine.pointerExited(at: time)
         case .openDetail: card.machine.openDetail(at: time)
-        case .closeDetail: card.machine.closeDetail(at: time)
+        case .closeDetail:
+            card.machine.setMenuOpen(false, at: time)
+            card.machine.closeDetail(at: time)
         case let .focus(value): card.machine.setFocused(value, at: time)
         case let .dragging(value):
             card.machine.setDragging(value, at: time)
             if value { watchDragEnd(card) }
-        case let .menu(value): card.machine.setMenuOpen(value, at: time)
+        case let .menu(value):
+            card.menuHighlight = nil
+            card.machine.setMenuOpen(value, at: time)
         }
         afterChange(card)
     }
