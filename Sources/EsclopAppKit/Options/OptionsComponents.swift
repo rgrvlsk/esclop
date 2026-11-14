@@ -145,14 +145,16 @@ struct Chip: View {
     }
 }
 
+/// A chip: cream at rest, charcoal when chosen (teal is the saving's alone).
 struct ChipStyle: ButtonStyle {
     var selected: Bool
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundStyle(selected ? PopoverInk.accent.color : PopoverInk.primary.color)
-            .background(Capsule().fill(selected ? Ink.charcoal.opacity(0.12) : Color.primary.opacity(configuration.isPressed ? 0.1 : 0.05)))
-            .overlay(Capsule().strokeBorder(selected ? Ink.charcoal : Color.primary.opacity(0.12), lineWidth: 1))
+            .foregroundStyle(selected ? AnyShapeStyle(Ink.onCharcoal) : AnyShapeStyle(PopoverInk.primary.color))
+            .background(Capsule().fill(selected ? Ink.charcoal : Surface.cream))
+            .overlay(Capsule().strokeBorder(PopoverInk.secondary.color.opacity(selected ? 0 : 0.25), lineWidth: 0.5))
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
     }
 }
 

@@ -102,8 +102,10 @@ on that one file. It replaces a long context menu. It is not the menu-bar menu. 
 360 pt, never taller than 560 pt.
 
 - **No header:** the card beside it shows the file. Rename is a click on the detail's name.
-- **Tabs** (`pr4-options-popover-tabs`): round symbol tabs on a recessed bar, the chosen one
-  fused with the lighter panel under it like a folder's tab, and its name in small caps at the
+- **Tabs** (`pr4-options-popover-tabs`, measured against the owner's reference, Intellecta's
+  tabs): flat round tabs a shade lighter than the recessed bar, thin 14 pt symbols, the chosen one
+  fused with the lighter panel under it like a folder's tab with an 11 pt fillet, and its name in
+  small caps at the
   end: Format · Size · Crop · Actions. Audio has Format · Sound · Actions.
 - **Format:** the suggestion first, only while it is not the one applied, as an amber card:
   "WebP would be 410 kB", "33 % lighter, …" and Convert. Then four format tiles with their
@@ -117,15 +119,16 @@ on that one file. It replaces a long context menu. It is not the menu-bar menu. 
   Compression's Adaptive · Lossless · Aggressive is a setting, not a popover choice: Optimise
   harder runs the file again aggressively (as Clop offers it), and Lossless lives in Settings.
 - **Size** (`pr4-options-popover-size-actions`): "Original 2.4 MB" in the serif, then tiles
-  Original, 2000 px and 1280 px (only those smaller than the picture) and Half, each with its size
-  (Half's from the real pixels, "Half, 3000 px" for VoiceOver; no Half when 2000 px already is
-  it). Custom: width × height that keep the aspect ratio, Return applies; "Never enlarges. Keeps
+  Original, 2000 px and 1280 px (only those smaller than the picture, and not nearly half) and
+  Half, the owner's tile, always, each with its size (Half's from the real pixels, "Half, 3000 px"
+  for VoiceOver). Custom: width × height that keep the aspect ratio, Return applies; "Never enlarges. Keeps
   the aspect ratio." Then Fit under 500 kB · 1 · 2 · 5 MB · Custom…. A PDF has Fit under only.
-- **Crop:** its own tab: the aspect chips, then the editor with the size in pixels. A PDF crops
-  each page's box to a ratio.
+- **Crop:** its own tab, opening on the picture itself with its frame (owner's request: a crop
+  must be seen), the aspect chips over it and the size in pixels under it, Reset and Crop. A PDF
+  crops each page's box to a ratio. Chips are cream, the chosen one charcoal.
 - **Actions:** rows, each with a round symbol, what it does and what it gives, and a play button:
   the person's pipelines ("Your pipeline"), Upload ("Copies a link"; Set Up Uploads… without a
-  target), Copy Link after an upload, Share… ("AirDrop, Mail, Messages"), shelf and upload apps
+  target, with a chevron since it opens Settings), Copy Link after an upload, Share… ("AirDrop, Mail, Messages"), shelf and upload apps
   when installed; then Run a Shortcut › and Open with ›, and a dashed "Edit Pipelines…". Copy
   ⌘C, Save as ⌘S, Show in Finder ⌘R and Quick Look ⌘Y are keys of the popover; Compare is
   the detail's loupe; how long results stay visible is in Settings.

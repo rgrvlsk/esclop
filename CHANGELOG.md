@@ -40,6 +40,8 @@ into the body of its GitHub release.
   Share… as rows, with Run a Shortcut and Open with. Copy, Save as, Show in Finder and Quick Look
   are the popover's keys; Compare is the detail's loupe; "Keep visible" is in Settings only.
 - The drop zone takes the popover's opaque cream surface already; its own redesign is next.
+- The options popover stays open while a choice in it runs the file again, so sizes and formats
+  can be tried one after another. The Crop tab shows the picture with its frame from the start.
 - Compression's Adaptive · Lossless · Aggressive left the popover: the default stays in
   Settings, Lossless lives in Settings only, and "Optimise harder" in Format runs the file again
   aggressively.

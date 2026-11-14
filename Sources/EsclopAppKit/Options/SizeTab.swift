@@ -163,8 +163,8 @@ struct CropSection: View {
     }
 
     @ViewBuilder private var sections: some View {
-        // The tab says "Crop"; while cropping, the line gives the size the crop makes.
-        if let crop = model.crop, model.cropping {
+        // The tab says "Crop"; once a frame is drawn, the line gives the size it makes.
+        if let crop = model.crop, model.cropping, crop.cropSize != nil {
             SectionLabel(title: Strings.text("Crop")) {
                 HStack(spacing: 0) {
                     Text(verbatim: "\(crop.outputWidth) × \(crop.outputHeight) · ")
@@ -184,19 +184,13 @@ struct CropSection: View {
                 .disabled(model.card.isWorking || model.kind == .pdf && aspect == .free)
             }
         }
-        if model.kind != .pdf {
-            if model.cropping, model.crop != nil {
+        // The picture is always there with its frame (owner's request: a crop needs to be seen):
+        // the tab opens on the whole picture, a ratio chip or a handle frames it.
+        if model.kind != .pdf, model.facts.width != nil {
+            if model.crop != nil {
                 CropEditor(model: model)
             } else {
-                Button {
-                    model.startCrop(aspect: .free)
-                } label: {
-                    Label(Strings.text("Open the editor…"), systemImage: "crop")
-                }
-                .buttonStyle(.plain)
-                    .foregroundStyle(PopoverInk.accent.color)
-                .font(OptionsType.body)
-                .disabled(model.facts.width == nil)
+                Color.clear.frame(height: 1).onAppear { model.startCrop(aspect: .free) }
             }
         }
     }
@@ -250,7 +244,9 @@ struct CropEditor: View {
                     TextField(Strings.text("Height"), text: $heightText).frame(width: 64).onSubmit(applySize)
                     Text("px").foregroundStyle(PopoverInk.secondary.color)
                     Spacer()
-                    Button(Strings.text("Cancel")) { model.cropping = false; model.crop = nil }
+                    // Back to the whole picture; the preview stays.
+                    Button(Strings.text("Reset")) { model.resetCrop() }
+                        .disabled(crop.cropSize == nil)
                     Button(Strings.text("Crop")) { model.applyCrop() }
                         .keyboardShortcut(.defaultAction)
                         .primaryButton()

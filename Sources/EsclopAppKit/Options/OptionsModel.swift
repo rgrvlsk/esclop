@@ -225,20 +225,19 @@ public final class OptionsModel {
         public var id: Double { factor }
     }
 
-    /// Original, 2000 px and 1280 px when the picture is larger, and half (docs/design/targets:
-    /// pr4-options-popover-size-actions). Nothing that would enlarge it.
+    /// Original, 2000 px and 1280 px when the picture is larger and not nearly half, and Half
+    /// (docs/design/targets: pr4-options-popover-size-actions). Nothing that would enlarge it.
     public var sizePresets: [SizePreset] {
         guard let width = facts.width, let height = facts.height, width > 0, height > 0 else { return [] }
         let long = Double(max(width, height))
         var presets = [SizePreset(title: Strings.text("Original"), factor: 1, spoken: Strings.text("Original"))]
-        for side in [2000.0, 1280.0] where side < long * 0.95 {
+        // Half is the owner's tile: a pixel tile that is nearly half gives way to it.
+        for side in [2000.0, 1280.0] where side < long * 0.95 && abs(side / long - 0.5) >= 0.05 {
             presets.append(SizePreset(title: "\(Int(side))\u{00A0}px", factor: side / long, spoken: "\(Int(side)) px"))
         }
         let half = Int((long / 2).rounded())
-        if !presets.contains(where: { abs($0.factor - 0.5) < 0.05 }) {
-            presets.append(SizePreset(title: Strings.text("Half"), factor: 0.5, spoken: Strings.format("Half, %@ px", String(half))))
-        }
-        return Array(presets.prefix(4))
+        presets.append(SizePreset(title: Strings.text("Half"), factor: 0.5, spoken: Strings.format("Half, %@ px", String(half))))
+        return presets
     }
 
     /// The scale the result was made at, 1 when it was not scaled (a crop is not a scale).
@@ -348,6 +347,13 @@ public final class OptionsModel {
             geometry.setAspect(aspect)
             crop = geometry
         }
+        cropping = true
+    }
+
+    /// The whole picture again, free: the Crop tab's preview with no frame drawn in.
+    public func resetCrop() {
+        guard let width = facts.width, let height = facts.height else { return }
+        crop = CropGeometry(imageWidth: width, imageHeight: height)
         cropping = true
     }
 

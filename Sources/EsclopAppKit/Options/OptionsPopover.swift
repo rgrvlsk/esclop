@@ -113,14 +113,16 @@ struct FusedTabs: View {
             ForEach(tabs) { tab in
                 let selected = tab == selection
                 Button { selection = tab } label: {
+                    // Thin symbols, about a third of the tab, as in the owner's reference
+                        // (Intellecta's tabs).
                     Image(systemName: tab.symbol)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: 14, weight: .regular))
                         .foregroundStyle(PopoverInk.primary.color)
                         .frame(width: Self.side, height: Self.side)
                         .background {
-                            if !selected {
-                                Circle().fill(Surface.cream).shadow(color: .black.opacity(0.1), radius: 1.5, y: 1)
-                            }
+                            // Resting tabs are flat, a shade lighter than the bar: only the chosen
+                            // one rises, into the panel.
+                            if !selected { Circle().fill(Surface.cream) }
                         }
                         .contentShape(Circle())
                 }
@@ -184,7 +186,8 @@ struct FusedTabShape: Shape {
             roundedRect: CGRect(x: inset, y: panelTop, width: rect.width - 2 * inset, height: FusedPanel.radius * 2),
             cornerWidth: FusedPanel.radius, cornerHeight: FusedPanel.radius, transform: nil
         )
-        return Path(LiquidMenuShape.fillet(circle.union(neck).union(panel), radius: 8))
+        // A wide fillet where the tab meets the panel, as in the reference (about 11 pt).
+        return Path(LiquidMenuShape.fillet(circle.union(neck).union(panel), radius: 11))
     }
 }
 

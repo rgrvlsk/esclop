@@ -104,7 +104,9 @@ import Testing
         #expect(big.sizePresets.last?.spoken == "Half, 3000 px", "the owner: compute it from the real size: \(big.sizePresets.map(\.spoken))")
         #expect(abs((big.sizePresets[1].factor) - 2000.0 / 6000) < 0.0001)
         let photo = try await model(width: 4032, height: 3024).0
-        #expect(photo.sizePresets.map(\.title) == ["Original", "2000\u{00A0}px", "1280\u{00A0}px"], "2000 px is already half: one tile")
+        #expect(photo.sizePresets.map(\.title) == ["Original", "1280\u{00A0}px", "Half"], "2000 px is nearly half: Half, the owner's tile, stays")
+        let screen = try await model(width: 2400, height: 1600).0
+        #expect(screen.sizePresets.map(\.title) == ["Original", "2000\u{00A0}px", "Half"], "1280 px is nearly half (1200 px): Half stays")
         let small = try await model(width: 1600, height: 900).0
         #expect(small.sizePresets.map(\.title) == ["Original", "1280\u{00A0}px", "Half"], "never a tile larger than the picture")
         let tiny = try await model(width: 800, height: 600).0
