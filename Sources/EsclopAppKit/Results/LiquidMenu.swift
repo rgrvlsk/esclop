@@ -219,7 +219,7 @@ struct LiquidMenu: View {
     @State private var mounted = false
     /// Reduce Motion's crossfade.
     @State private var fade: Double = 1
-    @FocusState private var focused: Bool
+    @State private var keys = MenuKeys()
 
     private var open: Bool { anchor.card.machine.menuOpen }
 
@@ -260,6 +260,7 @@ struct LiquidMenu: View {
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
+                .frame(width: button.width, height: button.height)
                 .position(x: button.midX, y: button.midY)
                 .accessibilityLabel(Strings.text("More options"))
                 // The rows show only inside the outline, so they never stand out of the drop.
@@ -271,22 +272,26 @@ struct LiquidMenu: View {
         }
         .opacity(fade)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        // The keys while it is open: arrows, Home and End move, Return or Space runs, Esc closes.
-        .focusable(open)
-        .focused($focused)
-        .focusEffectDisabled()
-        .onKeyPress(.downArrow) { move(+1) }
-        .onKeyPress(.upArrow) { move(-1) }
-        .onKeyPress(.home) { highlight(0) }
-        .onKeyPress(.end) { highlight(anchor.actions.count - 1) }
-        .onKeyPress(.return) { runHighlighted() }
-        .onKeyPress(.space) { runHighlighted() }
-        .onKeyPress(.escape) {
-            close()
-            return .handled
-        }
         .onAppear { if open { animate(true) } }
         .onChange(of: open) { _, value in animate(value) }
+        .onDisappear { keys.stop() }
+    }
+
+    /// The keys while it is open: arrows, Home and End move, Return or Space runs, Esc closes.
+    /// Taken from the panel's events before SwiftUI's focus sees them: in the app, focus did not
+    /// always reach the menu (after another window closed), and the keys went elsewhere.
+    private func key(_ code: UInt16) -> Bool {
+        switch code {
+        case 125: return move(+1)
+        case 126: return move(-1)
+        case 115: return highlight(0)
+        case 119: return highlight(anchor.actions.count - 1)
+        case 36, 76, 49: return runHighlighted()
+        case 53:
+            close()
+            return true
+        default: return false
+        }
     }
 
     private var list: some View {
@@ -311,24 +316,24 @@ struct LiquidMenu: View {
         .padding(.vertical, Self.inset)
     }
 
-    private func move(_ step: Int) -> KeyPress.Result {
+    private func move(_ step: Int) -> Bool {
         let count = anchor.actions.count
-        guard open, count > 0 else { return .ignored }
+        guard open, count > 0 else { return false }
         let current = anchor.card.menuHighlight ?? (step > 0 ? -1 : count)
         anchor.card.menuHighlight = (current + step + count) % count
-        return .handled
+        return true
     }
 
-    private func highlight(_ index: Int) -> KeyPress.Result {
-        guard open, anchor.actions.indices.contains(index) else { return .ignored }
+    private func highlight(_ index: Int) -> Bool {
+        guard open, anchor.actions.indices.contains(index) else { return false }
         anchor.card.menuHighlight = index
-        return .handled
+        return true
     }
 
-    private func runHighlighted() -> KeyPress.Result {
-        guard open, let index = anchor.card.menuHighlight, anchor.actions.indices.contains(index) else { return .ignored }
+    private func runHighlighted() -> Bool {
+        guard open, let index = anchor.card.menuHighlight, anchor.actions.indices.contains(index) else { return false }
         choose(anchor.actions[index])
-        return .handled
+        return true
     }
 
     /// Runs a row: Share… shows the system's share services at "…"; the rest go to the model.
@@ -345,15 +350,24 @@ struct LiquidMenu: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0.12 : 0.2)) { perform(action) }
     }
 
+    /// Makes the panel key, so the keys reach it even while another app is in front (the panel
+    /// does not activate the app), and listens to them.
+    private func listen() {
+        guard let window = anchor.share.window else { return }
+        window.makeKey()
+        keys.start(window: window, key: key)
+    }
+
     private func animate(_ opening: Bool) {
         if opening { mounted = true }
         let unmount = { if !open { mounted = false } }
+        if !opening { keys.stop() }
         if reduceMotion {
             // The open shape, faded in and out; nothing moves.
             if opening {
                 progress = 1
                 fade = 0
-                focused = true
+                listen()
             }
             withAnimation(.easeOut(duration: 0.12)) {
                 fade = opening ? 1 : 0
@@ -366,12 +380,13 @@ struct LiquidMenu: View {
         }
         if opening {
             fade = 1
-            focused = true
+            listen()
             rows = true
             withAnimation(.spring(response: 0.34, dampingFraction: 0.72)) { progress = 1 }
         } else {
-            withAnimation(.easeOut(duration: 0.08)) { rows = false }
-            withAnimation(.easeIn(duration: 0.16).delay(0.04)) { progress = 0 } completion: { unmount() }
+            // The rows are gone before the drop starts to sink, so it never cuts their letters.
+            withAnimation(.easeOut(duration: 0.07)) { rows = false }
+            withAnimation(.easeIn(duration: 0.16).delay(0.08)) { progress = 0 } completion: { unmount() }
         }
     }
 }
@@ -409,6 +424,27 @@ struct LiquidMenuRow: View {
     }
 }
 
+// MARK: - Keys
+
+/// The menu's keys, taken from its panel's key events while it is open.
+@MainActor
+final class MenuKeys {
+    private var monitor: Any?
+
+    func start(window: NSWindow, key: @escaping (UInt16) -> Bool) {
+        stop()
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak window] event in
+            guard event.window === window, event.modifierFlags.intersection([.command, .control, .option]).isEmpty else { return event }
+            return MainActor.assumeIsolated { key(event.keyCode) } ? nil : event
+        }
+    }
+
+    func stop() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
+    }
+}
+
 // MARK: - Share
 
 /// An AppKit view behind the detail's "…", so the system's share services open there, from a
@@ -419,6 +455,9 @@ final class SharingAnchor {
     private var picker: NSSharingServicePicker?
 
     var view: some View { SharingAnchorView(host: host) }
+
+    /// The panel the detail is in.
+    var window: NSWindow? { host.window }
 
     /// Shows the services beside the detail's "…". The anchor sits behind that button, which
     /// stays put while the menu sinks back and the panel shrinks.
