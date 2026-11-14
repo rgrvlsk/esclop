@@ -1121,6 +1121,16 @@
         }
       }
     },
+    "AirDrop, Mail, Messages": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AirDrop, Mail, Missatges"
+          }
+        }
+      }
+    },
     "Allowed": {
       "localizations": {
         "ca": {
@@ -2191,6 +2201,16 @@
         }
       }
     },
+    "Copies a link": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia un enllaç"
+          }
+        }
+      }
+    },
     "Copy": {
       "localizations": {
         "ca": {
@@ -2387,6 +2407,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zona de retall"
+          }
+        }
+      }
+    },
+    "Custom": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personalitzada"
           }
         }
       }
@@ -3421,12 +3451,32 @@
         }
       }
     },
+    "Half": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meitat"
+          }
+        }
+      }
+    },
     "Half the source": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "La meitat de l’original"
+          }
+        }
+      }
+    },
+    "Half, %@ px": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meitat, %@ px"
           }
         }
       }
@@ -3547,6 +3597,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Al Finder, a Accions ràpides › Executa un pipeline de L’Esclop…"
+          }
+        }
+      }
+    },
+    "In Settings": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A la Configuració"
           }
         }
       }
@@ -3707,6 +3767,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mantén visible"
+          }
+        }
+      }
+    },
+    "Keeps the aspect ratio": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manté la proporció"
           }
         }
       }
@@ -4307,6 +4377,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Més estret que (px)"
+          }
+        }
+      }
+    },
+    "Never enlarges. Keeps the aspect ratio.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mai no s’amplia. Manté la proporció."
           }
         }
       }
@@ -5127,6 +5207,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Original"
+          }
+        }
+      }
+    },
+    "Original %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Original %@"
           }
         }
       }
@@ -6631,6 +6721,16 @@
         }
       }
     },
+    "Shelf app": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App de prestatge"
+          }
+        }
+      }
+    },
     "Shorter than (px)": {
       "localizations": {
         "ca": {
@@ -8101,6 +8201,16 @@
         }
       }
     },
+    "Upload app": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App de pujada"
+          }
+        }
+      }
+    },
     "Upload to": {
       "localizations": {
         "ca": {
@@ -8497,6 +8607,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Treballant"
+          }
+        }
+      }
+    },
+    "Your pipeline": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El teu pipeline"
           }
         }
       }

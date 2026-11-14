@@ -48,13 +48,15 @@ struct EstimateText: View {
     let request: EstimateRequest?
     /// "≈" before the size; off where the sentence already says "would be".
     var approximate = true
+    /// Nothing at all when there is no estimate, instead of "—" (a tile's second line).
+    var silentWhenUnavailable = false
 
     var body: some View {
         Group {
             if let request, let bytes = model.estimate(request) {
                 Text((approximate ? "≈\u{00A0}" : "") + Figures.bytes(bytes))
             } else if let request, model.unavailable.contains(request) {
-                Text(verbatim: "—").accessibilityLabel(Strings.text("No estimate"))
+                if !silentWhenUnavailable { Text(verbatim: "—").accessibilityLabel(Strings.text("No estimate")) }
             } else if request != nil {
                 Text(verbatim: "≈\u{00A0}000 kB").redacted(reason: .placeholder)
                     .accessibilityLabel(Strings.text("Estimating"))
@@ -91,7 +93,7 @@ struct FormatTile: View {
                     if selected, model.armed == nil, let bytes = model.card.result?.bytesAfter {
                         Text(Figures.bytes(bytes))
                     } else {
-                        EstimateText(model: model, request: request)
+                        EstimateText(model: model, request: request, silentWhenUnavailable: true)
                     }
                 }
                 .font(OptionsType.label)

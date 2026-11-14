@@ -104,7 +104,7 @@ on that one file. It replaces a long context menu. It is not the menu-bar menu. 
 - **No header:** the card beside it shows the file. Rename is a click on the detail's name.
 - **Tabs** (`pr4-options-popover-tabs`): round symbol tabs on a recessed bar, the chosen one
   fused with the lighter panel under it like a folder's tab, and its name in small caps at the
-  end: Format · Size · Actions. Audio replaces Size with Sound.
+  end: Format · Size · Crop · Actions. Audio has Format · Sound · Actions.
 - **Format:** the suggestion first, only while it is not the one applied, as an amber card:
   "WebP would be 410 kB", "33 % lighter, …" and Convert. Then four format tiles with their
   sizes (the file's own size on its tile, estimates on the others, an amber dot on the
@@ -116,11 +116,19 @@ on that one file. It replaces a long context menu. It is not the menu-bar menu. 
   DPI, audio bitrate and loudness); Restore original (⌘Z) and Optimise harder; the rule.
   Compression's Adaptive · Lossless · Aggressive is a setting, not a popover choice: Optimise
   harder runs the file again aggressively (as Clop offers it), and Lossless lives in Settings.
-- **Size:** downscale slider in 10 % steps with live dimensions and size, restore 100 %, fit
-  under 500 kB / 1 / 2 / 5 MB / custom, crop aspect chips and the crop editor.
-- **Share:** a row of round buttons (Copy ⌘C, AirDrop, Save as ⌘S, Show in Finder ⌘R, Quick
-  Look Space, Share…), then drill-downs: Open with, Run a Shortcut, Run a pipeline, Add to
-  shelf app, Upload with Dropshare. Footer: keep visible duration.
+- **Size** (`pr4-options-popover-size-actions`): "Original 2.4 MB" in the serif, then tiles
+  Original, 2000 px and 1280 px (only those smaller than the picture) and Half, each with its size
+  (Half's from the real pixels, "Half, 3000 px" for VoiceOver; no Half when 2000 px already is
+  it). Custom: width × height that keep the aspect ratio, Return applies; "Never enlarges. Keeps
+  the aspect ratio." Then Fit under 500 kB · 1 · 2 · 5 MB · Custom…. A PDF has Fit under only.
+- **Crop:** its own tab: the aspect chips, then the editor with the size in pixels. A PDF crops
+  each page's box to a ratio.
+- **Actions:** rows, each with a round symbol, what it does and what it gives, and a play button:
+  the person's pipelines ("Your pipeline"), Upload ("Copies a link"; Set Up Uploads… without a
+  target), Copy Link after an upload, Share… ("AirDrop, Mail, Messages"), shelf and upload apps
+  when installed; then Run a Shortcut › and Open with ›, and a dashed "Edit Pipelines…". Copy
+  ⌘C, Save as ⌘S, Show in Finder ⌘R and Quick Look (Space) are keys of the popover; Compare is
+  the detail's loupe; how long results stay visible is in Settings.
 - Every choice that changes size shows an estimate before it is applied. Long lists are
   drill-downs inside the popover, never inline walls. Only installed apps are listed.
 

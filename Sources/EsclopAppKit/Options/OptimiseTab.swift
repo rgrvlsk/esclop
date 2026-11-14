@@ -184,12 +184,13 @@ struct FormatOptions: View {
                     Button(Strings.text("Restore original")) { model.app.perform(.undo, on: model.card) }
                         .help("⌘Z")
                 }
+                // Charcoal like every text button: amber means a decision is needed.
                 Button(Strings.text("Optimise harder")) { model.optimiseHarder() }
-                    .foregroundStyle(PopoverInk.warm.color)
                     .help(Strings.text("Run it again with aggressive compression"))
             }
             .buttonStyle(.plain)
             .font(OptionsType.label.weight(.semibold))
+            .foregroundStyle(Ink.charcoalText)
             .disabled(model.card.isWorking)
         }
     }
