@@ -186,7 +186,7 @@ import Testing
         #expect(!card.presentation.tools.contains(.undo), "nothing left to undo")
         card.phase = .failed("ffmpeg is missing.")
         #expect(card.presentation.tone == .error)
-        #expect(card.presentation.capsule == .error(title: "Couldn’t optimise", message: "ffmpeg is missing."))
+        #expect(card.presentation.capsule == .error(title: "Not optimised", message: "ffmpeg is missing."))
         #expect(card.presentation.actions == [.dismiss], "the file is not there, so no retry or Show in Finder")
         card.displayName = "Copied image"
         #expect(card.presentation.fileName == "Copied image")

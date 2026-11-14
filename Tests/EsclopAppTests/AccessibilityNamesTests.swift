@@ -61,7 +61,7 @@ import Testing
     /// One verb in Catalan: "Optimitzat" on results, so "No s’ha pogut optimitzar" on errors (N8).
     @Test func theErrorTitleUsesTheSameVerb() {
         let ca = Locale(identifier: "ca")
-        #expect(Strings.text("Couldn’t optimise", locale: ca) == "No s’ha pogut optimitzar")
+        #expect(Strings.text("Not optimised", locale: ca) == "No optimitzat")
         #expect(Strings.text("Optimised", locale: ca) == "Optimitzat")
     }
 }

@@ -36,6 +36,10 @@ struct FloatingStackView: View {
                     )
                 )
             }
+            if model.groupsFailures {
+                FailureGroup(model: model)
+                    .transition(reduceMotion ? .opacity : .move(edge: corner.isRight ? .trailing : .leading).combined(with: .opacity))
+            }
         }
         .padding(Metrics.screenMargin)
         // Room for an open "…" menu beside its detail, toward the screen.
@@ -52,6 +56,7 @@ struct FloatingStackView: View {
             }
         }
         .animation(reduceMotion ? Motion.crossfade : Motion.enter, value: model.visibleCards.map(\.id))
+        .animation(reduceMotion ? Motion.crossfade : Motion.enter, value: model.groupsFailures)
         .fixedSize()
         .onGeometryChange(for: CGSize.self, of: \.size) { onSize($0) }
     }

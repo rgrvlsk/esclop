@@ -86,8 +86,39 @@ public final class AppModel {
     /// The floating results on screen at once; older ones live on in Recent Results.
     static let visibleLimit = 3
 
-    /// The newest three results, oldest first (the newest sits at the bottom).
-    public var visibleCards: [ResultCard] { Array(cards.suffix(Self.visibleLimit)) }
+    /// The newest three results, oldest first (the newest sits at the bottom). Grouped failures
+    /// take one of the three places (`failureGroup`).
+    public var visibleCards: [ResultCard] {
+        guard groupsFailures else { return Array(cards.suffix(Self.visibleLimit)) }
+        return Array(cards.filter { $0.failure == nil }.suffix(Self.visibleLimit - 1))
+    }
+
+    /// The failed results, oldest first.
+    public var failedCards: [ResultCard] { cards.filter { $0.failure != nil } }
+
+    /// Two or more failures share one place in the stack, an amber pill that opens into their
+    /// list (docs/design/targets: pr2-failures), so they never push the results off the screen.
+    /// An open list stays while one is left, so nothing changes under the pointer.
+    public var groupsFailures: Bool {
+        let count = failedCards.count
+        return count >= 2 || (failuresExpanded && count >= 1)
+    }
+
+    /// The grouped failures show their list.
+    public var failuresExpanded = false
+
+    /// Runs again every failure another try can help.
+    public func retryFailures() {
+        for card in failedCards {
+            if let action = FailureGroup.retry(for: card) { perform(action, on: card) }
+        }
+    }
+
+    /// Removes every failure: the originals are untouched, only the notices go.
+    public func dismissFailures() {
+        failedCards.forEach(dismiss)
+        failuresExpanded = false
+    }
 
     /// The service the app runs jobs with: in-process, never routed back to itself.
     public static func makeService(settings: SettingsStore, locations: EsclopLocations = .current()) -> EsclopService {
