@@ -62,8 +62,9 @@ places (`pr2-failures`): an amber pill, "3 not optimised" ("not uploaded" for up
 for a mix), that a click opens into their list, 320 pt wide, under an amber header in the serif:
 each file with its picture, why, and Retry, or no button when the file is gone ("The file was
 moved or deleted."); four rows show, more scroll; Retry All and Dismiss close it. An open list
-stays while one failure is left, so nothing changes under the pointer. Failures never hide on
-their own.
+stays while one failure is left, headed with the single card's words ("Not optimised"), and a
+failure under the pointer, focused or open stays its own card until it is left, so nothing
+changes under the pointer. Failures never hide on their own.
 Dismissal pauses while the object is hovered, focused, dragged or open.
 
 ## Options popover

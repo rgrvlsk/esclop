@@ -36,7 +36,8 @@ import Testing
 
     @Test func theHeadingSaysWhatDidNotHappen() {
         func card(_ upload: Bool) -> ResultCard {
-            let card = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/tmp/a.png"), origin: .dropZone, bytesBefore: 10)
+            // A folder that is never made, so the file is gone on any machine.
+            let card = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/nonexistent-\(UUID().uuidString)/a.png"), origin: .dropZone, bytesBefore: 10)
             if upload {
                 card.phase = .done(OptimisationResult(source: card.source, output: card.source, kind: .image, bytesBefore: 10, bytesAfter: 5, startedAt: Date(), finishedAt: Date()))
                 card.upload = .failed("The server refused it.")
@@ -48,6 +49,7 @@ import Testing
         #expect(card(true).failure == .upload && card(false).failure == .optimise)
         #expect(FailureGroup.heading([card(true), card(true)]) == "2 not uploaded")
         #expect(FailureGroup.heading([card(true), card(false)]) == "2 failed")
+        #expect(FailureGroup.heading([card(false)]) == "Not optimised", "one left needs no number")
         #expect(FailureGroup.retry(for: card(true)) == .retryUpload)
         #expect(FailureGroup.retry(for: card(false)) == nil, "a file that is gone has nothing to try again")
     }
@@ -57,7 +59,9 @@ import Testing
         let kept = done(harness, "a.png")
         for name in ["b.mov", "c.mov"] { _ = await harness.model.run(harness.job(harness.temp.file(name))) }
         #expect(harness.requests.requests.count == 2)
+        harness.model.failuresExpanded = true
         harness.model.retryFailures()
+        #expect(!harness.model.failuresExpanded, "Retry All closes the list")
         #expect(await eventually { harness.requests.requests.count == 4 }, "each failure ran again")
         #expect(await eventually { harness.model.failedCards.count == 2 }, "and failed again")
 
@@ -66,6 +70,19 @@ import Testing
         #expect(harness.model.failedCards.isEmpty)
         #expect(harness.model.cards.map(\.id) == [kept.id])
         #expect(!harness.model.failuresExpanded)
+    }
+
+    @Test func aFailureInUseStaysItsOwnCard() async throws {
+        let harness = Harness(failure: .toolMissing("ffmpeg"))
+        _ = await harness.model.run(harness.job(harness.temp.file("b.mov")))
+        let open = try #require(harness.model.cards.first)
+        harness.model.interact(open, .pointerEntered)
+        _ = await harness.model.run(harness.job(harness.temp.file("c.mov")))
+        #expect(!harness.model.groupsFailures, "the one under the pointer is not taken into a pill")
+        #expect(harness.model.visibleCards.contains { $0.id == open.id })
+        _ = await harness.model.run(harness.job(harness.temp.file("d.mov")))
+        #expect(harness.model.groupsFailures && harness.model.failedCards.count == 2, "the others group")
+        #expect(harness.model.visibleCards.contains { $0.id == open.id }, "and it stays beside them")
     }
 
     @Test func anOpenListStaysWhileOneIsLeft() async throws {
