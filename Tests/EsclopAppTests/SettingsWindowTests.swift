@@ -94,7 +94,7 @@ import Testing
         #expect(route("esclop://settings/images/imageCompression") == SettingsRoute(pane: .images, row: "imageCompression"))
         #expect(route("esclop://settings/video/imageCompression") == SettingsRoute(pane: .images, row: "imageCompression"), "the row's own pane wins over a stale one")
         #expect(route("esclop://settings/agents?highlight=allowRunScripts") == SettingsRoute(pane: .agents, row: "allowRunScripts"))
-        #expect(route("esclop://settings/hotkey.togglePause") == SettingsRoute(pane: .general, row: "hotkey.togglePause"))
+        #expect(route("esclop://settings/hotkey.optimiseClipboard") == SettingsRoute(pane: .general, row: "hotkey.optimiseClipboard"))
         #expect(route("esclop://settings/sameFolderNameTemplate") == SettingsRoute(pane: .general, row: "sameFolderNameTemplate"))
         #expect(route("esclop://results/recent") == nil)
         #expect(route("https://settings/images") == nil)

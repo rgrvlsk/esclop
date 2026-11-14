@@ -660,7 +660,7 @@ public enum ToolCatalog {
             tool: MCP.Tool(
                 name: "esclop_recent_results",
                 title: "Recent results",
-                description: "The most recent optimisation results, newest first: source, output, backup, sizes and saving. Use it to find what was just done, an output path, or a file to restore with esclop_restore_backup. Read-only.",
+                description: "The most recent optimisation results, newest first: source, output, backup, sizes and saving. Results the person cleared from the menu bar panel (Recent › Clear) are not listed: their names are gone. Use it to find what was just done, an output path, or a file to restore with esclop_restore_backup. Read-only.",
                 inputSchema: Schema.object(["limit": Schema.integer("How many, default 20, at most 200.", minimum: 1, maximum: 200)]),
                 annotations: readAnnotations
             ),

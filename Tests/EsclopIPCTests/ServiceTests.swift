@@ -308,4 +308,34 @@ final class EventLog: @unchecked Sendable {
         log.append((0 ..< 10).map { sampleResult("\($0).png") })
         #expect(log.recent(limit: 100).count <= 6)
     }
+
+    /// Recent's Clear: no file name or path is left anywhere in the log, the CLI and MCP list
+    /// nothing, and the saving still counts.
+    @Test func clearingLeavesNoNameOrPathAndKeepsTheSaving() throws {
+        let temp = TempDir()
+        let url = temp.url.appendingPathComponent("r.jsonl")
+        let log = ResultsLog(url: url)
+        log.append([sampleResult("Holiday in Mallorca.png"), sampleResult("Secret plans.png")])
+        let sizes = log.savings().map(\.bytesBefore)
+        try log.redactAll()
+        let text = try String(contentsOf: url, encoding: .utf8)
+        for word in ["Holiday", "Mallorca", "Secret", "/tmp", "out-", "backup", ".png", "pngquant", "oxipng"] {
+            #expect(!text.contains(word), "\(word) is still in the log")
+        }
+        #expect(log.recent(limit: 10).isEmpty, "the CLI and MCP list nothing")
+        #expect(log.savings().map(\.bytesBefore) == sizes && log.savings().allSatisfy { $0.redacted == true }, "the saving stays")
+        log.append([sampleResult("new.png")])
+        #expect(log.recent(limit: 10).map(\.output.lastPathComponent) == ["out-new.png"], "what comes after is listed again")
+    }
+
+    @Test func theTrimKeepsTheLastEightDays() {
+        let temp = TempDir()
+        let log = ResultsLog(url: temp.url.appendingPathComponent("r.jsonl"), keep: 3)
+        var fresh = (0 ..< 8).map { sampleResult("\($0).png") }
+        for index in fresh.indices { fresh[index].finishedAt = Date().addingTimeInterval(-Double(index) * 3600) }
+        log.append(fresh)
+        log.append((0 ..< 8).map { sampleResult("old-\($0).png") })
+        #expect(Set(log.savings().map(\.id)).isSuperset(of: fresh.map(\.id)), "the week's results stay for its saving")
+        #expect(log.savings().count < 16, "old ones beyond the last three go")
+    }
 }

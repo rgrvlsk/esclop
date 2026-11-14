@@ -1,0 +1,553 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// The menu bar panel (docs/design/targets: pr3-menu-panel): under the glyph, a cream panel with
+// the day's saving, the batch at work, the recent results and the two commands. The gear holds
+// the rest. Owner's decisions: no per-day history; the saving switches between today and the
+// last 7 days, with the other under it; Recent has a quick Clear (privacy). Pausing has no
+// state on the glyph and no hotkey: while it is on (Settings, Shortcuts, the CLI), the panel
+// says so in one line with Resume.
+
+import AppKit
+import EsclopCore
+import EsclopIPC
+import KeyboardShortcuts
+import SwiftUI
+
+/// What the panel's commands do outside the model: windows, the panel itself.
+@MainActor
+public struct MenuPanelActions {
+    public var settings: () -> Void
+    public var pipelines: () -> Void
+    public var welcome: (() -> Void)?
+    public var checkForUpdates: (() -> Void)?
+    public var quit: () -> Void
+    /// Closes the panel, before a command that opens something else.
+    public var close: () -> Void
+
+    public init(
+        settings: @escaping () -> Void, pipelines: @escaping () -> Void, welcome: (() -> Void)?,
+        checkForUpdates: (() -> Void)?, quit: @escaping () -> Void = { NSApp.terminate(nil) }, close: @escaping () -> Void
+    ) {
+        self.settings = settings
+        self.pipelines = pipelines
+        self.welcome = welcome
+        self.checkForUpdates = checkForUpdates
+        self.quit = quit
+        self.close = close
+    }
+}
+
+/// Today, or today and the six days before.
+public enum SavingRange: Hashable, Sendable {
+    case today
+    case week
+
+    public func start(now: Date, calendar: Calendar = .current) -> Date {
+        let today = calendar.startOfDay(for: now)
+        return self == .today ? today : calendar.date(byAdding: .day, value: -6, to: today) ?? today
+    }
+}
+
+/// The sizes of the results in a range, from the shared log, cleared results included.
+public struct SavingTotals: Equatable, Sendable {
+    public var before = 0
+    public var after = 0
+    public var files = 0
+
+    public var saved: Int { before - after }
+    /// The part saved, for the arc; nil when nothing was saved.
+    public var fraction: Double? { before > 0 && saved > 0 ? Double(saved) / Double(before) : nil }
+
+    public static func of(_ savings: [ResultsLog.Saving], in range: SavingRange, now: Date, calendar: Calendar = .current) -> SavingTotals {
+        let start = range.start(now: now, calendar: calendar)
+        var totals = SavingTotals()
+        for saving in savings where saving.finishedAt >= start {
+            totals.before += saving.bytesBefore
+            totals.after += saving.bytesAfter
+            totals.files += 1
+        }
+        return totals
+    }
+}
+
+public struct MenuPanel: View {
+    let model: AppModel
+    let actions: MenuPanelActions
+    /// The panel's x for the glyph's centre, where the notch goes.
+    var notch: CGFloat?
+
+    @State private var range: SavingRange = .today
+    @State private var savings: [ResultsLog.Saving] = []
+    @State private var option = false
+    @State private var flags = ModifierFlagsWatcher()
+
+    public init(model: AppModel, actions: MenuPanelActions, notch: CGFloat? = nil) {
+        self.model = model
+        self.actions = actions
+        self.notch = notch
+    }
+
+    public static let width: CGFloat = 316
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            header
+            saved
+            if model.paused { PausedLine { model.setPaused(false) } }
+            if let batch = model.batch, batch.isRunning { working(batch) }
+            recent
+            commands
+        }
+        .padding(12)
+        .frame(width: Self.width)
+        .background { MenuPanelSurface(notch: notch) }
+        .padding(.top, MenuPanelSurface.notchHeight)
+        // The week's saving, again whenever a result arrives or the list is cleared.
+        .task(id: model.recent.first?.id) { savings = await Self.loadSavings(model.service.results) }
+        .onAppear { flags.start { option = $0.contains(.option) } }
+        .onDisappear { flags.stop() }
+    }
+
+    static func loadSavings(_ log: ResultsLog) async -> [ResultsLog.Saving] {
+        await Task.detached(priority: .userInitiated) { log.savings() }.value
+    }
+
+    // MARK: Header
+
+    private var header: some View {
+        HStack {
+            Text(Strings.text("Today"))
+                .font(Typeface.heading)
+                .foregroundStyle(Ink.text)
+                .accessibilityAddTraits(.isHeader)
+            Spacer()
+            Menu {
+                Button(Strings.text("Settings…"), action: run(actions.settings)).keyboardShortcut(",")
+                Button(Strings.text("Pipelines…"), action: run(actions.pipelines))
+                Button(Strings.text("Show Backups in Finder"), action: run { model.reveal([model.service.context.locations.backups]) })
+                if let welcome = actions.welcome {
+                    Button(Strings.text("Welcome to L'Esclop…"), action: run(welcome))
+                }
+                if let check = actions.checkForUpdates {
+                    Button(Strings.text("Check for Updates…"), action: run(check))
+                }
+                Divider()
+                Button(Strings.text("Quit L'Esclop"), action: actions.quit).keyboardShortcut("q")
+            } label: {
+                PillButton.face("gearshape", size: 30, glyph: 0.5)
+            }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help(Strings.text("Settings and more"))
+            .accessibilityLabel(Strings.text("Settings and more"))
+        }
+        .padding(.horizontal, 4)
+    }
+
+    /// Closes the panel, then runs what opens a window, so the window comes up in front.
+    private func run(_ action: @escaping () -> Void) -> () -> Void {
+        { actions.close(); action() }
+    }
+
+    // MARK: Saved
+
+    private var saved: some View {
+        let shown = SavingTotals.of(savings, in: range, now: model.now())
+        let other = SavingTotals.of(savings, in: range == .today ? .week : .today, now: model.now())
+        return VStack(spacing: 6) {
+            HStack {
+                Text(Strings.text("Saved")).sectionLabel()
+                Spacer()
+                chip(Strings.text("Today"), .today)
+                chip(Strings.text("7 days"), .week)
+            }
+            // The arc's ends sit over the two sizes, the figure between them, under the arc.
+            VStack(spacing: 0) {
+                SavingGauge(saved: shown.fraction, shape: .arc, lineWidth: 5)
+                    .frame(width: Self.arcWidth, height: Self.arcHeight, alignment: .top)
+                HStack(alignment: .lastTextBaseline) {
+                    Text(Figures.bytes(shown.before)).font(.system(size: 15, weight: .medium)).foregroundStyle(Ink.original)
+                    Spacer(minLength: 4)
+                    Figure(bytesSaved: Int64(max(shown.saved, 0)), size: .panel)
+                    Spacer(minLength: 4)
+                    Text(Figures.bytes(shown.after)).font(.system(size: 15, weight: .medium)).foregroundStyle(Ink.secondary)
+                }
+                .monospacedDigit()
+                .padding(.top, -10)
+            }
+            .frame(maxWidth: .infinity)
+            Text(caption(other))
+                .font(Typeface.caption)
+                .foregroundStyle(Ink.secondary)
+                .monospacedDigit()
+        }
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous).fill(Surface.tile))
+        .accessibilityElement(children: .combine)
+    }
+
+    static let arcWidth: CGFloat = 214
+    /// Down to the arc's ends: 200° and 340° on a circle the arc's width across.
+    static let arcHeight: CGFloat = 76
+
+    /// The other range, under the figure: "Last 7 days −19.6 GB", or "Today −2.8 GB".
+    private func caption(_ other: SavingTotals) -> String {
+        let amount = Figures.bytes(max(other.saved, 0))
+        return range == .today
+            ? Strings.format("Last 7 days −%@", amount)
+            : Strings.format("Today −%@", amount)
+    }
+
+    private func chip(_ title: String, _ value: SavingRange) -> some View {
+        let selected = range == value
+        return Button { range = value } label: {
+            Text(title)
+                .font(Typeface.section)
+                .textCase(.uppercase)
+                .tracking(1.2)
+                .foregroundStyle(selected ? AnyShapeStyle(Ink.onCharcoal) : AnyShapeStyle(Ink.text))
+                .padding(.horizontal, 10)
+                .frame(height: 24)
+                .background(Capsule().fill(selected ? Ink.charcoal : Surface.cream))
+                .overlay(Capsule().strokeBorder(Ink.secondary.opacity(selected ? 0 : 0.25), lineWidth: 0.5))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    // MARK: Working
+
+    private func working(_ batch: Batch) -> some View {
+        Button { actions.close(); model.showBatch() } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 14) {
+                    Text(Strings.text("Working")).sectionLabel()
+                    Text(Strings.format("%d of %d", batch.finished, batch.total))
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Ink.text)
+                        .monospacedDigit()
+                }
+                ProgressBar(fraction: batch.progress)
+                if let row = batch.rows.first(where: \.isRunning) {
+                    Text(row.source.lastPathComponent)
+                        .font(Typeface.caption)
+                        .foregroundStyle(Ink.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous).fill(Surface.progress))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(Strings.text("Show Batch Window"))
+    }
+
+    // MARK: Recent
+
+    private var recent: some View {
+        let working = model.cards.filter(\.isWorking)
+        let results = Array(model.recent.prefix(Self.recentLimit))
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(Strings.text("Recent")).sectionLabel()
+                Spacer()
+                if !results.isEmpty {
+                    Button(Strings.text("Clear")) { model.clearRecent() }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Ink.charcoalText)
+                        .help(Strings.text("Forget these names. The saving stays; the files and their originals are not touched."))
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            if results.isEmpty && working.isEmpty {
+                Text(Strings.text("Copy a screenshot. You’ll find it here, lighter."))
+                    .font(Typeface.caption)
+                    .foregroundStyle(Ink.secondary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+            } else {
+                let rows = VStack(spacing: 0) {
+                    ForEach(working, id: \.id) { card in WorkingRow(card: card) }
+                    ForEach(results, id: \.id) { result in
+                        RecentRow(result: result, model: model, close: actions.close)
+                    }
+                }
+                if working.count + results.count > Self.rowsShown {
+                    ScrollView { rows }.frame(height: CGFloat(Self.rowsShown) * RecentRow.height)
+                } else {
+                    rows
+                }
+            }
+        }
+        .padding(.bottom, 6)
+        .background(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous).fill(Surface.tile))
+    }
+
+    /// Restore and Compare reach this many results from the panel until All Results exists.
+    static let recentLimit = 12
+    static let rowsShown = 5
+
+    // MARK: Commands
+
+    private var commands: some View {
+        VStack(spacing: 0) {
+            CommandRow(title: Strings.text("Optimise Files…"), keys: "⌘O") { actions.close(); model.chooseFiles() }
+                .keyboardShortcut("o")
+            Rectangle().fill(Ink.secondary.opacity(0.18)).frame(height: 0.5).padding(.horizontal, 14)
+            // ⌥ turns it into the harder run, as its own hotkey does.
+            CommandRow(
+                title: option ? Strings.text("Optimise Clipboard Harder") : Strings.text("Optimise Clipboard"),
+                keys: (option ? KeyboardShortcuts.getShortcut(for: .optimiseClipboardHarder) : KeyboardShortcuts.getShortcut(for: .optimiseClipboard))?.description ?? ""
+            ) { actions.close(); model.optimiseClipboardNow(aggressive: option) }
+        }
+        .background(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous).fill(Surface.tile))
+    }
+}
+
+/// "Paused · Resume": automatic optimisation is off; Resume turns the setting off again.
+struct PausedLine: View {
+    let resume: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "pause.circle")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(Ink.secondary)
+                .accessibilityHidden(true)
+            Text(Strings.text("Paused"))
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(Ink.text)
+            Text("·").foregroundStyle(Ink.secondary).accessibilityHidden(true)
+            Button(Strings.text("Resume"), action: resume)
+                .buttonStyle(.plain)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Ink.charcoalText)
+                .help(Strings.text("Turn automatic optimisation back on"))
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 40)
+        .background(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous).fill(Surface.tile))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Strings.text("Paused"))
+    }
+}
+
+/// A straight 4 pt bar: work in progress is never a ring.
+struct ProgressBar: View {
+    let fraction: Double
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Ink.progress.opacity(0.22))
+                Capsule().fill(Ink.progress).frame(width: proxy.size.width * min(1, max(0, fraction)))
+            }
+        }
+        .frame(height: 4)
+        .accessibilityHidden(true)
+    }
+}
+
+/// A file being optimised now: its name, a bar and the percentage.
+struct WorkingRow: View {
+    let card: ResultCard
+
+    var body: some View {
+        let fraction: Double = if case let .working(value) = card.phase { max(0, value) } else { 0 }
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(card.displayName ?? card.source.lastPathComponent)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Ink.text)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                ProgressBar(fraction: fraction)
+            }
+            Text(Strings.format("%d %%", Int((fraction * 100).rounded())))
+                .font(.system(size: 13))
+                .foregroundStyle(Ink.secondary)
+                .monospacedDigit()
+        }
+        .padding(.horizontal, 14)
+        .frame(height: RecentRow.height)
+        .background(Surface.progress.opacity(0.7))
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// One recent result: its picture, name, sizes and time, the saving; on hover Copy and Show in
+/// Finder. A click shows its card again; the context menu has the rest.
+struct RecentRow: View {
+    let result: OptimisationResult
+    let model: AppModel
+    let close: () -> Void
+
+    @State private var picture: CGImage?
+    @State private var hovering = false
+
+    static let height: CGFloat = 52
+
+    var body: some View {
+        HStack(spacing: 10) {
+            thumbnail
+            VStack(alignment: .leading, spacing: 2) {
+                Text(result.output.lastPathComponent)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Ink.text)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                (Text(Figures.bytes(result.bytesBefore)).foregroundStyle(Ink.original)
+                    + Text(" → \(Figures.bytes(result.bytesAfter)) · \(result.finishedAt.formatted(date: .omitted, time: .shortened))").foregroundStyle(Ink.secondary))
+                    .font(.system(size: 12))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                    .monospacedDigit()
+            }
+            Spacer(minLength: 4)
+            if hovering {
+                HStack(spacing: 6) {
+                    round("square.on.square", Strings.text("Copy")) { model.writeClipboard(files: [result.output]) }
+                    round("folder", Strings.text("Show in Finder")) { close(); model.reveal([result.output]) }
+                }
+                .transition(.opacity)
+            }
+            Figure(percentSaved: Self.percent(result), size: .card, color: result.bytesAfter < result.bytesBefore ? AnyShapeStyle(Ink.saving) : AnyShapeStyle(Ink.secondary))
+                .fixedSize()
+        }
+        .padding(.horizontal, 14)
+        .frame(height: Self.height)
+        .contentShape(Rectangle())
+        .onHover { inside in withAnimation(Motion.hover) { hovering = inside } }
+        .onTapGesture { close(); model.show(result) }
+        .contextMenu {
+            Button(Strings.text("Show in Finder")) { close(); model.reveal([result.output]) }
+            Button(Strings.text("Copy")) { model.writeClipboard(files: [result.output]) }
+            if result.backup != nil || result.output.standardizedFileURL != result.source.standardizedFileURL {
+                Button(Strings.text("Compare")) { close(); model.onCompare?(result) }
+            }
+            if model.restorable.contains(where: { $0.id == result.id }) {
+                Button(Strings.text("Restore Original")) { Task { await model.restore(result) } }
+            }
+        }
+        .task(id: result.output) { picture = await Thumbnails.load(result.output, side: 64) }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction(named: Strings.text("Show in Finder")) { close(); model.reveal([result.output]) }
+        .accessibilityAction(named: Strings.text("Copy")) { model.writeClipboard(files: [result.output]) }
+    }
+
+    static func percent(_ result: OptimisationResult) -> Int {
+        guard result.bytesBefore > 0 else { return 0 }
+        return Int((Double(result.bytesBefore - result.bytesAfter) / Double(result.bytesBefore) * 100).rounded())
+    }
+
+    private var thumbnail: some View {
+        Group {
+            if let picture {
+                Image(decorative: picture, scale: 2).resizable().aspectRatio(contentMode: .fill)
+            } else {
+                Image(systemName: "photo").font(.system(size: 14)).foregroundStyle(Ink.secondary)
+            }
+        }
+        .frame(width: 44, height: 36)
+        .background(Rectangle().fill(NeutralFill.resting))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .pictureHairline(8)
+    }
+
+    private func round(_ symbol: String, _ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) { PillButton.face(symbol, size: 28, glyph: 0.45) }
+            .buttonStyle(PressScale())
+            .help(title)
+            .accessibilityLabel(title)
+    }
+}
+
+/// A command with its keys at the end, as in a menu.
+struct CommandRow: View {
+    let title: String
+    let keys: String
+    let action: () -> Void
+
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                Text(title).font(.system(size: 14)).foregroundStyle(Ink.text)
+                Spacer()
+                Text(keys).font(.system(size: 13)).foregroundStyle(Ink.secondary)
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 38)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Ink.text.opacity(hovering ? 0.06 : 0)).padding(.horizontal, 4))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+    }
+}
+
+/// The panel's surface: the cream material in a rounded rectangle, with a small notch at the top
+/// pointing to the glyph.
+struct MenuPanelSurface: View {
+    var notch: CGFloat?
+
+    static let notchHeight: CGFloat = 7
+    static let radius: CGFloat = 22
+
+    var body: some View {
+        GeometryReader { proxy in
+            Color.clear
+                .floatingSurface(Self.radius)
+                .overlay(alignment: .topLeading) {
+                    if let notch {
+                        Notch()
+                            .fill(Surface.cream)
+                            .frame(width: 18, height: Self.notchHeight + 1)
+                            .offset(x: min(max(notch - 9, Self.radius), proxy.size.width - Self.radius - 18), y: -Self.notchHeight)
+                    }
+                }
+        }
+    }
+
+    struct Notch: Shape {
+        func path(in rect: CGRect) -> Path {
+            var path = Path()
+            path.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+            path.addQuadCurve(to: CGPoint(x: rect.midX, y: rect.minY), control: CGPoint(x: rect.midX - 2, y: rect.maxY))
+            path.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.maxY), control: CGPoint(x: rect.midX + 2, y: rect.maxY))
+            path.closeSubpath()
+            return path
+        }
+    }
+}
+
+/// Tells the panel whether ⌥ is down, for the commands' harder variant.
+@MainActor
+final class ModifierFlagsWatcher {
+    private var monitor: Any?
+
+    func start(_ changed: @escaping (NSEvent.ModifierFlags) -> Void) {
+        stop()
+        changed(NSEvent.modifierFlags)
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
+            changed(event.modifierFlags)
+            return event
+        }
+    }
+
+    func stop() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
+    }
+}
