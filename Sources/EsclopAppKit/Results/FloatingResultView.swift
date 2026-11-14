@@ -93,7 +93,7 @@ public struct FloatingResultView: View {
         guard level == .detail else { return info.actions }
         let shown = info.actions.map { $0 == .openDetail ? .closeDetail : $0 }
         let restore: [CardPresentation.Action] = info.removedMetadata.isEmpty ? [] : [.keepMetadata]
-        return CardPresentation.distinct(shown + [info.primary].compactMap { $0 } + info.secondary + restore + info.menu)
+        return CardPresentation.distinct(shown + [info.primary].compactMap { $0 } + info.secondary + restore + info.editing + info.menu)
     }
 
     private var anchor: UnitPoint {
