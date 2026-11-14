@@ -25,12 +25,12 @@ public struct MenuBarLabel: View {
     public var body: some View {
         Group {
             if let glyph = Self.customGlyph {
-                Image(nsImage: glyph).renderingMode(.template).opacity(model.paused ? 0.45 : 1)
+                Image(nsImage: glyph).renderingMode(.template)
             } else {
-                Image(systemName: model.paused ? "pause.circle" : "arrow.down.right.and.arrow.up.left")
+                Image(systemName: "arrow.down.right.and.arrow.up.left")
             }
         }
-        .accessibilityLabel(model.paused ? Strings.text("L'Esclop, paused") : "L'Esclop")
+        .accessibilityLabel("L'Esclop")
 
     }
 }

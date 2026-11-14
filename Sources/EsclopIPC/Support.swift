@@ -41,7 +41,8 @@ public struct EsclopLocations: Sendable, Hashable {
 // MARK: - Recent results
 
 /// Results of jobs the CLI and MCP server ran, newest last, one JSON object per line. The app may
-/// append its own; readers de-duplicate by result id.
+/// append its own; readers de-duplicate by result id. Cleared results (`redactAll`) stay as their
+/// sizes and dates alone, so the saving still counts them; `recent` never returns them.
 public struct ResultsLog: Sendable {
     public let url: URL
     public var keep: Int
@@ -60,19 +61,34 @@ public struct ResultsLog: Sendable {
             data.append(line)
             data.append(0x0A)
         }
-        do {
-            try Paths.ensure(url.deletingLastPathComponent())
-            if !FileManager.default.fileExists(atPath: url.path) {
-                FileManager.default.createFile(atPath: url.path, contents: nil)
+        locked {
+            do {
+                try Paths.ensure(url.deletingLastPathComponent())
+                if !FileManager.default.fileExists(atPath: url.path) {
+                    FileManager.default.createFile(atPath: url.path, contents: nil)
+                }
+                let handle = try FileHandle(forWritingTo: url)
+                defer { try? handle.close() }
+                try handle.seekToEnd()
+                try handle.write(contentsOf: data)
+            } catch {
+                return
             }
-            let handle = try FileHandle(forWritingTo: url)
-            defer { try? handle.close() }
-            try handle.seekToEnd()
-            try handle.write(contentsOf: data)
-        } catch {
-            return
+            trimIfNeeded()
         }
-        trimIfNeeded()
+    }
+
+    /// The app, the CLI and the MCP server all write the log: an append, a trim and a clear each
+    /// hold an exclusive lock on `<log>.lock`, so none writes into a file another is replacing,
+    /// and a trim never puts back names a clear just removed.
+    private func locked<T>(_ body: () throws -> T) rethrows -> T {
+        try? Paths.ensure(url.deletingLastPathComponent())
+        let descriptor = open(url.path + ".lock", O_CREAT | O_RDWR, 0o644)
+        guard descriptor >= 0 else { return try body() }
+        defer { close(descriptor) }
+        flock(descriptor, LOCK_EX)
+        defer { flock(descriptor, LOCK_UN) }
+        return try body()
     }
 
     /// Newest first.
@@ -89,12 +105,74 @@ public struct ResultsLog: Sendable {
         return results
     }
 
+    /// What one line says about the saving, whether a whole result or a cleared one.
+    public struct Saving: Codable, Sendable, Equatable {
+        public var id: UUID
+        public var kind: MediaKind
+        public var bytesBefore: Int
+        public var bytesAfter: Int
+        public var finishedAt: Date
+        /// Present, and true, on a cleared line: no name, no path.
+        public var redacted: Bool?
+
+        public init(id: UUID, kind: MediaKind, bytesBefore: Int, bytesAfter: Int, finishedAt: Date, redacted: Bool? = nil) {
+            self.id = id
+            self.kind = kind
+            self.bytesBefore = bytesBefore
+            self.bytesAfter = bytesAfter
+            self.finishedAt = finishedAt
+            self.redacted = redacted
+        }
+    }
+
+    /// Each result's sizes and when it finished, newest first, cleared ones included.
+    public func savings() -> [Saving] {
+        guard let data = try? Data(contentsOf: url) else { return [] }
+        let decoder = JSONCoding.wireDecoder()
+        var seen = Set<UUID>()
+        return data.split(separator: 0x0A).reversed().compactMap { line in
+            guard let saving = try? decoder.decode(Saving.self, from: Data(line)), seen.insert(saving.id).inserted else { return nil }
+            return saving
+        }
+    }
+
+    /// Clears the names: every line keeps only its sizes, kind and date (`Saving`), written in
+    /// one atomic step. The saving stays; no file name or path is left in the log. Backups are
+    /// not touched. Readers of `recent` (the CLI, MCP, the app) skip cleared lines: they do not
+    /// decode as a result.
+    public func redactAll() throws {
+        try locked { try redactLocked() }
+    }
+
+    private func redactLocked() throws {
+        guard let data = try? Data(contentsOf: url) else { return }
+        let decoder = JSONCoding.wireDecoder(), encoder = JSONCoding.wireEncoder()
+        var out = Data()
+        for line in data.split(separator: 0x0A) {
+            guard var saving = try? decoder.decode(Saving.self, from: Data(line)) else { continue }
+            saving.redacted = true
+            out.append(try encoder.encode(saving))
+            out.append(0x0A)
+        }
+        try out.write(to: url, options: .atomic)
+    }
+
+    /// Keeps the last `keep` lines, and every line from the last eight days, so the week's
+    /// saving holds however many files a batch brought.
     private func trimIfNeeded() {
         guard let data = try? Data(contentsOf: url) else { return }
         let lines = data.split(separator: 0x0A)
         guard lines.count > keep * 2 else { return }
-        let kept = lines.suffix(keep).map { Data($0) + Data([0x0A]) }.reduce(Data(), +)
-        try? kept.write(to: url, options: .atomic)
+        let decoder = JSONCoding.wireDecoder()
+        let since = Date().addingTimeInterval(-8 * 86_400)
+        // Oldest first: when even the oldest is from the last eight days, nothing can go, and the
+        // file stays as it is instead of being rewritten on every append.
+        if let first = lines.first, let oldest = try? decoder.decode(Saving.self, from: Data(first)), oldest.finishedAt >= since { return }
+        let firstKept = lines.count - keep
+        let kept = lines.enumerated().filter { index, line in
+            index >= firstKept || ((try? decoder.decode(Saving.self, from: Data(line)))?.finishedAt ?? .distantPast) >= since
+        }
+        try? kept.map { Data($0.element) + Data([0x0A]) }.reduce(Data(), +).write(to: url, options: .atomic)
     }
 }
 

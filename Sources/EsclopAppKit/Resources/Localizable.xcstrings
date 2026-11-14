@@ -341,6 +341,16 @@
         }
       }
     },
+    "%d %%": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d %%"
+          }
+        }
+      }
+    },
     "%d already optimised": {
       "localizations": {
         "ca": {
@@ -427,6 +437,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%d no pujats"
+          }
+        }
+      }
+    },
+    "%d of %d": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d de %d"
           }
         }
       }
@@ -637,6 +657,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "48 DPI"
+          }
+        }
+      }
+    },
+    "7 days": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 dies"
           }
         }
       }
@@ -1681,6 +1711,16 @@
         }
       }
     },
+    "Clear": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esborra"
+          }
+        }
+      }
+    },
     "Click or hold to see optimised": {
       "localizations": {
         "ca": {
@@ -2167,6 +2207,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Copia una captura de pantalla"
+          }
+        }
+      }
+    },
+    "Copy a screenshot. You’ll find it here, lighter.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia una captura de pantalla. La trobaràs aquí, més lleugera."
           }
         }
       }
@@ -3101,6 +3151,16 @@
         }
       }
     },
+    "Forget these names. The saving stays; the files and their originals are not touched.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oblida aquests noms. L’estalvi es manté; els fitxers i els originals no es toquen."
+          }
+        }
+      }
+    },
     "Form": {
       "localizations": {
         "ca": {
@@ -3697,6 +3757,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Més gran que (bytes)"
+          }
+        }
+      }
+    },
+    "Last 7 days −%@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Últims 7 dies −%@"
           }
         }
       }
@@ -5551,6 +5621,16 @@
         }
       }
     },
+    "Recent": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recents"
+          }
+        }
+      }
+    },
     "Recent Results": {
       "localizations": {
         "ca": {
@@ -6201,6 +6281,16 @@
         }
       }
     },
+    "Saved": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estalviat"
+          }
+        }
+      }
+    },
     "Saved in the Keychain": {
       "localizations": {
         "ca": {
@@ -6367,6 +6457,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Opció"
+          }
+        }
+      }
+    },
+    "Settings and more": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configuració i més"
           }
         }
       }
@@ -7541,6 +7641,26 @@
         }
       }
     },
+    "Today": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avui"
+          }
+        }
+      }
+    },
+    "Today −%@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avui −%@"
+          }
+        }
+      }
+    },
     "Top left": {
       "localizations": {
         "ca": {
@@ -7597,6 +7717,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "S’està provant amb «%@»…"
+          }
+        }
+      }
+    },
+    "Turn automatic optimisation back on": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Torna a activar l’optimització automàtica"
           }
         }
       }
@@ -8207,6 +8337,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Amplada"
+          }
+        }
+      }
+    },
+    "Working": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Treballant"
           }
         }
       }
