@@ -447,7 +447,11 @@ public final class AppModel {
         switch interaction {
         case .pointerEntered: card.machine.pointerEntered(at: time)
         case .pointerExited: card.machine.pointerExited(at: time)
-        case .openDetail: card.machine.openDetail(at: time)
+        case .openDetail:
+            // The options popover belongs to the card; the detail opens without it, and without
+            // its "…" menu open.
+            card.machine.setMenuOpen(false, at: time)
+            card.machine.openDetail(at: time)
         case .closeDetail:
             card.machine.setMenuOpen(false, at: time)
             card.machine.closeDetail(at: time)
