@@ -127,7 +127,7 @@ on that one file. It replaces a long context menu. It is not the menu-bar menu. 
   the person's pipelines ("Your pipeline"), Upload ("Copies a link"; Set Up Uploads… without a
   target), Copy Link after an upload, Share… ("AirDrop, Mail, Messages"), shelf and upload apps
   when installed; then Run a Shortcut › and Open with ›, and a dashed "Edit Pipelines…". Copy
-  ⌘C, Save as ⌘S, Show in Finder ⌘R and Quick Look (Space) are keys of the popover; Compare is
+  ⌘C, Save as ⌘S, Show in Finder ⌘R and Quick Look ⌘Y are keys of the popover; Compare is
   the detail's loupe; how long results stay visible is in Settings.
 - Every choice that changes size shows an estimate before it is applied. Long lists are
   drill-downs inside the popover, never inline walls. Only installed apps are listed.

@@ -3,7 +3,7 @@
 // Actions (docs/design/targets: pr4-options-popover-size-actions): one row each, a round symbol,
 // what it does and what it gives, and a play button: the person's pipelines, Upload (the link on
 // the clipboard), Share… (the system's services), then Run a Shortcut › and Open with ›. Copy ⌘C,
-// Save as ⌘S, Show in Finder ⌘R and Quick Look (Space) are keys of the popover; Compare is the
+// Save as ⌘S, Show in Finder ⌘R and Quick Look ⌘Y are keys of the popover; Compare is the
 // detail's loupe; how long results stay is in Settings.
 
 import AppKit
@@ -147,17 +147,6 @@ struct OptionsDrill: View {
                 }
             }
             .task { await model.loadShortcuts() }
-        case .pipeline:
-            DrillPage(title: Strings.text("Run a pipeline"), back: back) {
-                let names = app.pipelineNames
-                if names.isEmpty {
-                    Text(Strings.text("No pipelines yet. Make one in the pipeline editor or with `esclop pipeline`.")).foregroundStyle(PopoverInk.secondary.color)
-                }
-                ForEach(names, id: \.self) { name in
-                    DrillRow(symbol: "wand.and.rays", title: name, chevron: false) { app.runPipeline(name, on: card) }
-                }
-                DrillRow(symbol: "slider.horizontal.3", title: Strings.text("Edit Pipelines…"), chevron: false) { app.onOpenPipelines?(nil) }
-            }
         }
     }
 

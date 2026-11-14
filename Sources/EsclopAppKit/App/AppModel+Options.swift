@@ -34,6 +34,7 @@ extension AppModel {
 
     public func downscale(_ card: ResultCard, to factor: Double) {
         reprocess(card) { $0.request.downscale = factor < 1 ? factor : nil }
+        card.downscale = min(1, factor)
     }
 
     public func fit(_ card: ResultCard, under bytes: Int) {

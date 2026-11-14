@@ -14,6 +14,10 @@ struct SizeTab: View {
     @Bindable var model: OptionsModel
     @State private var width = ""
     @State private var height = ""
+    /// Only the field being typed in sets the other, so the two never chase each other.
+    @FocusState private var typing: Side?
+
+    enum Side: Hashable { case width, height }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -28,7 +32,7 @@ struct SizeTab: View {
                     HStack(spacing: 8) {
                         Text(Strings.text("Custom")).font(OptionsType.bodyStrong)
                         Spacer(minLength: 4)
-                        field($width, Strings.text("Width")) { value in
+                        field($width, .width, Strings.text("Width")) { value in
                             height = String(Int((Double(value) * Double(originalHeight) / Double(originalWidth)).rounded()))
                         }
                         Image(systemName: "lock")
@@ -36,7 +40,7 @@ struct SizeTab: View {
                             .foregroundStyle(PopoverInk.secondary.color)
                             .help(Strings.text("Keeps the aspect ratio"))
                         Text(verbatim: "×").foregroundStyle(PopoverInk.secondary.color)
-                        field($height, Strings.text("Height")) { value in
+                        field($height, .height, Strings.text("Height")) { value in
                             width = String(Int((Double(value) * Double(originalWidth) / Double(originalHeight)).rounded()))
                         }
                     }
@@ -77,12 +81,21 @@ struct SizeTab: View {
         .buttonStyle(TileStyle(selected: selected))
         .disabled(model.card.isWorking)
         .accessibilityLabel(preset.spoken)
+        .accessibilityValue(spokenSize(preset, selected: selected))
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
+    /// The size VoiceOver hears with a tile, as the tile shows it.
+    private func spokenSize(_ preset: OptionsModel.SizePreset, selected: Bool) -> String {
+        if preset.factor == 1 { return Figures.bytes(model.card.result?.bytesBefore ?? model.card.bytesBefore) }
+        if selected, let bytes = model.card.result?.bytesAfter { return Figures.bytes(bytes) }
+        return model.estimate(model.scaleRequest(preset.factor)).map { Strings.format("about %@", Figures.bytes($0)) } ?? ""
+    }
+
     /// A number field; Return scales to the width it gives.
-    private func field(_ text: Binding<String>, _ title: String, follow: @escaping (Int) -> Void) -> some View {
+    private func field(_ text: Binding<String>, _ side: Side, _ title: String, follow: @escaping (Int) -> Void) -> some View {
         TextField(title, text: text)
+            .focused($typing, equals: side)
             .textFieldStyle(.plain)
             .multilineTextAlignment(.center)
             .font(OptionsType.body.monospacedDigit())
@@ -90,7 +103,7 @@ struct SizeTab: View {
             .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Surface.tile))
             .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(PopoverInk.secondary.color.opacity(0.3), lineWidth: 0.5))
             .onChange(of: text.wrappedValue) { _, value in
-                if let number = Int(value), number > 0 { follow(number) }
+                if typing == side, let number = Int(value), number > 0 { follow(number) }
             }
             .onSubmit(applyCustom)
             .accessibilityLabel(title)
@@ -103,8 +116,10 @@ struct SizeTab: View {
     }
 
     private func applyCustom() {
-        guard let value = Int(width), value > 0, let original = model.facts.width, original > 0 else { return }
+        guard let value = Int(width), value > 0, let original = model.facts.width, original > 0, let originalHeight = model.facts.height else { return }
         model.scale(to: Double(value) / Double(original))
+        // A width past the original's is the original's: the fields say so.
+        if value > original { typing = nil; setCustom(original, originalHeight) }
     }
 }
 
@@ -144,6 +159,10 @@ struct CropSection: View {
     @Bindable var model: OptionsModel
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 6) { sections }
+    }
+
+    @ViewBuilder private var sections: some View {
         // The tab says "Crop"; while cropping, the line gives the size the crop makes.
         if let crop = model.crop, model.cropping {
             SectionLabel(title: Strings.text("Crop")) {

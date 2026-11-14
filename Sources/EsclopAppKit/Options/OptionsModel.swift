@@ -107,7 +107,7 @@ public final class OptionsModel {
     public private(set) var unavailable: Set<EstimateRequest> = []
     public private(set) var shortcuts: [String] = []
 
-    public enum Drill: Equatable { case openWith, shortcut, pipeline }
+    public enum Drill: Equatable { case openWith, shortcut }
 
     public init(card: ResultCard, app: AppModel) {
         self.card = card
@@ -241,19 +241,18 @@ public final class OptionsModel {
         return Array(presets.prefix(4))
     }
 
-    /// How the result's size compares with the original's: 1 when it was not scaled.
-    public var currentScale: Double {
-        guard let width = facts.width, width > 0, let result = card.result, let now = result.width else { return 1 }
-        return min(1, Double(now) / Double(width))
-    }
+    /// The scale the result was made at, 1 when it was not scaled (a crop is not a scale).
+    public var currentScale: Double { card.downscale }
 
     public func scaleRequest(_ factor: Double) -> EstimateRequest {
         EstimateRequest(choice: card.choice, downscale: factor < 1 ? factor : nil)
     }
 
-    /// A Size tile or Custom: scale to `factor` of the original (never above it).
+    /// A Size tile or Custom: scale to `factor` of the original (never above it). The size it
+    /// already has runs nothing.
     public func scale(to factor: Double) {
         let factor = min(1, max(0.01, factor))
+        guard abs(factor - currentScale) > 0.001 else { return }
         scale = factor
         factor < 1 ? commitScale() : restoreFullSize()
     }
