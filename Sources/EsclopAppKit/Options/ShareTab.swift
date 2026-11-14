@@ -123,15 +123,6 @@ struct OptionsDrill: View {
     var body: some View {
         let app = model.app, card = model.card
         switch drill {
-        case .encoder:
-            DrillPage(title: Strings.text("Re-optimise with"), back: back) {
-                ForEach(VideoEncoder.allCases, id: \.self) { encoder in
-                    DrillRow(symbol: model.card.choice.videoEncoder == encoder ? "checkmark" : "cpu", title: encoder.displayName, chevron: false) {
-                        model.update { $0.videoEncoder = encoder }
-                        back()
-                    }
-                }
-            }
         case .openWith:
             DrillPage(title: Strings.text("Open with"), back: back) {
                 ForEach(app.apps(toOpen: card), id: \.self) { url in

@@ -46,11 +46,13 @@ extension SectionLabel where Value == EmptyView {
 struct EstimateText: View {
     let model: OptionsModel
     let request: EstimateRequest?
+    /// "≈" before the size; off where the sentence already says "would be".
+    var approximate = true
 
     var body: some View {
         Group {
             if let request, let bytes = model.estimate(request) {
-                Text("≈\u{00A0}" + Figures.bytes(bytes))
+                Text((approximate ? "≈\u{00A0}" : "") + Figures.bytes(bytes))
             } else if let request, model.unavailable.contains(request) {
                 Text(verbatim: "—").accessibilityLabel(Strings.text("No estimate"))
             } else if request != nil {
@@ -71,22 +73,40 @@ private struct Load: Hashable {
     var original: URL?
 }
 
-/// A format with its estimate, on two lines.
+/// A format with its size, on two lines: the file's own size on the tile it has now, an
+/// estimate on the others; an amber dot on the suggested one.
 struct FormatTile: View {
     let title: String
     let model: OptionsModel
     let request: EstimateRequest
     let selected: Bool
+    var suggested = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 2) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(OptionsType.bodyStrong)
-                EstimateText(model: model, request: request).font(OptionsType.label).foregroundStyle(selected ? PopoverInk.accent.color : PopoverInk.secondary.color)
+                Group {
+                    if selected, model.armed == nil, let bytes = model.card.result?.bytesAfter {
+                        Text(Figures.bytes(bytes))
+                    } else {
+                        EstimateText(model: model, request: request)
+                    }
+                }
+                .font(OptionsType.label)
+                .opacity(0.85)
             }
             .lineLimit(1)
-            .frame(maxWidth: .infinity, minHeight: 44)
+            .minimumScaleFactor(0.85)
+            .padding(.horizontal, 10)
+            .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
+            .overlay(alignment: .topTrailing) {
+                if suggested {
+                    Circle().fill(Ink.warm).frame(width: 6, height: 6).padding(7)
+                        .accessibilityLabel(Strings.text("Suggested"))
+                }
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(TileStyle(selected: selected))
@@ -94,16 +114,18 @@ struct FormatTile: View {
     }
 }
 
+/// Resting content is a cream tile; the chosen one is charcoal (docs/design/targets/README.md ›
+/// Visual grammar).
 struct TileStyle: ButtonStyle {
     var selected: Bool
-    @Environment(\.colorScheme) private var scheme
 
     func makeBody(configuration: Configuration) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
         configuration.label
-            .foregroundStyle(selected ? PopoverInk.accent.color : PopoverInk.primary.color)
-            .background(shape.fill(selected ? Ink.charcoal.opacity(0.12) : Color.primary.opacity(configuration.isPressed ? 0.1 : 0.05)))
-            .overlay(shape.strokeBorder(selected ? Ink.charcoal : Color.primary.opacity(0.12), lineWidth: 1))
+            .foregroundStyle(selected ? AnyShapeStyle(Ink.onCharcoal) : AnyShapeStyle(PopoverInk.primary.color))
+            .background(shape.fill(selected ? Ink.charcoal : Surface.cream))
+            .shadow(color: .black.opacity(selected ? 0.18 : 0.06), radius: selected ? 3 : 1.5, y: 1)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
     }
 }
 
@@ -171,6 +193,8 @@ struct SwitchRow: View {
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .controlSize(.small)
+                // Charcoal when on: no system blue (docs/design/targets/README.md › Visual grammar).
+                .tint(Ink.charcoal)
         }
         .frame(minHeight: 28)
         .accessibilityElement(children: .combine)

@@ -101,15 +101,21 @@ Opens from the "…" button of the floating result, anchored to it with a popove
 on that one file. It replaces a long context menu. It is not the menu-bar menu. Width about
 360 pt, never taller than 560 pt.
 
-- **Header:** thumbnail, editable filename, "2,4 MB → 612 kB · −75 %", format and dimensions
-  (duration and bitrate for media, pages and DPI for PDFs).
-- **Tabs** (segmented control): Optimise · Size · Share. Audio replaces Size with Sound.
-- **Optimise:** first a suggestion chosen from the file's origin (see below), then a folded
-  "Format and options" group: compression (Adaptive · Lossless · Aggressive), format tiles
-  with size estimates (⌥ keeps both files), quality slider with estimate, strip metadata, HDR
-  to SDR (HDR input only), re-optimise with another encoder, restore original (⌘Z). Video, PDF
-  and audio show their own controls here: playback speed, remove audio, GIF and still frame;
-  DPI, pages as images; bitrate and loudness.
+- **No header:** the card beside it shows the file. Rename is a click on the detail's name.
+- **Tabs** (`pr4-options-popover-tabs`): round symbol tabs on a recessed bar, the chosen one
+  fused with the lighter panel under it like a folder's tab, and its name in small caps at the
+  end: Format · Size · Actions. Audio replaces Size with Sound.
+- **Format:** the suggestion first, only while it is not the one applied, as an amber card:
+  "WebP would be 410 kB", "33 % lighter, …" and Convert. Then four format tiles with their
+  sizes (the file's own size on its tile, estimates on the others, an amber dot on the
+  suggested one; the file's own format is always one of the four, the rest are in "More
+  formats"). A click on an image's tile converts at once; a video's tile arms "Convert to MP4"
+  (owner's decision). ⌥ or the tile's context menu converts and keeps both. One line says what
+  the format is good for; Quality (teal) for lossy formats and video; Remove metadata (and HDR to
+  SDR for HDR input) as a charcoal switch; the kind's own controls (video speed and audio, PDF
+  DPI, audio bitrate and loudness); Restore original (⌘Z) and Optimise harder; the rule.
+  Compression's Adaptive · Lossless · Aggressive is a setting, not a popover choice: Optimise
+  harder runs the file again aggressively (as Clop offers it), and Lossless lives in Settings.
 - **Size:** downscale slider in 10 % steps with live dimensions and size, restore 100 %, fit
   under 500 kB / 1 / 2 / 5 MB / custom, crop aspect chips and the crop editor.
 - **Share:** a row of round buttons (Copy ⌘C, AirDrop, Save as ⌘S, Show in Finder ⌘R, Quick

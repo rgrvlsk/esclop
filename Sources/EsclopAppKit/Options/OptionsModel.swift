@@ -17,12 +17,24 @@ public enum OptionsTab: String, CaseIterable, Identifiable, Sendable {
 
     public var id: String { rawValue }
 
+    /// The tab's name, shown in small caps beside the tabs (docs/design/targets:
+    /// pr4-options-popover-tabs): Format, Size, Sound, Actions.
     public var title: String {
         switch self {
-        case .optimise: return Strings.text("Optimise")
+        case .optimise: return Strings.text("Format")
         case .size: return Strings.text("Size")
         case .sound: return Strings.text("Sound")
-        case .share: return Strings.text("Share")
+        case .share: return Strings.text("Actions")
+        }
+    }
+
+    /// The round tab's symbol.
+    public var symbol: String {
+        switch self {
+        case .optimise: return "doc"
+        case .size: return "arrow.up.left.and.arrow.down.right"
+        case .sound: return "waveform"
+        case .share: return "bolt"
         }
     }
 
@@ -76,7 +88,6 @@ public final class OptionsModel {
     public let card: ResultCard
     @ObservationIgnored let app: AppModel
     public var tab: OptionsTab
-    public var showsFormatOptions = false
     /// The quality slider while it is dragged; applied when released.
     public var quality: Double
     /// The downscale slider, 0.1...1 in 10 % steps.
@@ -84,22 +95,22 @@ public final class OptionsModel {
     public var customFit = ""
     public var cropping = false
     public var crop: CropGeometry?
-    public var name: String
     public var drill: Drill?
+    /// A video's format tile, chosen and waiting for Convert.
+    public var armed: OutputFormat?
     public internal(set) var facts = FileFacts()
     public internal(set) var estimates: [EstimateRequest: Int] = [:]
     /// Estimates the engine could not make (a format it cannot write for this file).
     public private(set) var unavailable: Set<EstimateRequest> = []
     public private(set) var shortcuts: [String] = []
 
-    public enum Drill: Equatable { case encoder, openWith, shortcut, pipeline, keepVisible }
+    public enum Drill: Equatable { case openWith, shortcut, pipeline, keepVisible }
 
     public init(card: ResultCard, app: AppModel) {
         self.card = card
         self.app = app
         tab = OptionsTab.tabs(for: MediaKind.of(card.source)).contains(card.optionsTab) ? card.optionsTab : .optimise
         quality = Double(card.choice.effectiveQuality)
-        name = Self.shownName(of: card)
         if card.optionsTab == .size { cropping = true }
     }
 
@@ -157,7 +168,6 @@ public final class OptionsModel {
 
     public func disappear() {
         if let original { Task { await app.estimator.cancel(original) } }
-        if name != Self.shownName(of: card) { commitName() }
     }
 
     // MARK: Estimates
@@ -195,23 +205,6 @@ public final class OptionsModel {
         return EstimateRequest(choice: card.choice, crop: size)
     }
 
-    /// "PNG · 960 × 600", "HEVC · 3840 × 2160 · 2:14", "PDF · 28 pages": what the file is now.
-    /// The size comes from the current result (after a crop or a downscale); the original's
-    /// facts are only the fallback. The crop editor and the downscale slider keep working in the
-    /// original's pixels, since every change runs again from the original.
-    public var headerMeta: String {
-        var parts = [currentFormat?.displayName].compactMap { $0 }
-        var width = facts.width, height = facts.height, duration = facts.duration
-        if let result = card.result {
-            if let w = result.width, let h = result.height { (width, height) = (w, h) }
-            if let d = result.duration { duration = d }
-        }
-        if let width, let height { parts.append("\(width) × \(height)") }
-        if let duration { parts.append(Figures.duration(duration)) }
-        if let pages = facts.pages { parts.append(Strings.format(pages == 1 ? "%d page" : "%d pages", pages)) }
-        return parts.joined(separator: " · ")
-    }
-
     /// "1470 × 956" at the slider's scale.
     public var scaledDimensions: String? {
         guard let width = facts.width, let height = facts.height else { return nil }
@@ -230,6 +223,18 @@ public final class OptionsModel {
         choice.format = format == inputFormat ? nil : format
         choice.quality = nil
         apply(choice)
+    }
+
+    /// Runs the armed video format.
+    public func convertArmed() {
+        guard let armed else { return }
+        self.armed = nil
+        choose(format: armed, keepBoth: false)
+    }
+
+    /// The same file again, compressed harder: Clop's "Optimise aggressively" as an action.
+    public func optimiseHarder() {
+        choose(compression: .aggressive)
     }
 
     public func choose(compression: OptimiseChoice.Compression) {
@@ -291,18 +296,6 @@ public final class OptionsModel {
     }
 
     public var canMakeRule: Bool { card.origin == .clipboard && card.fileOrigin != nil && card.inputType != nil }
-
-    /// Only a name the person typed renames the file.
-    public func commitName() {
-        guard name != Self.shownName(of: card) else { return }
-        if !app.rename(card, to: name) { name = Self.shownName(of: card) }
-    }
-
-    /// The name the header shows: the card's ("Copied image" for copied pixels, not the
-    /// temporary file's "Clipboard 2026-11-10T02.52.31Z"), else the file's.
-    static func shownName(of card: ResultCard) -> String {
-        card.displayName ?? card.shownFile.deletingPathExtension().lastPathComponent
-    }
 
     /// "Screenshot (PNG)", "Copied image (PNG)", "PNG file": where the file came from, in words.
     public var originLabel: String {
