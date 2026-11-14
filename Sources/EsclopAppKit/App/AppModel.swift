@@ -90,11 +90,14 @@ public final class AppModel {
     /// take one of the three places (`failureGroup`).
     public var visibleCards: [ResultCard] {
         guard groupsFailures else { return Array(cards.suffix(Self.visibleLimit)) }
-        return Array(cards.filter { $0.failure == nil }.suffix(Self.visibleLimit - 1))
+        let grouped = Set(failedCards.map(\.id))
+        return Array(cards.filter { !grouped.contains($0.id) }.suffix(Self.visibleLimit - 1))
     }
 
-    /// The failed results, oldest first.
-    public var failedCards: [ResultCard] { cards.filter { $0.failure != nil } }
+    /// The failed results the group holds, oldest first. One the person is using (open,
+    /// hovered, focused) stays its own card until they leave it, so nothing changes under the
+    /// pointer.
+    public var failedCards: [ResultCard] { cards.filter { $0.failure != nil && !$0.machine.isDismissalPaused } }
 
     /// Two or more failures share one place in the stack, an amber pill that opens into their
     /// list (docs/design/targets: pr2-failures), so they never push the results off the screen.
@@ -107,11 +110,12 @@ public final class AppModel {
     /// The grouped failures show their list.
     public var failuresExpanded = false
 
-    /// Runs again every failure another try can help.
+    /// Runs again every failure another try can help, and closes the list.
     public func retryFailures() {
         for card in failedCards {
             if let action = FailureGroup.retry(for: card) { perform(action, on: card) }
         }
+        failuresExpanded = false
     }
 
     /// Removes every failure: the originals are untouched, only the notices go.

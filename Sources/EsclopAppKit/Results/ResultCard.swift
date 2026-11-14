@@ -137,6 +137,13 @@ public final class ResultCard: Identifiable {
         return nil
     }
 
+    /// Why it failed, in the failure's own words.
+    public var failureMessage: String? {
+        if case let .failed(message) = phase { return message }
+        if case let .failed(message) = upload { return message }
+        return nil
+    }
+
     public var presentation: CardPresentation {
         CardPresentation(card: self)
     }

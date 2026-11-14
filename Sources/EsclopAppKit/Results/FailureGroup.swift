@@ -51,7 +51,9 @@ struct FailureGroup: View {
     // MARK: Open
 
     private func list(_ cards: [ResultCard]) -> some View {
-        VStack(spacing: 0) {
+        // Each row's way forward, worked out once per render.
+        let retries = cards.map(Self.retry)
+        return VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Self.triangle(size: 19)
                 Text(Self.heading(cards))
@@ -77,11 +79,11 @@ struct FailureGroup: View {
             .frame(height: 54)
             .background(Surface.decision)
 
-            rows(cards)
+            rows(cards, retries: retries)
 
             Rectangle().fill(Ink.secondary.opacity(0.18)).frame(height: 0.5)
             HStack(spacing: 44) {
-                if cards.contains(where: { Self.retry(for: $0) != nil }) {
+                if retries.contains(where: { $0 != nil }) {
                     Button(Strings.text("Retry All")) { model.retryFailures() }
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Ink.charcoalText)
@@ -100,13 +102,13 @@ struct FailureGroup: View {
     }
 
     /// The rows, scrolling past four so the list never runs off the screen.
-    @ViewBuilder private func rows(_ cards: [ResultCard]) -> some View {
+    @ViewBuilder private func rows(_ cards: [ResultCard], retries: [CardPresentation.Action?]) -> some View {
         let content = VStack(spacing: 0) {
             ForEach(Array(cards.enumerated()), id: \.element.id) { index, card in
                 if index > 0 {
                     Rectangle().fill(Ink.secondary.opacity(0.18)).frame(height: 0.5).padding(.leading, 72)
                 }
-                FailureRow(card: card) { model.perform($0, on: card) }
+                FailureRow(card: card, retry: retries[index]) { model.perform($0, on: card) }
             }
         }
         if cards.count > Self.rowsShown {
@@ -125,6 +127,10 @@ struct FailureGroup: View {
 
     /// The heading says what did not happen, so it stays true for a mix.
     static func heading(_ cards: [ResultCard]) -> String {
+        // One left (an open list holds it): the single card's words, which need no number.
+        if cards.count == 1, let failure = cards.first?.failure {
+            return failure == .upload ? Strings.text("Not uploaded") : Strings.text("Not optimised")
+        }
         switch Set(cards.compactMap(\.failure)) {
         case [.optimise]: return Strings.format("%d not optimised", cards.count)
         case [.upload]: return Strings.format("%d not uploaded", cards.count)
@@ -149,6 +155,8 @@ struct FailureGroup: View {
 /// One failure in the list: the picture, the name, why, and the way forward.
 struct FailureRow: View {
     let card: ResultCard
+    /// Retry or Upload Again; nil when another try cannot help.
+    let retry: CardPresentation.Action?
     let perform: (CardPresentation.Action) -> Void
 
     static let height: CGFloat = 66
@@ -170,7 +178,7 @@ struct FailureRow: View {
                     .help(reason)
             }
             Spacer(minLength: 8)
-            if let action = FailureGroup.retry(for: card) {
+            if let action = retry {
                 TextPill(action: action, title: CardFooter.retryTitle(action), perform: perform)
             }
         }
@@ -184,7 +192,7 @@ struct FailureRow: View {
         if card.failure == .optimise, !FileManager.default.fileExists(atPath: card.source.path) {
             return Strings.text("The file was moved or deleted.")
         }
-        return card.presentation.caption
+        return card.failureMessage ?? ""
     }
 
     @ViewBuilder private var thumbnail: some View {
