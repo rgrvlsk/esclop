@@ -61,19 +61,34 @@ public struct ResultsLog: Sendable {
             data.append(line)
             data.append(0x0A)
         }
-        do {
-            try Paths.ensure(url.deletingLastPathComponent())
-            if !FileManager.default.fileExists(atPath: url.path) {
-                FileManager.default.createFile(atPath: url.path, contents: nil)
+        locked {
+            do {
+                try Paths.ensure(url.deletingLastPathComponent())
+                if !FileManager.default.fileExists(atPath: url.path) {
+                    FileManager.default.createFile(atPath: url.path, contents: nil)
+                }
+                let handle = try FileHandle(forWritingTo: url)
+                defer { try? handle.close() }
+                try handle.seekToEnd()
+                try handle.write(contentsOf: data)
+            } catch {
+                return
             }
-            let handle = try FileHandle(forWritingTo: url)
-            defer { try? handle.close() }
-            try handle.seekToEnd()
-            try handle.write(contentsOf: data)
-        } catch {
-            return
+            trimIfNeeded()
         }
-        trimIfNeeded()
+    }
+
+    /// The app, the CLI and the MCP server all write the log: an append, a trim and a clear each
+    /// hold an exclusive lock on `<log>.lock`, so none writes into a file another is replacing,
+    /// and a trim never puts back names a clear just removed.
+    private func locked<T>(_ body: () throws -> T) rethrows -> T {
+        try? Paths.ensure(url.deletingLastPathComponent())
+        let descriptor = open(url.path + ".lock", O_CREAT | O_RDWR, 0o644)
+        guard descriptor >= 0 else { return try body() }
+        defer { close(descriptor) }
+        flock(descriptor, LOCK_EX)
+        defer { flock(descriptor, LOCK_UN) }
+        return try body()
     }
 
     /// Newest first.
@@ -126,6 +141,10 @@ public struct ResultsLog: Sendable {
     /// not touched. Readers of `recent` (the CLI, MCP, the app) skip cleared lines: they do not
     /// decode as a result.
     public func redactAll() throws {
+        try locked { try redactLocked() }
+    }
+
+    private func redactLocked() throws {
         guard let data = try? Data(contentsOf: url) else { return }
         let decoder = JSONCoding.wireDecoder(), encoder = JSONCoding.wireEncoder()
         var out = Data()
@@ -146,6 +165,9 @@ public struct ResultsLog: Sendable {
         guard lines.count > keep * 2 else { return }
         let decoder = JSONCoding.wireDecoder()
         let since = Date().addingTimeInterval(-8 * 86_400)
+        // Oldest first: when even the oldest is from the last eight days, nothing can go, and the
+        // file stays as it is instead of being rewritten on every append.
+        if let first = lines.first, let oldest = try? decoder.decode(Saving.self, from: Data(first)), oldest.finishedAt >= since { return }
         let firstKept = lines.count - keep
         let kept = lines.enumerated().filter { index, line in
             index >= firstKept || ((try? decoder.decode(Saving.self, from: Data(line)))?.finishedAt ?? .distantPast) >= since

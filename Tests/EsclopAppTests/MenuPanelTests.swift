@@ -47,3 +47,17 @@ import Testing
         #expect(!EsclopSettings.pauseAutomaticOptimisations.value(in: harness.settings.store), "the setting itself is off")
     }
 }
+
+@MainActor
+@Suite struct MainMenuTests {
+    /// Without it, ⌘V does nothing in a Settings field: the app is a menu bar app with no menu
+    /// of its own on screen.
+    @Test func textFieldsAndWindowsHaveTheirKeys() {
+        let items = MainMenu.make().items.flatMap { $0.submenu?.items ?? [] }
+        func has(_ action: String, _ key: String) -> Bool {
+            items.contains { $0.action == Selector((action)) && $0.keyEquivalent == key }
+        }
+        #expect(has("paste:", "v") && has("copy:", "c") && has("cut:", "x") && has("selectAll:", "a"))
+        #expect(has("undo:", "z") && has("performClose:", "w") && has("terminate:", "q"))
+    }
+}
