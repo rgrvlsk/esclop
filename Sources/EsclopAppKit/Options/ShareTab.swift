@@ -57,7 +57,6 @@ struct ShareTab: View {
                     Text(Strings.text("Keep visible") + " · " + Self.keepVisible(app.keepVisibleSeconds(for: card)) + " ›")
                 }
                 Spacer()
-                Button(Strings.text("Customise buttons…")) { model.drill = .hoverButtons }
             }
             .buttonStyle(.plain)
             .font(OptionsType.label)
@@ -181,17 +180,6 @@ struct OptionsDrill: View {
                     app.setKeepVisible(nil, for: card)
                     back()
                 }
-            }
-        case .hoverButtons:
-            DrillPage(title: Strings.text("Hover buttons"), back: back) {
-                let shown = Set(app.hoverButtons)
-                ForEach(["undo", "convert", "downscale", "crop"], id: \.self) { name in
-                    SwitchRow(title: CardPresentation.hoverButtonTitle(name), isOn: Binding(
-                        get: { shown.contains(name) },
-                        set: { app.setHoverButton(name, shown: $0) }
-                    ))
-                }
-                Text(Strings.text("“…” always stays, so the options are one click away.")).font(OptionsType.label).foregroundStyle(PopoverInk.secondary.color)
             }
         }
     }

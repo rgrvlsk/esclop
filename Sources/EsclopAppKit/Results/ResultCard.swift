@@ -44,7 +44,6 @@ public final class ResultCard: Identifiable {
     /// When the work started, for the time left.
     public var startedAt = Date()
     /// The deflate plays once per card, the first time the result is drawn.
-    public var hasPlayedArrival = false
     /// Where the file came from and the format it arrived in (DESIGN.md › Origin rules).
     public var fileOrigin: FileOrigin?
     public var inputType: String?
@@ -52,8 +51,6 @@ public final class ResultCard: Identifiable {
     public var choice: OptimiseChoice = .standard
     /// The clipboard rule that chose `choice`, shown as a glyph on the capsule.
     public var appliedRule: ClipboardRule?
-    /// The hover buttons the person kept (`hoverButtons`); "…" always shows.
-    public var hoverButtons = ["undo", "convert", "downscale", "crop"]
     /// Which tab the options popover opens on (Crop opens Size).
     public var optionsTab: OptionsTab = .optimise
     /// Where the pointer was when the dwell started counting.
@@ -80,10 +77,7 @@ public final class ResultCard: Identifiable {
         self.phase = phase
         let expected = JobEstimate.expectedSeconds(kind: MediaKind.of(source), bytes: bytesBefore, aggressive: aggressive)
         expectedDuration = expected
-        // A card that starts finished (a recent result shown again) never gets the activity capsule.
-        var isWorking = false
-        if case .working = phase { isWorking = true }
-        var machine = FloatingResultMachine(expectedDuration: isWorking ? expected : 0)
+        var machine = FloatingResultMachine()
         switch phase {
         case .working: break
         case .failed: machine.failed(at: Date(), hideAfter: nil)

@@ -203,16 +203,19 @@ import UniformTypeIdentifiers
         #expect(harness.requests.requests.last?.quality == .aggressive, "size changes keep the choice")
     }
 
-    @Test func hoverButtonsFollowTheSetting() async throws {
+    /// The card's buttons follow where the file came from: a copied screenshot goes back to the
+    /// clipboard, any other file is found in Finder. Undo only while a backup exists; "…" always.
+    @Test func theCardsButtonsFollowWhereTheFileCameFrom() async throws {
         let harness = Harness()
-        try EsclopSettings.hoverButtons.set(["undo", "crop"], in: harness.settings.store)
-        _ = await harness.model.run(harness.job(harness.temp.file("a.png", bytes: 100_000)))
-        let card = try #require(harness.model.cards.first)
-        #expect(card.presentation.tools == [.undo, .crop, .more])
-        harness.model.setHoverButton("convert", shown: true)
-        #expect(card.presentation.tools == [.undo, .convert(.webp), .crop, .more])
-        harness.model.setHoverButton("undo", shown: false)
-        #expect(card.presentation.tools.first == .convert(.webp), "\"…\" always stays")
+        _ = await harness.model.run(harness.job(harness.temp.file("a.png", bytes: 100_000), origin: .clipboard))
+        _ = await harness.model.run(harness.job(harness.temp.file("b.png", bytes: 100_000), origin: .dropZone))
+        let copied = try #require(harness.model.cards.first { $0.origin == .clipboard })
+        let dropped = try #require(harness.model.cards.first { $0.origin == .dropZone })
+        let undo: [CardPresentation.Action] = copied.result?.backup != nil ? [.undo] : []
+        #expect(copied.presentation.tools == [.copy] + undo + [.more])
+        #expect(dropped.presentation.tools == [.reveal] + undo + [.more])
+        #expect(CardPresentation.tools(for: .finder, undo: false) == [.reveal, .more], "no Undo without a backup")
+        #expect(Set(dropped.presentation.actions).count == dropped.presentation.actions.count, "each action once")
     }
 }
 

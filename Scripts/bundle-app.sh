@@ -8,6 +8,7 @@
 #   Contents/Resources/bin/      the bundled tools and esclop-engine, from Binaries/
 #   Contents/Resources/LICENSES/ every licence text and notice (Scripts/stage-notices.sh)
 #   Contents/Resources/AppIcon.icns from assets/AppIcon.icns (regenerate with `make icons`)
+#   Contents/Resources/Assets.car  the accent colour, from assets/Accent.xcassets
 # then signs it (ad hoc, or with $ESCLOP_SIGN_IDENTITY and the hardened runtime), verifies the
 # signature and runs the licence gate on the result.
 #
@@ -103,6 +104,11 @@ fi
 # The app icon is committed (assets/AppIcon.icns, CFBundleIconFile in the template), so bundling
 # needs no SVG tools. The menu bar glyph travels in EsclopAppKit's resource bundle, copied above.
 cp assets/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+# The accent colour (Info.plist NSAccentColorName): charcoal, so switches, checkboxes and default
+# buttons are never the system blue. actool compiles the catalog into Contents/Resources/Assets.car.
+xcrun actool --compile "$APP/Contents/Resources" --platform macosx --minimum-deployment-target 14.0 \
+  --output-format human-readable-text --warnings --errors assets/Accent.xcassets > /dev/null
+[ -f "$APP/Contents/Resources/Assets.car" ] || { echo "bundle-app: actool wrote no Assets.car" >&2; exit 1; }
 
 # Shortcuts actions: the App Intents metadata Xcode would write, from the release build.
 Scripts/appintents-metadata.sh "$APP"

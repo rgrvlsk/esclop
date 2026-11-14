@@ -92,7 +92,7 @@ public final class OptionsModel {
     public private(set) var unavailable: Set<EstimateRequest> = []
     public private(set) var shortcuts: [String] = []
 
-    public enum Drill: Equatable { case encoder, openWith, shortcut, pipeline, hoverButtons, keepVisible }
+    public enum Drill: Equatable { case encoder, openWith, shortcut, pipeline, keepVisible }
 
     public init(card: ResultCard, app: AppModel) {
         self.card = card
