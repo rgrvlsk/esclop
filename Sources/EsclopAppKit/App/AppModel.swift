@@ -478,6 +478,8 @@ public final class AppModel {
         case pointerEntered, pointerExited
         case openDetail, closeDetail
         case focus(Bool), dragging(Bool), menu(Bool)
+        /// The detail's name, edited in place: the file takes the new name.
+        case rename(String)
     }
 
     public func interact(_ card: ResultCard, _ interaction: Interaction) {
@@ -502,6 +504,8 @@ public final class AppModel {
         case let .menu(value):
             card.menuHighlight = nil
             card.machine.setMenuOpen(value, at: time)
+        case let .rename(name):
+            rename(card, to: name)
         }
         afterChange(card)
     }

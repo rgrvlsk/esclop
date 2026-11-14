@@ -11,7 +11,6 @@ import SwiftUI
 public struct OptionsPopover: View {
     @State private var model: OptionsModel
     @State private var contentHeight: CGFloat = 0
-    @State private var headerHeight: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Where the arrow is: the bottom edge when the popover sits above its button.
@@ -24,37 +23,37 @@ public struct OptionsPopover: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 12) {
-                OptionsHeader(model: model)
-                if model.drill == nil {
-                    Segments(options: model.tabs, selection: $model.tab, title: \.title)
-                        .accessibilityLabel(Strings.text("Options"))
-                }
+            if model.drill == nil {
+                FusedTabs(tabs: model.tabs, selection: $model.tab)
             }
-            .padding([.horizontal, .top], OptionsType.padding)
-            .padding(.bottom, 8)
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
-
             ScrollView {
                 content
                     .padding(.horizontal, OptionsType.padding)
-                    .padding(.top, 4)
+                    .padding(.top, model.drill == nil ? 14 : OptionsType.padding)
                     .padding(.bottom, OptionsType.padding)
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
             }
             .scrollIndicators(.automatic)
             // A definite height from the first layout: AppKit places the popover with its first
             // size, and an unmeasured scroll view would make it flip below the button.
-            .frame(height: min(contentHeight > 0 ? contentHeight : 200, max(120, OptionsType.maxHeight - max(headerHeight, 120))))
+            .frame(height: min(contentHeight > 0 ? contentHeight : 200, OptionsType.maxHeight - FusedTabs.height))
             .mask(alignment: .bottom) { fade }
+            .background { FusedPanel(drill: model.drill != nil) }
         }
         .frame(width: OptionsType.width)
         .font(OptionsType.body)
-        // Our own surface and inks over the glass: their contrast is known (PopoverInk).
         .foregroundStyle(PopoverInk.primary.color)
-        .background(PopoverInk.surface.color)
+        // The chosen tab's outline over the recessed bar, under the content.
+        .backgroundPreferenceValue(FusedTabKey.self) { anchor in
+            GeometryReader { proxy in
+                if let anchor, model.drill == nil {
+                    FusedTabShape(tab: proxy[anchor], panelTop: FusedTabs.height, inset: FusedPanel.inset)
+                        .fill(Surface.tile)
+                }
+            }
+        }
+        .background(Surface.recessed)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: model.tab)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: model.showsFormatOptions)
         .background { shortcuts }
         .background { PopoverEdgePin(arrowAtBottom: arrowAtBottom).frame(width: 0, height: 0) }
         .task { await model.appear() }
@@ -76,7 +75,7 @@ public struct OptionsPopover: View {
 
     /// The bottom 24 pt fade out only when there is more to scroll to.
     private var fade: some View {
-        let scrolls = contentHeight > OptionsType.maxHeight - headerHeight
+        let scrolls = contentHeight > OptionsType.maxHeight - FusedTabs.height
         return VStack(spacing: 0) {
             Rectangle()
             LinearGradient(colors: [.black, .black.opacity(scrolls ? 0 : 1)], startPoint: .top, endPoint: .bottom).frame(height: 24)
@@ -97,51 +96,92 @@ public struct OptionsPopover: View {
     }
 }
 
-/// Thumbnail, editable name, "2.4 MB → 612 kB · −75 %", format and dimensions.
-struct OptionsHeader: View {
-    @Bindable var model: OptionsModel
-    @FocusState private var editing: Bool
+/// The round tabs (docs/design/targets: pr4-options-popover-tabs): one symbol each, the chosen one
+/// fused with the panel under it like a folder's tab, and the tab's name in small caps at the end.
+struct FusedTabs: View {
+    let tabs: [OptionsTab]
+    @Binding var selection: OptionsTab
+
+    static let height: CGFloat = 64
+    static let side: CGFloat = 40
 
     var body: some View {
-        let info = model.card.presentation
-        HStack(alignment: .center, spacing: 10) {
-            Group {
-                if let image = model.card.thumbnail {
-                    Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
-                } else {
-                    Image(systemName: "doc").font(.title2).foregroundStyle(PopoverInk.secondary.color)
+        HStack(spacing: 10) {
+            ForEach(tabs) { tab in
+                let selected = tab == selection
+                Button { selection = tab } label: {
+                    Image(systemName: tab.symbol)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(PopoverInk.primary.color)
+                        .frame(width: Self.side, height: Self.side)
+                        .background {
+                            if !selected {
+                                Circle().fill(Surface.cream).shadow(color: .black.opacity(0.1), radius: 1.5, y: 1)
+                            }
+                        }
+                        .contentShape(Circle())
                 }
+                .buttonStyle(PressScale())
+                .anchorPreference(key: FusedTabKey.self, value: .bounds) { selected ? $0 : nil }
+                .help(tab.title)
+                .accessibilityLabel(tab.title)
+                .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
             }
-            .frame(width: 44, height: 44)
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 3) {
-                TextField(Strings.text("File name"), text: $model.name)
-                    .textFieldStyle(.plain)
-                    .font(OptionsType.title)
-                    .focused($editing)
-                    .onSubmit { model.commitName() }
-                    .disabled(model.card.result == nil)
-                    .accessibilityLabel(Strings.text("File name"))
-                Group {
-                    if model.card.isWorking {
-                        Text(Strings.text("Optimising…"))
-                    } else if let result = model.card.result, Figures.isNoSaving(before: result.bytesBefore, after: result.bytesAfter) {
-                        Text(Strings.format("Already optimised · %@", Figures.bytes(result.bytesAfter)))
-                    } else if let result = model.card.result {
-                        Text(Figures.change(before: result.bytesBefore, after: result.bytesAfter) + " · ")
-                            + Text(Figures.percent(before: result.bytesBefore, after: result.bytesAfter)).foregroundStyle(PopoverInk.accent.color).fontWeight(.semibold)
-                    } else {
-                        Text(info.change)
-                    }
-                }
-                .font(OptionsType.label)
-                .monospacedDigit()
-                Text(model.headerMeta).font(OptionsType.label).foregroundStyle(PopoverInk.secondary.color).monospacedDigit().lineLimit(1)
-            }
+            Spacer(minLength: 8)
+            Text(selection.title)
+                .font(Typeface.section)
+                .textCase(.uppercase)
+                .tracking(2)
+                .foregroundStyle(PopoverInk.primary.color.opacity(0.8))
+                .accessibilityHidden(true)
         }
-        .onChange(of: editing) { _, now in if !now { model.commitName() } }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .frame(height: Self.height, alignment: .top)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Strings.text("Options"))
+    }
+}
+
+struct FusedTabKey: PreferenceKey {
+    static let defaultValue: Anchor<CGRect>? = nil
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+        value = value ?? nextValue()
+    }
+}
+
+/// The panel under the tabs, in the lighter tile; a drill-down fills the popover with it.
+struct FusedPanel: View {
+    var drill: Bool
+    static let inset: CGFloat = 8
+    static let radius: CGFloat = 18
+
+    var body: some View {
+        UnevenRoundedRectangle(
+            topLeadingRadius: drill ? 0 : Self.radius, bottomLeadingRadius: Self.radius,
+            bottomTrailingRadius: Self.radius, topTrailingRadius: drill ? 0 : Self.radius, style: .continuous
+        )
+        .fill(Surface.tile)
+        .padding([.horizontal, .bottom], drill ? 0 : Self.inset)
+    }
+}
+
+/// The chosen tab and the panel as one outline: the tab's circle, a neck down into the panel,
+/// and fillets where they meet, as the "…" menu's drop does (`LiquidMenuShape.fillet`).
+struct FusedTabShape: Shape {
+    var tab: CGRect
+    var panelTop: CGFloat
+    var inset: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let lip = tab.insetBy(dx: -6, dy: -6)
+        let circle = CGPath(roundedRect: lip, cornerWidth: lip.width / 2, cornerHeight: lip.width / 2, transform: nil)
+        let neck = CGPath(rect: CGRect(x: lip.minX, y: lip.midY, width: lip.width, height: panelTop - lip.midY + FusedPanel.radius), transform: nil)
+        let panel = CGPath(
+            roundedRect: CGRect(x: inset, y: panelTop, width: rect.width - 2 * inset, height: FusedPanel.radius * 2),
+            cornerWidth: FusedPanel.radius, cornerHeight: FusedPanel.radius, transform: nil
+        )
+        return Path(LiquidMenuShape.fillet(circle.union(neck).union(panel), radius: 8))
     }
 }
 

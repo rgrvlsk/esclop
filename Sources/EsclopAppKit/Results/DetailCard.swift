@@ -44,11 +44,7 @@ struct DetailCard: View {
                     }
                 }
             VStack(alignment: .leading, spacing: 1) {
-                Text(info.fileName)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Ink.text)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                DetailName(card: card, name: info.fileName, panel: share) { interact(.rename($0)) }
                 Text(facts).font(Typeface.caption).foregroundStyle(Ink.secondary).monospacedDigit().lineLimit(1)
             }
             .padding(.horizontal, 6)
@@ -293,3 +289,65 @@ struct OptionsPlaceholder: View {
         .frame(width: 240)
     }
 }
+
+/// The detail's file name; a click edits it in place (the rename the options popover's header
+/// used to carry). Return renames the file, Esc or leaving the field keeps the name.
+struct DetailName: View {
+    let card: ResultCard
+    let name: String
+    /// The panel the detail is in, made key so the field takes the typing.
+    let panel: SharingAnchor
+    let rename: (String) -> Void
+
+    @State private var editing = false
+    @State private var draft = ""
+    @FocusState private var focused: Bool
+
+    /// The name without its extension, which a rename keeps.
+    private var stem: String { (name as NSString).deletingPathExtension }
+
+    var body: some View {
+        Group {
+            if editing {
+                TextField(Strings.text("File name"), text: $draft)
+                    .textFieldStyle(.plain)
+                    .focused($focused)
+                    .onAppear { focused = true }
+                    .onSubmit { commit() }
+                    .onExitCommand { end() }
+                    .onChange(of: focused) { _, now in if !now { end() } }
+                    .accessibilityLabel(Strings.text("File name"))
+            } else {
+                Text(name)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .contentShape(Rectangle())
+                    .onTapGesture { begin() }
+                    .help(card.result == nil ? "" : Strings.text("Click to rename"))
+                    .accessibilityAddTraits(card.result == nil ? [] : .isButton)
+                    .accessibilityAction(named: Strings.text("Rename")) { begin() }
+            }
+        }
+        .font(.system(size: 13, weight: .semibold))
+        .foregroundStyle(Ink.text)
+    }
+
+    private func begin() {
+        guard card.result != nil else { return }
+        draft = card.displayName == nil ? stem : ""
+        editing = true
+        card.renaming = true
+        panel.window?.makeKey()
+    }
+
+    private func end() {
+        editing = false
+        card.renaming = false
+    }
+
+    private func commit() {
+        end()
+        if !draft.isEmpty, draft != stem { rename(draft) }
+    }
+}
+
