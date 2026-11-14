@@ -30,10 +30,12 @@ system screenshot thumbnail. The look follows [docs/design/targets](docs/design/
    by a liquid neck: one outline for button, neck and panel, with one hairline and one shadow.
    It opens as a drop that leaves the button, travels out round, then spreads into the panel
    (spring, 0.34 s response, 0.72 damping); the rows fade in where they stand once the drop
-   has its full width, after 200 ms, 18 ms apart. It closes the other way: rows out in 80 ms,
-   the panel sinks back in 160 ms. Reduce Motion crossfades the open shape in 120 ms. Arrows,
+   has its full width, after 200 ms, 18 ms apart. It closes the other way: rows out in 70 ms,
+   then the panel sinks back in 160 ms. Reduce Motion crossfades the open shape in 120 ms. Arrows,
    Home and End move, Return or Space runs, Esc or a click elsewhere closes, and so does
-   turning to another window. Share… shows the system's share services at "…".
+   turning to another window. The panel takes the keys while the menu is open, even with
+   another app in front, without activating L'Esclop. Share… shows the system's share
+   services at "…".
 
 Hover shows three round buttons over the picture's corner (Copy for a copied screenshot, Show
 in Finder for a file, then Undo and "…") and a close button over its outer corner, so the
