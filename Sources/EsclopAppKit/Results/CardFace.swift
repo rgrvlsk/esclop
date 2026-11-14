@@ -133,9 +133,9 @@ struct CardFooter: View {
 
     /// The ring's box, its stroke and its figure. The white dot clears the figure by 3 pt or more
     /// at every percentage (`RenderTests.theDotClearsTheFigure`).
-    static let ring = (side: CGFloat(48), lineWidth: CGFloat(4), figure: CGFloat(16))
+    static let ring = (side: CGFloat(50), lineWidth: CGFloat(3), figure: CGFloat(17))
     /// The detail's ring, where the figure takes the next size up.
-    static let largeRing = (side: CGFloat(76), lineWidth: CGFloat(6), figure: CGFloat(24))
+    static let largeRing = (side: CGFloat(62), lineWidth: CGFloat(5), figure: CGFloat(20))
     /// The ring's place, and the symbol's.
     private var slot: CGFloat { Self.ring.side }
 
@@ -154,7 +154,8 @@ struct CardFooter: View {
                 EmptyView()
             }
         }
-        .padding(.horizontal, 6)
+        // The small card's ring lines up with the picture's edge, as in the target.
+        .padding(.horizontal, large ? 6 : 0)
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity, minHeight: slot + 12, alignment: .leading)
     }
@@ -179,9 +180,9 @@ struct CardFooter: View {
             }
             .frame(width: ring.side, height: ring.side)
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: large ? 8 : 4) {
+                HStack(spacing: large ? 8 : 6) {
                     Text(Figures.bytes(before)).foregroundStyle(Ink.original)
-                    Image(systemName: "arrow.right").font(.system(size: large ? 14 : 10, weight: .medium)).foregroundStyle(Ink.secondary)
+                    Image(systemName: "arrow.right").font(.system(size: large ? 12 : 10, weight: .medium)).foregroundStyle(Ink.secondary)
                     Text(Figures.bytes(after)).foregroundStyle(Ink.secondary)
                     if card.aggressive {
                         Image(systemName: "bolt.fill").foregroundStyle(Ink.warm).help(Strings.text("Optimise harder"))
@@ -190,7 +191,7 @@ struct CardFooter: View {
                         Image(systemName: "pin.fill").foregroundStyle(Ink.text).help(rule.tooltip())
                     }
                 }
-                .font(.system(size: large ? 17 : 13, weight: .medium))
+                .font(.system(size: large ? 15 : 13, weight: .medium))
                 .monospacedDigit()
                 .lineLimit(1)
                 if !large { caption(info.caption) }
@@ -360,7 +361,7 @@ struct PillButton: View {
     /// The round face: the card's buttons and the detail's, "…" included.
     static func face(_ symbol: String, size: CGFloat, glyph: CGFloat = 0.45) -> some View {
         Image(systemName: symbol)
-            .font(.system(size: size * glyph, weight: .semibold))
+            .font(.system(size: size * glyph, weight: .medium))
             .foregroundStyle(Ink.text)
             .frame(width: size, height: size)
             .background(Circle().fill(Surface.cream))

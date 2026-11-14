@@ -15,7 +15,7 @@ struct ShareTab: View {
         let app = model.app, card = model.card
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .top, spacing: 2) {
-                RoundAction(symbol: "doc.on.doc", title: Strings.text("Copy"), shortcut: "⌘C") { app.perform(.copy, on: card) }
+                RoundAction(symbol: "square.on.square", title: Strings.text("Copy"), shortcut: "⌘C") { app.perform(.copy, on: card) }
                 RoundAction(symbol: "airplayaudio", title: Strings.text("AirDrop")) { app.airDrop(card) }
                 RoundAction(symbol: "square.and.arrow.down", title: Strings.text("Save as…"), shortcut: "⌘S") { app.saveAs(card) }
                 RoundAction(symbol: "folder", title: Strings.text("Finder"), shortcut: "⌘R") { app.perform(.reveal, on: card) }

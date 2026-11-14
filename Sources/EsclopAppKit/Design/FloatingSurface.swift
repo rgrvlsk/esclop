@@ -45,6 +45,7 @@ struct FloatingSurface: ViewModifier {
             // A 6 % wash of the tone in light. None in dark: on warm charcoal any wash pulls the
             // original size's brick red under 4.5:1 (3.95:1 under a yellow picture).
             .background { if let tone, !dark { shape.fill(tone.opacity(0.06)) } }
+            .background { topLight(shape) }
             .background(shape.fill(fill))
             .overlay { edge(shape) }
             .overlay { if let tone { shape.strokeBorder(tone.opacity(0.2), lineWidth: 4).allowsHitTesting(false) } }
@@ -72,6 +73,19 @@ struct FloatingSurface: ViewModifier {
             }
             .allowsHitTesting(false)
         }
+    }
+
+    /// Light from above: the top 10 pt fade from white to the fill, as in the targets. The
+    /// surface stays opaque.
+    private func topLight(_ shape: RoundedRectangle) -> some View {
+        let stops: [Gradient.Stop] = dark
+            ? [.init(color: .white.opacity(0.07), location: 0), .init(color: .clear, location: 1)]
+            : [.init(color: .white.opacity(0.7), location: 0), .init(color: .white.opacity(0.25), location: 0.4), .init(color: .clear, location: 1)]
+        return LinearGradient(stops: stops, startPoint: .top, endPoint: .bottom)
+            .frame(height: 10)
+            .frame(maxHeight: .infinity, alignment: .top)
+            .clipShape(shape)
+            .allowsHitTesting(false)
     }
 
     /// The picture's tone under the card: 32 pt blur, 14 pt down.

@@ -19,62 +19,39 @@ import Testing
         return FileManager.default.temporaryDirectory.appendingPathComponent("esclop-renders-\(UUID().uuidString)", isDirectory: true)
     }()
 
-    /// A stand-in screenshot: a window with a picture of hills, drawn, not captured.
-    static let screenshot: NSImage = {
-        let size = NSSize(width: 400, height: 260)
-        return NSImage(size: size, flipped: true) { rect in
-            NSColor(white: 0.97, alpha: 1).setFill()
-            rect.fill()
-            NSColor(white: 0.9, alpha: 1).setFill()
-            NSRect(x: 0, y: 0, width: rect.width, height: 22).fill()
-            for (index, color) in [0xFF5F57, 0xFEBC2E, 0x28C840].enumerated() {
-                Palette.color(UInt32(color)).setFill()
-                NSBezierPath(ovalIn: NSRect(x: 10 + index * 16, y: 6, width: 10, height: 10)).fill()
-            }
-            NSColor(white: 0.93, alpha: 1).setFill()
-            NSRect(x: 0, y: 22, width: 84, height: rect.height - 22).fill()
-            for row in 0 ..< 5 {
-                NSColor(white: 0.78, alpha: 1).setFill()
-                NSRect(x: 14, y: 40 + row * 18, width: 50, height: 5).fill()
-            }
-            NSColor(white: 0.2, alpha: 1).setFill()
-            NSRect(x: 104, y: 38, width: 140, height: 9).fill()
-            let frame = NSRect(x: 104, y: 62, width: 276, height: 150)
-            Palette.color(0xB7D3CB).setFill()
-            frame.fill()
-            let back = NSBezierPath()
-            back.move(to: NSPoint(x: frame.minX, y: frame.maxY))
-            back.line(to: NSPoint(x: frame.minX + 90, y: frame.minY + 40))
-            back.line(to: NSPoint(x: frame.minX + 170, y: frame.minY + 95))
-            back.line(to: NSPoint(x: frame.maxX, y: frame.minY + 30))
-            back.line(to: NSPoint(x: frame.maxX, y: frame.maxY))
-            Palette.color(0x5F9686).setFill()
-            back.fill()
-            let front = NSBezierPath()
-            front.move(to: NSPoint(x: frame.minX, y: frame.maxY))
-            front.line(to: NSPoint(x: frame.minX + 150, y: frame.minY + 85))
-            front.line(to: NSPoint(x: frame.maxX, y: frame.maxY - 10))
-            front.line(to: NSPoint(x: frame.maxX, y: frame.maxY))
-            Palette.color(0x2F6A5A).setFill()
-            front.fill()
-            NSColor(white: 0.85, alpha: 1).setFill()
-            NSRect(x: 104, y: 226, width: 200, height: 6).fill()
-            return true
+    /// A stand-in photo of a cove, drawn, not captured: full-bleed and saturated like the
+    /// targets' pictures, so the card's inset, radii and glow read as they will on a real photo.
+    static let cove: NSImage = NSImage(size: NSSize(width: 420, height: 280), flipped: false) { rect in
+        func fill(_ points: [(CGFloat, CGFloat)], _ color: UInt32) {
+            let path = NSBezierPath()
+            path.move(to: NSPoint(x: points[0].0, y: points[0].1))
+            for point in points.dropFirst() { path.line(to: NSPoint(x: point.0, y: point.1)) }
+            path.close()
+            Palette.color(color).setFill()
+            path.fill()
         }
-    }()
-
-    /// A photo with a tone of its own, so a hovered card shows its glow.
-    static let sunset: NSImage = NSImage(size: NSSize(width: 400, height: 260), flipped: false) { rect in
-        NSGradient(colors: [Palette.color(0x6B3FA0), Palette.color(0xE0566B), Palette.color(0xF29A3A)])?.draw(in: rect, angle: 90)
-        Palette.color(0x7A3B2A).setFill()
-        NSRect(x: 0, y: 0, width: rect.width, height: 70).fill()
+        let horizon: CGFloat = 170
+        NSGradient(colors: [Palette.color(0x7CC4F6), Palette.color(0x1E9BEA)])?
+            .draw(in: NSRect(x: 0, y: horizon, width: rect.width, height: rect.height - horizon), angle: 90)
+        NSGradient(colors: [Palette.color(0x5ACBC3), Palette.color(0x0FB5C0), Palette.color(0x0A8FB0)])?
+            .draw(in: NSRect(x: 0, y: 0, width: rect.width, height: horizon), angle: 90)
+        fill([(0, horizon), (30, horizon + 9), (80, horizon + 12), (130, horizon)], 0x6F8FA0)
+        fill([(210, horizon - 6), (250, horizon + 30), (300, horizon + 52), (360, horizon + 66), (420, horizon + 70), (420, 100), (330, 120), (260, 145)], 0x3F7A3A)
+        fill([(230, horizon - 8), (270, horizon + 6), (330, horizon + 4), (420, horizon - 10), (420, 100), (330, 118), (262, 142)], 0xB98A55)
+        fill([(140, 0), (420, 0), (420, 112), (340, 70), (250, 30)], 0xE0BA97)
+        let foam = NSBezierPath()
+        foam.move(to: NSPoint(x: 130, y: 2))
+        foam.curve(to: NSPoint(x: 420, y: 118), controlPoint1: NSPoint(x: 250, y: 40), controlPoint2: NSPoint(x: 340, y: 80))
+        foam.lineWidth = 6
+        NSColor(white: 1, alpha: 0.85).setStroke()
+        foam.stroke()
         return true
     }
 
     /// A picture of `size` with a light frame round its edge, so a crop shows.
     static func framed(_ size: NSSize) -> NSImage {
         NSImage(size: size, flipped: false) { rect in
-            sunset.draw(in: rect)
+            cove.draw(in: rect)
             NSColor.white.setStroke()
             let edge = NSBezierPath(rect: rect.insetBy(dx: 6, dy: 6))
             edge.lineWidth = 12
@@ -88,8 +65,8 @@ import Testing
 
     func card(_ phase: ResultCard.Phase, source: URL = Self.shot, bytes: Int = 2_400_000, aggressive: Bool = false, origin: RequestOrigin = .clipboard) -> ResultCard {
         let card = ResultCard(jobID: UUID(), source: source, origin: origin, aggressive: aggressive, bytesBefore: bytes)
-        card.thumbnail = Self.screenshot
-        card.originalThumbnail = Self.screenshot
+        card.thumbnail = Self.cove
+        card.originalThumbnail = Self.cove
         set(card, phase)
         return card
     }
@@ -117,10 +94,10 @@ import Testing
 
     @discardableResult
     func render(_ view: some View, name: String, scheme: ColorScheme) throws -> CGSize {
-        // A desktop like the prototype's, so the glass stand-in reads as it does on screen.
+        // A pale neutral desktop like the targets', so the cream card and its shadow read true.
         let desktop = scheme == .dark
-            ? [Palette.color(0x1E3A47), Palette.color(0x0F2230)]
-            : [Palette.color(0x7FA3B5), Palette.color(0x3C6680)]
+            ? [Palette.color(0x2E3034), Palette.color(0x1C1D20)]
+            : [Palette.color(0xE6E1DD), Palette.color(0xD8D2CD)]
         let framed = view
             .padding(EdgeInsets(top: 52, leading: 24, bottom: 24, trailing: 24))
             .background(LinearGradient(colors: desktop.map { Color(nsColor: $0) }, startPoint: .topLeading, endPoint: .bottomTrailing))
@@ -169,7 +146,7 @@ import Testing
         droppedHover.machine.pointerEntered(at: Date())
         // A photo with a tone: the hovered card glows in it.
         let toned = card(.done(saved()), origin: .dropZone)
-        toned.thumbnail = Self.sunset
+        toned.thumbnail = Self.cove
         toned.machine.pointerEntered(at: Date())
         // A long video says the time left instead of the percentage.
         let long = card(.working(fraction: 0.3), source: Self.video, bytes: 148_000_000)
@@ -205,7 +182,7 @@ import Testing
             return card
         }
         let photo = open(card(.done(saved(beach)), source: beach, origin: .dropZone))
-        photo.thumbnail = Self.sunset
+        photo.thumbnail = Self.cove
         let uploading = open(card(.done(saved())))
         uploading.upload = .uploading(fraction: 0.4)
         // Run again from the open detail: it stays open, aqua, with Stop as its charcoal button.
@@ -217,7 +194,7 @@ import Testing
         savedShot.savedCopy = URL(fileURLWithPath: "/tmp/Downloads/Copied image.png")
         // A photo that lost its location, camera and date shows the "Removed" strip.
         let stripped = open(card(.done(saved(beach)), source: beach, origin: .dropZone))
-        stripped.thumbnail = Self.sunset
+        stripped.thumbnail = Self.cove
         stripped.removedMetadata = [.location, .camera, .date]
         // A tall and a wide picture are fitted whole, not cropped.
         let tall = open(card(.done(saved(beach)), source: beach, origin: .dropZone))
