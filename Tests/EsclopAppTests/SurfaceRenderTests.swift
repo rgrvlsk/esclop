@@ -13,120 +13,143 @@ import Testing
 @Suite(.serialized) struct SurfaceRenderTests {
     static let schemes: [ColorScheme] = [.light, .dark]
 
-    /// Every ink on the floating surface, over a white, a black and a busy desktop, measured on
-    /// rendered pixels. Each ink is drawn as a square, so the sample is the ink itself and not an
-    /// antialiased edge. Text, secondary text and the saving hold 4.5:1; the aggressive mark and
-    /// the error triangle, symbols, 3:1 (the sentence beside the triangle is in text ink). The
-    /// surface is probed at the card's size, a drop tile's (whose name keeps its contrast while
-    /// the tile is dimmed) and a small capsule's, and the card under the strongest picture
-    /// tones. On the 6 % fill (key caps) text and secondary text hold 4.5:1; on the 14 % fill (a
-    /// button, a selected tile) words are set in text ink, which holds it.
+    /// One probe: a fill inside the floating surface (or the surface itself), and the inks set
+    /// on it with the contrast each must hold.
+    struct Probe {
+        var name: String
+        var fill: AnyShapeStyle?
+        var inks: [(String, AnyShapeStyle, Double)]
+        var tone: Color?
+    }
+
+    static let text = ("text", AnyShapeStyle(Ink.text), 4.5)
+    static let secondary = ("secondary", AnyShapeStyle(Ink.secondary), 4.5)
+    static let original = ("original", AnyShapeStyle(Ink.original), 4.5)
+    static let saving = ("saving", AnyShapeStyle(Ink.saving), 4.5)
+    static let charcoalText = ("charcoal-text", AnyShapeStyle(Ink.charcoalText), 4.5)
+    static let warm = ("warm", AnyShapeStyle(Ink.warm), 3.0)
+    static let error = ("error", AnyShapeStyle(Ink.error), 3.0)
+
+    /// Every ink on every fill it is set on, measured on rendered pixels, over a white, a black
+    /// and a busy desktop: the material is opaque, so all three must agree. Each ink is drawn as
+    /// a square, so the sample is the ink itself and not an antialiased edge. Text, secondary
+    /// text (the new size), the original size, the saving and charcoal as text hold 4.5:1; the amber mark, the
+    /// error triangle and the progress bar, which are not text, 3:1. On a charcoal fill (selected
+    /// or on) white holds 4.5:1. On the 14 % fill words are set in text ink.
     @Test(arguments: schemes)
     func inkContrastOnRenderedSurfaces(scheme: ColorScheme) async throws {
-        let inks: [(String, AnyShapeStyle, Double)] = [
-            ("saving", AnyShapeStyle(Ink.saving), 4.5), ("warm", AnyShapeStyle(Ink.warm), 3),
-            ("error", AnyShapeStyle(Ink.error), 3), ("secondary", AnyShapeStyle(Ink.secondary), 4.5),
-            ("text", AnyShapeStyle(Ink.text), 4.5),
-        ]
-        struct Probe {
-            var name: String
-            var size: CGSize
-            var radius: CGFloat
-            var small = false
-            var fill: PinnedInk?
-            var tone: Color?
-        }
         var probes = [
-            Probe(name: "card", size: CGSize(width: 240, height: 60), radius: Radius.card),
-            Probe(name: "tile", size: CGSize(width: 240, height: 92), radius: Radius.tile),
-            Probe(name: "capsule", size: CGSize(width: 240, height: 32), radius: 16, small: true),
-            Probe(name: "resting-fill", size: CGSize(width: 240, height: 60), radius: Radius.card, fill: NeutralFill.resting),
-            Probe(name: "button-fill", size: CGSize(width: 240, height: 60), radius: Radius.card, fill: NeutralFill.button),
+            Probe(name: "surface", inks: [Self.text, Self.secondary, Self.original, Self.saving, Self.charcoalText, Self.warm, Self.error]),
+            Probe(name: "tile", fill: AnyShapeStyle(Surface.tile), inks: [Self.text, Self.secondary, Self.original, Self.saving, Self.charcoalText, Self.warm, Self.error]),
+            Probe(name: "progress", fill: AnyShapeStyle(Surface.progress), inks: [Self.text, Self.secondary, ("bar", AnyShapeStyle(Ink.progress), 3.0)]),
+            Probe(name: "decision", fill: AnyShapeStyle(Surface.decision), inks: [Self.text, Self.secondary, Self.warm, Self.error]),
+            Probe(name: "charcoal", fill: AnyShapeStyle(Ink.charcoal), inks: [("on-charcoal", AnyShapeStyle(Ink.onCharcoal), 4.5)]),
+            Probe(name: "resting-fill", fill: AnyShapeStyle(NeutralFill.resting), inks: [Self.text, Self.secondary]),
+            Probe(name: "button-fill", fill: AnyShapeStyle(NeutralFill.button), inks: [Self.text]),
         ]
         for (wash, tone) in [("red", Color.red), ("blue", Color.blue), ("yellow", Color.yellow)] {
-            probes.append(Probe(name: "card-\(wash)", size: CGSize(width: 240, height: 60), radius: Radius.card, tone: tone))
+            probes.append(Probe(name: "surface-\(wash)", inks: [Self.text, Self.secondary, Self.original, Self.saving], tone: tone))
         }
-        let stage = CGSize(width: 300, height: 140)
+        let stage = CGSize(width: 340, height: 140)
+        let square: CGFloat = 20
         for probe in probes {
-            let square = min(20, probe.size.height - 12)
             let row = HStack(spacing: 20) {
-                ForEach(inks, id: \.0) { Rectangle().fill($0.1).frame(width: square, height: square) }
+                ForEach(probe.inks, id: \.0) { Rectangle().fill($0.1).frame(width: square, height: square) }
             }
-            .frame(width: probe.size.width - 20, height: probe.size.height - 12)
+            .padding(.horizontal, 20)
+            .frame(height: 44)
             .background { if let fill = probe.fill { RoundedRectangle(cornerRadius: Radius.inner, style: .continuous).fill(fill) } }
-            .frame(width: probe.size.width, height: probe.size.height)
-            .floatingSurface(probe.radius, small: probe.small, tone: probe.tone)
+            .padding(8)
+            .floatingSurface(Radius.card, tone: probe.tone)
             for (desktop, flat) in [("white", Color.white as Color?), ("black", Color.black as Color?), ("busy", nil)] {
                 try await SurfaceRender.floating(row, size: stage, name: "ink-probe-\(probe.name)-\(desktop)", scheme: scheme, busy: flat == nil, flat: flat)
                 guard let image = SurfaceRender.lastImage else { continue }
                 let scale = Double(image.width) / stage.width
                 let centre = stage.height / 2
-                // The row is centred: five squares 20 apart, in a surface centred in the stage.
-                let rowWidth = Double(inks.count) * square + Double(inks.count - 1) * 20
+                let rowWidth = Double(probe.inks.count) * square + Double(probe.inks.count - 1) * 20
                 let firstX = (stage.width - rowWidth) / 2 + square / 2
-                // The ground: between the surface's edge and the first square, clear of the fill.
-                let groundX = (stage.width - probe.size.width) / 2 + 6
-                let ground = try #require(InkSample.color(in: image, x: groundX * scale, y: centre * scale))
-                let fillGround = try #require(InkSample.color(in: image, x: (firstX - square / 2 - 5) * scale, y: centre * scale))
-                // What is set on each fill: words in text ink on both, secondary on the resting one.
-                let measured: Set<String> = switch probe.fill?.light {
-                case nil: Set(inks.map(\.0))
-                case NeutralFill.resting.light: ["text", "secondary"]
-                default: ["text"]
-                }
-                for (index, ink) in inks.enumerated() where measured.contains(ink.0) {
+                // The ground: 10 pt left of the first square, inside the fill (or the surface).
+                let ground = try #require(InkSample.color(in: image, x: (firstX - square / 2 - 10) * scale, y: centre * scale))
+                for (index, ink) in probe.inks.enumerated() {
                     let x = (firstX + Double(index) * (square + 20)) * scale
                     let color = try #require(InkSample.color(in: image, x: x, y: centre * scale))
-                    let ratio = RGBA.contrast(color, probe.fill == nil ? ground : fillGround)
+                    let ratio = RGBA.contrast(color, ground)
                     #expect(ratio >= ink.2, "\(scheme == .dark ? "dark" : "light"), \(ink.0) on the \(probe.name) over a \(desktop) desktop: \(String(format: "%.2f", ratio)):1")
                 }
             }
         }
     }
 
-    /// White on a lit tile, both fills, over any desktop: the fill is opaque.
-    @Test(arguments: schemes)
-    func litTilesHoldWhiteTextOnRenderedPixels(scheme: ColorScheme) async throws {
-        let stage = CGSize(width: 200, height: 140)
-        for (name, fill) in [("lit", Ink.lit), ("lit-warm", Ink.litWarm)] {
-            let tile = Rectangle().fill(Ink.onLit).frame(width: 20, height: 20)
-                .frame(width: 92, height: 92)
-                .floatingSurface(Radius.tile, tint: fill)
-            try await SurfaceRender.floating(tile, size: stage, name: "ink-probe-\(name)", scheme: scheme, busy: true)
-            guard let image = SurfaceRender.lastImage else { continue }
-            let scale = Double(image.width) / stage.width
-            let ink = try #require(InkSample.color(in: image, x: 100 * scale, y: 70 * scale))
-            let ground = try #require(InkSample.color(in: image, x: 70 * scale, y: 70 * scale))
-            #expect(RGBA.contrast(ink, ground) >= 4.5, "\(name): \(RGBA.contrast(ink, ground))")
-        }
-    }
-
-    /// The surface as a card would wear it, for the pull request: over white, black and a busy
-    /// desktop, and lit by three pictures' tones; the four figure sizes.
+    /// The material, the fills and the gauge as a card would wear them, for the pull request:
+    /// over white, black and a busy desktop; the figure's sizes; headings and a section label.
     @Test(arguments: schemes)
     func surfaces(scheme: ColorScheme) async throws {
         let sheet = HStack(alignment: .top, spacing: 24) {
             SurfaceSample(picture: SurfaceSamples.screenshot)
             SurfaceSample(picture: SurfaceSamples.photo, toned: true)
             VStack(spacing: Spacing.floating) {
-                Text("Uploaded · link copied").font(Typeface.label).foregroundStyle(Ink.text)
-                    .padding(.horizontal, Spacing.m).frame(height: 32)
-                    .floatingSurface(16, small: true)
-                Label("Optimise", systemImage: "bolt.fill").font(Typeface.label).foregroundStyle(Ink.onLit)
-                    .frame(width: 92, height: 92)
-                    .floatingSurface(Radius.tile, tint: Ink.lit)
+                HStack(spacing: Spacing.s) {
+                    Text("Holiday.mov").font(Typeface.title).foregroundStyle(Ink.text)
+                    Spacer()
+                    Text("40 %").font(Typeface.caption).foregroundStyle(Ink.secondary).monospacedDigit()
+                }
+                .padding(.horizontal, Spacing.m).frame(width: 160, height: 44)
+                .overlay(alignment: .bottom) {
+                    Capsule().fill(Ink.progress).frame(width: 136 * 0.4, height: 4).frame(width: 136, alignment: .leading)
+                        .background(alignment: .leading) { Capsule().fill(Ink.secondary.opacity(0.2)).frame(width: 136, height: 4) }
+                        .padding(.bottom, 6)
+                }
+                .floatingSurface(Radius.card, fill: Surface.progress)
+                Label("Couldn't compress", systemImage: "exclamationmark.triangle").font(Typeface.label).foregroundStyle(Ink.text)
+                    .padding(.horizontal, Spacing.m).frame(width: 160, height: 44)
+                    .floatingSurface(Radius.card, fill: Surface.decision)
+                VStack(spacing: 6) {
+                    Image(systemName: "photo").font(.system(size: 20))
+                    Text("Optimise").font(Typeface.label)
+                }
+                .foregroundStyle(Ink.onCharcoal)
+                .frame(width: 92, height: 92)
+                .floatingSurface(Radius.tile, fill: Ink.charcoal)
             }
         }
         for (ground, flat, busy) in [("white", Color.white as Color?, false), ("black", Color.black as Color?, false), ("busy", nil, true)] {
-            try await SurfaceRender.floating(sheet, size: CGSize(width: 620, height: 300), name: "surface-on-\(ground)", scheme: scheme, busy: busy, flat: flat)
+            try await SurfaceRender.floating(sheet, size: CGSize(width: 660, height: 330), name: "surface-on-\(ground)", scheme: scheme, busy: busy, flat: flat)
         }
-        let figures = HStack(alignment: .firstTextBaseline, spacing: 28) {
-            ForEach(Figure.Size.allCases, id: \.self) { Figure(percentSaved: 75, size: $0, locale: Locale(identifier: "ca_ES")) }
-            Figure(bytesSaved: 38_000_000, size: .detail)
+        let type = VStack(alignment: .leading, spacing: Spacing.m) {
+            Text("Today").font(Typeface.heading).foregroundStyle(Ink.text)
+            VStack(alignment: .leading, spacing: Spacing.s) {
+                Text("Saved").sectionLabel()
+                HStack(alignment: .bottom, spacing: 28) {
+                    ForEach(Figure.Size.allCases, id: \.self) { Figure(percentSaved: 75, size: $0, locale: Locale(identifier: "ca_ES")) }
+                    Figure(bytesSaved: 2_800_000_000, size: .detail)
+                }
+                HStack(spacing: Spacing.s) {
+                    Text("2.4 MB").foregroundStyle(Ink.original)
+                    Image(systemName: "arrow.right").foregroundStyle(Ink.secondary)
+                    Text("612 kB").foregroundStyle(Ink.secondary)
+                }
+                .font(Typeface.body)
+            }
+            .padding(Spacing.m)
+            .background(RoundedRectangle(cornerRadius: Radius.inner, style: .continuous).fill(Surface.tile))
         }
         .padding(Spacing.xl)
         .floatingSurface(Radius.panel)
-        try await SurfaceRender.floating(figures, size: CGSize(width: 620, height: 200), name: "figures", scheme: scheme)
+        try await SurfaceRender.floating(type, size: CGSize(width: 680, height: 320), name: "type", scheme: scheme)
+        let gauges = HStack(alignment: .center, spacing: 32) {
+            ZStack {
+                SavingGauge(saved: 0.75)
+                Figure(percentSaved: 75, size: .card, locale: Locale(identifier: "ca_ES"))
+            }
+            .frame(width: 84, height: 84)
+            VStack(spacing: 0) {
+                SavingGauge(saved: 0.68, shape: .arc).frame(width: 220, height: 80)
+                Figure(bytesSaved: 2_800_000_000, size: .panel).offset(y: -44)
+            }
+        }
+        .padding(Spacing.xl)
+        .floatingSurface(Radius.panel)
+        try await SurfaceRender.floating(gauges, size: CGSize(width: 480, height: 220), name: "gauges", scheme: scheme)
     }
 
     /// A burst writes every frame on time, numbered, with the time each was taken.
@@ -154,7 +177,8 @@ import Testing
     }
 }
 
-/// A card-shaped sample of the surface: a picture with its hairline, a figure and a caption.
+/// A card-shaped sample of the surface: a picture with its hairline, the ring and the figure,
+/// the original size in brick red and the new one in grey.
 private struct SurfaceSample: View {
     let picture: NSImage
     var toned = false
@@ -166,13 +190,24 @@ private struct SurfaceSample: View {
                 .frame(width: 200, height: 130)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.inner, style: .continuous))
                 .pictureHairline(Radius.inner)
-            HStack(alignment: .firstTextBaseline) {
-                Figure(percentSaved: 75, size: .card, locale: Locale(identifier: "en_GB"))
-                Spacer()
-                Text("612 KB").font(Typeface.caption).foregroundStyle(Ink.secondary)
+            HStack(spacing: Spacing.s) {
+                ZStack {
+                    SavingGauge(saved: 0.75, lineWidth: 4)
+                    Figure(percentSaved: 75, size: .card, locale: Locale(identifier: "en_GB"))
+                        .scaleEffect(0.7)
+                }
+                .frame(width: 52, height: 52)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Text("2.4 MB").foregroundStyle(Ink.original)
+                        Image(systemName: "arrow.right").foregroundStyle(Ink.secondary)
+                        Text("612 kB").foregroundStyle(Ink.secondary)
+                    }
+                    .font(Typeface.label)
+                    Text("Screenshot.png").font(Typeface.caption).foregroundStyle(Ink.secondary)
+                }
             }
-            .padding(.horizontal, Spacing.s)
-            Text("Screenshot").font(Typeface.label).foregroundStyle(Ink.text).padding([.horizontal, .bottom], Spacing.s)
+            .padding([.horizontal, .bottom], Spacing.s)
         }
         .padding(Spacing.xs)
         .frame(width: 208)

@@ -76,8 +76,8 @@ struct SuggestionCard: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: OptionsType.radius, style: .continuous).fill(Palette.accent.opacity(0.07)))
-        .overlay(RoundedRectangle(cornerRadius: OptionsType.radius, style: .continuous).strokeBorder(Palette.accent.opacity(0.18), lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: OptionsType.radius, style: .continuous).fill(Ink.warm.opacity(0.07)))
+        .overlay(RoundedRectangle(cornerRadius: OptionsType.radius, style: .continuous).strokeBorder(Ink.warm.opacity(0.18), lineWidth: 1))
         .accessibilityElement(children: .combine)
     }
 }
@@ -122,7 +122,6 @@ struct FormatOptions: View {
                 Slider(value: $model.quality, in: 5 ... 100) { editing in
                     if !editing { model.commitQuality() }
                 }
-                .tint(Palette.accent)
                 .disabled(model.card.isWorking)
                 .accessibilityLabel(Strings.text("Quality"))
             }
@@ -223,7 +222,6 @@ struct RuleCheckbox: View {
             .switchLabel(title: ClipboardRule.checkboxTitle(origin: model.origin, inputType: model.card.inputType ?? ""), hint: nil)
 
             .toggleStyle(.checkbox)
-            .tint(Palette.accent)
             .disabled(model.card.isWorking)
             if model.ruleOn, let origin = model.card.fileOrigin, let input = model.card.inputType {
                 Text(ClipboardRule(origin: origin, inputType: input, choice: model.card.appliedRule?.choice ?? model.card.choice).promise())

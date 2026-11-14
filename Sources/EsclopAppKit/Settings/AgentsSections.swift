@@ -115,7 +115,7 @@ struct AgentRow: View {
             case let .done(text)?:
                 Label(text, systemImage: "checkmark.circle.fill")
                     .font(.subheadline)
-                    .foregroundStyle(Palette.accent)
+                    .foregroundStyle(Ink.charcoalText)
             case let .failed(text)?:
                 Label(text, systemImage: "exclamationmark.triangle.fill")
                     .font(.subheadline)
@@ -135,7 +135,7 @@ struct AgentRow: View {
     @ViewBuilder private var stateIcon: some View {
         switch row.status.state {
         case .installed:
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(Palette.accent)
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(Ink.charcoalText)
                 .accessibilityLabel(Strings.text("Connected"))
         case .different:
             Image(systemName: "arrow.triangle.2.circlepath.circle.fill").foregroundStyle(Palette.warm)
@@ -207,12 +207,11 @@ struct ConfigChangeSheet: View {
                 Button(verb, action: onConfirm)
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)
-                    .tint(change.action == .install ? Palette.accent : .red)
+                    .tint(change.action == .install ? nil : .red)
             }
         }
         .padding(20)
         .frame(width: 560)
-        .tint(Palette.accent)
     }
 
     var explanation: String {
@@ -299,7 +298,7 @@ struct DiffView: View {
 
     func tint(_ kind: DiffLine.Kind) -> Color? {
         switch kind {
-        case .added: return Palette.accent
+        case .added: return Ink.charcoalText
         case .removed: return .red
         default: return nil
         }
@@ -329,7 +328,7 @@ struct AgentsTestSection: View {
             case let .passed(report):
                 Label(AgentsModel.summary(of: report), systemImage: "checkmark.circle.fill")
 
-                    .foregroundStyle(Palette.accent)
+                    .foregroundStyle(Ink.charcoalText)
                     .monospacedDigit()
             case let .failed(why):
                 Label(why, systemImage: "xmark.octagon.fill")

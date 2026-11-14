@@ -113,7 +113,7 @@ struct PipelineDetailView: View {
                         if let url = URL(string: "esclop://settings/agents/allowRunScripts") { NSWorkspace.shared.open(url) }
                     }
                     .buttonStyle(.link)
-                    .foregroundStyle(Palette.accent)
+                    .foregroundStyle(Ink.charcoalText)
                 }
             }
         }

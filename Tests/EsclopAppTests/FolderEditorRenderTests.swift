@@ -34,7 +34,6 @@ import Testing
                 Section("Images") { SettingRow(descriptor: descriptor, model: model, actions: SettingsActions()) }
             }
             .formStyle(.grouped)
-            .tint(Palette.accent)
             .environment(\.screenshotLocation, "~/Pictures/Screenshots")
         }, size: CGSize(width: 640, height: 520), name: "settings-folders", settle: .milliseconds(300))
         #expect(sizes.map(\.width) == [640, 640])

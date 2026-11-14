@@ -63,14 +63,21 @@ import Testing
         }
     }()
 
+    /// A photo with a tone of its own, so a hovered card shows its glow.
+    static let sunset: NSImage = NSImage(size: NSSize(width: 400, height: 260), flipped: false) { rect in
+        NSGradient(colors: [Palette.color(0x6B3FA0), Palette.color(0xE0566B), Palette.color(0xF29A3A)])?.draw(in: rect, angle: 90)
+        Palette.color(0x7A3B2A).setFill()
+        NSRect(x: 0, y: 0, width: rect.width, height: 70).fill()
+        return true
+    }
+
     static let video = URL(fileURLWithPath: "/tmp/Screen Recording 2026-11-05 at 10.42.mov")
     static let shot = URL(fileURLWithPath: "/tmp/Screenshot 2026-11-05 at 10.42.png")
 
-    func card(_ phase: ResultCard.Phase, source: URL = Self.shot, bytes: Int = 2_400_000, aggressive: Bool = false) -> ResultCard {
-        let card = ResultCard(jobID: UUID(), source: source, origin: .clipboard, aggressive: aggressive, bytesBefore: bytes)
+    func card(_ phase: ResultCard.Phase, source: URL = Self.shot, bytes: Int = 2_400_000, aggressive: Bool = false, origin: RequestOrigin = .clipboard) -> ResultCard {
+        let card = ResultCard(jobID: UUID(), source: source, origin: origin, aggressive: aggressive, bytesBefore: bytes)
         card.thumbnail = Self.screenshot
         card.originalThumbnail = Self.screenshot
-        card.hasPlayedArrival = true
         set(card, phase)
         return card
     }
@@ -130,7 +137,7 @@ import Testing
         let failed = card(.done(saved()))
         failed.upload = .failed(Strings.format("The upload target refused the file (%d): %@.", 403, "AccessDenied, Access Denied"))
         for (name, card) in [("result-uploading", uploading), ("result-uploaded", uploaded), ("result-upload-failed", failed)] {
-            #expect(try render(object(card), name: name, scheme: scheme).width == Metrics.thumbnailWidth, "\(name) is a 200 pt thumbnail")
+            #expect(try render(object(card), name: name, scheme: scheme).width == Metrics.thumbnailWidth, "\(name) is a 208 pt card")
         }
     }
 
@@ -143,18 +150,29 @@ import Testing
 
     @Test(arguments: [ColorScheme.light, .dark])
     func floatingResultStates(scheme: ColorScheme) throws {
+        // Hovered: a copied screenshot offers Copy, a dropped file Show in Finder.
         let hovered = card(.done(saved()))
-        hovered.machine.pointerEnteredButtons(at: Date())
+        hovered.machine.pointerEntered(at: Date())
+        let droppedHover = card(.done(saved()), origin: .dropZone)
+        droppedHover.machine.pointerEntered(at: Date())
+        // A photo with a tone: the hovered card glows in it.
+        let toned = card(.done(saved()), origin: .dropZone)
+        toned.thumbnail = Self.sunset
+        toned.machine.pointerEntered(at: Date())
         let detail = card(.done(saved()))
         detail.machine.openDetail(at: Date())
+        // A long video says the time left instead of the percentage.
         let long = card(.working(fraction: 0.3), source: Self.video, bytes: 148_000_000)
         long.startedAt = Date().addingTimeInterval(-5)
-        let longDone = card(.working(fraction: 0.3), source: Self.video, bytes: 148_000_000)
-        set(longDone, .done(saved(Self.video, before: 148_000_000, after: 37_000_000, kind: .video)))
+        long.expectedDuration = 80
         let thumbnails: [(String, ResultCard)] = [
             ("result-compressing", card(.working(fraction: 0.45))),
+            ("result-compressing-long", long),
             ("result-saved", card(.done(saved()))),
             ("result-hover", hovered),
+            ("result-hover-dropped", droppedHover),
+            ("result-hover-tone", toned),
+            ("result-grew", card(.done(saved(after: 2_470_000)))),
             ("result-harder", card(.done(saved(after: 360_000)), aggressive: true)),
             ("result-already-optimised", card(.unchanged(bytes: 41_200))),
             ("result-restored", card(.restored(saved()))),
@@ -162,11 +180,8 @@ import Testing
         ]
         for (name, card) in thumbnails {
             let size = try render(object(card), name: name, scheme: scheme)
-            #expect(size.width == Metrics.thumbnailWidth, "\(name) is a 200 pt thumbnail")
+            #expect(size.width == Metrics.thumbnailWidth, "\(name) is a 208 pt card")
         }
-        let wide = Metrics.thumbnailWidth + Metrics.activityWidth - Metrics.activityTuck
-        #expect(try render(object(long), name: "result-activity", scheme: scheme).width == wide)
-        #expect(try render(object(longDone), name: "result-activity-done", scheme: scheme).width == wide)
         #expect(try render(object(detail), name: "result-detail", scheme: scheme).width == Metrics.detailWidth)
         try render(object(card(.notice(title: "Skipping the next copy", detail: "Press again to pause everything."))), name: "result-notice", scheme: scheme)
     }
@@ -220,8 +235,8 @@ import Testing
         try render(FloatingStackView(model: harness.model), name: "stack", scheme: scheme)
     }
 
-    /// The newest result shows its buttons: they must not cover the capsule of the one above
-    /// (UI check, F2), and no capsule may touch the next thumbnail (F7).
+    /// The newest result is hovered: its buttons lie over its own picture and its glow does not
+    /// move its neighbours.
     @Test(arguments: [ColorScheme.light, .dark])
     func stackWithHoverButtons(scheme: ColorScheme) throws {
         let harness = Harness()
@@ -229,7 +244,7 @@ import Testing
         harness.model.add(card(.done(saved(after: 257_000))))
         let hovered = card(.done(saved()))
         harness.model.add(hovered)
-        hovered.machine.pointerEnteredButtons(at: Date())
+        hovered.machine.pointerEntered(at: Date())
         #expect(hovered.machine.showsHoverButtons)
         try render(FloatingStackView(model: harness.model), name: "stack-hover", scheme: scheme)
     }

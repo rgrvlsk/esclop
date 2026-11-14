@@ -102,8 +102,8 @@ struct TileStyle: ButtonStyle {
         let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
         configuration.label
             .foregroundStyle(selected ? PopoverInk.accent.color : PopoverInk.primary.color)
-            .background(shape.fill(selected ? Palette.accent.opacity(0.12) : Color.primary.opacity(configuration.isPressed ? 0.1 : 0.05)))
-            .overlay(shape.strokeBorder(selected ? Palette.accent : Color.primary.opacity(0.12), lineWidth: 1))
+            .background(shape.fill(selected ? Ink.charcoal.opacity(0.12) : Color.primary.opacity(configuration.isPressed ? 0.1 : 0.05)))
+            .overlay(shape.strokeBorder(selected ? Ink.charcoal : Color.primary.opacity(0.12), lineWidth: 1))
     }
 }
 
@@ -128,8 +128,8 @@ struct ChipStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .foregroundStyle(selected ? PopoverInk.accent.color : PopoverInk.primary.color)
-            .background(Capsule().fill(selected ? Palette.accent.opacity(0.12) : Color.primary.opacity(configuration.isPressed ? 0.1 : 0.05)))
-            .overlay(Capsule().strokeBorder(selected ? Palette.accent : Color.primary.opacity(0.12), lineWidth: 1))
+            .background(Capsule().fill(selected ? Ink.charcoal.opacity(0.12) : Color.primary.opacity(configuration.isPressed ? 0.1 : 0.05)))
+            .overlay(Capsule().strokeBorder(selected ? Ink.charcoal : Color.primary.opacity(0.12), lineWidth: 1))
     }
 }
 
@@ -171,7 +171,6 @@ struct SwitchRow: View {
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .controlSize(.small)
-                .tint(Palette.accent)
         }
         .frame(minHeight: 28)
         .accessibilityElement(children: .combine)

@@ -17,7 +17,7 @@ struct DetailCard: View {
     @State private var contracted = false
 
     var body: some View {
-        let tint = info.tone == .warm ? Palette.warm : (info.tone == .neutral ? Color.primary : Palette.accent)
+        let tint = info.tone == .warm ? Palette.warm : (info.tone == .neutral ? Color.primary : Ink.saving)
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Label(info.detailTitle, systemImage: info.detailSymbol)
@@ -86,7 +86,7 @@ struct DetailCard: View {
         }
         .padding(Metrics.detailPadding)
         .frame(width: Metrics.detailWidth)
-        .glassSurface(RoundedRectangle(cornerRadius: Metrics.detailRadius, style: .continuous), id: "shell-\(card.id)")
+        .floatingSurface(Metrics.detailRadius)
         .onAppear {
             if reduceMotion { contracted = true } else {
                 withAnimation(Motion.bar.delay(0.1)) { contracted = true }

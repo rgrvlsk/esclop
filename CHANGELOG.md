@@ -7,7 +7,17 @@ into the body of its GitHub release.
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+- The floating result is a cream card: the picture over a footer with the saving's ring, the
+  original size in red beside the new one, and the file's name. Work in progress tints it aqua
+  with a straight bar and the time left; a failure tints it amber with Retry. On hover, three
+  round buttons lie over the picture (Copy for a copied screenshot, Show in Finder for a file,
+  then Undo and "…") with a close button in its corner, and the card glows in the picture's
+  tone. The activity capsule beside long jobs is gone.
+
+### Removed
+- The `hoverButtons` setting and "Customise buttons…": the card's buttons now follow where the
+  file came from. Convert, downscale and crop are in "…".
 
 ## [0.1.1] - 2026-11-12
 

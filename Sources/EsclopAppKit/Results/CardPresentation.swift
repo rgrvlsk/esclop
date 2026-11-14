@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// What a floating result says, as plain values: the capsule, the hover buttons, the detail card
+// What a floating result says, as plain values: the footer, the card's buttons, the detail card
 // and what VoiceOver reads. Kept apart from the views so the wording and the arithmetic are
 // tested without drawing. All of the result's copy lives here.
 
@@ -25,6 +25,8 @@ public struct CardPresentation: Equatable, Sendable {
         case reveal
         case copy
         case dismiss
+        /// Stops a job that is still running and removes its card.
+        case stop
         /// Uploads the result to the default upload target.
         case upload
         case cancelUpload
@@ -46,6 +48,7 @@ public struct CardPresentation: Equatable, Sendable {
             case .reveal: return Strings.text("Show in Finder")
             case .copy: return Strings.text("Copy")
             case .dismiss: return Strings.text("Dismiss")
+            case .stop: return Strings.text("Stop")
             case .upload: return Strings.text("Upload")
             case .cancelUpload: return Strings.text("Stop Uploading")
             case .retryUpload: return Strings.text("Upload Again")
@@ -64,17 +67,6 @@ public struct CardPresentation: Equatable, Sendable {
             }
         }
 
-        /// Its name in the `hoverButtons` setting.
-        var settingName: String? {
-            switch self {
-            case .undo: return "undo"
-            case .convert: return "convert"
-            case .downscale: return "downscale"
-            case .crop: return "crop"
-            default: return nil
-            }
-        }
-
         public var symbol: String {
             switch self {
             case .undo: return "arrow.uturn.backward"
@@ -84,7 +76,7 @@ public struct CardPresentation: Equatable, Sendable {
             case .more: return "ellipsis"
             case .compare: return "rectangle.lefthalf.inset.filled"
             case .openDetail: return "rectangle.expand.vertical"
-            case .closeDetail, .dismiss: return "xmark"
+            case .closeDetail, .dismiss, .stop: return "xmark"
             case .retry: return "arrow.clockwise"
             case .reveal: return "folder"
             case .copy: return "doc.on.doc"
@@ -98,7 +90,7 @@ public struct CardPresentation: Equatable, Sendable {
     /// What the capsule pinned to the thumbnail's bottom edge shows.
     public enum Capsule: Equatable, Sendable {
         case working(String)
-        /// Counts down from `before` to `after` when the result arrives.
+        /// A saving: the ring, the figure, the original size and the new one.
         case result(before: Int, after: Int)
         case status(symbol: String, text: String)
         case error(title: String, message: String)
@@ -107,11 +99,15 @@ public struct CardPresentation: Equatable, Sendable {
 
     public var fileName: String
     public var capsule: Capsule
+    /// The footer's first line where no saving is drawn: "Already optimised", "Optimising…".
+    public var headline = ""
+    /// Its second line: the file's name, the size left as it was, or why it failed.
+    public var caption = ""
     public var tone: Tone
     /// Work done so far while optimising; nil when the engine cannot tell.
     public var progress: Double?
     public var isWorking: Bool
-    /// The round buttons above the thumbnail.
+    /// The card's round buttons on hover, chosen by where the file came from (`tools(for:undo:)`).
     public var tools: [Action]
     /// Every action, for the keyboard and VoiceOver.
     public var actions: [Action]
@@ -130,8 +126,6 @@ public struct CardPresentation: Equatable, Sendable {
     public var detailActions: [Action]
 
     public var accessibilityLabel: String
-    /// The line under an error capsule's message: what was kept and what a click does.
-    public var errorFooter = Strings.text("Original kept · Try again")
 
     @MainActor
     public init(card: ResultCard, locale: Locale = Strings.locale) {
@@ -158,25 +152,30 @@ public struct CardPresentation: Equatable, Sendable {
         case let .working(fraction):
             isWorking = true
             capsule = .working(card.aggressive ? t("Optimising harder…") : t("Optimising…"))
+            headline = card.aggressive ? t("Optimising harder…") : t("Optimising…")
+            caption = name
             progress = fraction >= 0 ? min(1, fraction) : nil
-            // The row only shows while the options popover is open; "…" must stay in it so the
+            // The buttons only show while the options popover is open; "…" must stay so the
             // popover keeps its anchor while a choice from it runs.
             tools = card.machine.menuOpen ? [.more] : []
-            actions = [.dismiss]
+            actions = [.stop]
             accessibilityLabel = f("%@, optimising, %@", name, Figures.bytes(card.bytesBefore, locale: locale))
         case let .done(result):
             fileName = card.displayName ?? result.output.lastPathComponent
             if Figures.isNoSaving(before: result.bytesBefore, after: result.bytesAfter) {
                 // Never "✓ 379 kB · −0 %": a result with no saving reads as already optimised.
                 capsule = .status(symbol: "checkmark", text: f("Already optimised · %@", Figures.bytes(result.bytesAfter, locale: locale)))
+                headline = t("Already optimised")
+                caption = f("%@, left as it was", Figures.bytes(result.bytesAfter, locale: locale))
                 tone = .neutral
             } else {
                 capsule = .result(before: result.bytesBefore, after: result.bytesAfter)
+                caption = fileName
             }
             if result.bytesAfter > result.bytesBefore { tone = .neutral }
             let undo: [Action] = result.backup != nil ? [.undo] : []
             let resultEditing = Self.editingActions(for: result.output, kind: result.kind)
-            tools = Self.hoverTools(resultEditing, undo: !undo.isEmpty, shown: card.hoverButtons)
+            tools = Self.tools(for: card.origin, undo: !undo.isEmpty)
             let noSaving = Figures.isNoSaving(before: result.bytesBefore, after: result.bytesAfter)
             detailTitle = noSaving ? t("Already optimised") : t("Optimised")
             change = Figures.change(before: result.bytesBefore, after: result.bytesAfter, locale: locale)
@@ -188,33 +187,39 @@ public struct CardPresentation: Equatable, Sendable {
             let comparable = result.backup != nil || result.output.standardizedFileURL != result.source.standardizedFileURL
             detailActions = undo + (comparable ? [.compare] : []) + resultEditing
 
-            actions = [.openDetail] + tools + [.reveal, .copy, .dismiss]
+            actions = Self.distinct([.openDetail] + tools + [.reveal, .copy, .dismiss])
             accessibilityLabel = "\(fileName), \(Self.announcement(for: result, locale: locale))"
         case let .unchanged(bytes):
             capsule = .status(symbol: "checkmark", text: f("Already optimised · %@", Figures.bytes(bytes, locale: locale)))
+            headline = t("Already optimised")
+            caption = f("%@, left as it was", Figures.bytes(bytes, locale: locale))
             tone = .neutral
-            tools = Self.hoverTools(editing, undo: false, shown: card.hoverButtons)
+            tools = Self.tools(for: card.origin, undo: false)
             detailTitle = t("Already optimised")
             change = f("Kept the original, %@", Figures.bytes(bytes, locale: locale))
             detailActions = editing
-            actions = [.openDetail] + tools + [.reveal, .copy, .dismiss]
+            actions = Self.distinct([.openDetail] + tools + [.reveal, .copy, .dismiss])
             accessibilityLabel = f("%@, already optimised, kept the original", name)
         case let .restored(result):
             fileName = card.displayName ?? result.source.lastPathComponent
             capsule = .status(symbol: "arrow.uturn.backward", text: f("Original restored · %@", Figures.bytes(result.bytesBefore, locale: locale)))
+            headline = t("Original restored")
+            caption = Figures.bytes(result.bytesBefore, locale: locale)
             tone = .neutral
             let restoredEditing = Self.editingActions(for: result.source, kind: result.kind)
-            tools = Self.hoverTools(restoredEditing, undo: false, shown: card.hoverButtons)
+            tools = Self.tools(for: card.origin, undo: false)
             detailTitle = t("Original restored")
             detailSymbol = "arrow.uturn.backward"
             change = Figures.bytes(result.bytesBefore, locale: locale)
             formats = Self.formatName(of: result.source)
             dimensions = Self.dimensions(result)
             detailActions = restoredEditing
-            actions = [.openDetail] + tools + [.reveal, .copy, .dismiss]
+            actions = Self.distinct([.openDetail] + tools + [.reveal, .copy, .dismiss])
             accessibilityLabel = f("%@, original restored", fileName)
         case let .failed(message):
             capsule = .error(title: t("Couldn’t optimise"), message: message)
+            headline = t("Couldn’t optimise")
+            caption = message
             tone = .error
             let exists = FileManager.default.fileExists(atPath: card.source.path)
             actions = exists ? [.retry, .reveal, .dismiss] : [.dismiss]
@@ -235,19 +240,25 @@ public struct CardPresentation: Equatable, Sendable {
         switch card.upload {
         case let .uploading(fraction):
             capsule = .working(f("Uploading… %d %%", Int((min(1, max(0, fraction)) * 100).rounded())))
+            headline = f("Uploading… %d %%", Int((min(1, max(0, fraction)) * 100).rounded()))
+            caption = name
             progress = min(1, max(0, fraction))
             detailActions = [.cancelUpload] + detailActions
             actions = [.cancelUpload] + actions.filter { $0 != .dismiss } + [.dismiss]
             accessibilityLabel = f("%@, uploading", name)
         case .uploaded:
             capsule = .status(symbol: "link", text: t("Uploaded · link copied"))
+            headline = t("Link copied")
+            caption = name
             tone = .saving
+            tools = [.copyLink, .more]
             detailActions = [.copyLink] + detailActions
             actions = [.copyLink] + actions
             accessibilityLabel = f("%@, uploaded, the link is on the clipboard", name)
         case let .failed(message):
             capsule = .error(title: t("Couldn’t upload"), message: message)
-            errorFooter = t("File kept · Upload again")
+            headline = t("Couldn’t upload")
+            caption = message
             tone = .error
             detailActions = [.retryUpload] + detailActions
             actions = [.retryUpload] + actions
@@ -255,6 +266,9 @@ public struct CardPresentation: Equatable, Sendable {
         case nil:
             if card.result?.link != nil {
                 capsule = .status(symbol: "link", text: t("Uploaded · link copied"))
+                headline = t("Link copied")
+                caption = name
+                tools = [.copyLink, .more]
                 detailActions = [.copyLink] + detailActions
                 actions = [.copyLink] + actions
                 // VoiceOver hears what the capsule shows, not the result under it.
@@ -271,21 +285,17 @@ public struct CardPresentation: Equatable, Sendable {
         return actions
     }
 
-    /// The hover row: the editing actions the person kept in "Customise buttons", then "…".
-    static func hoverTools(_ editing: [Action], undo: Bool, shown: [String]) -> [Action] {
-        let names = Set(shown)
-        let kept = editing.filter { names.contains($0.settingName ?? "") }
-        return (undo && names.contains("undo") ? [.undo] : []) + kept + [.more]
+    /// Each action once, in its first place.
+    static func distinct(_ actions: [Action]) -> [Action] {
+        var seen = Set<Action>()
+        return actions.filter { seen.insert($0).inserted }
     }
 
-    /// The name of a hover button in the `hoverButtons` setting.
-    public static func hoverButtonTitle(_ name: String) -> String {
-        switch name {
-        case "undo": return Strings.text("Undo")
-        case "convert": return Strings.text("Convert")
-        case "downscale": return Strings.text("Downscale")
-        default: return Strings.text("Crop")
-        }
+    /// The card's buttons, for what the person most likely wants next: a copied screenshot goes
+    /// back to the clipboard, any other file is found in Finder. Undo while a backup exists. "…"
+    /// opens the options, where convert, downscale and crop live.
+    static func tools(for origin: RequestOrigin, undo: Bool) -> [Action] {
+        [origin == .clipboard ? .copy : .reveal] + (undo ? [.undo] : []) + [.more]
     }
 
     /// The one-click conversion: WebP for images (PNG for WebP itself), MP4 for other videos,

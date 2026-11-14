@@ -26,7 +26,7 @@ struct StepRowView: View {
                     .foregroundStyle(.secondary)
                     .frame(minWidth: 16, alignment: .trailing)
                     .accessibilityHidden(true)
-                Image(systemName: symbol).foregroundStyle(step.isScript ? Palette.caution : Palette.accent).frame(width: 18).accessibilityHidden(true)
+                Image(systemName: symbol).foregroundStyle(step.isScript ? Palette.caution : Ink.charcoalText).frame(width: 18).accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(title).font(.headline)
                     Text(step.name).font(.caption.monospaced()).foregroundStyle(.secondary)

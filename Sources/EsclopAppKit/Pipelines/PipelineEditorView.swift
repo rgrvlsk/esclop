@@ -26,7 +26,6 @@ public struct PipelineEditorView: View {
                 PipelineDetailView(model: model)
             }
         }
-        .tint(Palette.accent)
         .navigationTitle(Strings.text("Pipelines"))
         .confirmationDialog(
             Strings.format("Save the changes to “%@”?", model.draft.name), isPresented: $model.isAskingToSave, titleVisibility: .visible

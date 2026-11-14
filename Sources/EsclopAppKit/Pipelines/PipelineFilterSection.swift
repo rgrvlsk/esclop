@@ -24,7 +24,7 @@ struct PipelineFilterSection: View {
                 HStack(spacing: 8) {
                     if let sample = model.sampleFile, let matches = model.filterMatches {
                         Image(systemName: matches ? "checkmark.circle.fill" : "xmark.circle.fill")
-                            .foregroundStyle(matches ? Palette.accent : .secondary)
+                            .foregroundStyle(matches ? Ink.charcoalText : .secondary)
                             .accessibilityHidden(true)
                         Text(matches
                             ? Strings.format("“%@” matches: the pipeline runs on it.", sample.lastPathComponent)

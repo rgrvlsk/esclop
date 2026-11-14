@@ -16,7 +16,7 @@ struct PipelineTryItSection: View {
     var body: some View {
         Section {
             HStack(spacing: 10) {
-                Image(systemName: "testtube.2").foregroundStyle(Palette.accent).accessibilityHidden(true)
+                Image(systemName: "testtube.2").foregroundStyle(Ink.charcoalText).accessibilityHidden(true)
                 Text(Strings.text("Drop a file here, or choose one. The pipeline runs on a copy; your file stays as it is."))
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer()
@@ -25,7 +25,7 @@ struct PipelineTryItSection: View {
                     .disabled(!model.check.isValid || isRunning)
             }
             .padding(6)
-            .background(RoundedRectangle(cornerRadius: 8).strokeBorder(isTargeted ? Palette.accent : .clear, lineWidth: 2))
+            .background(RoundedRectangle(cornerRadius: 8).strokeBorder(isTargeted ? Ink.charcoal : .clear, lineWidth: 2))
             .dropDestination(for: URL.self) { urls, _ in
                 guard let url = urls.first(where: \.isFileURL), model.check.isValid else { return false }
                 Task { await model.tryIt(on: url) }
