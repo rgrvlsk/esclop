@@ -120,9 +120,9 @@ struct FusedTabs: View {
                         .foregroundStyle(PopoverInk.primary.color)
                         .frame(width: Self.side, height: Self.side)
                         .background {
-                            // Resting tabs are flat, a shade lighter than the bar: only the chosen
-                            // one rises, into the panel.
-                            if !selected { Circle().fill(Surface.cream) }
+                            // Resting tabs are raised like every control; the chosen one is the
+                            // same circle, fused into the panel.
+                            if !selected { Color.clear.raised(Circle(), fill: Surface.tile) }
                         }
                         .contentShape(Circle())
                 }
@@ -179,7 +179,8 @@ struct FusedTabShape: Shape {
     var inset: CGFloat
 
     func path(in rect: CGRect) -> Path {
-        let lip = tab.insetBy(dx: -6, dy: -6)
+        // The chosen tab is the same circle as the others (owner: one geometry for the tabs).
+        let lip = tab
         let circle = CGPath(roundedRect: lip, cornerWidth: lip.width / 2, cornerHeight: lip.width / 2, transform: nil)
         let neck = CGPath(rect: CGRect(x: lip.minX, y: lip.midY, width: lip.width, height: panelTop - lip.midY + FusedPanel.radius), transform: nil)
         let panel = CGPath(

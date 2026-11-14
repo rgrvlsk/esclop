@@ -44,7 +44,6 @@ struct SizeTab: View {
                             width = String(Int((Double(value) * Double(originalWidth) / Double(originalHeight)).rounded()))
                         }
                     }
-                    .padding(.vertical, 4)
                 }
                 .onAppear { setCustom(originalWidth, originalHeight) }
                 .onChange(of: model.currentScale) { setCustom(originalWidth, originalHeight) }
@@ -94,19 +93,12 @@ struct SizeTab: View {
 
     /// A number field; Return scales to the width it gives.
     private func field(_ text: Binding<String>, _ side: Side, _ title: String, follow: @escaping (Int) -> Void) -> some View {
-        TextField(title, text: text)
+        OptionsNumberField(title: title, text: text)
             .focused($typing, equals: side)
-            .textFieldStyle(.plain)
-            .multilineTextAlignment(.center)
-            .font(OptionsType.body.monospacedDigit())
-            .frame(width: 58, height: 26)
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Surface.tile))
-            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(PopoverInk.secondary.color.opacity(0.3), lineWidth: 0.5))
             .onChange(of: text.wrappedValue) { _, value in
                 if typing == side, let number = Int(value), number > 0 { follow(number) }
             }
             .onSubmit(applyCustom)
-            .accessibilityLabel(title)
             .disabled(model.card.isWorking)
     }
 
@@ -139,12 +131,11 @@ struct FitChips: View {
         }
         if custom {
             HStack {
-                TextField(Strings.text("Size in kB"), text: $model.customFit)
-                    .textFieldStyle(.roundedBorder)
-                    .font(OptionsType.body)
+                OptionsNumberField(title: Strings.text("Size in kB"), text: $model.customFit, width: 80)
                     .onSubmit(applyCustom)
                 Text(verbatim: "kB").foregroundStyle(PopoverInk.secondary.color)
-                Button(Strings.text("Fit"), action: applyCustom).disabled(Int(model.customFit) == nil)
+                Spacer()
+                CharcoalButton(title: Strings.text("Fit"), action: applyCustom).disabled(Int(model.customFit) == nil)
             }
         }
     }
@@ -239,20 +230,21 @@ struct CropEditor: View {
                 .frame(maxHeight: 220)
 
                 HStack(spacing: 6) {
-                    TextField(Strings.text("Width"), text: $widthText).frame(width: 64).onSubmit(applySize)
+                    OptionsNumberField(title: Strings.text("Width"), text: $widthText, width: 64).onSubmit(applySize)
                     Text("×").foregroundStyle(PopoverInk.secondary.color)
-                    TextField(Strings.text("Height"), text: $heightText).frame(width: 64).onSubmit(applySize)
+                    OptionsNumberField(title: Strings.text("Height"), text: $heightText, width: 64).onSubmit(applySize)
                     Text("px").foregroundStyle(PopoverInk.secondary.color)
                     Spacer()
                     // Back to the whole picture; the preview stays.
                     Button(Strings.text("Reset")) { model.resetCrop() }
+                        .buttonStyle(.plain)
+                        .font(OptionsType.bodyStrong)
+                        .foregroundStyle(Ink.charcoalText)
                         .disabled(crop.cropSize == nil)
-                    Button(Strings.text("Crop")) { model.applyCrop() }
+                    CharcoalButton(title: Strings.text("Crop")) { model.applyCrop() }
                         .keyboardShortcut(.defaultAction)
-                        .primaryButton()
                         .disabled(crop.cropSize == nil || model.card.isWorking)
                 }
-                .textFieldStyle(.roundedBorder)
                 .font(OptionsType.body)
                 .monospacedDigit()
             }

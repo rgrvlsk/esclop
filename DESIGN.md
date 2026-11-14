@@ -103,10 +103,15 @@ on that one file. It replaces a long context menu. It is not the menu-bar menu. 
 
 - **No header:** the card beside it shows the file. Rename is a click on the detail's name.
 - **Tabs** (`pr4-options-popover-tabs`, measured against the owner's reference, Intellecta's
-  tabs): flat round tabs a shade lighter than the recessed bar, thin 14 pt symbols, the chosen one
-  fused with the lighter panel under it like a folder's tab with an 11 pt fillet, and its name in
-  small caps at the
-  end: Format · Size · Crop · Actions. Audio has Format · Sound · Actions.
+  tabs): 40 pt round tabs in the panel's tone, raised from the recessed bar, thin 14 pt symbols;
+  the chosen one is the same circle fused with the panel under it like a folder's tab with an
+  11 pt fillet, and its name in small caps at the end: Format · Size · Crop · Actions. Audio has
+  Format · Sound · Actions.
+- **One elevation** (owner: one geometry, one elevation): what you press and has a shape (tabs,
+  tiles, chips, action rows, Crop and Fit) is raised by one token, a 0.5 pt edge and a 1 pt
+  shadow (in dark a light edge, since a shadow does not show); a row that holds a control is
+  flat, 44 pt; a field you type in is inset; nothing raised sits on something raised. The chosen
+  tile or chip is charcoal at the same height. Text actions are flat.
 - **Format:** the suggestion first, only while it is not the one applied, as an amber card:
   "WebP would be 410 kB", "33 % lighter, …" and Convert. Then four format tiles with their
   sizes (the file's own size on its tile, estimates on the others, an amber dot on the
