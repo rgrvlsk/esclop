@@ -25,10 +25,6 @@ extension AppModel {
         default:
             break
         }
-        if skipNextCopy {
-            skipNextCopy = false
-            return
-        }
         // The app in front and the pasteboard types are origin signals; read them now, while the
         // copy is fresh.
         let copy = CopyMoment(app: frontmostApp(), types: Set((pasteboard.types ?? []).map(\.rawValue)))
@@ -216,22 +212,5 @@ extension AppModel {
         let files = PathInput.expand(urls, recursive: true).filter { MediaKind.of($0) != nil }
         guard !files.isEmpty else { return notice(Strings.text("Nothing to optimise"), Strings.text("Drop images, videos, PDFs or audio files.")) }
         optimise(files, origin: .dropZone, aggressive: false, copy: nil) { $0.operation = .pipeline(name) }
-    }
-
-    // MARK: Pause
-
-    /// The pause hotkey cycles like Clop's: running, then skip the next copy, then paused.
-    public func cyclePause() {
-        if paused {
-            setPaused(false)
-            notice(Strings.text("Running"), Strings.text("Watching the clipboard again."))
-        } else if skipNextCopy {
-            skipNextCopy = false
-            setPaused(true)
-            notice(Strings.text("Paused"), Strings.text("Automatic optimisation is off until you resume it."))
-        } else {
-            skipNextCopy = true
-            notice(Strings.text("Skipping the next copy"), Strings.text("Press again to pause everything."))
-        }
     }
 }

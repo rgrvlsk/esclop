@@ -22,6 +22,14 @@ into the body of its GitHub release.
   opens into their list, each with why and Retry, and Retry All and Dismiss. They no longer push
   the results off the screen.
 
+- The menu bar opens the design's panel instead of a system menu: the saving today or over the
+  last 7 days on an arc, the batch at work, the recent results with Copy and Show in Finder on
+  hover, and Optimise Files and Optimise Clipboard. The gear holds Settings, Pipelines, the
+  backups, the tour, updates and Quit.
+- Recent › Clear forgets the names of recent results, in the panel and in the shared log the
+  CLI and MCP read: only sizes and dates stay, so the saving still counts. Files and backups are
+  not touched.
+
 ### Changed
 - A failed card says what did not happen ("Not optimised", "Not uploaded") with Retry beside it,
   and why across the card, with "The original is untouched." or "The file is kept."
@@ -64,6 +72,9 @@ into the body of its GitHub release.
   metadata.
 
 ### Removed
+- The pause hotkey (⌃⇧P), the pause item in the menu and the dimmed glyph. Pausing stays a
+  setting, in Settings, Shortcuts and `esclop settings set pauseAutomaticOptimisations true`;
+  while it is on, the menu bar panel says "Paused · Resume".
 - The `hoverButtons` setting and "Customise buttons…": the card's buttons now follow where the
   file came from. Convert, downscale and crop are in "…".
 

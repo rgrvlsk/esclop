@@ -291,11 +291,7 @@ import Testing
         #expect(glyph.isTemplate, "macOS tints it for the menu bar")
         #expect(glyph.size.height == 18)
         let bar = scheme == .dark ? Color(white: 0.17) : Color(white: 0.93)
-        let running = MenuBarLabel(model: Harness().model)
-        let pausedModel = Harness().model
-        pausedModel.pauseChanged(true)
-        let paused = MenuBarLabel(model: pausedModel)
-        try renderBar(HStack(spacing: 22) { running; paused }, background: bar, name: "menu-bar-glyph", scheme: scheme)
+        try renderBar(MenuBarLabel(model: Harness().model), background: bar, name: "menu-bar-glyph", scheme: scheme)
     }
 
     /// A strip like the menu bar: 24 pt high, the glyph at its real size, rendered at 2x.

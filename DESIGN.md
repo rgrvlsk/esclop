@@ -67,6 +67,35 @@ failure under the pointer, focused or open stays its own card until it is left, 
 changes under the pointer. Failures never hide on their own.
 Dismissal pauses while the object is hovered, focused, dragged or open.
 
+## Menu bar panel
+
+The glyph in the menu bar is the clog, always the same: there is no paused or working state on
+it. A click opens a 316 pt cream panel under it (`pr3-menu-panel`), with a notch pointing to the
+glyph; a second click, a click anywhere else, Esc or a command closes it. It never activates
+the app, so the app in front keeps its windows, but it takes the keys, so ⌘O works.
+
+- **Header:** "Today" in the serif, and a round gear: Settings… ⌘, Pipelines…, Show Backups in
+  Finder, Welcome to L'Esclop…, Check for Updates…, Quit L'Esclop ⌘Q.
+- **Saved:** TODAY and 7 DAYS chips (charcoal when chosen); an arc from the original size (brick
+  red, at its left end) to the new size (grey, at its right), with the saving's figure between
+  them, and the other range under it ("Last 7 days −19.6 GB", or "Today −2.8 GB"). The sums come
+  from the shared results log, cleared results included; the log keeps every result from the
+  last eight days for them.
+- **Working** (aqua), only while a batch runs: "6 of 8", a straight bar and the file at work. A
+  click shows the batch window.
+- **Recent:** the files being optimised, then the last twelve results, five in view: the
+  picture, the name, "2.4 MB → 612 kB · 9:41" and the saving. On hover, Copy and Show in Finder;
+  a click shows the result's card again; the context menu adds Compare and Restore Original.
+  Clear (privacy) forgets the names: the shared log keeps only sizes and dates, so the saving
+  stays, and the CLI and MCP no longer list them. Files, backups and cards are not touched.
+  Empty: "Copy a screenshot. You'll find it here, lighter."
+- **Commands:** Optimise Files… ⌘O and Optimise Clipboard ⌃⇧C; with ⌥ held it is Optimise
+  Clipboard Harder ⌃⇧A.
+
+Pausing is a setting (Settings, Shortcuts, `esclop settings set`); there is no pause hotkey and
+no paused state on the glyph. While it is on, the panel shows one line under Saved, "Paused ·
+Resume", and Resume turns the setting off (owner's decision, 2026-11-14).
+
 ## Options popover
 Opens from the "…" button of the floating result, anchored to it with a popover arrow, and acts
 on that one file. It replaces a long context menu. It is not the menu-bar menu. Width about
