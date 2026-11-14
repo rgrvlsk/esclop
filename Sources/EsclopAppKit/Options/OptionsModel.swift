@@ -157,7 +157,14 @@ public final class OptionsModel {
 
     /// The format the file has now.
     /// The format the file has now: the result's own file, else the choice, else the input.
-    public var currentFormat: OutputFormat? { card.result.flatMap { OutputFormat.of($0.output) } ?? card.choice.format ?? inputFormat }
+    /// HEVC and AV1 are written as .mp4 and a video's GIF as .gif, so the choice that made the
+    /// file wins over its extension when the two agree.
+    public var currentFormat: OutputFormat? {
+        if let chosen = card.choice.format, let result = card.result, chosen.fileExtension == result.output.pathExtension.lowercased() {
+            return chosen
+        }
+        return card.result.flatMap { OutputFormat.of($0.output) } ?? card.choice.format ?? inputFormat
+    }
 
     // MARK: Lifecycle
 
@@ -214,7 +221,19 @@ public final class OptionsModel {
     // MARK: Actions
 
     public func apply(_ choice: OptimiseChoice) {
+        armed = nil
         app.apply(choice, to: card)
+    }
+
+    /// A tile: an image converts at once; a video arms, since a video takes a while (owner's
+    /// decision). ⌥ keeps both, and a video's GIF always keeps the video.
+    public func pick(_ format: OutputFormat, keepBoth: Bool) {
+        if format == .gifVideo || keepBoth { return choose(format: format, keepBoth: true) }
+        if kind == .video, format != currentFormat {
+            armed = armed == format ? nil : format
+        } else {
+            choose(format: format, keepBoth: false)
+        }
     }
 
     public func choose(format: OutputFormat, keepBoth: Bool) {
@@ -225,12 +244,18 @@ public final class OptionsModel {
         apply(choice)
     }
 
-    /// Runs the armed video format.
+    /// Runs the armed video format, with the quality set while it was armed.
     public func convertArmed() {
-        guard let armed else { return }
-        self.armed = nil
-        choose(format: armed, keepBoth: false)
+        guard let format = armed else { return }
+        var choice = card.choice
+        choice.format = format == inputFormat ? nil : format
+        choice.quality = qualityTouched ? Int(quality.rounded()) : nil
+        qualityTouched = false
+        apply(choice)
     }
+
+    /// The quality slider moved while a format was armed: it goes with the conversion.
+    var qualityTouched = false
 
     /// The same file again, compressed harder: Clop's "Optimise aggressively" as an action.
     public func optimiseHarder() {
@@ -246,6 +271,8 @@ public final class OptionsModel {
     }
 
     public func commitQuality() {
+        // Armed, the quality waits for Convert instead of running the current format again.
+        if armed != nil { qualityTouched = true; return }
         var choice = card.choice
         choice.quality = Int(quality.rounded())
         guard choice != card.choice else { return }

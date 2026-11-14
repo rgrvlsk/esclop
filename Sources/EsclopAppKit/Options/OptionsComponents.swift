@@ -95,7 +95,6 @@ struct FormatTile: View {
                     }
                 }
                 .font(OptionsType.label)
-                .opacity(0.85)
             }
             .lineLimit(1)
             .minimumScaleFactor(0.85)

@@ -57,6 +57,10 @@ public struct FloatingResultView: View {
         .onChange(of: card.machine.menuOpen) { _, open in
             if !open, card.machine.level == .detail { focused = true }
         }
+        // And after the name was edited.
+        .onChange(of: card.renaming) { _, renaming in
+            if !renaming, card.machine.level == .detail { focused = true }
+        }
         .onKeyPress(.escape) {
             // The detail's name being edited takes its own keys.
             if Self.editingText { return .ignored }

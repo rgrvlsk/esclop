@@ -312,9 +312,10 @@ struct DetailName: View {
                 TextField(Strings.text("File name"), text: $draft)
                     .textFieldStyle(.plain)
                     .focused($focused)
+                    .onAppear { focused = true }
                     .onSubmit { commit() }
-                    .onExitCommand { editing = false }
-                    .onChange(of: focused) { _, now in if !now { editing = false } }
+                    .onExitCommand { end() }
+                    .onChange(of: focused) { _, now in if !now { end() } }
                     .accessibilityLabel(Strings.text("File name"))
             } else {
                 Text(name)
@@ -335,12 +336,17 @@ struct DetailName: View {
         guard card.result != nil else { return }
         draft = card.displayName == nil ? stem : ""
         editing = true
+        card.renaming = true
         panel.window?.makeKey()
-        DispatchQueue.main.async { focused = true }
+    }
+
+    private func end() {
+        editing = false
+        card.renaming = false
     }
 
     private func commit() {
-        editing = false
+        end()
         if !draft.isEmpty, draft != stem { rename(draft) }
     }
 }
