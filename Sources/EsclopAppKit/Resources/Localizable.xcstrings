@@ -6021,6 +6021,16 @@
         }
       }
     },
+    "Reset": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restableix"
+          }
+        }
+      }
+    },
     "Reset %@ to the default": {
       "localizations": {
         "ca": {

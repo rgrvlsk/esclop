@@ -29,7 +29,7 @@ struct ShareTab: View {
                 ) { app.upload(card, to: target.name) }
             }
             if targets.isEmpty {
-                ActionRow(symbol: "icloud.and.arrow.up", title: Strings.text("Set Up Uploads…"), detail: Strings.text("In Settings")) {
+                ActionRow(symbol: "icloud.and.arrow.up", title: Strings.text("Set Up Uploads…"), detail: Strings.text("In Settings"), opens: true) {
                     if let url = URL(string: "esclop://settings/uploads") { NSWorkspace.shared.open(url) }
                 }
             }
@@ -76,6 +76,8 @@ struct ActionRow: View {
     let symbol: String
     let title: String
     let detail: String
+    /// It opens somewhere else (Settings): a chevron, not a play button.
+    var opens = false
     let action: () -> Void
 
     var body: some View {
@@ -93,14 +95,22 @@ struct ActionRow: View {
                     }
                 }
                 Spacer(minLength: 6)
-                Image(systemName: "play.fill")
-                    .font(.system(size: 10, weight: .bold))
-                    .frame(width: 28, height: 28)
-                    .background(Circle().fill(Color.white.opacity(0.92)))
-                    .foregroundStyle(Ink.charcoal)
-                    .environment(\.colorScheme, .light)
-                    .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
-                    .accessibilityHidden(true)
+                if opens {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(PopoverInk.secondary.color)
+                        .frame(width: 28, height: 28)
+                        .accessibilityHidden(true)
+                } else {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .frame(width: 28, height: 28)
+                        .background(Circle().fill(Color.white.opacity(0.92)))
+                        .foregroundStyle(Ink.charcoal)
+                        .environment(\.colorScheme, .light)
+                        .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
+                        .accessibilityHidden(true)
+                }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
