@@ -190,9 +190,13 @@ struct LiquidMenu: View {
     /// The neck's span once open (button edge to panel edge) and its thinnest point.
     nonisolated static let gap: CGFloat = Metrics.detailPadding + outside
     nonisolated static let waist: CGFloat = 9
-    /// What the stack adds on the card's open side while the menu shows: the panel, its gap and
-    /// room for its shadow, less the stack's own margin.
-    nonisolated static let room: CGFloat = width + outside + 12 - Metrics.screenMargin
+    /// When the rows start to show: once the drop has spread to its full width (about 200 ms
+    /// into the spring, filmed in the app), so the outline never cuts their first letters.
+    nonisolated static let rowsDelay: Double = 0.2
+    /// What the stack adds on the card's open side while the menu shows: the panel, its gap,
+    /// 16 pt for the spring carrying it past its place (seen clipped in the app at 12) and 12 pt
+    /// for its shadow, less the stack's own margin.
+    nonisolated static let room: CGFloat = width + outside + 16 + 12 - Metrics.screenMargin
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var scheme
@@ -290,9 +294,11 @@ struct LiquidMenu: View {
                     },
                     choose: { choose(action) }
                 )
-                .opacity(rows ? 1 : 0)
-                .offset(x: rows || reduceMotion ? 0 : (anchor.leftward ? 4 : -4))
-                .animation(reduceMotion ? Motion.crossfade : .easeOut(duration: 0.12).delay(rows ? 0.12 + 0.018 * Double(index) : 0), value: rows)
+                // The animation reaches the opacity alone. On the whole row it also carried the
+                // row's layout, and in the app each row slid in from beyond the panel's far edge.
+                .animation(reduceMotion ? Motion.crossfade : .easeOut(duration: 0.12).delay(rows ? Self.rowsDelay + 0.018 * Double(index) : 0)) {
+                    $0.opacity(rows ? 1 : 0)
+                }
             }
         }
         .padding(.vertical, Self.inset)
