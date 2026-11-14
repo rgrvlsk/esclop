@@ -61,6 +61,17 @@ import Testing
         #expect(open.height == closed.height)
     }
 
+    @Test func convertOpensTheOptions() async throws {
+        let harness = Harness()
+        _ = await harness.model.run(harness.job(harness.temp.file("a.png", bytes: 100_000)))
+        let card = try #require(harness.model.cards.first)
+        harness.model.interact(card, .openDetail)
+        card.optionsTab = .share
+        harness.model.perform(.convertOptions, on: card)
+        #expect(card.optionsTab == .optimise)
+        #expect(card.machine.menuOpen && card.machine.level == .thumbnail, "the popover opens on the card")
+    }
+
     @Test func closingTheDetailClosesItsMenu() async throws {
         let harness = Harness()
         _ = await harness.model.run(harness.job(harness.temp.file("a.png", bytes: 100_000)))

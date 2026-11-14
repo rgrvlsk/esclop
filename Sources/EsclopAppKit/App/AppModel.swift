@@ -585,7 +585,7 @@ public final class AppModel {
         case .crop:
             card.optionsTab = .size
             openOptions(card)
-        case .more:
+        case .more, .convertOptions:
             card.optionsTab = .optimise
             openOptions(card)
         case .compare:

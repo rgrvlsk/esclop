@@ -19,6 +19,8 @@ into the body of its GitHub release.
 ### Changed
 - The detail's "…" opens the design's own menu instead of a system menu: a cream panel beside
   the card, joined to "…" by a liquid neck, that opens as a drop and sinks back when it closes.
+  It is the design's short menu: Convert… (the options popover), Compare, Share… and Move to
+  Trash, or Save as… for a copied image.
   It works from the keyboard (arrows, Return, Esc), and Share… shows the system's share
   services. In a right-hand corner the detail's buttons run the other way, so "…" faces the
   screen and its menu has room.
