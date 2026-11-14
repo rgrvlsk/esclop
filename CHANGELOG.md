@@ -15,8 +15,12 @@ into the body of its GitHub release.
 - Share… and Move to Trash in the detail's "…". Share opens the system's share services; Move to
   Trash takes an optimised file to the Trash (its backup stays) and removes the card. Neither a
   copied image nor an untouched original can be trashed from there.
+- Compare in the detail is a loupe for a picture that lost detail: a lens at true size follows
+  the pointer; a click shows the original and stays, holding shows it until release. Space,
+  the arrows and Esc work from the keyboard.
 
 ### Changed
+- The detail's × has its own band above the picture, and the picture is at most 200 pt tall.
 - The detail's "…" opens the design's own menu instead of a system menu: a cream panel beside
   the card, joined to "…" by a liquid neck, that opens as a drop and sinks back when it closes.
   It is the design's short menu: Convert… (the options popover), Compare, Share… and Move to

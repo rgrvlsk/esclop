@@ -17,21 +17,27 @@ struct DetailCard: View {
     let interact: (AppModel.Interaction) -> Void
 
     static let pictureWidth = Metrics.detailWidth - 2 * Metrics.detailPadding
-    /// The detail's picture keeps its aspect ratio within these heights, fitted whole.
-    static let pictureHeights: ClosedRange<CGFloat> = 120...240
+    /// The detail's picture keeps its aspect ratio within these heights, fitted whole: a 3:2
+    /// photo is whole at 296 × 197, and a portrait one does not make the card tower.
+    static let pictureHeights: ClosedRange<CGFloat> = 120...200
     static let closeSize: CGFloat = 24
+    /// × has its own band above the picture (pr2-detail-card), so it never sits on the picture
+    /// or under the loupe.
+    static let closeBand: CGFloat = 21
 
     @State private var share = SharingAnchor()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            Color.clear.frame(height: Self.closeBand)
             Picture(card: card, width: Self.pictureWidth, radius: Metrics.detailPictureRadius, heights: Self.pictureHeights, fits: true)
                 .clipShape(RoundedRectangle(cornerRadius: Metrics.detailPictureRadius, style: .continuous))
                 .pictureHairline(Metrics.detailPictureRadius)
-                .modifier(DragOut(file: card.draggableFile) { interact(.dragging(true)) })
-                .overlay(alignment: corner.isRight ? .topTrailing : .topLeading) {
-                    PillButton(action: .closeDetail, size: Self.closeSize, perform: perform)
-                        .padding(CardFace.buttonInset - PillButton.slack(Self.closeSize))
+                .modifier(DragOut(file: card.loupe == nil ? card.draggableFile : nil) { interact(.dragging(true)) })
+                .overlay {
+                    if card.loupe != nil, let sides = card.loupeSides {
+                        Loupe(card: card, before: sides.before, after: sides.after, share: share)
+                    }
                 }
             VStack(alignment: .leading, spacing: 1) {
                 Text(info.fileName)
@@ -47,10 +53,24 @@ struct DetailCard: View {
             if !info.removedMetadata.isEmpty {
                 MetadataStrip(info: info, perform: perform).padding(.bottom, 8)
             }
+            // The loupe's hint takes the action row's place at its height, so nothing moves.
             DetailActions(card: card, info: info, leftward: corner.isRight, share: share, perform: perform, interact: interact)
+                .opacity(card.loupe == nil ? 1 : 0)
+                .allowsHitTesting(card.loupe == nil)
+                .accessibilityHidden(card.loupe != nil)
+                .overlay {
+                    if let loupe = card.loupe {
+                        LoupeHint(state: loupe) { card.loupe = nil }
+                    }
+                }
         }
         .padding(Metrics.detailPadding)
         .frame(width: Metrics.detailWidth)
+        .overlay(alignment: corner.isRight ? .topTrailing : .topLeading) {
+            PillButton(action: .closeDetail, size: Self.closeSize, perform: perform)
+                .padding(.top, 6 - PillButton.slack(Self.closeSize))
+                .padding(.horizontal, 9 - PillButton.slack(Self.closeSize))
+        }
         .floatingSurface(Metrics.detailRadius, fill: info.surface)
         // Tells the stack where "…" and the card are, so it can draw the menu outside the card.
         .backgroundPreferenceValue(MoreButtonKey.self) { button in
