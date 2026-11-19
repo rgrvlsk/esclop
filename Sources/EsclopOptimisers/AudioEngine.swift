@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Audio through ffmpeg: AAC with AudioToolbox (ffmpeg's own AAC as fallback), MP3 with LAME
-// VBR, Opus, FLAC, 16-bit WAV/AIFF. Lossless sources convert by the format lists in the settings
-// (WAV to MP3, AIFF/FLAC to AAC); everything else is re-encoded in its own format at the bitrate
+// VBR, Opus, FLAC, WAV/AIFF at the source's rate and depth. Lossless sources convert by the
+// format lists in the settings (WAV to MP3, AIFF/FLAC to AAC); everything else is re-encoded in its own format at the bitrate
 // the compression factor maps to, never above the source's.
 
 import EsclopCore
@@ -30,7 +30,8 @@ struct AudioEngine: Sendable {
             throw EsclopError.unsupportedFile("\(source.lastPathComponent) has no audio")
         }
         let codec = try targetCodec(for: source, plan: plan)
-        let sameFormat = AudioCodec(fileExtension: source.pathExtension) == codec
+        let sameExtension = AudioCodec(fileExtension: source.pathExtension) == codec
+        let sameFormat = sameExtension && codec.carries(audio.codec)
         let factor = plan.factor(for: .audio, format: plan.format, env: env)
         var bitrate = plan.request.audioBitrateKbps
             ?? codec.bitrate(forFactor: factor)
@@ -40,19 +41,28 @@ struct AudioEngine: Sendable {
             bitrate = min(bitrate, codec.stepBelow(audio.bitrate))
         }
         var steps: [String] = []
-        if !sameFormat { steps.append("Converted to \(codec.fileExtension.uppercased())") }
+        if sameExtension, !sameFormat {
+            steps.append("Converted \(AudioCodec.label(probed: audio.codec)) to \(codec.label)")
+        } else if !sameFormat {
+            steps.append("Converted to \(codec.fileExtension.uppercased())")
+        }
         if !codec.isLossless { steps.append("Encoded at \(bitrate) kbit/s") }
+        if codec == .wav, plan.isAggressive { steps.append("Encoded as IMA ADPCM, which is lossy") }
+        let deep = (audio.bitsPerSample ?? 16) > 16
+        var aiff24Bit = false
+        if codec == .aiff, deep { aiff24Bit = await FFmpegCapabilities.shared.encoders(tools: env.tools).contains("pcm_s24be") }
+        if codec == .aiff, deep, !aiff24Bit { steps.append("Reduced to 16 bits: this ffmpeg has no 24-bit AIFF encoder") }
 
         let output = work.file(stem: "encoded", ext: codec.fileExtension)
         let speed = plan.request.playbackSpeed.flatMap { $0 > 0 && abs($0 - 1) > 0.001 ? $0 : nil }
         let loudness = plan.request.loudnessLUFS ?? (env.value(EsclopSettings.normalizeLoudness) ? env.value(EsclopSettings.loudnessTarget) : nil)
         let duration = info.duration.map { $0 / (speed ?? 1) }
-        let parser = FFmpegProgress(duration: duration, sink: progress)
+        let options = FFmpegProgress(duration: duration, sink: progress).options
 
         func arguments(appleAAC: Bool) -> [String] {
             var args = ["-hide_banner", "-nostdin", "-y", "-i", source.path]
             args += coverArtArgs(info: info, codec: codec)
-            args += codec.encodingArgs(bitrate: bitrate, aggressive: plan.isAggressive, inputSampleRate: audio.sampleRate, appleAAC: appleAAC)
+            args += codec.encodingArgs(bitrate: bitrate, aggressive: plan.isAggressive, inputBits: audio.bitsPerSample, aiff24Bit: aiff24Bit, appleAAC: appleAAC)
             var filters: [String] = []
             if let speed { filters.append(VideoEngine.atempoChain(speed)) }
             if let loudness {
@@ -67,14 +77,15 @@ struct AudioEngine: Sendable {
         }
 
         do {
-            try await ProcessRunner.run(.ffmpeg, arguments(appleAAC: true), options: ProcessOptions(onStdoutLine: parser.lineHandler), locator: env.tools)
+            try await ProcessRunner.run(.ffmpeg, arguments(appleAAC: true), options: options, locator: env.tools)
         } catch let error as EsclopError where codec == .aac && error != .cancelled {
             Log.audio.info("AudioToolbox AAC failed, using ffmpeg's AAC: \(error.description, privacy: .public)")
-            try await ProcessRunner.run(.ffmpeg, arguments(appleAAC: false), options: ProcessOptions(onStdoutLine: parser.lineHandler), locator: env.tools)
+            try await ProcessRunner.run(.ffmpeg, arguments(appleAAC: false), options: options, locator: env.tools)
         }
         if let speed { steps.append("Changed speed to \(String(format: "%g", speed))x") }
         if let loudness { steps.append("Normalised loudness to \(String(format: "%g", loudness)) LUFS") }
-        let changesContent = !sameFormat || speed != nil || loudness != nil
+        // A new codec under the same name (Apple Lossless to AAC in an .m4a) still has to shrink.
+        let changesContent = !sameExtension || speed != nil || loudness != nil
         return Produced(url: output, width: nil, height: nil, duration: duration, steps: steps, allowLarger: changesContent)
     }
 
@@ -131,8 +142,8 @@ struct AudioEngine: Sendable {
         let output = work.file(stem: "stripped", ext: source.pathExtension.isEmpty ? "m4a" : source.pathExtension)
         try await ProcessRunner.run(.ffmpeg, [
             "-hide_banner", "-nostdin", "-y", "-i", source.path, "-map", "0:a", "-c", "copy",
-            "-map_metadata", "-1", "-map_chapters", "-1", output.path,
-        ], locator: env.tools)
+            "-map_metadata", "-1", "-map_chapters", "-1", "-progress", "pipe:1", "-nostats", output.path,
+        ], options: FFmpegProgress(duration: nil, sink: .none).options, locator: env.tools)
         return Produced(url: output, width: nil, height: nil, duration: nil, steps: ["Removed metadata and artwork"], allowLarger: true)
     }
 }

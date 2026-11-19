@@ -27,6 +27,16 @@ struct MediaInfo: Sendable {
         /// kbit/s
         var bitrate: Int?
         var channels: Int?
+        /// PCM and lossless sources only (lossy codecs have no bit depth).
+        var bitsPerSample: Int?
+    }
+
+    struct Stream: Sendable {
+        /// ffprobe's `codec_type`: video, audio, subtitle, data, attachment.
+        var type: String
+        var codec: String
+        /// Cover art (a video stream that is one picture).
+        var attachedPicture: Bool
     }
 
     var duration: Double?
@@ -36,6 +46,10 @@ struct MediaInfo: Sendable {
     var audio: Audio?
     var hasCoverArt: Bool
     var audioStreamCount: Int
+    /// Every stream, in file order.
+    var streams: [Stream] = []
+
+    func streams(_ type: String) -> [Stream] { streams.filter { $0.type == type && !$0.attachedPicture } }
 
     static func probe(_ url: URL, tools: ToolLocator) async throws -> MediaInfo {
         let kind = MediaKind.of(url) ?? .video
@@ -73,6 +87,7 @@ struct MediaInfo: Sendable {
         for stream in streams {
             let type = stream["codec_type"]?.stringValue
             let attached = stream["disposition"]?["attached_pic"]?.intValue == 1
+            info.streams.append(Stream(type: type ?? "unknown", codec: stream["codec_name"]?.stringValue ?? "unknown", attachedPicture: attached))
             if type == "video", attached {
                 info.hasCoverArt = true
             } else if type == "video", info.video == nil {
@@ -96,7 +111,9 @@ struct MediaInfo: Sendable {
                         codec: stream["codec_name"]?.stringValue ?? "unknown",
                         sampleRate: number(stream["sample_rate"]),
                         bitrate: number(stream["bit_rate"]).map { Int($0 / 1000) },
-                        channels: stream["channels"]?.intValue
+                        channels: stream["channels"]?.intValue,
+                        bitsPerSample: [stream["bits_per_raw_sample"], stream["bits_per_sample"]]
+                            .lazy.compactMap { number($0).map(Int.init) }.first { $0 > 0 }
                     )
                 }
             }
@@ -124,6 +141,7 @@ final class FFmpegProgress: @unchecked Sendable {
     private let sink: ProgressSink
     private let lock = NSLock()
     private var last = -1.0
+    private var lastTime = -1.0
 
     init(duration: Double?, sink: ProgressSink) {
         self.duration = duration ?? 0
@@ -144,5 +162,27 @@ final class FFmpegProgress: @unchecked Sendable {
 
     var lineHandler: @Sendable (String) -> Void {
         { [self] line in handle(line) }
+    }
+
+    /// True when `line` carries an output time other than the one before (a retry starts again
+    /// from zero, which counts too).
+    func advanced(_ line: String) -> Bool {
+        guard line.hasPrefix("out_time_us="), let micros = Double(line.dropFirst("out_time_us=".count)) else { return false }
+        lock.lock(); defer { lock.unlock() }
+        guard micros != lastTime else { return false }
+        lastTime = micros
+        return true
+    }
+
+    // ponytail: one limit for every ffmpeg run. ffmpeg prints its progress twice a second, so
+    // five minutes without the output time moving means it hangs (a read that never returns, a
+    // stuck encoder). Ceiling: the palette GIF path writes nothing until it has read the whole
+    // video; a per-run limit if a GIF of a very long video ever needs more.
+    static let stallLimit: TimeInterval = 300
+
+    /// Options for an ffmpeg run with `-progress pipe:1`: progress to the sink, and the run
+    /// stopped when the output time stops moving for `stallLimit`.
+    var options: ProcessOptions {
+        ProcessOptions(onStdoutLine: lineHandler, stallTimeout: Self.stallLimit, madeProgress: { [self] in advanced($0) })
     }
 }
