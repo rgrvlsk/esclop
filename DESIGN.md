@@ -20,7 +20,7 @@ system screenshot thumbnail. The look follows [docs/design/targets](docs/design/
    failure tints it amber (`pr2-failed-not-uploaded`): a red triangle and what did not happen
    ("Not optimised", "Not uploaded") with Retry beside it, and under them, across the card,
    why and that nothing was lost ("The original is untouched.", "The file is kept.").
-2. **Detail.** Opened by a click, Return or Space, or VoiceOver's action; never because the
+2. **Detail.** Opened by a click, Return, or VoiceOver's action; never because the
    pointer rested. The card grows to 320 pt: the picture, the name with format and
    dimensions, the saving at the next size up, and the actions as 1 + 2 + "…": the most likely
    action in charcoal with what it acts on (Show in Finder and the folder, or Copy for a copied
@@ -251,6 +251,19 @@ system backgrounds with a contrasting border.
 Every hover action is also reachable by keyboard and VoiceOver as a named action. The popover
 supports arrow keys, Return, Escape and the listed ⌘ shortcuts. VoiceOver announces each result
 once ("Optimised, 612 kB, 75 % smaller").
+
+## Keys
+A result takes plain keys, as in Clop, where it has the action: on the card the pointer rests on
+(after 200 ms, with no click, and the app in front keeps its window), and on the card with the
+keys (a click, or the "Go to the newest result" hotkey, unset by default, in Settings › General).
+Space Quick Look (again to close) · Z Undo · C Copy · F Show in Finder · D Compare · K Crop ·
+S Save · ⌫ Dismiss (the file stays) · − smaller (75 %, 50 %, then a tenth at a time to 10 %) ·
+1–9 that size (10 %–90 %), each from the original. On the card with the keys also Return
+(detail, then its charcoal button), Esc (innermost first) and ⌘Z, ⌘C, ⌘R. The resting pointer
+holds no key while a menu, the name, the loupe or a drag has the keys. The "…" menu shows a
+row's key at its end (Compare D). The hover keys are Carbon hotkeys held only while the pointer
+rests, so they need no permission; with a layout that has no plain key for a character (the
+digits on AZERTY) that key is skipped.
 
 ## Copy
 Say what happens: "Optimise", "Convert to WebP", "Fit under 1 MB", "Undo", "Keep original".

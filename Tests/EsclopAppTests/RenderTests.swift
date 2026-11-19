@@ -324,6 +324,23 @@ import Testing
         try data.write(to: Self.folder.appendingPathComponent("\(name)-\(scheme == .dark ? "dark" : "light").png"))
     }
 
+    /// The detail's "…" menu rows, in the card's fill: a row with a card key shows it at its end.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func detailMenuRows(scheme: ColorScheme) throws {
+        let photo = card(.done(saved(URL(fileURLWithPath: "/tmp/Desktop/Beach.jpg"))), source: URL(fileURLWithPath: "/tmp/Desktop/Beach.jpg"), origin: .dropZone)
+        let info = photo.presentation
+        #expect(info.menu.contains(.compare))
+        let rows = VStack(spacing: 0) {
+            ForEach(Array(info.menu.enumerated()), id: \.element) { index, action in
+                LiquidMenuRow(separated: index > 0, action: action, highlighted: index == 1, hover: { _ in }, choose: {})
+            }
+        }
+        .padding(.vertical, LiquidMenu.inset)
+        .frame(width: LiquidMenu.width)
+        .background(RoundedRectangle(cornerRadius: LiquidMenu.radius, style: .continuous).fill(info.surface))
+        try render(rows, name: "result-detail-menu", scheme: scheme)
+    }
+
     @Test(arguments: [ColorScheme.light, .dark])
     func stackOfThree(scheme: ColorScheme) throws {
         let harness = Harness()

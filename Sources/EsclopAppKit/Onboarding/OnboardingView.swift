@@ -354,7 +354,8 @@ struct DonePage: View {
             .padding(.top, 6)
             .frame(maxWidth: 520)
             Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 10) {
-                ForEach(Hotkeys.all, id: \.name.rawValue) { hotkey in
+                // The ones with a key: "Go to the newest result" has none until one is set.
+                ForEach(Hotkeys.all.filter { KeyboardShortcuts.getShortcut(for: $0.name) != nil }, id: \.name.rawValue) { hotkey in
                     GridRow {
                         Text(KeyboardShortcuts.getShortcut(for: hotkey.name)?.description ?? Strings.text("None"))
 

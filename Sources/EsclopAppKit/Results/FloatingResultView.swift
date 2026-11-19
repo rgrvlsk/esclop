@@ -2,7 +2,8 @@
 //
 // One floating result (docs/design/targets/README.md › Surfaces): the card at rest
 // (`CardFace`), the detail card it grows into, or a notice. The machine on the card decides the
-// level; this view draws it and takes the keys and VoiceOver's actions.
+// level; this view draws it and takes the keys and VoiceOver's actions. The plain keys
+// (`CardKeys`) work on the card with the keys and on the card the pointer rests on.
 
 import EsclopCore
 import EsclopIPC
@@ -15,21 +16,26 @@ public struct FloatingResultView: View {
     let interact: (AppModel.Interaction) -> Void
     /// Makes the options popover's model when "…" opens it.
     let options: (() -> OptionsModel)?
+    /// Runs a plain key (`CardKeys`); false when it does nothing on this card.
+    let press: (Character) -> Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.controlActiveState) private var activeState
     @FocusState private var focused: Bool
+    /// The pointer is on the card or its detail (the card's own hover ends with the card face).
+    @State private var pointerOver = false
 
     public init(
         card: ResultCard, corner: ScreenCorner = .bottomRight,
         perform: @escaping (CardPresentation.Action) -> Void, interact: @escaping (AppModel.Interaction) -> Void = { _ in },
-        options: (() -> OptionsModel)? = nil
+        options: (() -> OptionsModel)? = nil, press: @escaping (Character) -> Bool = { _ in false }
     ) {
         self.card = card
         self.options = options
         self.corner = corner
         self.perform = perform
         self.interact = interact
+        self.press = press
     }
 
     public var body: some View {
@@ -49,10 +55,29 @@ public struct FloatingResultView: View {
             }
         }
         .animation(reduceMotion ? Motion.crossfade : Motion.detail, value: card.machine.level)
+        .onHover { pointerOver = $0 }
+        // The resting pointer's keys: held after a short rest, given back when it leaves, and
+        // while a menu, the name, the loupe or a drag has the keys.
+        .task(id: hoverKeys) {
+            let keys = hoverKeys
+            guard !keys.isEmpty else { return HoverKeys.shared.release(from: card.id) }
+            try? await Task.sleep(for: HoverKeys.rest)
+            guard !Task.isCancelled else { return }
+            HoverKeys.shared.hold(keys, for: card.id) { _ = press($0) }
+        }
+        .onDisappear { HoverKeys.shared.release(from: card.id) }
         .focusable()
         .focused($focused)
         .focusEffectDisabled()
         .onChange(of: focused && activeState == .key) { _, value in interact(.focus(value)) }
+        // "Go to the newest result": the keys come to this card, and VoiceOver's cursor with
+        // them (it follows the keyboard focus). ponytail: no AccessibilityFocusState; it stops
+        // ImageRenderer drawing the card. Add it if VoiceOver users turn off "follows focus".
+        .onChange(of: card.wantsFocus, initial: true) { _, wants in
+            guard wants else { return }
+            card.wantsFocus = false
+            focused = true
+        }
         // The detail's "…" menu takes the keys while open; they come back here when it closes.
         .onChange(of: card.machine.menuOpen) { _, open in
             if !open, card.machine.level == .detail { focused = true }
@@ -73,15 +98,19 @@ public struct FloatingResultView: View {
             return .handled
         }
         .onKeyPress(.return) { Self.editingText ? .ignored : enter(info) }
-        .onKeyPress(.space) { Self.editingText ? .ignored : enter(info) }
-        .onKeyPress(characters: ["z", "c", "r"], phases: .down) { press in
-            if Self.editingText { return .ignored }
-            guard press.modifiers.contains(.command) else { return .ignored }
-            switch press.characters {
-            case "z": return run(.undo, in: info)
-            case "c": return run(.copy, in: info)
-            default: return run(.reveal, in: info)
+        .onKeyPress(phases: .down) { key in
+            if Self.editingText || card.machine.menuOpen { return .ignored }
+            let modifiers = key.modifiers.subtracting([.capsLock, .numericPad])
+            if modifiers == .command {
+                switch key.characters {
+                case "z": return run(.undo, in: info)
+                case "c": return run(.copy, in: info)
+                case "r": return run(.reveal, in: info)
+                default: return .ignored
+                }
             }
+            guard modifiers.isEmpty, key.characters.count == 1, let character = key.characters.first else { return .ignored }
+            return press(character) ? .handled : .ignored
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(info.accessibilityLabel)
@@ -118,8 +147,15 @@ public struct FloatingResultView: View {
         (NSApp.keyWindow?.firstResponder as? NSTextView)?.isFieldEditor == true
     }
 
-    /// Return and Space open the detail, and there run its charcoal button. With the options
-    /// popover open they belong to it.
+    /// The keys the resting pointer holds for this card now: none while the pointer is away, or
+    /// while the options, the "…" menu, the name, the loupe or a drag take keys of their own.
+    private var hoverKeys: [Character] {
+        guard pointerOver, !card.machine.menuOpen, !card.renaming, card.loupe == nil, !card.machine.dragging else { return [] }
+        return CardKeys.all.filter { CardKeys.command(for: $0, on: card) != nil }
+    }
+
+    /// Return opens the detail, and there runs its charcoal button. With the options popover
+    /// open it belongs to the popover. Space is Quick Look (`CardKeys`), as in Finder and Clop.
     private func enter(_ info: CardPresentation) -> KeyPress.Result {
         if card.machine.menuOpen { return .ignored }
         guard card.machine.level == .detail else { return run(.openDetail, in: info) }
