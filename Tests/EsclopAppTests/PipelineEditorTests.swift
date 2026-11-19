@@ -39,7 +39,7 @@ import Testing
         #expect(!model.hasChanges)
         let app = Harness()
         _ = try app.model.service.context.pipelines.save(saved)
-        #expect(app.model.pipelineNames == ["Web"], "the Share tab lists what the editor saves")
+        #expect(app.model.pipelineNames(for: nil) == ["Web"], "the Share tab lists what the editor saves")
     }
 
     @Test func templatesAreReadOnlyAndDuplicateIntoAnEditableCopy() throws {
