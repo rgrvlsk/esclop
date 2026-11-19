@@ -62,15 +62,21 @@ public enum ShortcutActions {
             case let .pipeline(name): job.operation = .pipeline(name)
             }
             let report = await model.run(job)
-            if let result = report.results.first {
-                outputs.append(result.output)
-            } else if let failure = report.failures.first {
+            if let failure = report.failures.first {
                 if case .alreadySmaller = failure.error {
                     // Already optimised: the file goes on unchanged, as the floating result says.
                     outputs.append(file)
-                } else {
-                    throw Failure(message: CardPresentation.message(for: failure.error))
+                    continue
                 }
+                // A pipeline that failed late names its step and what its earlier steps changed.
+                var message = CardPresentation.message(for: failure.error)
+                if let step = failure.step { message = Strings.format("The step %@ failed: %@", step, message) }
+                if let partial = report.results.first, partial.backup != nil {
+                    message += " " + Strings.format("The steps before it already changed the file (%@); Recent Results can put the original back.", partial.output.path)
+                }
+                throw Failure(message: message)
+            } else if let result = report.results.first {
+                outputs.append(result.output)
             }
         }
         return outputs

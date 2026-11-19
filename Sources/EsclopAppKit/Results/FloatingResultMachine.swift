@@ -2,7 +2,7 @@
 //
 // What one floating result is doing, as a value (DESIGN.md › Floating result): its level, whether
 // the hover buttons show and when it hides. Nothing opens because the pointer rested: the detail
-// opens on a click, Return or Space, or VoiceOver's action. Time comes in from outside as
+// opens on a click, Return, or VoiceOver's action. Time comes in from outside as
 // `now`, so tests drive it with a fixed clock and the app with the real one; the app model sleeps
 // until `nextDeadline` and calls `advance(to:)`.
 
@@ -101,9 +101,9 @@ public struct FloatingResultMachine: Equatable, Sendable {
         hideDeadline = now + hideAfter
     }
 
-    /// The result changed in place (a restore): start its time again at the thumbnail.
+    /// The result changed in place (a restore, an upload, shown again): start its time again.
+    /// The level stays: an open detail stays open (Undo closes it on its own).
     public mutating func refreshed(at now: Date, hideAfter: TimeInterval?) {
-        level = .thumbnail
         self.hideAfter = hideAfter
         hideDeadline = hideAfter.map { now + $0 }
     }

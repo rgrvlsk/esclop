@@ -206,7 +206,7 @@ import Testing
         let bystander = temp.file(".photo.jpg.esclop-restore", bytes: 7)
         let backup = temp.file("backups/photo.jpg", bytes: 5000)
         let result = OptimisationResult(source: original, output: original, backup: backup, kind: .image, bytesBefore: 5000, bytesAfter: 100, startedAt: Date(), finishedAt: Date())
-        _ = try makeService(temp, origin: .cli).restoreBackup(of: result, deleteBackup: false)
+        _ = try await makeService(temp, origin: .cli).restoreBackup(of: result, deleteBackup: false)
         #expect(try Data(contentsOf: original).count == 5000)
         #expect(try Data(contentsOf: bystander).count == 7)
         let left = try FileManager.default.contentsOfDirectory(atPath: temp.url.path).filter { $0.contains("esclop-restore") }
@@ -236,10 +236,10 @@ import Testing
         let service = makeService(temp, origin: .cli)
         let old = Date().addingTimeInterval(-8 * 86400)
         let expired = OptimisationResult(source: original, output: original, backup: gone, kind: .image, bytesBefore: 5000, bytesAfter: 100, startedAt: old, finishedAt: old)
-        #expect(throws: EsclopError.backupRemoved(file: original.path, afterDays: 7)) { _ = try service.restoreBackup(of: expired, deleteBackup: false) }
+        await #expect(throws: EsclopError.backupRemoved(file: original.path, afterDays: 7)) { _ = try await service.restoreBackup(of: expired, deleteBackup: false) }
         var recent = expired
         recent.finishedAt = Date()
-        #expect(throws: EsclopError.backupRemoved(file: original.path, afterDays: nil)) { _ = try service.restoreBackup(of: recent, deleteBackup: false) }
+        await #expect(throws: EsclopError.backupRemoved(file: original.path, afterDays: nil)) { _ = try await service.restoreBackup(of: recent, deleteBackup: false) }
         #expect(EsclopError.backupRemoved(file: original.path, afterDays: 7).code == "fileNotFound", "agents see the code the tool documents")
     }
 

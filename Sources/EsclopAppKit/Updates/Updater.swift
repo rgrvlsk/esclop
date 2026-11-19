@@ -37,9 +37,10 @@ public final class Updater: NSObject {
 
     public var isRunning: Bool { controller != nil }
 
-    /// Starts Sparkle: scheduled checks follow the settings from here on.
-    public func start() {
-        guard controller == nil, Self.isAvailable() else { return }
+    /// Starts Sparkle: scheduled checks follow the settings from here on. When Sparkle does not
+    /// start, nothing stays attached, so a later start tries again.
+    public func start(availableIn bundle: Bundle = .main) {
+        guard controller == nil, Self.isAvailable(in: bundle) else { return }
         let controller = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: self, userDriverDelegate: self)
         self.controller = controller
         attach(controller.updater)
@@ -47,6 +48,9 @@ public final class Updater: NSObject {
             try controller.updater.start()
         } catch {
             log.error("Sparkle did not start: \(error.localizedDescription, privacy: .public)")
+            self.controller = nil
+            settingsObserver = nil
+            sparkleObservers = []
             return
         }
         if let feedOverride { log.info("Update feed from \(Self.feedEnvironmentKey): \(feedOverride, privacy: .public)") }

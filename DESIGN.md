@@ -20,7 +20,7 @@ system screenshot thumbnail. The look follows [docs/design/targets](docs/design/
    failure tints it amber (`pr2-failed-not-uploaded`): a red triangle and what did not happen
    ("Not optimised", "Not uploaded") with Retry beside it, and under them, across the card,
    why and that nothing was lost ("The original is untouched.", "The file is kept.").
-2. **Detail.** Opened by a click, Return or Space, or VoiceOver's action; never because the
+2. **Detail.** Opened by a click, Return, or VoiceOver's action; never because the
    pointer rested. The card grows to 320 pt: the picture, the name with format and
    dimensions, the saving at the next size up, and the actions as 1 + 2 + "…": the most likely
    action in charcoal with what it acts on (Show in Finder and the folder, or Copy for a copied
@@ -49,7 +49,9 @@ system screenshot thumbnail. The look follows [docs/design/targets](docs/design/
    row gives its place, at its height, to a hint ("Click or hold to see original", "Release to
    see optimised") and Done, so nothing in the detail moves. Space swaps, the arrows move the
    lens 8 pt, Esc, Return or Done end it; × still closes the detail. The picture does not drag
-   out while the loupe is on. Other files compare in the Compare window.
+   out while the loupe is on. A round button at the hint's start opens the Compare window (split,
+   difference, zoom). When a file cannot be read, the lens goes and the hint says so ("Can't read
+   one of the files"); nothing swaps. Other files compare in the Compare window.
 
 Hover shows three round buttons over the picture's corner (Copy for a copied screenshot, Show
 in Finder for a file, then Undo and "…") and a close button over its outer corner, so the
@@ -57,7 +59,9 @@ object never changes size under the pointer. The card glows in the picture's ton
 drags out as the file (the original after a restore). Errors keep the original and say so in
 plain words ("This file isn't a video L'Esclop can read. It may be damaged.").
 Several results in a row: show the newest three, newest at the bottom, older ones go to the
-menu-bar history; never stack expanded details. Two or more failures share one of the three
+menu-bar history; never stack expanded details. A file at work keeps its place, with its Stop,
+while newer results arrive; a result that lands behind newer ones comes to the front, and so
+does a result chosen in Recent. Two or more failures share one of the three
 places (`pr2-failures`): an amber pill, "3 not optimised" ("not uploaded" for uploads, "failed"
 for a mix), that a click opens into their list, 320 pt wide, under an amber header in the serif:
 each file with its picture, why, and Retry, or no button when the file is gone ("The file was
@@ -86,6 +90,7 @@ the app, so the app in front keeps its windows, but it takes the keys, so ⌘O w
 - **Recent:** the files being optimised, then the last twelve results, five in view: the
   picture, the name, "2.4 MB → 612 kB · 9:41" and the saving. On hover, Copy and Show in Finder;
   a click shows the result's card again; the context menu adds Compare and Restore Original.
+  The arrows move through the rows and Return shows the card; VoiceOver has every action.
   Clear (privacy) forgets the names: the shared log keeps only sizes and dates, so the saving
   stays, and the CLI and MCP no longer list them. Files, backups and cards are not touched.
   Empty: "Copy a screenshot. You'll find it here, lighter."
@@ -170,7 +175,7 @@ default, `batchWindowFrom`), they go to one window instead: a dropped folder, "O
 many copied files, or a list from the CLI or an agent. It comes forward without taking focus.
 
 - **Header:** "Optimising 7 of 9 files", "48 MB → 12 MB" and the saving as the one large figure
-  ("−75 %", rounded, in the accent), the bar (progress while running, then the deflate bar at
+  ("−75 %", in the figure face, in the saving colour), the bar (progress while running, then the deflate bar at
   the new proportion), the counts ("5 optimised · 1 already optimised · 1 failed") and Pause,
   Stop, Restore All, Show in Finder.
 - **Rows:** thumbnail, name, sizes or status, the file's own deflate bar and its saving. On hover
@@ -186,10 +191,10 @@ colour.
 | Token | Light | Dark | Role |
 |---|---|---|---|
 | `accent` | `#1E7F6A` | `#3DBF9F` | savings, progress, primary actions |
-| `warm` | `#B8741C` | `#E0A040` | aggressive mode, "fit under size" |
+| `warm` | `#8F5510` | `#E0A040` | aggressive mode, "fit under size"; `#B8741C` on a charcoal tile |
 | `ink` | `#1B1F1E` | `#F2F4F3` | primary text (used only where system label colors cannot) |
 | `clog` | `#8A5A33` | `#8A5A33` | app icon wood only, never in UI |
-| error | system red | system red | failures |
+| error | `#C4281C` | `#FF6961` | failures (system red is 3.4:1 on light) |
 
 Never: cream page backgrounds, terracotta, acid green on black, gradient washes. Dark glass
 stays translucent; it must not become an opaque slab.
@@ -197,8 +202,8 @@ stays translucent; it must not become an opaque slab.
 ## Type
 System font (SF Pro) everywhere, sizes from the macOS text styles, nothing below 11 pt. Byte
 figures and percentages use SF Pro with monospaced digits (`monospacedDigit()`), never a
-monospaced typeface. The saving percentage is the one large figure: `title2`, semibold,
-rounded design. Labels are sentence case, never all caps, never tracked out. Icons are SF
+monospaced typeface. The saving is the one large figure, set by `Figure`: SF Pro
+Compressed, bold, at one of its four sizes. Labels are sentence case, never all caps, never tracked out. Icons are SF
 Symbols; checkmarks are symbols, not text glyphs.
 
 ## Layout
@@ -215,8 +220,17 @@ Symbols; checkmarks are symbols, not text glyphs.
   file count (124 × 104 pt), then up to four preset zones (100 × 104 pt, symbol in a flat circle,
   name in two lines at most) toward the screen. The tile under the drag turns charcoal at the
   same height. Under the row: "Drop to optimise · Hold ⌘ to optimise harder"; with ⌘ the tile
-  reads "Optimise harder" and the hint "With the aggressive settings" in the warm colour. Not ⌥:
-  in Finder ⌥ already means copy during a drag, and originals are always backed up.
+  reads "Optimise harder" and the hint "With the aggressive settings" in the warm colour. Over a
+  preset zone the line names its pipeline ("Drop to run “to WebP”") without the ⌘ hint, which a
+  pipeline does not use. ⌥ held at the drop keeps the originals, as ⌥ means copy in a Finder
+  drag: a plain optimisation writes beside the original, a pipeline runs on a copy made beside
+  it, and the hint reads "The originals stay as they are" in the
+  primary ink. It takes files, folders (the count is the media inside, which also picks the
+  preset zones), files promised by Photos or Mail, and image and video addresses from a browser,
+  which are fetched into the temporary folder first. A tap on ⌥ during a drag opens the zone just
+  below the pointer (hint "Tap ⌥ to hide"), and the next tap hides it; with "Show the drop zone
+  only after tapping ⌥" that tap is the only way it shows. While results follow the pointer, the
+  zone follows the drag to the display under it.
 - Settings: sidebar panes with the search at the top of the sidebar, grouped forms with native
   controls (switches, menus, sliders with their figure, fields with a stepper and unit). Each
   row has its title and a one-line explanation; a reset arrow appears beside the title while
@@ -246,6 +260,27 @@ system backgrounds with a contrasting border.
 Every hover action is also reachable by keyboard and VoiceOver as a named action. The popover
 supports arrow keys, Return, Escape and the listed ⌘ shortcuts. VoiceOver announces each result
 once ("Optimised, 612 kB, 75 % smaller").
+
+## Keys
+A result takes Clop's keys, with Clop's modifiers, where it has the action: on the card the
+pointer moved onto and rests on (after 200 ms, with no click, and the app in front keeps its
+window; a card that appears or moves under a still pointer waits for it to move), and on the
+card with the keys (a click, or the "Go to the newest result" hotkey, unset by default, in
+Settings › General, with a Set… link on the last onboarding page). The hotkey lends the keys:
+Esc on the card, or Undo, Copy or Save (by key or by click), gives them back to the app in
+front and the card stays. Space alone: Quick Look (again to close). With ⌘: ⌘Z Undo · ⌘C Copy ·
+⌘F Show in Finder · ⌘D Compare · ⌘K Crop · ⌘S Save · ⌘⌫ Dismiss (the file stays) · ⌘− smaller
+(75 %, 50 %, then a tenth at a time to 10 %) · ⌘1–⌘9 that size (10 %–90 %), each from the
+original. Letters never go alone: a pointer resting on a card must not take what the person
+types into the app in front. While it rests there, ⌘Z, ⌘C, ⌘S and the rest act on the card,
+not on that app. On the card with the keys also Return (detail, then its charcoal button), Esc
+(innermost first) and ⌘R (Show in Finder). The resting pointer holds no key while any card's
+menu, options, name, loupe or drag has the keys, or while a field of L'Esclop is being typed
+in. The "…" menu shows a row's key at its end (Compare ⌘D), and a button's tooltip names its key
+("Undo  ⌘Z"). Quick Look is also a VoiceOver action, and Space on a Recent row in the menu bar
+panel is Quick Look too. The hover keys are Carbon hotkeys
+held only while the pointer rests, so they need no permission; a key the layout types only with
+Shift or Option (the digits on AZERTY) is skipped.
 
 ## Copy
 Say what happens: "Optimise", "Convert to WebP", "Fit under 1 MB", "Undo", "Keep original".

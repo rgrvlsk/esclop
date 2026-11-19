@@ -29,6 +29,7 @@ public struct SettingsView: View {
         }
         .searchable(text: $model.query, placement: .sidebar, prompt: Strings.text("Search settings"))
         .frame(minWidth: 720, idealWidth: 800, minHeight: 480, idealHeight: 620)
+        .designTint()
     }
 }
 

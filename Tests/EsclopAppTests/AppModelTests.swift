@@ -98,6 +98,31 @@ import Testing
         #expect(harness.model.restorable.isEmpty)
     }
 
+    /// A re-run of a card replaces its result, and Undo withdraws it: the saving counts the file
+    /// once, then not at all, and Recent never lists it twice.
+    @Test func aRerunCountsOnceAndUndoCountsNothing() async throws {
+        for location in [OutputLocation.inPlace, .sameFolder] {
+            let harness = Harness()
+            let file = harness.temp.file("a.png", bytes: 100_000)
+            // A drop: a copied file is optimised as a temporary copy and has no Undo.
+            _ = await harness.model.run(harness.job(file, origin: .dropZone, location: location))
+            let card = try #require(harness.model.cards.first)
+            #expect(harness.model.recent.first?.origin == .dropZone, "the log says where it came from")
+            let first = try #require(card.result)
+            harness.model.perform(.downscale, on: card)
+            #expect(await eventually { harness.requests.requests.count == 2 && card.result != nil && card.result?.id != first.id })
+            let log = harness.model.service.results
+            #expect(log.savings().count == 1, "\(location): one file, counted once")
+            #expect(log.recent(limit: 10).map(\.id) == [card.result?.id], "\(location): one row in the shared log")
+            #expect(harness.model.recent.map(\.id) == [card.result?.id], "\(location): one row in Recent")
+            guard location == .inPlace else { continue }
+            harness.model.perform(.undo, on: card)
+            #expect(await eventually { if case .restored = card.phase { return true } else { return false } })
+            #expect(log.savings().isEmpty, "undone: nothing saved")
+            #expect(log.recent(limit: 10).isEmpty && harness.model.recent.isEmpty)
+        }
+    }
+
     /// Each card restores its own original, not the newest one for the same path.
     @Test func restoreUsesTheResultsOwnBackup() async throws {
         let harness = Harness()

@@ -203,8 +203,8 @@ extension AppModel {
     }
 
     /// Shelf and upload apps L'Esclop hands files to, when installed.
-    public static let shelfApps = ["at.EternalStorms.Yoink", "at.EternalStorms.Yoink-setapp", "me.damir.dropover-mac", "com.hachipoo.Dockside"]
-    public static let uploadApps = ["net.mkswap.Dropshare5", "net.mkswap.Dropshare5-setapp"]
+    public static let shelfApps = AppPipelineHost.shelves.flatMap(\.bundleIDs)
+    public static let uploadApps = AppPipelineHost.uploadApps.flatMap(\.bundleIDs)
 
     public static func installed(_ bundleIDs: [String]) -> [URL] {
         bundleIDs.compactMap { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) }
@@ -255,6 +255,15 @@ final class QuickLookPresenter: NSObject, @preconcurrency QLPreviewPanelDataSour
         panel.dataSource = self
         panel.reloadData()
         panel.makeKeyAndOrderFront(nil)
+    }
+
+    /// Space on a card: shows the file, or closes Quick Look when it shows it already.
+    func toggle(_ url: URL) {
+        if file == url, QLPreviewPanel.sharedPreviewPanelExists(), let panel = QLPreviewPanel.shared(), panel.isVisible {
+            panel.orderOut(nil)
+        } else {
+            show(url)
+        }
     }
 
     func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { file == nil ? 0 : 1 }

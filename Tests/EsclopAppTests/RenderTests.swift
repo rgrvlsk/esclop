@@ -169,7 +169,15 @@ import Testing
             let size = try render(object(card), name: name, scheme: scheme)
             #expect(size.width == Metrics.thumbnailWidth, "\(name) is a 208 pt card")
         }
-        try render(object(card(.notice(title: "Skipping the next copy", detail: "Press again to pause everything."))), name: "result-notice", scheme: scheme)
+        // One the app shows: ⌃⇧C with nothing copied.
+        try render(object(card(.notice(title: Strings.text("Nothing to optimise"), detail: Strings.text("Copy an image or a file first.")))), name: "result-notice", scheme: scheme)
+        // A watched folder's burst, with its one action.
+        let tooMany = card(.notice(
+            title: WatchedFolders.tooManyTitle(.image, count: 4),
+            detail: Strings.format("They appeared together in %@, so L’Esclop left them alone.", "~/Downloads")
+        ))
+        tooMany.optimiseAnyway = {}
+        try render(object(tooMany), name: "result-notice-action", scheme: scheme)
     }
 
     /// The detail (pr2-detail-card): a dropped photo shows its folder, a copied screenshot goes back
@@ -201,7 +209,27 @@ import Testing
         tall.thumbnail = Self.framed(NSSize(width: 300, height: 600))
         let wide = open(card(.done(saved(beach)), source: beach, origin: .dropZone))
         wide.thumbnail = Self.framed(NSSize(width: 900, height: 200))
+        // Compare as a loupe: the hint, Done and the way to the Compare window; and the loupe
+        // that could not read a file, which says so instead of showing one picture twice.
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-loupe-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let (before, after) = (folder.appendingPathComponent("Beach.jpg"), folder.appendingPathComponent("Beach.webp"))
+        try Data([0]).write(to: before)
+        try Data([0]).write(to: after)
+        var compared = saved(before)
+        compared.output = after
+        func loupe(_ state: LoupeState) -> ResultCard {
+            let card = open(card(.done(compared), source: before, origin: .dropZone))
+            card.thumbnail = Self.cove
+            card.loupe = state
+            return card
+        }
+        var unreadable = LoupeState()
+        unreadable.unreadable = true
         let details: [(String, ResultCard)] = [
+            ("detail-loupe", loupe(LoupeState())),
+            ("detail-loupe-unreadable", loupe(unreadable)),
             ("detail-dropped", photo),
             ("detail-clipboard", open(card(.done(saved())))),
             ("detail-grew", open(card(.done(saved(after: 2_470_000)), origin: .dropZone))),
@@ -283,6 +311,9 @@ import Testing
         let four = try render(DropZoneView(state: DropZoneState(fileCount: 2, zones: zones, hoveredZone: "fit under 1 MB")), name: "drop-zone-presets", scheme: scheme)
         #expect(four.width > DropTiles.plainWidth * 4, "the zones sit beside the plain target")
         try render(DropZoneView(state: DropZoneState(fileCount: 0, zones: Array(zones.prefix(3)), zonesLeading: false)), name: "drop-zone-presets-left", scheme: scheme)
+        // ⌥ held: the line says the originals stay; under the pointer after an ⌥ tap: how to hide it.
+        try render(DropZoneView(state: DropZoneState(fileCount: 3, hovering: true, keepOriginals: true, zones: Array(zones.prefix(2)))), name: "drop-zone-keep", scheme: scheme)
+        try render(DropZoneView(state: DropZoneState(fileCount: 3, atPointer: true, zones: Array(zones.prefix(2)))), name: "drop-zone-pointer", scheme: scheme)
     }
 
     @Test(arguments: [ColorScheme.light, .dark])
@@ -302,6 +333,23 @@ import Testing
         try FileManager.default.createDirectory(at: Self.folder, withIntermediateDirectories: true)
         let data = try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
         try data.write(to: Self.folder.appendingPathComponent("\(name)-\(scheme == .dark ? "dark" : "light").png"))
+    }
+
+    /// The detail's "…" menu rows, in the card's fill: a row with a card key shows it at its end.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func detailMenuRows(scheme: ColorScheme) throws {
+        let photo = card(.done(saved(URL(fileURLWithPath: "/tmp/Desktop/Beach.jpg"))), source: URL(fileURLWithPath: "/tmp/Desktop/Beach.jpg"), origin: .dropZone)
+        let info = photo.presentation
+        #expect(info.menu.contains(.compare))
+        let rows = VStack(spacing: 0) {
+            ForEach(Array(info.menu.enumerated()), id: \.element) { index, action in
+                LiquidMenuRow(separated: index > 0, action: action, highlighted: index == 1, hover: { _ in }, choose: {})
+            }
+        }
+        .padding(.vertical, LiquidMenu.inset)
+        .frame(width: LiquidMenu.width)
+        .background(RoundedRectangle(cornerRadius: LiquidMenu.radius, style: .continuous).fill(info.surface))
+        try render(rows, name: "result-detail-menu", scheme: scheme)
     }
 
     @Test(arguments: [ColorScheme.light, .dark])
