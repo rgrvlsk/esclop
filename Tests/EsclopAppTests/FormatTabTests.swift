@@ -76,13 +76,15 @@ import Testing
     /// A video's GIF keeps the video, from the tile or from More formats.
     @Test func aVideosGIFKeepsTheVideo() async throws {
         let harness = Harness()
-        _ = await harness.model.run(harness.job(harness.temp.file("clip.mov", bytes: 100_000)))
+        let clip = harness.temp.file("clip.mov", bytes: 100_000)
+        _ = await harness.model.run(harness.job(clip))
         let card = try #require(harness.model.cards.first)
         let model = OptionsModel(card: card, app: harness.model)
         model.pick(.gifVideo, keepBoth: false)
         #expect(model.armed == nil, "not armed: it runs, beside the video")
         #expect(await eventually { harness.requests.requests.count == 2 })
-        #expect(harness.requests.requests.last?.location == .sameFolder, "a new file next to the video")
+        let beside = clip.deletingLastPathComponent().appendingPathComponent("clip-optimised.gif")
+        #expect(harness.requests.requests.last?.location == .path(beside.path), "a new file next to the video")
     }
 }
 
@@ -126,6 +128,9 @@ import Testing
         #expect(await eventually { harness.requests.requests.count == 3 && model.card.result != nil })
         #expect(harness.requests.requests.last?.downscale == nil, "never enlarges: back to the original's size")
         #expect(model.currentScale == 1)
+        model.app.perform(.downscale, on: model.card)
+        #expect(await eventually { harness.requests.requests.count == 4 && model.card.result != nil })
+        #expect(model.isCurrent(0.5), "the hover Downscale chooses Half too")
     }
 
     /// A crop makes the file smaller, but it is not a scale: no size tile is chosen for it.
@@ -133,7 +138,8 @@ import Testing
         let (model, harness) = try await model(width: 4000, height: 2000)
         model.app.crop(model.card, to: CropSize(width: 2000, height: 2000))
         #expect(await eventually { harness.requests.requests.count == 2 && model.card.result != nil })
-        #expect(model.currentScale == 1, "Original stays the chosen tile")
+        #expect(model.currentScale == 1, "not a scale")
+        #expect(!model.isCurrent(1), "and not the original either: no tile is chosen")
     }
 
     @Test func everyKindHasTheTabsItCanUse() {
