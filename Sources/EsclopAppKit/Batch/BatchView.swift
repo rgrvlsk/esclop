@@ -2,7 +2,7 @@
 //
 // The batch window: the aggregate saving with the deflate bar and the controls for the whole
 // batch on top, then one row per file with its progress, sizes, its own bar and its actions.
-// The same language as the floating result: Ink.saving, the rounded saving figure, the
+// The same language as the floating result: Ink.saving, the saving in `Figure.font`, the
 // deflate bar contracting to the new proportion.
 
 import AppKit
@@ -37,6 +37,7 @@ public struct BatchView: View {
         .frame(minWidth: 520, idealWidth: 560, minHeight: 360, idealHeight: 520)
         .background(Color(nsColor: .windowBackgroundColor))
         .animation(reduceMotion ? nil : Motion.bar, value: info.barEnd)
+        .designTint()
     }
 }
 
@@ -57,7 +58,7 @@ struct BatchHeader: View {
                 Spacer(minLength: 12)
                 if let percent = info.percent {
                     Text(percent)
-                        .font(.system(.title, design: .rounded).weight(.semibold))
+                        .font(Figure.font(Figure.Size.panel.rawValue))
                         .foregroundStyle(Ink.saving)
                         .monospacedDigit()
                         .contentTransition(.numericText())
@@ -113,7 +114,7 @@ struct BatchRowView: View {
                 Text(row.source.lastPathComponent).font(.body.weight(.medium)).lineLimit(1).truncationMode(.middle)
                 Text(BatchPresentation.status(of: row))
                     .font(.subheadline)
-                    .foregroundStyle(isError ? Color.red : .secondary)
+                    .foregroundStyle(isError ? AnyShapeStyle(Ink.error) : AnyShapeStyle(.secondary))
                     .lineLimit(2)
                     .monospacedDigit()
                 bar.frame(maxWidth: 180)
@@ -123,7 +124,7 @@ struct BatchRowView: View {
                 actions.transition(.opacity)
             } else if let figure = BatchPresentation.figure(of: row) {
                 Text(figure)
-                    .font(.system(.title3, design: .rounded).weight(.semibold))
+                    .font(Figure.font(Figure.Size.card.rawValue))
                     .foregroundStyle(Ink.saving)
                     .monospacedDigit()
             } else if case .working = row.state {

@@ -23,7 +23,7 @@ struct SettingRow: View {
             if let error = model.errors[key] {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .font(.subheadline)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Ink.error)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -187,7 +187,7 @@ struct NumberField: View {
                 .onSubmit(commit)
                 .overlay {
                     if problem != nil {
-                        RoundedRectangle(cornerRadius: 5).strokeBorder(.red, lineWidth: 1).allowsHitTesting(false)
+                        RoundedRectangle(cornerRadius: 5).strokeBorder(Ink.error, lineWidth: 1).allowsHitTesting(false)
                     }
                 }
                 .help(problem ?? range)

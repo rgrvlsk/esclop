@@ -163,5 +163,6 @@ struct PanelRoot: View {
                 maxWidth: .infinity, maxHeight: .infinity,
                 alignment: corner.isTop ? (corner.isRight ? .topTrailing : .topLeading) : (corner.isRight ? .bottomTrailing : .bottomLeading)
             )
+            .designTint()
     }
 }

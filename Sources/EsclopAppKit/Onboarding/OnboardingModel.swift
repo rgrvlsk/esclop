@@ -40,7 +40,15 @@ public final class OnboardingModel {
 
     public init(defaults: UserDefaults) {
         self.defaults = defaults
+        refreshAccess()
+        // Back from System Settings, the badge and the switch show what the person chose there.
+        activation = NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: nil) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshAccess() }
+        }
     }
+
+    // ponytail: never removed; the app keeps one model for its lifetime, and the block holds it weakly.
+    @ObservationIgnored private var activation: (any NSObjectProtocol)?
 
     public var isFinished: Bool { defaults.bool(forKey: Self.finishedKey) }
     public var shouldShowAtLaunch: Bool { !isFinished }
@@ -67,8 +75,13 @@ public final class OnboardingModel {
 
     /// Skip and Done both end it for good; the menu can still bring it back.
     public func finish() {
-        defaults.set(true, forKey: Self.finishedKey)
+        windowClosed()
         onFinish()
+    }
+
+    /// Closing the window (its close button, ⌘W) ends it too, or it would open at every launch.
+    public func windowClosed() {
+        defaults.set(true, forKey: Self.finishedKey)
     }
 
     /// Back to the first step, for opening it again from the menu.
@@ -87,9 +100,22 @@ public final class OnboardingModel {
         case unknown
     }
 
-    /// Whether macOS lets L'Esclop read copied images without asking (macOS 15.4 and later
-    /// can ask before every programmatic read of the clipboard).
-    public var clipboardAccess: Access {
+    /// Whether macOS lets L’Esclop read copied images without asking, as of the last time the app
+    /// came to the front.
+    public private(set) var clipboardAccess: Access = .unknown
+    /// The login item's state, as of the last time the app came to the front.
+    public private(set) var loginStatus: SMAppService.Status = .notRegistered
+
+    @ObservationIgnored var readClipboardAccess: @MainActor () -> Access = OnboardingModel.systemClipboardAccess
+    @ObservationIgnored var readLoginStatus: @MainActor () -> SMAppService.Status = { SMAppService.mainApp.status }
+
+    public func refreshAccess() {
+        clipboardAccess = readClipboardAccess()
+        loginStatus = readLoginStatus()
+    }
+
+    /// macOS 15.4 and later can ask before every programmatic read of the clipboard.
+    static func systemClipboardAccess() -> Access {
         #if compiler(>=6.1)
         if #available(macOS 15.4, *) {
             switch NSPasteboard.general.accessBehavior {
@@ -103,27 +129,27 @@ public final class OnboardingModel {
         return .unknown
     }
 
-    /// Open at login, through the system's login items.
+    /// Open at login, through the system's login items. Registered but waiting for the person's
+    /// approval in Login Items counts as on: turning it off there is their call, not ours.
     public var opensAtLogin: Bool {
-        get {
-            access(keyPath: \.opensAtLogin)
-            return SMAppService.mainApp.status == .enabled
-        }
+        get { loginStatus == .enabled || loginStatus == .requiresApproval }
         set {
-            withMutation(keyPath: \.opensAtLogin) {
-                do {
-                    if newValue { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
-                    loginError = nil
-                } catch {
-                    loginError = Strings.format("macOS did not add L'Esclop to the login items: %@. Add it in System Settings → General → Login Items.", error.localizedDescription)
-
-                }
+            do {
+                if newValue { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+                loginError = nil
+            } catch {
+                loginError = Strings.format("macOS did not add L’Esclop to the login items: %@. Add it in System Settings › General › Login Items.", error.localizedDescription)
             }
+            loginStatus = readLoginStatus()
         }
     }
 
+    /// On, but macOS waits for the person to allow it in System Settings › General › Login Items.
+    public var loginNeedsApproval: Bool { loginStatus == .requiresApproval }
+
     public var loginError: String?
 
-    /// System Settings at Privacy & Security, where Paste from Other Apps lives.
-    public static let privacySettings = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy")!
+    /// System Settings at Privacy & Security › Paste from Other Apps (Privacy & Security on a macOS
+    /// without that list).
+    public static let privacySettings = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Pasteboard")!
 }

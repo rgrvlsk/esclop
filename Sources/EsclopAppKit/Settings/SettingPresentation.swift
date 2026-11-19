@@ -92,7 +92,7 @@ public enum SettingPresentation {
         "autoHideFloatingResultsAfter": "s", "autoHideClipboardResultAfter": "s",
         "maxImageSizeMB": "MB", "minImageSizeKB": "kB", "maxVideoSizeMB": "MB", "minVideoSizeKB": "kB",
         "maxPDFSizeMB": "MB", "maxAudioSizeMB": "MB", "minVideoFPS": "fps", "gifMaxWidth": "px", "gifFPS": "fps",
-        "loudnessTarget": "LUFS", "backupRetentionDays": "days",
+        "loudnessTarget": "LUFS", "backupRetentionDays": "days", "batchWindowFrom": "files",
     ]
 
     static let choiceLabels: [String: String] = [
@@ -135,6 +135,9 @@ public enum SettingPresentation {
 
     /// A value in the words the control shows: "Bottom right", "50 %", "on".
     public static func display(_ value: JSONValue?, for descriptor: SettingDescriptor) -> String {
+        if descriptor.key == EsclopSettings.backupRetentionDays.key, let days = value?.doubleValue {
+            return retention(days: Int(days))
+        }
         switch control(for: descriptor) {
         case let .picker(choices):
             return choices.first { $0.value.doubleValue == value?.doubleValue && $0.value.stringValue == value?.stringValue }?.label ?? text(for: value)
@@ -163,6 +166,15 @@ public enum SettingPresentation {
 
         default:
             return text(for: value)
+        }
+    }
+
+    /// How long backups are kept: "Forever" (0), "1 day", "7 days".
+    public static func retention(days: Int) -> String {
+        switch days {
+        case ...0: Strings.text("Forever")
+        case 1: Strings.text("1 day")
+        default: Strings.format("%d days", days)
         }
     }
 

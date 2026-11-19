@@ -6,6 +6,7 @@
 
 import EsclopCore
 import EsclopIPC
+@testable import EsclopOptimisers
 import EsclopPipelines
 @testable import EsclopAppKit
 import Foundation
@@ -28,6 +29,18 @@ import Testing
         }
         return out
     }()
+
+    /// Refusals the engine words for agents and logs reach a card in the person's language.
+    @Test func engineRefusalsOnACardHaveCatalan() {
+        let overwrite = CardPresentation.message(for: EsclopError.notPermitted(ResultWriter.agentOverwriteMessage))
+        #expect(Self.catalan[overwrite] != nil, "\(overwrite)")
+        #expect(CardPresentation.message(for: EsclopError.notPermitted("Brief.pdf is password protected")) == "Brief.pdf is password protected.")
+        #expect(Self.catalan["%@ is password protected."] != nil)
+        let restore = CardPresentation.message(for: EsclopError.invalidArgument("No recent result for /tmp/a.png. esclop_recent_results lists what can be restored"))
+        #expect(restore == "There is no recent result for a.png to restore.")
+        #expect(Self.catalan["There is no recent result for %@ to restore."] != nil)
+        #expect(Self.catalan[CardPresentation.message(for: EsclopError.alreadySmaller)] != nil)
+    }
 
     /// Why the engine leaves a PDF as it is (engine/.../pdf/reasons.rs): shown as the message.
     @Test func everyEngineReasonHasCatalanAndIsTheMessage() throws {

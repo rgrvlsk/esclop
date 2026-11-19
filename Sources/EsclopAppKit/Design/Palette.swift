@@ -1,26 +1,30 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The design tokens from DESIGN.md: one warning colour, the panel geometry and the
+// The design tokens from DESIGN.md: the caution colour, the panel geometry and the
 // three durations. Views use these names, never raw values.
 
 import AppKit
 import SwiftUI
 
 extension View {
-    /// The default action of a window or sheet: prominent, in the app's accent colour
-    /// (`Ink.charcoal`, from the asset catalog), like the switches.
+    /// The default action of a window or sheet: prominent, in charcoal like the switches.
     func primaryButton() -> some View {
-        buttonStyle(.borderedProminent)
+        buttonStyle(.borderedProminent).tint(Ink.charcoal)
+    }
+
+    /// Every root that can hold a control (a window, a panel, a popover, a sheet) pins the tint:
+    /// macOS applies the bundle's accent colour only under the Multicolour system accent, so with
+    /// Blue chosen a default button, a switch or a checkbox would be system blue.
+    public func designTint() -> some View {
+        tint(Ink.charcoal)
     }
 }
 
 public enum Palette {
-    /// Aggressive mode, "fit under size".
-    public static let warm = Color(nsColor: dynamic(light: 0xB8741C, dark: 0xE0A040))
     /// A folder L'Esclop cannot watch: 3:1 or more on a Settings row, marked or not (4.1:1 light, 4.6:1 dark).
     public static let caution = Color(nsColor: dynamic(light: 0x9A5B0E, dark: 0xE0A040))
-    /// Error text on a Settings or editor row: 5.3:1 light, 5.0:1 dark (system red is 3.4:1 in light).
-    public static let error = Color(nsColor: dynamic(light: 0xC4281C, dark: 0xFF6961))
+    /// Error text on a Settings or editor row; `Ink.error` owns it.
+    public static var error: Color { Ink.error }
 
     static func dynamic(light: UInt32, dark: UInt32) -> NSColor {
         NSColor(name: nil) { appearance in
