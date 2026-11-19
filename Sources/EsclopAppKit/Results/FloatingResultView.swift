@@ -65,10 +65,18 @@ public struct FloatingResultView: View {
         .onContinuousHover { phase in
             if case .active = phase { rest.pointer(at: NSEvent.mouseLocation) } else { rest.reset() }
         }
-        // A card that comes, goes or moves under a still pointer hears no leave, and one that
-        // appears under a parked pointer has not been pointed at: neither takes the keys until
-        // the pointer moves on it.
-        .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { _ in rest.reset() }
+        // A card that comes or moves under a still pointer hears no leave, and one that appears
+        // under a parked pointer has not been pointed at: neither takes the keys until the
+        // pointer moves on it. Measured from the stack's anchored corner, which stays put on the
+        // screen while the panel and the stack grow and shrink, and from the card's own corner on
+        // that side, which stays put while its detail opens.
+        .onGeometryChange(for: CGPoint.self, of: { proxy in
+            guard let stack = proxy.bounds(of: .named(FloatingStackView.space)) else { return .zero }
+            return CGPoint(
+                x: corner.isRight ? stack.maxX - proxy.size.width : stack.minX,
+                y: corner.isTop ? stack.minY : stack.maxY - proxy.size.height
+            )
+        }) { _ in rest.reset() }
         // The resting pointer's keys: held after a short rest, given back when it leaves, and
         // while a menu, the name, the loupe or a drag has the keys.
         .task(id: hoverKeys) {
@@ -100,6 +108,10 @@ public struct FloatingResultView: View {
         // The detail's "…" menu takes the keys while open; they come back here when it closes.
         .onChange(of: card.machine.menuOpen) { _, open in
             if !open, card.machine.level == .detail { focused = true }
+        }
+        // A click that opens the detail gives it the keys too, so Space and ⌘C work there at once.
+        .onChange(of: card.machine.level) { _, level in
+            if level == .detail { focused = true }
         }
         // And after the name was edited.
         .onChange(of: card.renaming) { _, renaming in
@@ -185,7 +197,6 @@ public struct FloatingResultView: View {
     private func run(_ action: CardPresentation.Action, in info: CardPresentation) -> KeyPress.Result {
         guard info.actions.contains(action) else { return .ignored }
         perform(action)
-        if card.lentKeys, CardKeys.givesKeysBack(action) { interact(.returnKeys) }
         return .handled
     }
 }

@@ -105,9 +105,7 @@ extension AppModel {
         guard let command = CardKeys.command(for: Character(key.lowercased()), on: card) else { return false }
         switch command {
         case .quickLook: QuickLookPresenter.shared.toggle(card.shownFile)
-        case let .perform(action):
-            perform(action, on: card)
-            if card.lentKeys, CardKeys.givesKeysBack(action) { returnKeys(from: card) }
+        case let .perform(action): perform(action, on: card)
         case let .downscale(scale): downscale(card, to: scale)
         }
         return true
