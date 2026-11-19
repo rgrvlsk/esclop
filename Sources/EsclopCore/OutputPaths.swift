@@ -143,9 +143,12 @@ public extension StagedFiles {
     /// `publish` call it first; the other stagers (restore, a pipeline's move, Save) leave theirs
     /// for the next of those in the folder.
     /// The age is the status change date: a staged file keeps its source's modification date
-    /// (dates are preserved), but a move or a copy sets that one to now.
+    /// (dates are preserved), but on APFS and HFS+ a move or a copy sets that one to now.
     // ponytail: a day old, so a swap still copying to a slow disk is never taken; lists the
     // folder on every write. Keep a list of swept folders if a huge folder makes that show.
+    // exFAT keeps no separate status change date: there a staged old file can go in the instant
+    // between its staging and its swap, if another job writes into the same folder then. Stage
+    // without the preserved dates, and set them after the swap, if that is ever seen.
     static func removeLeftovers(in folder: URL, now: Date = Date()) {
         let fm = FileManager.default
         guard let names = try? fm.contentsOfDirectory(atPath: folder.path) else { return }

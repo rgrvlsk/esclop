@@ -105,9 +105,12 @@ public enum WebDownload {
             if max(response.expectedContentLength, received) > Int64(largest) {
                 return .other("\(url.absoluteString) is larger than \(ByteSize.format(largest)), the most L'Esclop downloads")
             }
-            // A web page served at a media address (a login page at `photo.jpg`) is refused too.
+            // A web page served at a media address (a login page at `photo.jpg`) is refused too;
+            // other text types stay, as an SVG often comes as text/xml. (Served as text/plain it
+            // is named `logo.svg.txt` by `suggestedFilename`, so it is not taken for media.)
             let name = WebDownload.name(for: url, response: response)
-            if MediaKind.of(URL(fileURLWithPath: name)) == nil || response.mimeType?.lowercased().hasPrefix("text/") == true {
+            let page = ["text/html", "application/xhtml+xml"].contains(response.mimeType?.lowercased() ?? "")
+            if MediaKind.of(URL(fileURLWithPath: name)) == nil || page {
                 let type = response.mimeType.map { " (\($0))" } ?? ""
                 return .other("\(url.absoluteString) is not an image, video, PDF or audio file\(type)")
             }

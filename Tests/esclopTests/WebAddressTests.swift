@@ -98,6 +98,11 @@ final class LocalServer: @unchecked Sendable {
             }
         }
         #expect((try? FileManager.default.contentsOfDirectory(atPath: folder.path))?.isEmpty ?? true, "nothing is kept")
+        // An SVG often comes as text/xml: it is kept.
+        let svg = try await LocalServer(contentType: "text/xml", body: Data(#"<svg xmlns="http://www.w3.org/2000/svg"/>"#.utf8))
+        defer { svg.stop() }
+        let logo = try await WebDownload.fetch(URL(string: "http://127.0.0.1:\(svg.port)/logo.svg")!, into: folder)
+        #expect(logo.lastPathComponent == "logo.svg")
         #expect(WebDownload.isInsecure(URL(string: "http://example.com/a.png")!))
         #expect(!WebDownload.isInsecure(URL(string: "http://localhost:8080/a.png")!))
         #expect(!WebDownload.isInsecure(URL(string: "https://example.com/a.png")!))
