@@ -707,8 +707,6 @@ public final class AppModel {
     func reprocess(_ card: ResultCard, choice: OptimiseChoice? = nil, adjust: ((inout OptimisationJob) -> Void)? = nil) {
         let origin = card.origin, displayName = card.displayName
         let wasClipboardImage = card.source.path.hasPrefix(Paths.temporary.path)
-        card.adjusted = adjust != nil
-        card.loupe = nil
         let choice = choice ?? card.choice
         let rule = card.appliedRule?.choice == choice ? card.appliedRule : nil
         let context = CardContext(origin: card.fileOrigin ?? .unknown, inputType: card.inputType, choice: choice, rule: rule)
@@ -717,8 +715,8 @@ public final class AppModel {
             switch card.phase {
             case let .done(result):
                 source = result.source
-                // A failed restore shows on the card; encoding the optimised file again would not
-                // start from the original.
+                // A failed restore shows a notice and the card keeps its result as it was; encoding
+                // the optimised file again would not start from the original.
                 if result.backup != nil, !(await restore(result)) { return }
             case let .restored(result):
                 source = result.source
@@ -727,6 +725,8 @@ public final class AppModel {
             case .unchanged:
                 break
             }
+            card.adjusted = adjust != nil
+            card.loupe = nil
             var job = factory.job(for: source, origin: origin, location: wasClipboardImage ? .inPlace : nil)
             choice.apply(to: &job.request)
             adjust?(&job)
