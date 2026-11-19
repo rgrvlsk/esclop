@@ -16,7 +16,7 @@ import Testing
     let ca = Locale(identifier: "ca_ES")
 
     /// The catalog's Catalan, read from the file the app ships.
-    static let catalan: [String: String] = {
+    nonisolated static let catalan: [String: String] = {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         let url = root.appendingPathComponent("Sources/EsclopAppKit/Resources/Localizable.xcstrings")
         guard let data = try? Data(contentsOf: url),

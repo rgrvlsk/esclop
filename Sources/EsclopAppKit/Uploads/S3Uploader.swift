@@ -114,6 +114,7 @@ public struct S3Uploader: Sendable {
 }
 
 /// Reports the bytes sent, until the upload is over.
+/// Sendable by hand: `finished` is behind `lock`.
 private final class ProgressDelegate: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
     let report: @Sendable (Double) -> Void
     private let lock = NSLock()

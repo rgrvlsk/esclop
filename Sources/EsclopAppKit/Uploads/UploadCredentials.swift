@@ -78,6 +78,7 @@ public struct KeychainCredentialStore: UploadCredentialStore {
 }
 
 /// Keys in memory, for tests and previews.
+/// Sendable by hand: `items` is behind `lock`.
 public final class MemoryCredentialStore: UploadCredentialStore, @unchecked Sendable {
     private let lock = NSLock()
     private var items: [String: UploadCredentials] = [:]

@@ -247,6 +247,7 @@ public struct RegistrySettingsProvider: SettingsProvider {
 }
 
 /// In-memory settings, for tests and previews.
+/// Sendable by hand: `values` is behind `lock`.
 public final class InMemorySettingsProvider: SettingsProvider, @unchecked Sendable {
     private let lock = NSLock()
     private var values: [String: JSONValue]

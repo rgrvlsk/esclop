@@ -11,7 +11,7 @@ import Testing
 
 @MainActor
 @Suite(.serialized) struct SurfaceRenderTests {
-    static let schemes: [ColorScheme] = [.light, .dark]
+    nonisolated static let schemes: [ColorScheme] = [.light, .dark]
 
     /// One probe: a fill inside the floating surface (or the surface itself), and the inks set
     /// on it with the contrast each must hold.
