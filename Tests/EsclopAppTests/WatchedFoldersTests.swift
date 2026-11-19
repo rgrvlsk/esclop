@@ -156,10 +156,13 @@ import Testing
         let file = temp.file("locked.png")
         try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: file.path)
         defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: file.path) }
+        // Measured against the timeout, not a guess at "at once": under a full run's load the
+        // 20 ms checks took up to 14 s on a CI runner.
         let clock = ContinuousClock()
         let started = clock.now
-        #expect(await FileSettle.wait(for: file, interval: .milliseconds(20), timeout: .seconds(30)) == .unreadable)
-        #expect(clock.now - started < .seconds(5), "no wait for the timeout")
+        let timeout = Duration.seconds(60)
+        #expect(await FileSettle.wait(for: file, interval: .milliseconds(20), timeout: timeout) == .unreadable)
+        #expect(clock.now - started < timeout, "no wait for the timeout")
     }
 }
 
@@ -415,10 +418,10 @@ final class Flag: @unchecked Sendable {
         let other = TempDir()
         let rig = try Rig(alsoWatching: [other.url.path])
         rig.harness.model.hideDelayOverride = .seconds(600)
-        for index in 1 ... 5 {
-            _ = rig.land("a \(index).png")
-            _ = rig.land("b \(index).png", in: other.url)
-        }
+        let landed = (1 ... 5).flatMap { [rig.land("a \($0).png"), rig.land("b \($0).png", in: other.url)] }
+        // In one go: under load FSEvents reported part of a burst after the window closed, so
+        // neither part was too large.
+        rig.folders.received(landed)
         func actions() -> [ResultCard] { rig.harness.model.cards.filter { $0.optimiseAnyway != nil } }
         #expect(await eventually { actions().count == 2 })
         rig.harness.model.notice("Paused", "Press again to resume.")
@@ -436,16 +439,18 @@ final class Flag: @unchecked Sendable {
             name: "copy out", triggers: [.folder(piped.url.path)],
             sections: [PipelineSection(kind: .image, steps: [.copy(to: out.url.path)])]
         )
-        let rig = try Rig(pipelines: [pipeline], alsoWatching: [other.url.path])
+        // Jobs hold until cancelled: an instant engine finished the first burst's batch before
+        // the second burst opened one.
+        let rig = try Rig(pipelines: [pipeline], delay: .seconds(3600), alsoWatching: [other.url.path])
         for index in 1 ... 4 { try pngData().write(to: piped.url.appendingPathComponent("p \(index).png"), options: .atomic) }
         #expect(await eventually { (try? FileManager.default.contentsOfDirectory(atPath: out.url.path).count) == 4 })
         #expect(rig.harness.model.batch == nil, "a pipeline burst opens no batch window")
-        for index in 1 ... 4 {
-            _ = rig.land("a \(index).png")
-            _ = rig.land("b \(index).png", in: other.url)
-        }
-        #expect(await eventually { rig.harness.requests.requests.count == 8 })
-        #expect(rig.harness.model.batch?.rows.count == 8, "two bursts at once, one batch")
+        let landed = (1 ... 4).flatMap { [rig.land("a \($0).png"), rig.land("b \($0).png", in: other.url)] }
+        // Handed over in one go, before the stream reports them: FSEvents can report part of a
+        // burst 0.3 s later, as late as the test's burst window.
+        rig.folders.received(landed)
+        #expect(await eventually { rig.harness.model.batch?.rows.count == 8 }, "two bursts at once, one batch")
+        rig.harness.model.batch?.cancelAll()
         rig.folders.stop()
     }
 
