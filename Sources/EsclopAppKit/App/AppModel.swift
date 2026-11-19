@@ -713,6 +713,8 @@ public final class AppModel {
             var job = factory.job(for: source, origin: origin, location: wasClipboardImage ? .inPlace : nil)
             choice.apply(to: &job.request)
             adjust?(&job)
+            // The Size tab's chosen tile follows the run that starts, from a tile or the hover button.
+            card.downscale = job.request.downscale ?? 1
             let copyBack = origin == .clipboard && EsclopSettings.autoCopyToClipboard.value(in: settings)
             await run(job, displayName: displayName, context: context, reusing: card, onResult: { result in
                 guard copyBack else { return }

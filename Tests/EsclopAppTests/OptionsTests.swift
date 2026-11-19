@@ -290,6 +290,19 @@ import UniformTypeIdentifiers
         #expect(options.quality != 40)
     }
 
+    /// A re-run that fails closes the popover: a failed card has no "…", and its Retry shows.
+    @Test func aFailedRunClosesThePopover() async throws {
+        let harness = Harness(failure: .toolMissing("ffmpeg"))
+        let file = harness.temp.file("a.png", bytes: 100_000)
+        let result = OptimisationResult(source: file, output: file, kind: .image, bytesBefore: 100_000, bytesAfter: 40_000, startedAt: Date(), finishedAt: Date())
+        let card = ResultCard(jobID: result.id, source: file, origin: .dropZone, bytesBefore: 100_000, phase: .done(result))
+        harness.model.add(card)
+        harness.model.openOptions(card)
+        #expect(card.machine.menuOpen)
+        harness.model.apply(OptimiseChoice(format: .webp), to: card)
+        #expect(await eventually { if case .failed = card.phase { return !card.machine.menuOpen } else { return false } })
+    }
+
     /// After Fit or Crop the scale is still 1, but Original must run the original again.
     @Test func originalAfterACropRunsTheOriginal() async throws {
         let harness = Harness()

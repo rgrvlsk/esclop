@@ -306,15 +306,16 @@ struct RuleCheckbox: View {
     @Bindable var model: OptionsModel
 
     var body: some View {
+        let rule = model.rule
         VStack(alignment: .leading, spacing: 4) {
-            Toggle(isOn: $model.ruleOn) {
+            Toggle(isOn: Binding(get: { rule != nil }, set: { model.ruleOn = $0 })) {
                 Text(ClipboardRule.checkboxTitle(origin: model.origin, inputType: model.card.inputType ?? "")).font(OptionsType.label)
             }
             .switchLabel(title: ClipboardRule.checkboxTitle(origin: model.origin, inputType: model.card.inputType ?? ""), hint: nil)
 
             .toggleStyle(.checkbox)
             .disabled(model.card.isWorking)
-            if let rule = model.rule {
+            if let rule {
                 Text(rule.promise())
                     .font(OptionsType.label)
                     .foregroundStyle(PopoverInk.secondary.color)
