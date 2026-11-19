@@ -158,10 +158,11 @@ FF_DEMUXERS="mov matroska avi mpegps mpegts flv mp3 aac ac3 eac3 dts flac ogg wa
 FF_PARSERS="h264 hevc mpeg4video mpegvideo mpegaudio aac aac_latm ac3 dca h263 vp8 vp9 av1 opus vorbis flac mjpeg png gif"
 # ffprobe is a separate, probe-only build: the same demuxers and parsers, and only the decoders
 # whose headers fill the fields MediaProbe.swift reads (pixel format, colour space, PCM bit
-# rate). Linked into the ffmpeg build it would carry every encoder (about 15 MB per slice).
-FF_PROBE_DECODERS="h264 hevc vp8 vp9 prores mjpeg png gif mpeg4 mpeg2video pcm_s16le pcm_s16be pcm_s24le pcm_s24be pcm_s32le pcm_s32be pcm_f32le pcm_f32be pcm_f64le pcm_u8 pcm_alaw pcm_mulaw"
+# rate, and the bit depth of FLAC and Apple Lossless). Linked into the ffmpeg build it would
+# carry every encoder (about 15 MB per slice).
+FF_PROBE_DECODERS="h264 hevc vp8 vp9 prores mjpeg png gif mpeg4 mpeg2video flac alac pcm_s16le pcm_s16be pcm_s24le pcm_s24be pcm_s32le pcm_s32be pcm_f32le pcm_f32be pcm_f64le pcm_u8 pcm_alaw pcm_mulaw"
 FF_BSFS="aac_adtstoasc extract_extradata h264_mp4toannexb hevc_mp4toannexb mpeg4_unpack_bframes vp9_superframe vp9_superframe_split null"
-FF_ENCODERS="h264_videotoolbox hevc_videotoolbox prores_videotoolbox libsvtav1 libvpx_vp9 libopus libmp3lame aac aac_at alac_at flac pcm_s16le pcm_s16be pcm_s24le adpcm_ima_wav png mjpeg gif rawvideo wrapped_avframe"
+FF_ENCODERS="h264_videotoolbox hevc_videotoolbox prores_videotoolbox libsvtav1 libvpx_vp9 libopus libmp3lame aac aac_at alac_at flac pcm_s16le pcm_s16be pcm_s24le pcm_s24be adpcm_ima_wav png mjpeg gif rawvideo wrapped_avframe"
 FF_MUXERS="mp4 mov ipod matroska webm mp3 adts ogg opus flac wav aiff gif image2 null mjpeg"
 # buffer/buffersink/trim/asetpts/fifo are inserted by the ffmpeg CLI itself and
 # must be present for any filter graph to run.
@@ -439,7 +440,7 @@ EOF
 }
 
 # ------------------------------------------------------------ verify
-REQUIRED_ENCODERS="h264_videotoolbox hevc_videotoolbox prores_videotoolbox libsvtav1 libvpx-vp9 libopus libmp3lame aac aac_at alac_at flac pcm_s16le pcm_s16be pcm_s24le adpcm_ima_wav png mjpeg gif rawvideo wrapped_avframe"
+REQUIRED_ENCODERS="h264_videotoolbox hevc_videotoolbox prores_videotoolbox libsvtav1 libvpx-vp9 libopus libmp3lame aac aac_at alac_at flac pcm_s16le pcm_s16be pcm_s24le pcm_s24be adpcm_ima_wav png mjpeg gif rawvideo wrapped_avframe"
 VERIFY_FAIL=0
 vfail() { echo "  FAIL: $*" >&2; VERIFY_FAIL=1; }
 
