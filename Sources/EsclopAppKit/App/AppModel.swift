@@ -50,6 +50,8 @@ public final class AppModel {
     /// Uploads to the person's targets, with the keys from the Keychain (tests use memory).
     @ObservationIgnored public var uploader: any FileUploading
     @ObservationIgnored var restoredIDs = Set<UUID>()
+    /// An ⌥-drop's copies a pipeline runs on, by path, with the original each stands for.
+    @ObservationIgnored var dropCopies: [String: URL] = [:]
     @ObservationIgnored var onCardsChange: (() -> Void)?
     /// Replaces the auto-hide delays from the settings (tests).
     @ObservationIgnored public var hideDelayOverride: Duration?
@@ -387,6 +389,9 @@ public final class AppModel {
                     }
                 }
                 result.origin = job.request.origin
+                if let original = dropCopies.removeValue(forKey: source.standardizedFileURL.path) {
+                    result = Self.settle(result, workingCopy: source, of: original)
+                }
                 outcome = .success(result)
             } catch let failed as PipelineStepFailure {
                 // Earlier steps changed the file: keep that in Recent, where its backup restores.

@@ -40,23 +40,24 @@ final class TempDir: @unchecked Sendable {
 /// Records every call; results halve the file and keep its path.
 final class FakeEngine: OptimisationEngine, @unchecked Sendable {
     private let lock = NSLock()
-    private var log: [(String, URL)] = []
+    private var log: [(String, URL, OptimisationRequest)] = []
     var calls: [String] { lock.lock(); defer { lock.unlock() }; return log.map(\.0) }
     var sources: [URL] { lock.lock(); defer { lock.unlock() }; return log.map(\.1) }
+    var requests: [OptimisationRequest] { lock.lock(); defer { lock.unlock() }; return log.map(\.2) }
 
-    private func record(_ call: String, _ source: URL) -> OptimisationResult {
-        lock.lock(); log.append((call, source)); lock.unlock()
+    private func record(_ call: String, _ source: URL, _ request: OptimisationRequest) -> OptimisationResult {
+        lock.lock(); log.append((call, source, request)); lock.unlock()
         let size = ((try? FileManager.default.attributesOfItem(atPath: source.path))?[.size] as? NSNumber)?.intValue ?? 0
         return OptimisationResult(source: source, output: source, kind: MediaKind.of(source) ?? .image, bytesBefore: size, bytesAfter: size / 2,
                                   startedAt: Date(), finishedAt: Date(), steps: [call])
     }
 
-    func optimise(_ source: URL, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { record("optimise", source) }
-    func convert(_ source: URL, to format: OutputFormat, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { record("convert:\(format.rawValue)", source) }
-    func downscale(_ source: URL, factor: Double, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { record("downscale:\(factor)", source) }
-    func crop(_ source: URL, to size: CropSize, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { record("crop", source) }
-    func fit(_ source: URL, underBytes: Int, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { record("fit:\(underBytes)", source) }
-    func stripMetadata(_ source: URL, request: OptimisationRequest) async throws -> OptimisationResult { record("strip", source) }
+    func optimise(_ source: URL, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { record("optimise", source, request) }
+    func convert(_ source: URL, to format: OutputFormat, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { record("convert:\(format.rawValue)", source, request) }
+    func downscale(_ source: URL, factor: Double, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { record("downscale:\(factor)", source, request) }
+    func crop(_ source: URL, to size: CropSize, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { record("crop", source, request) }
+    func fit(_ source: URL, underBytes: Int, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { record("fit:\(underBytes)", source, request) }
+    func stripMetadata(_ source: URL, request: OptimisationRequest) async throws -> OptimisationResult { record("strip", source, request) }
     func supports(_ url: URL) -> Bool { true }
 }
 

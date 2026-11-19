@@ -155,11 +155,25 @@ final class FakeDrag: NSObject, NSDraggingInfo {
         #expect(try Data(contentsOf: zoned) == original)
         let zonedResult = try #require(harness.model.cards.last?.result)
         #expect(zonedResult.source.deletingLastPathComponent() == zoned.deletingLastPathComponent() && zonedResult.source != zoned, "the copy sits beside")
+        #expect(FileManager.default.fileExists(atPath: zonedResult.output.path), "the optimised copy is the result")
+
+        // A pipeline that writes elsewhere leaves no copy behind; its result starts from the original.
+        try harness.model.service.context.pipelines.save(PresetZonesTests.pipeline("Beside", "convert(to: webp)"))
+        let converted = harness.temp.png("beside.png")
+        let folder = converted.deletingLastPathComponent()
+        let before = try FileManager.default.contentsOfDirectory(atPath: folder.path)
+        harness.model.runPresetZone("Beside", on: [converted], keepOriginals: true)
+        #expect(await eventually { harness.model.cards.count == 3 && harness.model.cards.allSatisfy { $0.result != nil } })
+        let besideResult = try #require(harness.model.cards.last?.result)
+        #expect(besideResult.source == converted)
+        #expect(try Data(contentsOf: converted) == original)
+        let added = Set(try FileManager.default.contentsOfDirectory(atPath: folder.path)).subtracting(before)
+        #expect(added == [besideResult.output.lastPathComponent], "only the pipeline's output is new")
 
         // Without ⌥ the setting's default, in place, still applies.
         let plain = harness.temp.png("plain.png")
         harness.model.optimiseDropped([plain], harder: false)
-        #expect(await eventually { harness.model.cards.count == 3 && harness.model.cards.allSatisfy { $0.result != nil } })
+        #expect(await eventually { harness.model.cards.count == 4 && harness.model.cards.allSatisfy { $0.result != nil } })
         #expect(try Data(contentsOf: plain) != original)
     }
 

@@ -277,11 +277,14 @@ enum ResultWriter {
     }
 
     /// The request's location, except for a result in another format (`ext` differs from the
-    /// source's) when the location came from the settings: then "Converted … go" for `kind`.
+    /// source's) when the location came from the settings: then "Converted … go" for `kind`. An
+    /// agent that may not overwrite originals keeps its own default where that setting says in place.
     static func location(for request: OptimisationRequest, source: URL, kind: MediaKind, extension ext: String, env: EngineEnvironment) -> OutputLocation {
         guard request.locationFromSettings == true, ext.lowercased() != source.pathExtension.lowercased() else { return request.location }
-        return env.value(EsclopSettings.convertedBehaviour(for: kind))
+        let converted = env.value(EsclopSettings.convertedBehaviour(for: kind))
             .location(specificFolder: env.value(EsclopSettings.specificFolderTemplate))
+        if converted == .inPlace, request.origin == .mcp, !env.value(EsclopSettings.allowOverwriteOriginals) { return request.location }
+        return converted
     }
 
     static let agentOverwriteMessage =

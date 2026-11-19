@@ -294,9 +294,8 @@ extension AppModel {
 
     /// With `keepOriginals`, a plain optimisation writes beside the original, whatever the "go"
     /// setting says (a folder template can name the original too). A pipeline has its own place
-    /// for each step, so it runs on a copy made beside the original.
-    // ponytail: a pipeline whose steps write elsewhere (convert to the same folder) leaves that
-    // copy beside its result; drop the copy after the run if people find it in their way.
+    /// for each step, so it runs on a copy made beside the original; `settle` removes that copy
+    /// when the pipeline wrote its result elsewhere.
     private func optimiseDrop(_ files: [URL], aggressive: Bool, keepOriginals: Bool, pipeline: @escaping (URL) -> Pipeline?) {
         guard keepOriginals else { return optimise(files, origin: .dropZone, aggressive: aggressive, copy: nil, pipeline: pipeline) }
         Task {
@@ -312,6 +311,7 @@ extension AppModel {
                     noteWritten([copy])
                     try await Self.copy(file, to: copy)
                     noteWritten([copy])
+                    dropCopies[copy.standardizedFileURL.path] = file
                     sources.append(copy)
                 } catch {
                     notice(Strings.format("Could not copy %@", file.lastPathComponent), CardPresentation.message(for: error))
@@ -320,6 +320,20 @@ extension AppModel {
             guard !sources.isEmpty else { return }
             optimise(sources, origin: .dropZone, aggressive: aggressive, copy: nil, adjust: { $0.request.location = .sameFolder }, pipeline: pipeline)
         }
+    }
+
+    /// The result of a pipeline that ran on `copy`, an ⌥-drop's copy of `original`. When no step
+    /// changed the copy and it is none of the outputs (the pipeline wrote elsewhere), the copy goes
+    /// and the result names the original, which it equals: compare and another choice start there.
+    nonisolated static func settle(_ result: OptimisationResult, workingCopy copy: URL, of original: URL) -> OptimisationResult {
+        let path = copy.standardizedFileURL.path
+        // "also wrote" is how a pipeline result lists its other outputs (`PipelineSupport`).
+        guard result.backup == nil, result.output.standardizedFileURL.path != path,
+              !result.steps.contains("also wrote \(copy.path)"), (try? FileManager.default.removeItem(at: copy)) != nil
+        else { return result }
+        var settled = result
+        settled.source = original
+        return settled
     }
 
     /// Copies off the main thread. The copy beside the original is "photo-optimised.jpg",
