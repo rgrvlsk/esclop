@@ -281,7 +281,7 @@ struct PermissionsPage: View {
                         } label: {
                             // Amber marks the decision; the sentence stays in text ink (amber holds 3:1).
                             Label {
-                                Text(Strings.text("macOS waits for you to allow L’Esclop in Login Items.")).fixedSize(horizontal: false, vertical: true)
+                                Text(Strings.text("macOS waits for you to allow L’Esclop in Login Items & Extensions.")).fixedSize(horizontal: false, vertical: true)
                             } icon: {
                                 Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Ink.warm)
                             }
@@ -329,7 +329,7 @@ struct AgentsPage: View {
         VStack(spacing: 0) {
             PageHeading(
                 title: Strings.text("Connect an AI agent"),
-                summary: Strings.text("Agents use L’Esclop through its MCP server to optimise, convert and crop files when you ask them. You can do this later in Settings → Agents and MCP.")
+                summary: Strings.text("Agents use L’Esclop through its MCP server to optimise, convert and crop files when you ask them. You can do this later in Settings › Agents and MCP.")
             )
             if let agents {
                 Form {
@@ -386,7 +386,7 @@ struct DonePage: View {
                 }
             }
             .padding(.top, 28)
-            Text(Strings.text("Change the shortcuts in Settings → General."))
+            Text(Strings.text("Change the shortcuts in Settings › General."))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .padding(.top, 16)

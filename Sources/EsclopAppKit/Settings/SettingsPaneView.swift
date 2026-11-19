@@ -103,7 +103,7 @@ struct SettingsPaneView: View {
                     LabeledContent {
                         Button(Strings.text("Show in Finder")) { actions.reveal(folder) }
                     } label: {
-                        SettingLabel(title: Strings.text("L’Esclop's folder"), summary: Strings.text("Pipelines, backups of originals, recent results and logs."))
+                        SettingLabel(title: Strings.text("L’Esclop’s folder"), summary: Strings.text("Pipelines, backups of originals, recent results and logs."))
                     }
                 }
                 LabeledContent {
@@ -137,7 +137,7 @@ struct SettingsPaneView: View {
             )
         } + AgentCatalog.all.map { agent in
             SettingsViewModel.ExtraRow(
-                id: AgentRow.rowID(agent), title: Strings.format("Connect %@", agent.name), summary: Strings.format("Add L’Esclop's MCP server to %@.", agent.name),
+                id: AgentRow.rowID(agent), title: Strings.format("Connect %@", agent.name), summary: Strings.format("Add L’Esclop’s MCP server to %@.", agent.name),
                 pane: .agents, keywords: ["mcp", "install", "agent", "ai", "connect", agent.id]
             )
         } + [

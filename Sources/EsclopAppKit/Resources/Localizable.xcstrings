@@ -991,7 +991,7 @@
         }
       }
     },
-    "Add L’Esclop's MCP server to %@.": {
+    "Add L’Esclop’s MCP server to %@.": {
       "localizations": {
         "ca": {
           "stringUnit": {
@@ -1151,12 +1151,12 @@
         }
       }
     },
-    "Agents use L’Esclop through its MCP server to optimise, convert and crop files when you ask them. You can do this later in Settings → Agents and MCP.": {
+    "Agents use L’Esclop through its MCP server to optimise, convert and crop files when you ask them. You can do this later in Settings › Agents and MCP.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Els agents fan servir L’Esclop a través del seu servidor MCP per optimitzar, convertir i retallar fitxers quan els ho demanes. Ho pots fer més endavant a Configuració → Agents i MCP."
+            "value": "Els agents fan servir L’Esclop a través del seu servidor MCP per optimitzar, convertir i retallar fitxers quan els ho demanes. Ho pots fer més endavant a Configuració › Agents i MCP."
           }
         }
       }
@@ -1671,12 +1671,12 @@
         }
       }
     },
-    "Change the shortcuts in Settings → General.": {
+    "Change the shortcuts in Settings › General.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Canvia les dreceres a Configuració → General."
+            "value": "Canvia les dreceres a Configuració › General."
           }
         }
       }
@@ -2101,7 +2101,7 @@
         }
       }
     },
-    "Connecting adds an esclop entry to the agent's own config file and nothing else. You see the change before it is written, and the previous version is kept in L’Esclop's folder.": {
+    "Connecting adds an esclop entry to the agent's own config file and nothing else. You see the change before it is written, and the previous version is kept in L’Esclop’s folder.": {
       "localizations": {
         "ca": {
           "stringUnit": {
@@ -3301,16 +3301,6 @@
         }
       }
     },
-    "Forever": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Per sempre"
-          }
-        }
-      }
-    },
     "Forget these names. The saving stays; the files and their originals are not touched.": {
       "localizations": {
         "ca": {
@@ -4141,7 +4131,7 @@
         }
       }
     },
-    "L’Esclop's folder": {
+    "L’Esclop’s folder": {
       "localizations": {
         "ca": {
           "stringUnit": {
@@ -9251,6 +9241,16 @@
         }
       }
     },
+    "day": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "dia"
+          }
+        }
+      }
+    },
     "days": {
       "localizations": {
         "ca": {
@@ -9261,12 +9261,22 @@
         }
       }
     },
+    "days, kept for ever": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "dies, es conserven per sempre"
+          }
+        }
+      }
+    },
     "deleting files is not allowed here": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "aquí no es permet eliminar fitxers"
+            "value": "Aquí no es permet eliminar fitxers."
           }
         }
       }
@@ -9361,12 +9371,12 @@
         }
       }
     },
-    "macOS did not add L’Esclop to the login items: %@. Add it in System Settings › General › Login Items.": {
+    "macOS did not add L’Esclop to the login items: %@. Add it in System Settings › General › Login Items & Extensions.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "El macOS no ha afegit L’Esclop als ítems d’inici de sessió: %@. Afegeix-lo a Configuració del Sistema › General › Ítems d’inici de sessió."
+            "value": "El macOS no ha afegit L’Esclop als ítems d’inici de sessió: %@. Afegeix-lo a Configuració del Sistema › General › Ítems d’inici de sessió i extensions."
           }
         }
       }
@@ -9381,12 +9391,12 @@
         }
       }
     },
-    "macOS waits for you to allow L’Esclop in Login Items.": {
+    "macOS waits for you to allow L’Esclop in Login Items & Extensions.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "El macOS espera que permetis L’Esclop als ítems d’inici de sessió."
+            "value": "El macOS espera que permetis L’Esclop a Ítems d’inici de sessió i extensions."
           }
         }
       }
@@ -9486,7 +9496,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "l’execució d’scripts està desactivada; permet-la a la configuració de l’esclop"
+            "value": "L’execució d’scripts està desactivada; permet-la a la configuració de L’Esclop."
           }
         }
       }

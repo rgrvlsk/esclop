@@ -58,7 +58,7 @@ struct BatchHeader: View {
                 Spacer(minLength: 12)
                 if let percent = info.percent {
                     Text(percent)
-                        .font(Figure.font(Figure.Size.panel.rawValue))
+                        .font(Figure.font(Figure.Size.detail.rawValue))
                         .foregroundStyle(Ink.saving)
                         .monospacedDigit()
                         .contentTransition(.numericText())

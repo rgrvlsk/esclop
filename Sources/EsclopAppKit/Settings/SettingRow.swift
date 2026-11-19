@@ -65,6 +65,7 @@ struct SettingRow: View {
         case .toggle:
             Toggle(isOn: Binding(get: { descriptor.value?.boolValue ?? false }, set: { model.set(key, to: .bool($0)) })) { label }
                 .switchLabel(title: descriptor.title, hint: descriptor.summary)
+                .tint(Ink.charcoal)
 
         case let .picker(choices):
             Picker(selection: Binding(
@@ -139,6 +140,7 @@ struct SliderField: View {
                 if !editing, draft != value { commit(draft) }
             }
             .labelsHidden()
+            .tint(Ink.charcoal)
             .accessibilityLabel(title)
             .accessibilityValue(figure)
             .frame(width: 180)
@@ -194,7 +196,7 @@ struct NumberField: View {
             Stepper(descriptor.title, onIncrement: { nudge(+step) }, onDecrement: { nudge(-step) })
                 .labelsHidden()
             if let unit {
-                Text(unit).foregroundStyle(.secondary)
+                Text(SettingPresentation.unit(unit, key: descriptor.key, value: descriptor.value)).foregroundStyle(.secondary)
             }
         }
         .onAppear { draft = current }

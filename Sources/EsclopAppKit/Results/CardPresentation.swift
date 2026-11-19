@@ -487,10 +487,15 @@ public struct CardPresentation: Equatable, Sendable {
         }
     }
 
+    // ponytail: matches the engine's English (Service.restoreBackup, PDFEngine, PDFPageTools); a
+    // reworded engine message shows in English again, CatalanCoverageTests names the three.
     private static let noRecentResult = "No recent result for "
 
     /// The engine writes these refusals for agents and logs; a card says them in the person's
     /// language. Anything not listed is looked up as it is, then shown as it is.
+    // ponytail: still English on a card: refusals that carry a path (PipelineRunner's "… already
+    // exists and replacing files is not allowed here", "pipelines never delete folders (…)") and
+    // `.invalidArgument`, `.invalidPipeline`, `.other`. Key them when a card shows one in practice.
     private static func forPeople(_ why: String) -> String {
         if why.hasPrefix("agents may not overwrite originals") {
             return Strings.text("Agents may not replace originals. Allow it in Settings › Agents and MCP, or ask for the result somewhere else.")

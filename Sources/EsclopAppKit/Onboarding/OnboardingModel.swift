@@ -138,13 +138,13 @@ public final class OnboardingModel {
                 if newValue { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
                 loginError = nil
             } catch {
-                loginError = Strings.format("macOS did not add L’Esclop to the login items: %@. Add it in System Settings › General › Login Items.", error.localizedDescription)
+                loginError = Strings.format("macOS did not add L’Esclop to the login items: %@. Add it in System Settings › General › Login Items & Extensions.", error.localizedDescription)
             }
             loginStatus = readLoginStatus()
         }
     }
 
-    /// On, but macOS waits for the person to allow it in System Settings › General › Login Items.
+    /// On, but macOS waits for the person to allow it in System Settings › General › Login Items & Extensions.
     public var loginNeedsApproval: Bool { loginStatus == .requiresApproval }
 
     public var loginError: String?

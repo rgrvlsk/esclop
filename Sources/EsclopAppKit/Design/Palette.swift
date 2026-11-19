@@ -14,9 +14,12 @@ extension View {
 
     /// Every root that can hold a control (a window, a panel, a popover, a sheet) pins the tint:
     /// macOS applies the bundle's accent colour only under the Multicolour system accent, so with
-    /// Blue chosen a default button, a switch or a checkbox would be system blue.
+    /// Blue chosen a default button, a switch or a checkbox would be system blue. Charcoal as ink,
+    /// since SwiftUI also sets bordered buttons' and menus' labels in the tint, and dark charcoal is
+    /// a fill (3.1:1 as text). A switch or slider that should show the charcoal fill in dark sets
+    /// `Ink.charcoal` itself.
     public func designTint() -> some View {
-        tint(Ink.charcoal)
+        tint(Ink.charcoalText)
     }
 }
 
