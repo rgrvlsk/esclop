@@ -122,7 +122,7 @@ extension AppModel {
            result.backup != nil
         {
             Task {
-                await restore(result)
+                guard await restore(result) else { return }
                 if let card = cards.first(where: { $0.result?.id == result.id || $0.jobID == result.id }) { dismiss(card) }
                 optimiseAgain(result.source, wasClipboardImage: result.source.path.hasPrefix(Paths.temporary.path))
             }
