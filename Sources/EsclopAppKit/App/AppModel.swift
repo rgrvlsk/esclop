@@ -464,10 +464,10 @@ public final class AppModel {
         for card in cards where ids.contains(card.jobID) { dismiss(card) }
     }
 
-    /// A short message with no file. With `optimiseAnyway` it offers that action, and stays long
-    /// enough to reach it.
+    /// A short message with no file. It replaces the last plain one. With `optimiseAnyway` it
+    /// offers that action, stays long enough to reach it, and no later notice takes its place.
     public func notice(_ title: String, _ detail: String, optimiseAnyway: (() -> Void)? = nil) {
-        cards.filter { if case .notice = $0.phase { return true } else { return false } }.forEach(dismiss)
+        cards.filter { if case .notice = $0.phase { return $0.optimiseAnyway == nil } else { return false } }.forEach(dismiss)
         let card = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/"), origin: .app, bytesBefore: 0, phase: .notice(title: title, detail: detail))
         card.optimiseAnyway = optimiseAnyway
         card.machine.notice(at: now(), hideAfter: hideDelayOverride.map(Self.seconds) ?? (optimiseAnyway == nil ? 3 : 8))
