@@ -268,6 +268,7 @@ public final class AppModel {
         do {
             _ = try service.restoreBackup(of: result, deleteBackup: false)
             restoredIDs.insert(result.id)
+            forget(result)
             noteWritten([result.source, result.output])
             row.state = .restored(result)
         } catch {
@@ -322,16 +323,18 @@ public final class AppModel {
         } else {
             let cardID = card?.id
             do {
-                let result = try await executor.process(source, job: job) { [weak self, weak row] progress in
+                var result = try await executor.process(source, job: job) { [weak self, weak row] progress in
                     Task { @MainActor in
                         if let cardID { self?.progress(progress.fraction, cardID: cardID) }
                         if let row, case let .working(current) = row.state, progress.fraction > current { row.state = .working(progress.fraction) }
                     }
                 }
+                result.origin = job.request.origin
                 outcome = .success(result)
             } catch let failed as PipelineStepFailure {
                 // Earlier steps changed the file: keep that in Recent, where its backup restores.
-                if let partial = failed.partial {
+                if var partial = failed.partial {
+                    partial.origin = job.request.origin
                     events(.result(partial))
                     noteWritten([partial.output, partial.source] + [partial.backup].compactMap { $0 })
                     record(partial)
@@ -420,8 +423,15 @@ public final class AppModel {
         recent.removeAll { $0.id == result.id }
         recent.insert(result, at: 0)
         if recent.count > Self.recentLimit { recent.removeLast(recent.count - Self.recentLimit) }
-        // The CLI and MCP server read the same log (`esclop_recent_results`, restore).
-        service.results.append([result])
+        // The CLI and MCP server read the same log (`esclop_recent_results`, restore). Written
+        // off the main actor, in order with every other read and write of the log.
+        service.results.append([result], wait: false)
+    }
+
+    /// Results that no longer stand (their original is back, or a re-run replaced them) leave
+    /// Recent here; `EsclopService.restoreBackup` withdraws a restored one from the shared log.
+    func forget(_ result: OptimisationResult) {
+        recent.removeAll { $0.id == result.id }
     }
 
     // MARK: Cards
@@ -707,10 +717,12 @@ public final class AppModel {
         let context = CardContext(origin: card.fileOrigin ?? .unknown, inputType: card.inputType, choice: choice, rule: rule)
         Task {
             var source = card.source
+            // A result kept beside its original: the re-run's result replaces it.
+            var replaced: OptimisationResult?
             switch card.phase {
             case let .done(result):
                 source = result.source
-                if result.backup != nil { await restore(result) }
+                if result.backup != nil { await restore(result) } else { replaced = result }
             case let .restored(result):
                 source = result.source
             case .working, .failed, .notice:
@@ -723,6 +735,10 @@ public final class AppModel {
             adjust?(&job)
             let copyBack = origin == .clipboard && EsclopSettings.autoCopyToClipboard.value(in: settings)
             await run(job, displayName: displayName, context: context, reusing: card, onResult: { result in
+                if let replaced {
+                    self.forget(replaced)
+                    self.service.results.append([], withdrawing: [replaced], wait: false)
+                }
                 guard copyBack else { return }
                 self.writeClipboard(files: [result.output])
             })
@@ -742,6 +758,7 @@ public final class AppModel {
         do {
             _ = try await service.restoreBackup(for: result.output, deleteBackup: false)
             restoredIDs.insert(result.id)
+            forget(result)
             noteWritten([result.source, result.output])
             if let card {
                 card.phase = .restored(result)

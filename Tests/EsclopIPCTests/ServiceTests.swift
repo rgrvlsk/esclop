@@ -300,7 +300,7 @@ final class EventLog: @unchecked Sendable {
 
     @Test func resultsLogDeduplicatesAndOrders() {
         let temp = TempDir()
-        let log = ResultsLog(url: temp.url.appendingPathComponent("r.jsonl"), keep: 3)
+        let log = ResultsLog(url: temp.url.appendingPathComponent("r.jsonl"), keep: 3, trimEvery: 1)
         let first = sampleResult("1.png"), second = sampleResult("2.png")
         log.append([first, second])
         log.append([first])
@@ -330,7 +330,7 @@ final class EventLog: @unchecked Sendable {
 
     @Test func theTrimKeepsTheLastEightDays() {
         let temp = TempDir()
-        let log = ResultsLog(url: temp.url.appendingPathComponent("r.jsonl"), keep: 3)
+        let log = ResultsLog(url: temp.url.appendingPathComponent("r.jsonl"), keep: 3, trimEvery: 1)
         var fresh = (0 ..< 8).map { sampleResult("\($0).png") }
         for index in fresh.indices { fresh[index].finishedAt = Date().addingTimeInterval(-Double(index) * 3600) }
         // The log is in the order results finish: the old ones first.
@@ -340,11 +340,87 @@ final class EventLog: @unchecked Sendable {
         #expect(log.savings().count < 16, "old ones beyond the last three go")
 
         // All from this week: nothing can go, and the file is not rewritten on each append.
-        let week = ResultsLog(url: temp.url.appendingPathComponent("w.jsonl"), keep: 2)
+        let week = ResultsLog(url: temp.url.appendingPathComponent("w.jsonl"), keep: 2, trimEvery: 1)
         week.append(Array(fresh.prefix(5)))
         let written = try? FileManager.default.attributesOfItem(atPath: week.url.path)[.systemFileNumber] as? Int
         week.append([fresh[5]])
         #expect(week.savings().count == 6)
         #expect((try? FileManager.default.attributesOfItem(atPath: week.url.path)[.systemFileNumber] as? Int) == written, "appended in place, not replaced")
+    }
+    /// The trim reads the whole log: it runs on the first append in a process and then every
+    /// `trimEvery` appends, not on each one.
+    @Test func theTrimRunsOnASchedule() {
+        let temp = TempDir()
+        let log = ResultsLog(url: temp.url.appendingPathComponent("r.jsonl"), keep: 1, trimEvery: 3)
+        func old(_ name: String) -> OptimisationResult { var result = sampleResult(name); result.finishedAt = .distantPast; return result }
+        log.append((0 ..< 10).map { old("\($0).png") })
+        #expect(log.savings().count == 1, "the first append trims")
+        log.append([old("a.png")])
+        log.append([old("b.png")])
+        #expect(log.savings().count == 3, "the next ones only append")
+        log.append([old("c.png")])
+        #expect(log.savings().count == 1, "the third one trims again")
+    }
+
+    /// A restored result, or one a re-run replaced, stops counting and leaves `recent`; it stays
+    /// withdrawn after a clear.
+    @Test func aWithdrawnResultNoLongerCountsOrLists() throws {
+        let temp = TempDir()
+        let log = ResultsLog(url: temp.url.appendingPathComponent("r.jsonl"))
+        let first = sampleResult("a.png"), second = sampleResult("b.png")
+        log.append([first, second])
+        log.append([], withdrawing: [first])
+        #expect(log.recent(limit: 10).map(\.id) == [second.id])
+        #expect(log.savings().map(\.id) == [second.id])
+        try log.redactAll()
+        #expect(log.savings().map(\.id) == [second.id])
+    }
+
+    /// Lines carry where the request came from; lines written before 0.2 have no origin and
+    /// still read.
+    @Test func theOriginIsKeptAndOldLinesStillRead() throws {
+        let temp = TempDir()
+        let url = temp.url.appendingPathComponent("r.jsonl")
+        let log = ResultsLog(url: url)
+        var copied = sampleResult("copied.png")
+        copied.origin = .clipboard
+        log.append([copied])
+        var old = try JSONSerialization.jsonObject(with: JSONCoding.wireEncoder().encode(sampleResult("old.png"))) as! [String: Any]
+        old["origin"] = nil
+        let handle = try FileHandle(forWritingTo: url)
+        try handle.seekToEnd()
+        try handle.write(contentsOf: JSONSerialization.data(withJSONObject: old) + Data([0x0A]))
+        try handle.close()
+        #expect(log.recent(limit: 10).map(\.origin) == [nil, .clipboard])
+    }
+
+    /// Clear does not report success while the names are still on disk.
+    @Test func clearFailsWhenTheLogCannotBeRead() throws {
+        let temp = TempDir()
+        let url = temp.url.appendingPathComponent("r.jsonl")
+        let log = ResultsLog(url: url)
+        log.append([sampleResult("Secret.png")])
+        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: url.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: url.path) }
+        #expect(throws: (any Error).self) { try log.redactAll() }
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: url.path)
+        #expect(try String(contentsOf: url, encoding: .utf8).contains("Secret"))
+        try FileManager.default.removeItem(at: url)
+        try log.redactAll()
+    }
+
+    /// Without the lock, nothing writes or clears the log.
+    @Test func nothingChangesWithoutTheLock() throws {
+        let temp = TempDir()
+        let url = temp.url.appendingPathComponent("r.jsonl")
+        let log = ResultsLog(url: url)
+        log.append([sampleResult("a.png")])
+        let before = try Data(contentsOf: url)
+        try FileManager.default.createDirectory(atPath: url.path + ".lock.tmp", withIntermediateDirectories: true)
+        try FileManager.default.removeItem(atPath: url.path + ".lock")
+        try FileManager.default.moveItem(atPath: url.path + ".lock.tmp", toPath: url.path + ".lock")
+        log.append([sampleResult("b.png")])
+        #expect(throws: (any Error).self) { try log.redactAll() }
+        #expect(try Data(contentsOf: url) == before)
     }
 }

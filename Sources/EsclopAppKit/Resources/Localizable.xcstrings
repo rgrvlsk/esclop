@@ -7281,12 +7281,12 @@
         }
       }
     },
-    "The MCP server checks every request from an agent against these switches, and the app checks it again. They start off, and agents cannot turn them on. The esclop command line acts for you and is not limited by them.": {
+    "The MCP server checks every request from an agent against these switches, and the app checks it again. They start off. They bind agents that use MCP only: anything running as you, an agent with a shell too, can use the esclop command line, which acts for you without these limits.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "El servidor MCP comprova cada petició d’un agent amb aquests interruptors, i l’app la torna a comprovar. Comencen desactivats i els agents no els poden activar. La línia d’ordres d’esclop actua en nom teu i no la limiten."
+            "value": "El servidor MCP comprova cada petició d’un agent amb aquests interruptors, i l’app la torna a comprovar. Comencen desactivats. Només lliguen els agents que fan servir MCP: qualsevol programa que s’executi amb el teu usuari, també un agent amb accés al terminal, pot fer servir la línia d’ordres d’esclop, que actua en nom teu sense aquests límits."
           }
         }
       }

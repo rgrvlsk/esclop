@@ -139,6 +139,7 @@ public struct EsclopService: Sendable {
         } else {
             report = await executor.run(job) { if case let .progress(p) = $0 { progress(p) } }
         }
+        report.results = report.results.map { var result = $0; result.origin = result.origin ?? job.request.origin; return result }
         results.append(report.results)
         return report
     }
@@ -328,6 +329,8 @@ public struct EsclopService: Sendable {
             try fm.moveItem(at: staging, to: result.source)
         }
         if deleteBackup { try fm.removeItem(at: backup) }
+        // The original is back: the result no longer counts in the saving or lists in Recent.
+        results.append([], withdrawing: [result])
         let leftover = result.output.standardizedFileURL != result.source.standardizedFileURL && fm.fileExists(atPath: result.output.path)
         return RestoreOutcome(
             restored: result.source.path, from: backup.path, backupDeleted: deleteBackup,

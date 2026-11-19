@@ -356,7 +356,7 @@ private final class Execution: @unchecked Sendable {
             finish(.failure(timeoutError(status: status)))
         } else if !options.acceptsAnyExitCode, !options.acceptedExitCodes.contains(status) {
             let stderr = ProcessRunner.tail(stderrString)
-            Log.process.error("\(self.name, privacy: .public) exited \(status): \(stderr, privacy: .public)")
+            Log.process.error("\(self.name, privacy: .public) exited \(status): \(stderr, privacy: .private)")
             finish(.failure(EsclopError.toolFailed(tool: name, exitCode: status, stderr: stderr)))
         } else {
             lock.lock()

@@ -347,14 +347,14 @@ public actor EngineClient {
             cachedCapabilities = nil
         }
         if status != 0 {
-            Log.engine.error("esclop-engine exited with status \(status): \(stderr, privacy: .public)")
+            Log.engine.error("esclop-engine exited with status \(status): \(stderr, privacy: .private)")
         }
     }
 
     private func receive(_ line: String) {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         guard trimmed.hasPrefix("{") else {
-            Log.engine.debug("engine: \(trimmed, privacy: .public)")
+            Log.engine.debug("engine: \(trimmed, privacy: .private)")
             return
         }
         let value = JSONValue(parsing: trimmed)
@@ -406,11 +406,11 @@ public actor EngineClient {
     /// `reason`, with `unsupported`: why the file is left as it is, for people.
     static func mapError(code: String, message: String, kind: MediaKind? = nil, reason: String? = nil) -> EsclopError {
         if code == "unsupported", let reason, !reason.isEmpty {
-            Log.engine.info("esclop-engine left the input as it is: \(message, privacy: .public)")
+            Log.engine.info("esclop-engine left the input as it is: \(message, privacy: .private)")
             return .leftAsIs(reason)
         }
         if code == "decode", let kind {
-            Log.engine.info("esclop-engine could not read the input: \(message, privacy: .public)")
+            Log.engine.info("esclop-engine could not read the input: \(message, privacy: .private)")
             return .unreadable(kind: kind)
         }
         switch code {

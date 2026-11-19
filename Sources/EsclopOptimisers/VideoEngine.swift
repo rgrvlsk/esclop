@@ -368,7 +368,7 @@ struct VideoEngine: Sendable {
                 throw EsclopError.cancelled
             } catch {
                 lastError = error
-                Log.video.error("ffmpeg attempt \(index + 1) failed: \(String(describing: error), privacy: .public)")
+                Log.video.error("ffmpeg attempt \(index + 1) failed: \(String(describing: error), privacy: .private)")
             }
         }
         throw lastError

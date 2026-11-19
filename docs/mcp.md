@@ -149,7 +149,7 @@ overwriting is allowed; pipeline `copy`, `move` and `rename` steps do not replac
 either. Writing a new pipeline, running pipelines and every read-only tool need no permission. A refusal
 comes back as `notPermitted` naming the switch; agents should tell the person rather than look for
 another way. The app-side request handler implements the same checks. The gate covers
-MCP requests: an agent that can run shell commands can also run the `esclop` command line, which
+MCP requests and trusts the origin a client declares: an agent that can run shell commands can also run the `esclop` command line, which
 acts for the person (origin `cli`) like any other program they run.
 
 ### Questions to the person
