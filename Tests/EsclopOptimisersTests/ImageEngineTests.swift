@@ -29,7 +29,7 @@ import UniformTypeIdentifiers
         #expect(result.width == 320 && result.height == 240)
 
         // Undo.
-        try world.backups.restore(try #require(world.backups.entry(forBackup: backup)))
+        try world.backups.restore(result)
         #expect(Inspect.bytes(png) == before)
     }
 
