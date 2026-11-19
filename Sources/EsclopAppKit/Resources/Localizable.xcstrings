@@ -3071,12 +3071,32 @@
         }
       }
     },
+    "Files still to go are stopped first.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Primer s’aturen els fitxers que encara falten."
+          }
+        }
+      }
+    },
     "Files that do not match are left alone.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Els fitxers que no hi coincideixen no es toquen."
+          }
+        }
+      }
+    },
+    "Files with several pages or frames are left as they are when the result would keep only one.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els fitxers amb diverses pàgines o fotogrames es deixen tal com estan quan el resultat només en conservaria un."
           }
         }
       }
@@ -6181,6 +6201,16 @@
         }
       }
     },
+    "Restore all originals?": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vols restaurar tots els originals?"
+          }
+        }
+      }
+    },
     "Restore original": {
       "localizations": {
         "ca": {
@@ -7501,6 +7531,16 @@
         }
       }
     },
+    "The file changed after it was optimised and could not go to the Trash, so it was left as it is.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El fitxer ha canviat després d’optimitzar-lo i no s’ha pogut moure a la paperera, així que s’ha deixat tal com era."
+          }
+        }
+      }
+    },
     "The file is kept.": {
       "localizations": {
         "ca": {
@@ -7627,6 +7667,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "L’original no s’ha tocat."
+          }
+        }
+      }
+    },
+    "The original was removed after %d days.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’original es va eliminar al cap de %d dies."
+          }
+        }
+      }
+    },
+    "The original was removed after 1 day.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’original es va eliminar al cap d’un dia."
+          }
+        }
+      }
+    },
+    "The original’s backup is no longer there.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La còpia de l’original ja no hi és."
           }
         }
       }
@@ -8397,6 +8467,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vídeo optimitzat"
+          }
+        }
+      }
+    },
+    "Videos with subtitles this format cannot keep are left as they are.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els vídeos amb subtítols que aquest format no pot conservar es deixen tal com estan."
           }
         }
       }
@@ -10246,7 +10326,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conserva els mapes de guany HDR i el vídeo HDR quan el format de sortida els admet. Desactivat, es converteix a SDR."
+            "value": "Conserva els mapes de guany HDR i el vídeo HDR quan el format de sortida els admet. Desactivat, les fotos passen a SDR i el vídeo a 8 bits, sense mapatge de tons."
           }
         }
       }

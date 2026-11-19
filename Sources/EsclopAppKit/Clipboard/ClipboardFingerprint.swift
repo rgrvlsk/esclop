@@ -45,28 +45,3 @@ struct ClipboardFingerprint: Hashable, Sendable {
         digest = Data(hasher.finalize())
     }
 }
-
-extension AppModel {
-    /// Writes files to the clipboard as L'Esclop's own, remembering their bytes.
-    func writeClipboard(files: [URL]) {
-        for file in files {
-            if let print = ClipboardFingerprint(file: file) { rememberOwnWrite(print) }
-        }
-        Clipboard.write(files: files, to: pasteboard)
-    }
-
-    func rememberOwnWrite(_ print: ClipboardFingerprint) {
-        ownWrites.append(print)
-        if ownWrites.count > 32 { ownWrites.removeFirst(ownWrites.count - 32) }
-    }
-
-    /// The clipboard holds L'Esclop's own write: marked as such, or bytes it wrote.
-    func isOwnClipboardContent(_ content: ClipboardContent) -> Bool {
-        if Clipboard.isOwnWrite(pasteboard) { return true }
-        switch content {
-        case let .files(urls): return !urls.isEmpty && urls.allSatisfy { ClipboardFingerprint(file: $0).map(ownWrites.contains) ?? false }
-        case let .image(data, _), let .base64Image(data, _): return ownWrites.contains(ClipboardFingerprint(data: data))
-        default: return false
-        }
-    }
-}

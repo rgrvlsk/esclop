@@ -73,7 +73,7 @@ public struct PipelineStore: Sendable {
     // MARK: Writing
 
     /// Writes the pipeline as canonical text. Comments in an existing file are not kept; use
-    /// `save(text:name:)` to keep a person's formatting.
+    /// `save(text:name:)` to keep a person's formatting (`attach` and `detach` keep it).
     @discardableResult
     public func save(_ pipeline: Pipeline, overwrite: Bool = true) throws -> URL {
         try write(pipeline.text, name: pipeline.name, overwrite: overwrite)
@@ -111,7 +111,7 @@ public struct PipelineStore: Sendable {
         var pipeline = try load(name)
         guard !pipeline.triggers.contains(where: { Self.same(trigger, $0) }) else { return }
         pipeline.triggers.append(trigger)
-        try save(pipeline)
+        try saveTriggers(of: pipeline)
     }
 
     /// Removes a trigger. Returns false when the pipeline did not have it.
@@ -121,8 +121,42 @@ public struct PipelineStore: Sendable {
         let before = pipeline.triggers.count
         pipeline.triggers.removeAll { Self.same(trigger, $0) }
         guard pipeline.triggers.count != before else { return false }
-        try save(pipeline)
+        try saveTriggers(of: pipeline)
         return true
+    }
+
+    /// Writes new triggers by changing only the file's `triggers:` line, so comments and layout
+    /// stay. When the edited text would not read back as `pipeline`, writes the canonical text.
+    /// ponytail: that fallback drops comments (a file the parser reads differently than this
+    /// line edit expects); edit the text with the parser's positions if that shows up.
+    func saveTriggers(of pipeline: Pipeline) throws {
+        let text = try self.text(of: pipeline.name)
+        let edited = Self.replacingTriggers(in: text, with: pipeline.triggers)
+        if (try? PipelineParser.parse(edited, name: pipeline.name)) == pipeline {
+            _ = try write(edited, name: pipeline.name, overwrite: true)
+        } else {
+            try save(pipeline)
+        }
+    }
+
+    /// `text` with its front matter's `triggers:` line set to `triggers` (removed when empty),
+    /// adding the line, or the front matter, when there is none.
+    static func replacingTriggers(in text: String, with triggers: [PipelineTrigger]) -> String {
+        var lines = text.components(separatedBy: "\n")
+        let line = triggers.isEmpty ? nil : "triggers: " + triggers.map(\.description).joined(separator: ", ")
+        func isFence(_ i: Int) -> Bool { lines[i].trimmingCharacters(in: .whitespaces).hasPrefix("---") }
+        guard let open = lines.firstIndex(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }), isFence(open),
+              let close = lines.indices.dropFirst(open + 1).first(where: isFence)
+        else {
+            return line.map { "---\n\($0)\n---\n" + text } ?? text
+        }
+        let existing = lines[(open + 1)..<close].indices.filter {
+            lines[$0].range(of: #"^\s*triggers\s*:"#, options: .regularExpression) != nil
+        }
+        let at = existing.first ?? close
+        for i in existing.reversed() { lines.remove(at: i) }
+        if let line { lines.insert(line, at: at) }
+        return lines.joined(separator: "\n")
     }
 
     /// Copies a built-in preset into the store so it can be edited and attached.
