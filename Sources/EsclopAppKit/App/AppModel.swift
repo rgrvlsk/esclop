@@ -772,9 +772,11 @@ public final class AppModel {
     /// (`adjust` clears them). The card stays and shows the new result, so an open options
     /// popover keeps its anchor; a rule stays shown only while its choice is the one used.
     func reprocess(_ card: ResultCard, choice: OptimiseChoice? = nil, adjust: ((inout OptimisationJob) -> Void)? = nil) {
-        // One restore at a time, Undo's or a re-run's: a second one would put the original back
-        // twice and send it to the Trash as an edit. Once the run starts the card is working,
-        // which refuses another re-run.
+        // One restore at a time on a card, Undo's or a re-run's: a second one would put the
+        // original back twice and send it to the Trash as an edit. Once the run starts the card
+        // is working, which refuses another re-run.
+        // ponytail: Recent's Restore and Compare's Restore Original skip this flag. Trigger: a
+        // double restore from them; then guard `restore(_:)` by the result's id.
         guard !card.restoring else { return }
         card.restoring = true
         let origin = card.origin, displayName = card.displayName
