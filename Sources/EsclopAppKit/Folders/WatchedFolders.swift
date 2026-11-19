@@ -93,6 +93,8 @@ public final class WatchedFolders {
             (target.folder, denied.contains(target.folder) ? .unreadable : FolderStatus.presence(target.folder))
         }, uniquingKeysWith: { first, _ in first })
         // Missing folders too: the stream reports them when they appear.
+        // ponytail: one missing path FSEvents refuses (over 1 KB long) stops the whole stream and
+        // every row says not watching; retry with the existing folders only if that is ever seen.
         let folders = targets.map(\.folder).filter { statuses[$0] != .unreadable }
         watcher?.stop()
         defer { model.watchedFolderCount = watchedCount }
@@ -128,6 +130,8 @@ public final class WatchedFolders {
     func received(_ files: [URL]) {
         guard isWatching, !model.paused else { return }
         // One spelling per file (/var or /private/var), whoever reports it.
+        // ponytail: a file replaced while its job runs is not looked at again; queue one more pass
+        // for files with events during their job if that is ever seen.
         for file in files.map({ $0.resolvingSymlinksInPath() }) where !inFlight.contains(file.path) {
             let folder = WatchPlan.canonical(file.deletingLastPathComponent().path)
             guard !denied.contains(folder) else { continue }
@@ -194,17 +198,18 @@ public final class WatchedFolders {
         start(files.filter { inFlight.insert($0.path).inserted })
     }
 
-    /// Each file waits for itself alone: one still being written holds no other.
+    /// Each file waits for itself alone: one still being written holds no other. A burst the
+    /// size of a batch shares one batch window, as dropped files do; rows join as files start.
     private func start(_ files: [URL]) {
-        let together = files.count >= model.batchThreshold
+        let batch = files.count >= model.batchThreshold ? model.openBatch(origin: .watchedFolder) : nil
         for file in files {
-            Task { [weak self] in await self?.process(file, together: together) }
+            Task { [weak self] in await self?.process(file, batch: batch) }
         }
     }
 
     /// Settles one file, decides it again (it may have been optimised or replaced meanwhile) and
     /// runs its job; the file stays in flight until the job is done.
-    private func process(_ file: URL, together: Bool) async {
+    private func process(_ file: URL, batch: Batch?) async {
         defer { inFlight.remove(file.path) }
         let settled = await settle(file)
         guard !model.paused else { return }
@@ -221,8 +226,6 @@ public final class WatchedFolders {
         )
         switch decision {
         case .optimise:
-            // A burst the size of a batch shares the batch window, as dropped files do.
-            let batch = together ? model.openBatch(origin: .watchedFolder) : nil
             await model.run(model.factory.job(for: file, origin: .watchedFolder), batch: batch)
         case let .pipeline(name, _): await model.runPipeline(name, onWatched: file)
         case .skip: return

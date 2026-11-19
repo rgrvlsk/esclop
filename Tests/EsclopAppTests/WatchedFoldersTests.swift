@@ -410,6 +410,22 @@ final class Flag: @unchecked Sendable {
         rig.folders.stop()
     }
 
+    /// Two bursts at once: neither notice takes the other's action away.
+    @Test func twoTooLargeBurstsKeepBothActions() async throws {
+        let other = TempDir()
+        let rig = try Rig(alsoWatching: [other.url.path])
+        rig.harness.model.hideDelayOverride = .seconds(600)
+        for index in 1 ... 5 {
+            _ = rig.land("a \(index).png")
+            _ = rig.land("b \(index).png", in: other.url)
+        }
+        func actions() -> [ResultCard] { rig.harness.model.cards.filter { $0.optimiseAnyway != nil } }
+        #expect(await eventually { actions().count == 2 })
+        rig.harness.model.notice("Paused", "Press again to resume.")
+        #expect(actions().count == 2, "a plain notice leaves them")
+        rig.folders.stop()
+    }
+
     @Test func savingAPipelineWithAFolderTriggerStartsWatchingIt() throws {
         let rig = try Rig()
         let other = TempDir()
