@@ -480,6 +480,10 @@ public struct CardPresentation: Equatable, Sendable {
             return Strings.text(reason)
         case let .notPermitted(why):
             return why
+        case let .other(message):
+            // A sentence the catalogue knows (BackupStore.untrashableEdit) is translated; any
+            // other stays as it is.
+            return Strings.text(message)
         case let other:
             return other.description
         }

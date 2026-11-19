@@ -7381,6 +7381,16 @@
         }
       }
     },
+    "The file changed after it was optimised and could not go to the Trash, so it was left as it is.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El fitxer ha canviat després d’optimitzar-lo i no s’ha pogut moure a la paperera, així que s’ha deixat tal com era."
+          }
+        }
+      }
+    },
     "The file is kept.": {
       "localizations": {
         "ca": {
