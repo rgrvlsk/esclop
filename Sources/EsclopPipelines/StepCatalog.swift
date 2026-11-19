@@ -376,7 +376,7 @@ extension PipelineLanguage {
         ),
         StepSpec(
             "copyLinkForSending", .action, kinds: allKinds,
-            summary: "Share the file through a link and copy the link.",
+            summary: "Clop's link sharing. L'Esclop has no sharing service, so the step is skipped; use upload(to:).",
             params: [ParamSpec("expiration", .duration, "stop sharing after this long, or `never`; left out, the app's setting decides")],
             positional: "expiration", example: "copyLinkForSending(expiration: 1d)"
         ),

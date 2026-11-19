@@ -183,9 +183,12 @@ public final class AppModel {
         events: @escaping @Sendable (JobEvent) -> Void = { _ in },
         onResult: ((OptimisationResult) -> Void)? = nil
     ) async -> JobReport {
-        let executor = executor(for: job.request.origin)
         let batch = batch ?? (existing == nil && job.request.showResultUI && job.request.sources.count >= batchThreshold
             ? openBatch(origin: job.request.origin) : nil)
+        // A fork shows as a result of its own beside a single floating result, not in a batch.
+        let single = job.request.showResultUI && batch == nil && job.request.sources.count == 1 ? job.request.sources.first : nil
+        let desktop = AppDesktop(model: self, original: single.map { ($0, Self.size(of: $0)) })
+        let executor = executor(for: job.request.origin, desktop: job.request.origin == .mcp ? nil : desktop)
         var tasks: [(URL, Task<Result<OptimisationResult, EsclopError>, Never>)] = []
         for source in job.request.sources {
             if let batch {
@@ -254,6 +257,7 @@ public final class AppModel {
         row.retry = { [weak self, weak row, weak batch] in
             guard let self, let row, let batch, row.isFinished else { return }
             row.state = .waiting
+            row.upload = nil
             var again = single
             again.request.id = UUID()
             _ = self.startRow(row, in: batch, job: again, executor: executor, events: { _ in }, onResult: onResult)
@@ -296,15 +300,16 @@ public final class AppModel {
     }
 
     /// The executor for a request's origin: agents get the pipeline permissions the person set.
-    func executor(for origin: RequestOrigin) -> JobExecutor {
+    /// `desktop` lets pipeline steps reach the clipboard, apps and the floating results; agents
+    /// get none.
+    func executor(for origin: RequestOrigin, desktop: (any PipelineDesktop)? = nil) -> JobExecutor {
         let context = service.context
         let policy = AgentPolicy(origin: origin, permissions: context.settings)
         // Agents upload only when the person allows it; the policy refuses before this, and an
         // executor without an uploader cannot upload anyway.
         let uploader: (any FileUploading)? = policy.allowed(.allowUploads) ? uploader : nil
-        let host = uploader.map { uploader in
-            AppPipelineHost(uploader: uploader) { [weak self] link in await self?.copyLink(link) }
-        }
+        let host: AppPipelineHost? = uploader == nil && desktop == nil ? nil
+            : AppPipelineHost(uploader: uploader, desktop: desktop) { [weak self] link in await self?.copyLink(link) }
         let runner = StorePipelineRunner(
             store: context.pipelines, allowRunScripts: policy.allowed(.allowRunScripts),
             allowDelete: policy.allowed(.allowOverwriteOriginals), temporaryDirectory: Paths.temporary, host: host
@@ -365,8 +370,9 @@ public final class AppModel {
             if row == nil { announce(CardPresentation.announcement(for: result)) }
             if let link = result.link {
                 copyLink(link)
-            } else if let card, uploadsAutomatically(job) {
-                upload(card)
+            } else if uploadsAutomatically(job) {
+                // Every result, also a batch row's or one shown nowhere (a quiet pipeline).
+                if let card { upload(card) } else { upload(result.output, to: nil, on: row) }
             }
             onResult?(result)
         case let .failure(error):
@@ -406,7 +412,25 @@ public final class AppModel {
     public func runPipeline(_ name: String, onWatched file: URL) {
         var job = factory.job(for: file, origin: .watchedFolder)
         job.operation = .pipeline(name)
+        if let pipeline = try? service.context.pipelines.resolve(name) { Self.use(pipeline, in: &job) }
         Task { await run(job) }
+    }
+
+    /// A pipeline that runs on its own: its operation, and no floating result when it says so.
+    static func use(_ pipeline: Pipeline, in job: inout OptimisationJob) {
+        job.operation = .pipeline(pipeline.name)
+        if pipeline.hideResult { job.request.showResultUI = false }
+    }
+
+    /// A `fork` step's file, shown as a result of its own beside the pipeline's, with the
+    /// original's size before the run.
+    func presentFork(_ file: URL, of original: URL, bytesBefore: Int) {
+        let time = now()
+        noteWritten([file])
+        show(OptimisationResult(
+            source: original, output: file, kind: MediaKind.of(file) ?? .image,
+            bytesBefore: bytesBefore, bytesAfter: Self.size(of: file), startedAt: time, finishedAt: time, steps: ["fork"]
+        ))
     }
 
     /// Recent's Clear (privacy): the names go from the panel and from the shared log, which the

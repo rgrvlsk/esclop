@@ -11,6 +11,7 @@
 import AppKit
 import EsclopOptimisers
 import Foundation
+import UniformTypeIdentifiers
 
 final class ClipboardKeeper: @unchecked Sendable {
     static let queue = DispatchQueue(label: "dev.esclop.app.clipboard", qos: .userInitiated)
@@ -53,6 +54,23 @@ final class ClipboardKeeper: @unchecked Sendable {
         held = (pasteboard.changeCount, files)
     }
 
+    /// A pipeline's `copyToClipboard`: text or image bytes, marked as L'Esclop's own. Nothing is
+    /// held, so no result goes back over it.
+    func write(text: String) {
+        pasteboard.clearContents()
+        pasteboard.declareTypes([.string, Clipboard.optimisedType], owner: nil)
+        pasteboard.setString(text, forType: .string)
+        pasteboard.setString("1", forType: Clipboard.optimisedType)
+        held = nil
+    }
+
+    func write(imageData data: Data, type: UTType) {
+        ownWrites.append(ClipboardFingerprint(data: data))
+        if ownWrites.count > 32 { ownWrites.removeFirst(ownWrites.count - 32) }
+        Clipboard.write(image: data, type: type, to: pasteboard)
+        held = nil
+    }
+
     /// Puts each new file in the place of the old one, the other files kept in order, while the
     /// clipboard still holds what L'Esclop last saw there. False when nothing was written.
     @discardableResult
@@ -88,6 +106,15 @@ extension AppModel {
     func writeClipboard(files: [URL]) {
         let keeper = clipboard
         ClipboardKeeper.queue.async { keeper.write(files) }
+    }
+
+    /// A pipeline step's copy, as L'Esclop's own.
+    func copyToClipboard(text: String) async {
+        await clipboard.run { $0.write(text: text) }
+    }
+
+    func copyToClipboard(imageData: Data, type: UTType) async {
+        await clipboard.run { $0.write(imageData: imageData, type: type) }
     }
 
     /// Results back in the places of the files they came from, if the clipboard still holds those.
