@@ -34,12 +34,13 @@ struct Terminal {
         let percent = saved ? "−\(ResultSummary.percentText(result.savedPercent))%" : "+\(ResultSummary.percentText(-result.savedPercent))%"
         var text = "\(green("✓")) \(bold(name)) \(ByteSize.format(result.bytesBefore)) \(dim("→")) \(ByteSize.format(result.bytesAfter)) \(saved ? green(percent) : yellow(percent))"
         if let link = result.link { return "\(green("✓")) \(bold(name)) \(dim("→")) \(cyan(link))" }
+        if result.skippedByFilter { return "\(dim("–")) \(bold(name)) \(dim("skipped by the filter"))" }
         if result.output != result.source { text += " \(dim("→")) \(cyan(PathInput.abbreviate(result.output)))" }
         return text
     }
 
     func line(_ failure: FailureSummary) -> String {
-        "\(red("✗")) \(bold(URL(fileURLWithPath: failure.source).lastPathComponent)) \(red(failure.error))"
+        "\(red("✗")) \(bold(URL(fileURLWithPath: failure.source).lastPathComponent)) \(red(failure.message))"
     }
 }
 
