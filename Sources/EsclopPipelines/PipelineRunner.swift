@@ -495,13 +495,14 @@ struct FileRun {
         case let .path(template):
             let resolved = context.resolve(template)
             guard !resolved.isEmpty else { return .inPlace }
-            var path = contained(absolute(resolved, relativeTo: originalDir))
+            var path = absolute(resolved, relativeTo: originalDir)
             var isDir: ObjCBool = false
             if resolved.hasSuffix("/") || (fm.fileExists(atPath: path, isDirectory: &isDir) && isDir.boolValue) {
                 path = URL(fileURLWithPath: path).appendingPathComponent(current.deletingPathExtension().lastPathComponent).appendingPathExtension(ext).path
             } else if !hasExtension((path as NSString).lastPathComponent, wanted: ext) {
                 path += ext.isEmpty ? "" : ".\(ext)"
             }
+            path = contained(path)
             try fm.createDirectory(at: URL(fileURLWithPath: path).deletingLastPathComponent(), withIntermediateDirectories: true)
             return .path(path)
         }
@@ -512,15 +513,14 @@ struct FileRun {
     func destination(for template: String) throws -> URL {
         let resolved = context.resolve(template)
         guard !resolved.isEmpty else { throw EsclopError.invalidArgument("empty destination") }
-        var path = contained(absolute(resolved, relativeTo: current.deletingLastPathComponent()))
+        var path = absolute(resolved, relativeTo: current.deletingLastPathComponent())
         var isDir: ObjCBool = false
         if resolved.hasSuffix("/") || (fm.fileExists(atPath: path, isDirectory: &isDir) && isDir.boolValue) {
-            try fm.createDirectory(atPath: path, withIntermediateDirectories: true)
             path = (path as NSString).appendingPathComponent(current.lastPathComponent)
         } else if !hasExtension((path as NSString).lastPathComponent, wanted: current.pathExtension), !current.pathExtension.isEmpty {
             path += ".\(current.pathExtension)"
         }
-        let url = URL(fileURLWithPath: path).standardizedFileURL
+        let url = URL(fileURLWithPath: contained(path)).standardizedFileURL
         try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         return url
     }
@@ -547,6 +547,8 @@ struct FileRun {
         if isDir.boolValue { throw EsclopError.notPermitted("pipelines never replace folders (\(dest.path))") }
         if isSameFile(dest, current) {
             // Only the case of the name differs (`a.PNG` to `a.png`): rename, never replace.
+            // ponytail: a hard link to the same file also lands here and its move fails with
+            // "file exists"; nothing is lost. Compare the names too if that case ever matters.
             if move { try fm.moveItem(at: current, to: dest) }
             return
         }

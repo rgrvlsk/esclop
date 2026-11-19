@@ -750,7 +750,9 @@ public enum ToolCatalog {
         if report.failures.contains(where: { $0.error.code == "toolMissing" }) {
             text += "\nA bundled tool is missing in this process. If L'Esclop is installed, start the app (esclop_start_app) so it does the work; otherwise tell the person which tool is missing."
         }
-        return ToolOutput(text, encoding: summary, isError: report.results.isEmpty && !report.failures.isEmpty)
+        // A pipeline that failed late reports what its earlier steps made and the failure: that file still failed.
+        let failed = Set(report.failures.map(\.source))
+        return ToolOutput(text, encoding: summary, isError: !failed.isEmpty && report.results.allSatisfy { failed.contains($0.source) })
     }
 
     static func parseFormat(_ raw: String) throws -> OutputFormat {

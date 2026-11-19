@@ -127,6 +127,8 @@ public struct PipelineStore: Sendable {
 
     /// Writes new triggers by changing only the file's `triggers:` line, so comments and layout
     /// stay. When the edited text would not read back as `pipeline`, writes the canonical text.
+    /// ponytail: that fallback drops comments (a file the parser reads differently than this
+    /// line edit expects); edit the text with the parser's positions if that shows up.
     func saveTriggers(of pipeline: Pipeline) throws {
         let text = try self.text(of: pipeline.name)
         let edited = Self.replacingTriggers(in: text, with: pipeline.triggers)

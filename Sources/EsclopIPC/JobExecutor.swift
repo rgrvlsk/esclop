@@ -25,12 +25,12 @@ public protocol PipelineRunning: Sendable {
 /// A pipeline step failed (or the run was cancelled) after earlier steps had already changed the
 /// file. `partial` is what they made, with its backup, so it is reported and can be restored.
 public struct PipelineStepFailure: Error, Sendable {
-    /// The step as pipeline text.
-    public var step: String
+    /// The step as pipeline text; nil when the run stopped between steps (a cancel).
+    public var step: String?
     public var error: EsclopError
     public var partial: OptimisationResult?
 
-    public init(step: String, error: EsclopError, partial: OptimisationResult?) {
+    public init(step: String?, error: EsclopError, partial: OptimisationResult?) {
         self.step = step
         self.error = error
         self.partial = partial
