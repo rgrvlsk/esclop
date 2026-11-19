@@ -80,8 +80,8 @@ public struct MenuPanel: View {
     @State private var savings: [ResultsLog.Saving] = []
     @State private var option = false
     @State private var flags = ModifierFlagsWatcher()
-    /// The recent result the arrow keys are on; Return shows its card.
-    @State private var highlighted: UUID?
+    /// The row the arrows or the pointer are on, one at a time as in a menu: Return runs it.
+    @State private var highlighted: Item?
     @FocusState private var listFocused: Bool
 
     public init(model: AppModel, actions: MenuPanelActions, notch: CGFloat? = nil) {
@@ -91,11 +91,14 @@ public struct MenuPanel: View {
     }
 
     /// Opens on a range and a row, for the renders.
-    init(model: AppModel, actions: MenuPanelActions, notch: CGFloat?, range: SavingRange, highlighted: UUID?) {
+    init(model: AppModel, actions: MenuPanelActions, notch: CGFloat?, range: SavingRange, highlighted: Item?) {
         self.init(model: model, actions: actions, notch: notch)
         _range = State(initialValue: range)
         _highlighted = State(initialValue: highlighted)
     }
+
+    /// What the arrows move through: the recent results, then the two commands.
+    enum Item: Hashable { case result(UUID), optimiseFiles, optimiseClipboard }
 
     public static let width: CGFloat = 316
 
@@ -295,7 +298,9 @@ public struct MenuPanel: View {
                     let rows = VStack(spacing: 0) {
                         ForEach(working, id: \.id) { card in WorkingRow(card: card) }
                         ForEach(results, id: \.id) { result in
-                            RecentRow(result: result, model: model, highlighted: highlighted == result.id, close: actions.close)
+                            RecentRow(result: result, model: model, highlighted: highlighted == .result(result.id), close: actions.close) {
+                                hover(.result(result.id), $0)
+                            }
                                 .id(result.id)
                         }
                     }
@@ -306,8 +311,8 @@ public struct MenuPanel: View {
                             rows
                         }
                     }
-                    // The list is one stop for the keys, as a menu is: the arrows move, Return
-                    // shows the result's card. No focus ring; the row's wash shows where it is.
+                    // The list is one stop for the keys, as a menu is: the arrows move on into the
+                    // commands, Return runs the row. No focus ring; the row's wash shows where it is.
                     .focusable()
                     .focused($listFocused)
                     .focusEffectDisabled()
@@ -323,20 +328,34 @@ public struct MenuPanel: View {
     }
 
     private func move(_ step: Int, in results: [OptimisationResult], _ proxy: ScrollViewProxy) -> KeyPress.Result {
-        guard !results.isEmpty else { return .ignored }
-        let current = results.firstIndex { $0.id == highlighted }
-        let index = current.map { min(max($0 + step, 0), results.count - 1) } ?? (step > 0 ? 0 : results.count - 1)
-        highlighted = results[index].id
-        proxy.scrollTo(results[index].id)
+        let items = results.map { Item.result($0.id) } + [.optimiseFiles, .optimiseClipboard]
+        let current = highlighted.flatMap(items.firstIndex)
+        let index = current.map { min(max($0 + step, 0), items.count - 1) } ?? (step > 0 ? 0 : items.count - 1)
+        highlighted = items[index]
+        if case let .result(id) = items[index] { proxy.scrollTo(id) }
         return .handled
     }
 
     private func open(_ results: [OptimisationResult]) -> KeyPress.Result {
-        guard let result = results.first(where: { $0.id == highlighted }) else { return .ignored }
-        actions.close()
-        model.show(result)
+        switch highlighted {
+        case let .result(id):
+            guard let result = results.first(where: { $0.id == id }) else { return .ignored }
+            actions.close()
+            model.show(result)
+        case .optimiseFiles: optimiseFiles()
+        case .optimiseClipboard: optimiseClipboard()
+        case nil: return .ignored
+        }
         return .handled
     }
+
+    /// The pointer moves the highlight, as in NSMenu; leaving the row clears it.
+    private func hover(_ item: Item, _ inside: Bool) {
+        if inside { highlighted = item } else if highlighted == item { highlighted = nil }
+    }
+
+    private func optimiseFiles() { actions.close(); model.chooseFiles() }
+    private func optimiseClipboard() { actions.close(); model.optimiseClipboardNow(aggressive: option) }
 
     /// Restore and Compare reach this many results from the panel until All Results exists.
     static let recentLimit = 12
@@ -346,14 +365,15 @@ public struct MenuPanel: View {
 
     private var commands: some View {
         VStack(spacing: 0) {
-            CommandRow(title: Strings.text("Optimise Files…"), keys: "⌘O") { actions.close(); model.chooseFiles() }
+            CommandRow(title: Strings.text("Optimise Files…"), keys: "⌘O", highlighted: highlighted == .optimiseFiles, hover: { hover(.optimiseFiles, $0) }, action: optimiseFiles)
                 .keyboardShortcut("o")
             Rectangle().fill(Ink.secondary.opacity(0.18)).frame(height: 0.5).padding(.horizontal, 14)
             // ⌥ turns it into the harder run, as its own hotkey does.
             CommandRow(
                 title: option ? Strings.text("Optimise Clipboard Harder") : Strings.text("Optimise Clipboard"),
-                keys: (option ? KeyboardShortcuts.getShortcut(for: .optimiseClipboardHarder) : KeyboardShortcuts.getShortcut(for: .optimiseClipboard))?.description ?? ""
-            ) { actions.close(); model.optimiseClipboardNow(aggressive: option) }
+                keys: (option ? KeyboardShortcuts.getShortcut(for: .optimiseClipboardHarder) : KeyboardShortcuts.getShortcut(for: .optimiseClipboard))?.description ?? "",
+                highlighted: highlighted == .optimiseClipboard, hover: { hover(.optimiseClipboard, $0) }, action: optimiseClipboard
+            )
         }
         .background(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous).fill(Surface.tile))
     }
@@ -437,9 +457,11 @@ struct WorkingRow: View {
 struct RecentRow: View {
     let result: OptimisationResult
     let model: AppModel
-    /// The arrow keys are on it.
+    /// The arrow keys or the pointer are on it.
     var highlighted = false
     let close: () -> Void
+    /// Tells the panel the pointer came or went, so it moves the one highlight.
+    var hover: (Bool) -> Void = { _ in }
 
     @State private var picture: CGImage?
     @State private var hovering = false
@@ -472,7 +494,7 @@ struct RecentRow: View {
             }
             .padding(.horizontal, 14)
             .frame(height: Self.height)
-            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Ink.text.opacity(highlighted || hovering ? 0.06 : 0)).padding(.horizontal, 4))
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Ink.text.opacity(highlighted ? 0.06 : 0)).padding(.horizontal, 4))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -491,7 +513,10 @@ struct RecentRow: View {
                 .accessibilityHidden(true)
             }
         }
-        .onHover { inside in withAnimation(Motion.hover) { hovering = inside } }
+        .onHover { inside in
+            withAnimation(Motion.hover) { hovering = inside }
+            hover(inside)
+        }
         .contextMenu {
             Button(Strings.text("Show in Finder"), action: reveal)
             Button(Strings.text("Copy"), action: copy)
@@ -552,9 +577,10 @@ struct RecentRow: View {
 struct CommandRow: View {
     let title: String
     let keys: String
+    /// The arrow keys or the pointer are on it.
+    var highlighted = false
+    var hover: (Bool) -> Void = { _ in }
     let action: () -> Void
-
-    @State private var hovering = false
 
     var body: some View {
         Button(action: action) {
@@ -565,11 +591,11 @@ struct CommandRow: View {
             }
             .padding(.horizontal, 14)
             .frame(height: 38)
-            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Ink.text.opacity(hovering ? 0.06 : 0)).padding(.horizontal, 4))
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Ink.text.opacity(highlighted ? 0.06 : 0)).padding(.horizontal, 4))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .onHover { hovering = $0 }
+        .onHover(perform: hover)
     }
 }
 

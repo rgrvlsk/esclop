@@ -357,8 +357,10 @@ public final class OptionsModel {
         cropping = true
     }
 
-    /// The whole picture again, free: the Crop tab's preview with no frame drawn in.
+    /// The whole picture again, free: the Crop tab's preview with no frame drawn in. A file the
+    /// card keeps cropped runs again uncropped.
     public func resetCrop() {
+        if card.crop != nil { app.removeCrop(card) }
         guard let width = facts.width, let height = facts.height else { return }
         crop = CropGeometry(imageWidth: width, imageHeight: height)
         cropping = true
@@ -376,6 +378,17 @@ public final class OptionsModel {
     public var ruleOn: Bool {
         get { rule != nil }
         set { app.setRule(newValue, for: card) }
+    }
+
+    /// The stored rule makes something else than this result: "Use this from now on" offers
+    /// to store the card's choice in its place.
+    public var ruleDiffers: Bool {
+        guard let stored = app.storedRule(for: card) else { return false }
+        return stored.choice != card.choice
+    }
+
+    public func useChoiceAsRule() {
+        app.setRule(true, for: card)
     }
 
     public var canMakeRule: Bool { card.origin == .clipboard && card.fileOrigin != nil && card.inputType != nil }

@@ -163,6 +163,7 @@ import Testing
             ("result-harder", card(.done(saved(after: 360_000)), aggressive: true)),
             ("result-already-optimised", card(.unchanged(bytes: 41_200))),
             ("result-restored", card(.restored(saved()))),
+            ("result-restored-trash", { let restored = card(.restored(saved())); restored.editInTrash = true; return restored }()),
             ("result-error", card(.failed(CardPresentation.message(for: EsclopError.unreadable(kind: .video))), source: Self.video)),
         ]
         for (name, card) in thumbnails {

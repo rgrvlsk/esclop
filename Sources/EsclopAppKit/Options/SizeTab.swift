@@ -241,7 +241,7 @@ struct CropEditor: View {
                         .buttonStyle(.plain)
                         .font(OptionsType.bodyStrong)
                         .foregroundStyle(Ink.charcoalText)
-                        .disabled(crop.cropSize == nil)
+                        .disabled((crop.cropSize == nil && model.card.crop == nil) || model.card.isWorking)
                     CharcoalButton(title: Strings.text("Crop")) { model.applyCrop() }
                         .keyboardShortcut(.defaultAction)
                         .disabled(crop.cropSize == nil || model.card.isWorking)

@@ -322,6 +322,16 @@ struct RuleCheckbox: View {
                     .padding(.leading, 20)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            // The box stays ticked for the stored rule; this result was made another way.
+            if model.ruleDiffers {
+                Button(Strings.text("Use this from now on")) { model.useChoiceAsRule() }
+                    .buttonStyle(.plain)
+                    .font(OptionsType.label.weight(.semibold))
+                    .foregroundStyle(Ink.charcoalText)
+                    .padding(.leading, 20)
+                    .disabled(model.card.isWorking)
+                    .help(Strings.text("Store this choice as the rule"))
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)

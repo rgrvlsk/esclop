@@ -244,8 +244,7 @@ import Testing
         #expect(again.sources == [file], "from the original")
     }
 
-    /// Restore runs the choice again without a crop, downscale or fit, so it is not offered
-    /// after one.
+    /// Restore is not offered while a crop, downscale or fit stands on the result.
     @Test func noRestoreAfterACropDownscaleOrFit() async throws {
         let harness = Harness()
         _ = await harness.model.run(harness.job(harness.temp.file("a.jpg", bytes: 100_000)))
@@ -261,7 +260,8 @@ import Testing
         try await Task.sleep(for: .milliseconds(200))
         #expect(harness.requests.requests.count == 2, "and the action does nothing")
 
-        harness.model.apply(card.choice, to: card)
+        // Another choice keeps the scale; Original takes it off.
+        harness.model.downscale(card, to: 1)
         #expect(await eventually { harness.requests.requests.count == 3 && card.result != nil })
         card.removedMetadata = [.location]
         #expect(card.presentation.restorable, "a plain run offers it again")

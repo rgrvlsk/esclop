@@ -2,9 +2,9 @@
 //
 // Actions (docs/design/targets: pr4-options-popover-size-actions): one row each, a round symbol,
 // what it does and what it gives, and a play button: the person's pipelines, Upload (the link on
-// the clipboard), Share… (the system's services), then Copy ⌘C, Save as… ⌘S and Quick Look ⌘Y
-// with their keys, and Run a Shortcut › and Open with ›. The keys, and Show in Finder ⌘R, work
-// from every tab; Compare is the detail's loupe; how long results stay is in Settings.
+// the clipboard), Share… (the system's services), then Copy ⌘C, Save as… ⌘S, Quick Look ⌘Y
+// and Show in Finder ⌘R with their keys, and Run a Shortcut › and Open with ›. The keys work from
+// every tab; Compare is the detail's loupe; how long results stay is in Settings.
 
 import AppKit
 import EsclopCore
@@ -51,6 +51,7 @@ struct ShareTab: View {
                 DrillRow(symbol: "doc.on.doc", title: Strings.text("Copy"), detail: "⌘C", chevron: false) { app.perform(.copy, on: card) }
                 DrillRow(symbol: "square.and.arrow.down", title: Strings.text("Save as…"), detail: "⌘S", chevron: false) { app.saveAs(card) }
                 DrillRow(symbol: "eye", title: Strings.text("Quick Look"), detail: "⌘Y", chevron: false) { app.quickLook(card) }
+                DrillRow(symbol: "folder", title: Strings.text("Show in Finder"), detail: "⌘R", chevron: false) { app.perform(.reveal, on: card) }
                 DrillRow(symbol: "square.2.layers.3d", title: Strings.text("Run a Shortcut")) { model.drill = .shortcut }
                 DrillRow(symbol: "arrow.up.forward.app", title: Strings.text("Open with")) { model.drill = .openWith }
             }
