@@ -102,9 +102,16 @@ on that one file. It replaces a long context menu. It is not the menu-bar menu. 
 360 pt, never taller than 560 pt.
 
 - **No header:** the card beside it shows the file. Rename is a click on the detail's name.
-- **Tabs** (`pr4-options-popover-tabs`): round symbol tabs on a recessed bar, the chosen one
-  fused with the lighter panel under it like a folder's tab, and its name in small caps at the
-  end: Format · Size · Actions. Audio replaces Size with Sound.
+- **Tabs** (`pr4-options-popover-tabs`, measured against the owner's reference, Intellecta's
+  tabs): 40 pt round tabs in the panel's tone, raised from the recessed bar, thin 14 pt symbols;
+  the chosen one is the same circle fused with the panel under it like a folder's tab with an
+  11 pt fillet, and its name in small caps at the end: Format · Size · Crop · Actions. Audio has
+  Format · Sound · Actions.
+- **One elevation** (owner: one geometry, one elevation): what you press and has a shape (tabs,
+  tiles, chips, action rows, Crop and Fit) is raised by one token, a 0.5 pt edge and a 1 pt
+  shadow (in dark a light edge, since a shadow does not show); a row that holds a control is
+  flat, 44 pt; a field you type in is inset; nothing raised sits on something raised. The chosen
+  tile or chip is charcoal at the same height. Text actions are flat.
 - **Format:** the suggestion first, only while it is not the one applied, as an amber card:
   "WebP would be 410 kB", "33 % lighter, …" and Convert. Then four format tiles with their
   sizes (the file's own size on its tile, estimates on the others, an amber dot on the
@@ -116,11 +123,20 @@ on that one file. It replaces a long context menu. It is not the menu-bar menu. 
   DPI, audio bitrate and loudness); Restore original (⌘Z) and Optimise harder; the rule.
   Compression's Adaptive · Lossless · Aggressive is a setting, not a popover choice: Optimise
   harder runs the file again aggressively (as Clop offers it), and Lossless lives in Settings.
-- **Size:** downscale slider in 10 % steps with live dimensions and size, restore 100 %, fit
-  under 500 kB / 1 / 2 / 5 MB / custom, crop aspect chips and the crop editor.
-- **Share:** a row of round buttons (Copy ⌘C, AirDrop, Save as ⌘S, Show in Finder ⌘R, Quick
-  Look Space, Share…), then drill-downs: Open with, Run a Shortcut, Run a pipeline, Add to
-  shelf app, Upload with Dropshare. Footer: keep visible duration.
+- **Size** (`pr4-options-popover-size-actions`): "Original 2.4 MB" in the serif, then tiles
+  Original, 2000 px and 1280 px (only those smaller than the picture, and not nearly half) and
+  Half, the owner's tile, always, each with its size (Half's from the real pixels, "Half, 3000 px"
+  for VoiceOver). Custom: width × height that keep the aspect ratio, Return applies; "Never enlarges. Keeps
+  the aspect ratio." Then Fit under 500 kB · 1 · 2 · 5 MB · Custom…. A PDF has Fit under only.
+- **Crop:** its own tab, opening on the picture itself with its frame (owner's request: a crop
+  must be seen), the aspect chips over it and the size in pixels under it, Reset and Crop. A PDF
+  crops each page's box to a ratio. Chips are cream, the chosen one charcoal.
+- **Actions:** rows, each with a round symbol, what it does and what it gives, and a play button:
+  the person's pipelines ("Your pipeline"), Upload ("Copies a link"; Set Up Uploads… without a
+  target, with a chevron since it opens Settings), Copy Link after an upload, Share… ("AirDrop, Mail, Messages"), shelf and upload apps
+  when installed; then Run a Shortcut › and Open with ›, and a dashed "Edit Pipelines…". Copy
+  ⌘C, Save as ⌘S, Show in Finder ⌘R and Quick Look ⌘Y are keys of the popover; Compare is
+  the detail's loupe; how long results stay visible is in Settings.
 - Every choice that changes size shows an estimate before it is applied. Long lists are
   drill-downs inside the popover, never inline walls. Only installed apps are listed.
 
