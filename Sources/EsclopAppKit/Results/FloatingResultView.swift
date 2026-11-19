@@ -63,11 +63,14 @@ public struct FloatingResultView: View {
         // The resting pointer's keys: held after a short rest, given back when it leaves, and
         // while a menu, the name, the loupe or a drag has the keys.
         .task(id: hoverKeys) {
+            // The rest is for a pointer arriving; a card that changed under it keeps its keys.
+            let arriving = HoverKeys.shared.owner != card.id
             HoverKeys.shared.release(from: card.id)
             let keys = hoverKeys
             guard !keys.isEmpty else { return }
-            try? await Task.sleep(for: HoverKeys.rest)
-            // A field of this app's being typed in (Settings) keeps its letters.
+            if arriving { try? await Task.sleep(for: HoverKeys.rest) }
+            // A field of this app's being typed in (Settings) keeps its letters. ponytail: not
+            // retried when the field is left; the keys come with the pointer's next arrival.
             guard !Task.isCancelled, !Self.editingText else { return }
             HoverKeys.shared.hold(keys, for: card.id) { _ = press($0) }
         }
