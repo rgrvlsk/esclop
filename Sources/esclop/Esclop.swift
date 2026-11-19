@@ -142,6 +142,8 @@ struct FileOptions: ParsableArguments {
     /// A relative -o template made absolute from the working directory, as every Unix tool reads
     /// it (the engines read a relative template from the file's folder). `~`, `%d` and `/` are
     /// absolute already.
+    /// ponytail: templates have no escape, so a `%f`, `%e` or `%d` in the working directory's own
+    /// path is expanded too; anchor per source in the CLI if a person ever hits it.
     static func anchored(_ template: String, workingDirectory: String = FileManager.default.currentDirectoryPath) -> String {
         if template.hasPrefix("file:"), let url = try? PathInput.url(template) {
             return url.path + (template.hasSuffix("/") ? "/" : "")
