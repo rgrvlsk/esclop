@@ -1561,6 +1561,16 @@
         }
       }
     },
+    "Can’t read one of the files": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No es pot llegir un dels fitxers"
+          }
+        }
+      }
+    },
     "Cap the frame rate": {
       "localizations": {
         "ca": {
@@ -1897,6 +1907,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Compara %@"
+          }
+        }
+      }
+    },
+    "Compare in a window": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compara en una finestra"
           }
         }
       }
@@ -2367,6 +2387,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No s’ha pogut restaurar %@"
+          }
+        }
+      }
+    },
+    "Could not save %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha pogut desar %@"
           }
         }
       }
@@ -3931,6 +3961,16 @@
         }
       }
     },
+    "Last 7 days": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Últims 7 dies"
+          }
+        }
+      }
+    },
     "Last 7 days −%@": {
       "localizations": {
         "ca": {
@@ -4857,6 +4897,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Encara no s’ha optimitzat res"
+          }
+        }
+      }
+    },
+    "Nothing saved in the last 7 days": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha estalviat res els últims 7 dies"
+          }
+        }
+      }
+    },
+    "Nothing saved today": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avui encara no s’ha estalviat res"
           }
         }
       }
@@ -8531,6 +8591,16 @@
         }
       }
     },
+    "Videos with subtitles this format cannot keep are left as they are.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els vídeos amb subtítols que aquest format no pot conservar es deixen tal com estan."
+          }
+        }
+      }
+    },
     "View": {
       "localizations": {
         "ca": {
@@ -10376,7 +10446,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conserva els mapes de guany HDR i el vídeo HDR quan el format de sortida els admet. Desactivat, es converteix a SDR."
+            "value": "Conserva els mapes de guany HDR i el vídeo HDR quan el format de sortida els admet. Desactivat, les fotos passen a SDR i el vídeo a 8 bits, sense mapatge de tons."
           }
         }
       }

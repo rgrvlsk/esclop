@@ -49,7 +49,9 @@ system screenshot thumbnail. The look follows [docs/design/targets](docs/design/
    row gives its place, at its height, to a hint ("Click or hold to see original", "Release to
    see optimised") and Done, so nothing in the detail moves. Space swaps, the arrows move the
    lens 8 pt, Esc, Return or Done end it; × still closes the detail. The picture does not drag
-   out while the loupe is on. Other files compare in the Compare window.
+   out while the loupe is on. A round button at the hint's start opens the Compare window (split,
+   difference, zoom). When a file cannot be read, the lens goes and the hint says so ("Can't read
+   one of the files"); nothing swaps. Other files compare in the Compare window.
 
 Hover shows three round buttons over the picture's corner (Copy for a copied screenshot, Show
 in Finder for a file, then Undo and "…") and a close button over its outer corner, so the
@@ -57,7 +59,9 @@ object never changes size under the pointer. The card glows in the picture's ton
 drags out as the file (the original after a restore). Errors keep the original and say so in
 plain words ("This file isn't a video L'Esclop can read. It may be damaged.").
 Several results in a row: show the newest three, newest at the bottom, older ones go to the
-menu-bar history; never stack expanded details. Two or more failures share one of the three
+menu-bar history; never stack expanded details. A file at work keeps its place, with its Stop,
+while newer results arrive; a result that lands behind newer ones comes to the front, and so
+does a result chosen in Recent. Two or more failures share one of the three
 places (`pr2-failures`): an amber pill, "3 not optimised" ("not uploaded" for uploads, "failed"
 for a mix), that a click opens into their list, 320 pt wide, under an amber header in the serif:
 each file with its picture, why, and Retry, or no button when the file is gone ("The file was
@@ -86,6 +90,7 @@ the app, so the app in front keeps its windows, but it takes the keys, so ⌘O w
 - **Recent:** the files being optimised, then the last twelve results, five in view: the
   picture, the name, "2.4 MB → 612 kB · 9:41" and the saving. On hover, Copy and Show in Finder;
   a click shows the result's card again; the context menu adds Compare and Restore Original.
+  The arrows move through the rows and Return shows the card; VoiceOver has every action.
   Clear (privacy) forgets the names: the shared log keeps only sizes and dates, so the saving
   stays, and the CLI and MCP no longer list them. Files, backups and cards are not touched.
   Empty: "Copy a screenshot. You'll find it here, lighter."
@@ -134,9 +139,10 @@ on that one file. It replaces a long context menu. It is not the menu-bar menu. 
 - **Actions:** rows, each with a round symbol, what it does and what it gives, and a play button:
   the person's pipelines ("Your pipeline"), Upload ("Copies a link"; Set Up Uploads… without a
   target, with a chevron since it opens Settings), Copy Link after an upload, Share… ("AirDrop, Mail, Messages"), shelf and upload apps
-  when installed; then Run a Shortcut › and Open with ›, and a dashed "Edit Pipelines…". Copy
-  ⌘C, Save as ⌘S, Show in Finder ⌘R and Quick Look ⌘Y are keys of the popover; Compare is
-  the detail's loupe; how long results stay visible is in Settings.
+  when installed; then flat rows Copy ⌘C, Save as… ⌘S and Quick Look ⌘Y with their keys, Run a
+  Shortcut › and Open with ›, and a dashed "Edit Pipelines…". Pipelines are listed only for
+  the kinds they do something for. The keys, and Show in Finder ⌘R, work from every tab;
+  Compare is the detail's loupe; how long results stay visible is in Settings.
 - Every choice that changes size shows an estimate before it is applied. Long lists are
   drill-downs inside the popover, never inline walls. Only installed apps are listed.
 
@@ -161,7 +167,9 @@ At the bottom of Optimise a small native checkbox turns the current choice into 
 "Always apply to PNG screenshots". The rule key is origin + input format. Unticking deletes the
 rule, so the next item of that kind gets the default behaviour again; ⌘Z only restores the
 current file. When a rule was applied, the result capsule shows a small rule glyph with the
-tooltip "Rule: PNG screenshots → WebP", and the popover opens with the box ticked. Rules are
+tooltip "Rule: PNG screenshots → WebP", and the popover opens with the box ticked. The line under
+a ticked box says what the stored rule does; trying another choice leaves the rule as it is,
+and ticking the box again stores the new choice. Rules are
 listed and edited in Settings › Automation › Clipboard rules.
 
 ## Batch window
