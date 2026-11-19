@@ -87,6 +87,9 @@ public actor EngineClient {
     /// A request on its last, lone attempt is running (`alone`); others wait their turn.
     private var lonely = false
     private var lonelyQueue: [CheckedContinuation<Void, Never>] = []
+    /// Requests held while a lone attempt runs, so it has the child to itself (a crash then names
+    /// the culprit). Let go when the last lone attempt ends.
+    private var heldWhileLonely: [CheckedContinuation<Void, Never>] = []
     /// Children that ran a lone attempt: their crash names the culprit and is not a crash loop.
     private var lonelyChildren: Set<ObjectIdentifier> = []
     /// Requests cancelled (or timed out) while running whose reply has not come back yet, by the
@@ -213,13 +216,20 @@ public actor EngineClient {
         }
     }
 
-    /// Runs `body` after every earlier lone attempt has finished. ponytail: new requests still
-    /// share the child meanwhile; the survivors hold their work slots while they wait, so few do.
+    /// Runs `body` after every earlier lone attempt has finished, with no other request on the
+    /// child meanwhile (`send` holds them). ponytail: the held requests keep their work slots
+    /// while they wait; lone attempts are rare and short, so few do.
     private func alone<T: Sendable>(_ body: () async throws -> T) async throws -> T {
         if lonely { await withCheckedContinuation { lonelyQueue.append($0) } }
         lonely = true
         defer {
-            if lonelyQueue.isEmpty { lonely = false } else { lonelyQueue.removeFirst().resume() }
+            if lonelyQueue.isEmpty {
+                lonely = false
+                heldWhileLonely.forEach { $0.resume() }
+                heldWhileLonely = []
+            } else {
+                lonelyQueue.removeFirst().resume()
+            }
         }
         return try await body()
     }
@@ -238,6 +248,10 @@ public actor EngineClient {
         op: String, input: URL?, output: URL?, params: [String: JSONValue]?, timeout: TimeInterval? = nil,
         progress: (@Sendable (Double) -> Void)?, lonely: Bool = false
     ) async throws -> [String: JSONValue] {
+        // A lone attempt has the child to itself. Hello goes through: it crashes nothing, and
+        // held, it would outlast the 15 seconds `capabilities` gives it. A request cancelled
+        // while held fails when the lone attempt ends.
+        while self.lonely, !lonely, op != "hello" { await withCheckedContinuation { heldWhileLonely.append($0) } }
         if Task.isCancelled { throw EsclopError.cancelled }
         let child = try ensureRunning()
         if lonely { lonelyChildren.insert(ObjectIdentifier(child)) }
