@@ -407,7 +407,7 @@ import UniformTypeIdentifiers
         let mp4 = world.file("tracks.mp4")
         let rich = await ffmpegLists("-encoders", "mov_text")
         var args = ["-hide_banner", "-loglevel", "error", "-y",
-                    "-f", "lavfi", "-i", "testsrc2=d=2:s=320x240:r=30", "-f", "lavfi", "-i", "testsrc=d=2:s=160x120:r=30",
+                    "-f", "lavfi", "-i", "testsrc2=d=2:s=320x240:r=30", "-f", "lavfi", "-i", "color=c=blue:d=2:s=160x120:r=30",
                     "-f", "lavfi", "-i", "sine=d=2"]
         if rich {
             let srt = world.file("sub.srt"), chapters = world.file("chapters.txt")
@@ -467,9 +467,9 @@ import UniformTypeIdentifiers
         let world = try await TestWorld()
         defer { Task { await world.finish() } }
         let alac = world.file("album.m4a")
-        try await ProcessRunner.run(.ffmpeg, [
-            "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "anoisesrc=d=3:a=0.3", "-ac", "2", "-c:a", "alac_at", alac.path,
-        ])
+        let noise = world.file("noise.wav")
+        try Fixture.noiseWAV(noise)
+        try await ProcessRunner.run(.ffmpeg, ["-hide_banner", "-loglevel", "error", "-y", "-i", noise.path, "-c:a", "alac_at", alac.path])
         let aac = try await world.engine.optimise(alac, request: world.request(alac), progress: { _ in })
         #expect(aac.steps.contains("Converted Apple Lossless to AAC"))
         #expect(try await Inspect.media(aac.output).audio?.codec == "aac")
