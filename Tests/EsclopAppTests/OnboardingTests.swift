@@ -52,7 +52,8 @@ import Testing
         let en = Locale(identifier: "en")
         #expect(SettingPresentation.retention(days: 1) == Strings.text("1 day"))
         #expect(Strings.text("1 day", locale: en) == "1 day" && Strings.format("%d days", 7, locale: en) == "7 days")
-        #expect(SettingPresentation.retention(days: 0) == Strings.text("Forever"))
+        #expect(SettingPresentation.unit("days", key: EsclopSettings.backupRetentionDays.key, value: .int(0)) == Strings.text("days, kept for ever"))
+        #expect(SettingPresentation.unit("days", key: EsclopSettings.backupRetentionDays.key, value: .int(1)) == Strings.text("day"))
         #expect(AutomaticPage.summary(retentionDays: 0) == Strings.text("L’Esclop optimises what you copy as soon as you copy it. Originals are always kept and can be restored from the menu."))
         #expect(!AutomaticPage.summary(retentionDays: 1).contains("1 days"))
     }

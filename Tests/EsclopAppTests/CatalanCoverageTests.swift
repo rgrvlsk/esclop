@@ -42,6 +42,13 @@ import Testing
         #expect(Self.catalan[CardPresentation.message(for: EsclopError.alreadySmaller)] != nil)
     }
 
+    /// A built-in template's name is shown translated (preset zones); the name the CLI runs stays.
+    @Test func everyBuiltInTemplateNameHasCatalan() {
+        for preset in PipelineStore.presets {
+            #expect(Self.catalan[preset.name] != nil, "no Catalan for the template “\(preset.name)”")
+        }
+    }
+
     /// Why the engine leaves a PDF as it is (engine/.../pdf/reasons.rs): shown as the message.
     @Test func everyEngineReasonHasCatalanAndIsTheMessage() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()

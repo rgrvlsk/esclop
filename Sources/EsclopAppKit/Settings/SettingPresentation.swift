@@ -135,9 +135,6 @@ public enum SettingPresentation {
 
     /// A value in the words the control shows: "Bottom right", "50 %", "on".
     public static func display(_ value: JSONValue?, for descriptor: SettingDescriptor) -> String {
-        if descriptor.key == EsclopSettings.backupRetentionDays.key, let days = value?.doubleValue {
-            return retention(days: Int(days))
-        }
         switch control(for: descriptor) {
         case let .picker(choices):
             return choices.first { $0.value.doubleValue == value?.doubleValue && $0.value.stringValue == value?.stringValue }?.label ?? text(for: value)
@@ -169,13 +166,19 @@ public enum SettingPresentation {
         }
     }
 
-    /// How long backups are kept: "Forever" (0), "1 day", "7 days".
-    public static func retention(days: Int) -> String {
+    /// The word after a number field. Backups: "day" after 1, and 0 keeps them for ever.
+    static func unit(_ unit: String, key: String, value: JSONValue?) -> String {
+        guard key == EsclopSettings.backupRetentionDays.key, let days = value?.intValue else { return unit }
         switch days {
-        case ...0: Strings.text("Forever")
-        case 1: Strings.text("1 day")
-        default: Strings.format("%d days", days)
+        case ...0: return Strings.text("days, kept for ever")
+        case 1: return Strings.text("day")
+        default: return unit
         }
+    }
+
+    /// How long backups are kept, for 1 or more days: "1 day", "7 days".
+    public static func retention(days: Int) -> String {
+        days == 1 ? Strings.text("1 day") : Strings.format("%d days", days)
     }
 
     static func number(_ value: Double) -> String {

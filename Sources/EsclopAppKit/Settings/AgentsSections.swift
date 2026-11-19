@@ -59,7 +59,7 @@ struct AgentsConnectSection: View {
         } header: {
             Text(Strings.text("Connect an agent"))
         } footer: {
-            Text(Strings.text("Connecting adds an esclop entry to the agent's own config file and nothing else. You see the change before it is written, and the previous version is kept in L’Esclop's folder."))
+            Text(Strings.text("Connecting adds an esclop entry to the agent's own config file and nothing else. You see the change before it is written, and the previous version is kept in L’Esclop’s folder."))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 // Grouped forms put footers on the trailing side; these read with the rows above.

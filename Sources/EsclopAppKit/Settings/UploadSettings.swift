@@ -315,6 +315,7 @@ struct UploadSourceSwitches: View {
                 ))
                 .toggleStyle(.switch)
                 .controlSize(.small)
+                .tint(Ink.charcoal)
                 .padding(.leading, 12)
             }
         }
