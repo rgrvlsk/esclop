@@ -464,6 +464,10 @@ public struct CardPresentation: Equatable, Sendable {
             return Strings.format("L’Esclop cannot optimise this kind of file (%@).", URL(fileURLWithPath: file).lastPathComponent)
         case let .fileNotFound(path):
             return Strings.format("%@ is no longer there.", URL(fileURLWithPath: path).lastPathComponent)
+        case let .backupRemoved(_, days?):
+            return days == 1 ? Strings.text("The original was removed after 1 day.") : Strings.format("The original was removed after %d days.", days)
+        case .backupRemoved(_, nil):
+            return Strings.text("The original’s backup is no longer there.")
         case let .toolFailed(tool, code, stderr):
             let line = readable(stderr.split(separator: "\n").last.map(String.init) ?? "")
             return line.isEmpty ? Strings.format("%@ stopped with code %d", tool, Int(code)) : Strings.format("%@ stopped with code %d: %@", tool, Int(code), line)

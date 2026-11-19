@@ -40,6 +40,14 @@ public struct BackupEntry: Codable, Hashable, Sendable, Identifiable {
     }
 }
 
+/// What a restore set aside on the way.
+public struct RestoreReport: Equatable, Sendable {
+    /// Where the files set aside are now, in the Trash.
+    public var trashed: [URL] = []
+    /// A converted output the Trash refused; it is still at this path.
+    public var leftInPlace: URL?
+}
+
 public struct BackupStore: Sendable {
     public static var shared: BackupStore { BackupStore(root: Paths.backups) }
 
@@ -108,31 +116,74 @@ public struct BackupStore: Sendable {
         return entries().first { $0.original.path == path || $0.output?.path == path }
     }
 
-    /// Puts the original back where it was. A converted output with a different name is moved to
-    /// the trash (it can be recovered from there). The backup itself is kept until pruned.
+    /// Puts a result's original back at its source path, the one restore path for the app, the
+    /// CLI and the MCP server. Nothing is deleted: a file at the source path that is no longer the
+    /// result's output (edited, or optimised again since) and a converted output with another name
+    /// go to the Trash. The backup itself is kept until pruned.
     @discardableResult
-    public func restore(_ entry: BackupEntry, removeOutput: Bool = true) throws -> URL {
+    public func restore(_ result: OptimisationResult) throws -> RestoreReport {
         let fm = FileManager.default
-        guard fm.fileExists(atPath: entry.backup.path) else {
-            throw EsclopError.fileNotFound(entry.backup.path)
+        guard let backup = result.backup, fm.fileExists(atPath: backup.path) else {
+            throw EsclopError.fileNotFound(result.backup?.path ?? result.source.path)
         }
-        try Paths.ensure(entry.original.deletingLastPathComponent())
-        let staging = entry.original.deletingLastPathComponent()
-            .appendingPathComponent(".\(entry.original.lastPathComponent).esclop-restore-\(UUID().uuidString.prefix(8))")
-        try fm.copyItem(at: entry.backup, to: staging)
-        if fm.fileExists(atPath: entry.original.path) {
-            _ = try fm.replaceItemAt(entry.original, withItemAt: staging)
-        } else {
-            try fm.moveItem(at: staging, to: entry.original)
+        let original = result.source
+        try Paths.ensure(original.deletingLastPathComponent())
+        var report = RestoreReport()
+        // A name of its own in the same folder (same volume): never another restore's, never a
+        // file that happens to be there.
+        let staging = original.deletingLastPathComponent()
+            .appendingPathComponent(".\(original.lastPathComponent).esclop-restore-\(UUID().uuidString.prefix(8))")
+        try fm.copyItem(at: backup, to: staging)
+        do {
+            if fm.fileExists(atPath: original.path) {
+                if Self.holdsOutput(of: result) {
+                    _ = try fm.replaceItemAt(original, withItemAt: staging)
+                } else {
+                    do {
+                        report.trashed.append(try trash(original))
+                    } catch {
+                        throw EsclopError.other("\(original.lastPathComponent) changed after it was optimised and could not go to the Trash, so it was left as it is")
+                    }
+                    try fm.moveItem(at: staging, to: original)
+                }
+            } else {
+                try fm.moveItem(at: staging, to: original)
+            }
+        } catch {
+            try? fm.removeItem(at: staging)
+            throw error
         }
-        OptimisedMark.clear(entry.original)
-        // Only once the original is back: a converted output with another name goes to the trash.
-        if removeOutput, let output = entry.output, output.path != entry.original.path, fm.fileExists(atPath: output.path) {
-            try? fm.trashItem(at: output, resultingItemURL: nil)
-            if fm.fileExists(atPath: output.path) { try? fm.removeItem(at: output) }
+        OptimisedMark.clear(original)
+        // Only once the original is back: a converted output with another name goes to the Trash,
+        // or stays where it is when the Trash refuses it. Never a permanent removal.
+        let output = result.output
+        if output.standardizedFileURL.path != original.standardizedFileURL.path, fm.fileExists(atPath: output.path) {
+            do { report.trashed.append(try trash(output)) } catch { report.leftInPlace = output }
         }
-        Log.backups.info("Restored \(entry.original.lastPathComponent, privacy: .private)")
-        return entry.original
+        Log.backups.info("Restored \(original.lastPathComponent, privacy: .private)")
+        return report
+    }
+
+    /// Whether the file at the source path is still the output `result` wrote: same path, same
+    /// size, and not modified after the result finished.
+    // ponytail: size and date, no hash; an edit that keeps the exact size and backdates the file
+    // passes. Store a hash in the result if that ever matters.
+    static func holdsOutput(of result: OptimisationResult) -> Bool {
+        // Attributes, not URL resource values: those are cached on a URL the app keeps.
+        guard result.output.standardizedFileURL.path == result.source.standardizedFileURL.path,
+              let attributes = try? FileManager.default.attributesOfItem(atPath: result.source.path),
+              (attributes[.size] as? NSNumber)?.intValue == result.bytesAfter,
+              let modified = attributes[.modificationDate] as? Date
+        else { return false }
+        // Results read back from the shared log carry whole seconds.
+        return modified <= result.finishedAt.addingTimeInterval(2)
+    }
+
+    /// Moves `url` to the Trash and returns where it went. Tests swap it for a folder of their own.
+    var trash: @Sendable (URL) throws -> URL = { url in
+        var resulting: NSURL?
+        try FileManager.default.trashItem(at: url, resultingItemURL: &resulting)
+        return (resulting as URL?) ?? url
     }
 
     public func delete(_ entry: BackupEntry) throws {

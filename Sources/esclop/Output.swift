@@ -89,7 +89,7 @@ enum Output {
 
     static func exitCode(for error: EsclopError) -> Int32 {
         switch error {
-        case .fileNotFound: return 66
+        case .fileNotFound, .backupRemoved: return 66
         case .appNotRunning, .toolMissing: return 69
         case .notPermitted: return 77
         case .invalidArgument, .invalidPipeline, .unsupportedFile, .leftAsIs: return 64

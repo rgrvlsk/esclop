@@ -3051,6 +3051,16 @@
         }
       }
     },
+    "Files still to go are stopped first.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Primer s’aturen els fitxers que encara falten."
+          }
+        }
+      }
+    },
     "Files that do not match are left alone.": {
       "localizations": {
         "ca": {
@@ -6051,6 +6061,16 @@
         }
       }
     },
+    "Restore all originals?": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vols restaurar tots els originals?"
+          }
+        }
+      }
+    },
     "Restore original": {
       "localizations": {
         "ca": {
@@ -7487,6 +7507,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "L’original no s’ha tocat."
+          }
+        }
+      }
+    },
+    "The original was removed after %d days.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’original es va eliminar al cap de %d dies."
+          }
+        }
+      }
+    },
+    "The original was removed after 1 day.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’original es va eliminar al cap d’un dia."
+          }
+        }
+      }
+    },
+    "The original’s backup is no longer there.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La còpia de l’original ja no hi és."
           }
         }
       }
