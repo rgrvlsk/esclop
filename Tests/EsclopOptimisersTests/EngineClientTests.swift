@@ -177,6 +177,18 @@ import Testing
         #expect(caps.version == "fake-1")
     }
 
+    @Test func aFileThatCrashesTheEngineFailsAloneAndTheOthersFinish() async throws {
+        let client = try await client()
+        defer { Task { await client.shutdown() } }
+        _ = try await client.capabilities()
+        async let first = client.call("sleep", params: ["seconds": 1.0])
+        async let second = client.call("sleep", params: ["seconds": 1.0])
+        try await Task.sleep(nanoseconds: 100_000_000)
+        await #expect(throws: EsclopError.self) { try await client.call("crash") }
+        #expect(try await first.raw["slept"] != nil)
+        #expect(try await second.raw["slept"] != nil)
+    }
+
     @Test func missingEngineIsAToolMissingError() async throws {
         let client = EngineClient(locator: ToolLocator(searchDirectories: [], pathDirectories: []))
         #expect(!client.isInstalled)

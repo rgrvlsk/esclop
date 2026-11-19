@@ -75,6 +75,25 @@ import Testing
         #expect(report.results.first?.steps.contains { $0.hasPrefix("downscale") } == true)
     }
 
+    @Test func aLateFailureKeepsWhatEarlierStepsMade() async throws {
+        let temp = TempDir()
+        let file = temp.file("a.png", bytes: 4000)
+        let service = makeService(temp, origin: .cli, engine: BackingUpEngine(backups: temp.url.appendingPathComponent("backups")))
+        // This engine cannot watermark: the second step fails after the first shrank the file in place.
+        let report = try await service.perform(OptimisationJob(
+            request: OptimisationRequest(sources: [file], origin: .cli), operation: .pipeline(#"optimise -> watermark(image: "mark.png")"#)
+        ))
+        let result = try #require(report.results.first)
+        #expect(result.bytesAfter == 2000)
+        let failure = try #require(report.failures.first)
+        #expect(failure.error.code == "toolMissing")
+        #expect(failure.step?.hasPrefix("watermark") == true)
+        #expect(JobSummary(operation: "pipeline", report: report).failures.first?.step == failure.step)
+        #expect(await service.recentResults(limit: 10).map(\.id) == [result.id])
+        _ = try await service.restoreBackup(for: file, deleteBackup: false)
+        #expect(try Data(contentsOf: file).count == 4000, "the original is back")
+    }
+
     @Test func badInlinePipelinesNameTheProblem() async {
         let temp = TempDir()
         do {
@@ -180,6 +199,50 @@ import Testing
         #expect(try Data(contentsOf: original).count == 5000)
     }
 
+    /// A file that happens to have the old staging name, or another restore's, is not touched.
+    @Test func restoreStagesUnderANameOfItsOwn() async throws {
+        let temp = TempDir()
+        let original = temp.file("photo.jpg", bytes: 100)
+        let bystander = temp.file(".photo.jpg.esclop-restore", bytes: 7)
+        let backup = temp.file("backups/photo.jpg", bytes: 5000)
+        let result = OptimisationResult(source: original, output: original, backup: backup, kind: .image, bytesBefore: 5000, bytesAfter: 100, startedAt: Date(), finishedAt: Date())
+        _ = try await makeService(temp, origin: .cli).restoreBackup(of: result, deleteBackup: false)
+        #expect(try Data(contentsOf: original).count == 5000)
+        #expect(try Data(contentsOf: bystander).count == 7)
+        let left = try FileManager.default.contentsOfDirectory(atPath: temp.url.path).filter { $0.contains("esclop-restore") }
+        #expect(left == [".photo.jpg.esclop-restore"], "no staging file of its own is left behind")
+    }
+
+    /// Edited after it was optimised: the edit goes to the Trash, not into nothing.
+    @Test func restoreSetsAnEditedFileAsideInTheTrash() async throws {
+        let temp = TempDir()
+        let original = temp.file("photo.jpg", bytes: 100)
+        let backup = temp.file("backups/photo.jpg", bytes: 5000)
+        let service = makeService(temp, origin: .cli)
+        service.results.append([OptimisationResult(source: original, output: original, backup: backup, kind: .image, bytesBefore: 5000, bytesAfter: 100, startedAt: Date(), finishedAt: Date())])
+        try Data(repeating: 1, count: 300).write(to: original)
+        let outcome = try await service.restoreBackup(for: original, deleteBackup: false)
+        #expect(try Data(contentsOf: original).count == 5000)
+        let trashed = try #require(outcome.movedToTrash?.first)
+        defer { try? FileManager.default.removeItem(atPath: trashed) }
+        #expect(try Data(contentsOf: URL(fileURLWithPath: trashed)).count == 300, "the edit is in the Trash")
+    }
+
+    /// The backup was pruned: the message says so, not "it was not changed in place".
+    @Test func aPrunedBackupSaysWhenItWasRemoved() async throws {
+        let temp = TempDir()
+        let original = temp.file("photo.jpg", bytes: 100)
+        let gone = temp.url.appendingPathComponent("backups/photo.jpg")
+        let service = makeService(temp, origin: .cli)
+        let old = Date().addingTimeInterval(-8 * 86400)
+        let expired = OptimisationResult(source: original, output: original, backup: gone, kind: .image, bytesBefore: 5000, bytesAfter: 100, startedAt: old, finishedAt: old)
+        await #expect(throws: EsclopError.backupRemoved(file: original.path, afterDays: 7)) { _ = try await service.restoreBackup(of: expired, deleteBackup: false) }
+        var recent = expired
+        recent.finishedAt = Date()
+        await #expect(throws: EsclopError.backupRemoved(file: original.path, afterDays: nil)) { _ = try await service.restoreBackup(of: recent, deleteBackup: false) }
+        #expect(EsclopError.backupRemoved(file: original.path, afterDays: 7).code == "fileNotFound", "agents see the code the tool documents")
+    }
+
     @Test func statusReportsPermissionsAndRoute() async {
         let temp = TempDir()
         let status = await makeService(temp, origin: .mcp, allow: [.allowDeleteBackups]).status()
@@ -203,4 +266,25 @@ import Testing
         #expect(throws: EsclopError.self) { try PipelineTriggers.parse("/no/such/folder") }
         #expect(throws: EsclopError.self) { try PipelineTriggers.parse("sometimes") }
     }
+}
+
+/// Optimises in place the way the real engine does: a backup first, then half the bytes.
+struct BackingUpEngine: OptimisationEngine {
+    let backups: URL
+
+    func optimise(_ source: URL, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult {
+        let data = try Data(contentsOf: source)
+        let backup = backups.appendingPathComponent(UUID().uuidString).appendingPathComponent(source.lastPathComponent)
+        try FileManager.default.createDirectory(at: backup.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try data.write(to: backup)
+        try data.prefix(data.count / 2).write(to: source)
+        return OptimisationResult(source: source, output: source, backup: backup, kind: .image, bytesBefore: data.count, bytesAfter: data.count / 2, startedAt: Date(), finishedAt: Date())
+    }
+
+    func convert(_ source: URL, to format: OutputFormat, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { try await optimise(source, request: request, progress: progress) }
+    func downscale(_ source: URL, factor: Double, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { try await optimise(source, request: request, progress: progress) }
+    func crop(_ source: URL, to size: CropSize, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { try await optimise(source, request: request, progress: progress) }
+    func fit(_ source: URL, underBytes: Int, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { try await optimise(source, request: request, progress: progress) }
+    func stripMetadata(_ source: URL, request: OptimisationRequest) async throws -> OptimisationResult { try await optimise(source, request: request) { _ in } }
+    func supports(_ url: URL) -> Bool { true }
 }

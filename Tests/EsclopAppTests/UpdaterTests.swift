@@ -55,6 +55,17 @@ final class UpdaterHost: @unchecked Sendable {
         #expect(!services.updater.isRunning)
     }
 
+    /// Sparkle refusing to start (here: the test runner is no app it can update) leaves nothing
+    /// running, so a later start tries again instead of returning at once.
+    @Test func aFailedStartCanBeTriedAgain() {
+        let host = UpdaterHost()
+        let updater = Updater(settings: TestSettings().store, environment: [:])
+        updater.start(availableIn: host.bundle)
+        #expect(!updater.isRunning)
+        updater.start(availableIn: host.bundle)
+        #expect(!updater.isRunning)
+    }
+
     @Test func theSettingsAndSparkleSwitchesFollowEachOther() async throws {
         let host = UpdaterHost()
         let settings = TestSettings()

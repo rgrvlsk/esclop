@@ -106,6 +106,7 @@ struct CardFace: View {
         HStack(spacing: Self.buttonGap) {
             ForEach(info.tools, id: \.self) { action in
                 PillButton(action: action, perform: perform)
+                    .disabled(action == .undo && card.restoring)
             }
         }
     }
@@ -188,18 +189,30 @@ struct CardFooter: View {
                     Text(Figures.bytes(before)).foregroundStyle(Ink.original)
                     Image(systemName: "arrow.right").font(.system(size: large ? 12 : 10, weight: .medium)).foregroundStyle(Ink.secondary)
                     Text(Figures.bytes(after)).foregroundStyle(Ink.secondary)
-                    if card.aggressive {
-                        Image(systemName: "bolt.fill").foregroundStyle(Ink.warm).help(Strings.text("Optimise harder"))
-                    }
-                    if let rule = card.appliedRule {
-                        Image(systemName: "pin.fill").foregroundStyle(Ink.text).help(rule.tooltip())
-                    }
+                    if large { badges }
                 }
                 .font(.system(size: large ? 15 : 13, weight: .medium))
                 .monospacedDigit()
                 .lineLimit(1)
-                if !large { caption(info.caption) }
+                // The 208 pt card has no room for them beside the sizes: they lead the name,
+                // which gives way first, so the original size always shows whole.
+                if !large {
+                    HStack(spacing: 4) {
+                        badges.font(.system(size: 10, weight: .medium))
+                        caption(info.caption)
+                    }
+                }
             }
+        }
+    }
+
+    /// Harder and the clipboard rule that chose the result.
+    @ViewBuilder private var badges: some View {
+        if card.aggressive {
+            Image(systemName: "bolt.fill").foregroundStyle(Ink.warm).help(Strings.text("Optimise harder"))
+        }
+        if let rule = card.appliedRule {
+            Image(systemName: "pin.fill").foregroundStyle(Ink.text).help(rule.tooltip())
         }
     }
 
@@ -271,10 +284,12 @@ struct CardFooter: View {
             } else {
                 title
             }
+            // Five lines: Catalan needs four for the longest message, and the reassurance at
+            // its end must never be the part cut off.
             Text("\(info.caption) \(kept)")
                 .font(.system(size: 11.5))
                 .foregroundStyle(Ink.secondary)
-                .lineLimit(3)
+                .lineLimit(5)
                 .fixedSize(horizontal: false, vertical: true)
                 .help(info.caption)
         }
