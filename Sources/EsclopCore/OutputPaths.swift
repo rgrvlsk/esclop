@@ -76,6 +76,38 @@ public extension OutputLocation {
     }
 }
 
+/// Files that only count as a set, such as a PDF's pages: all of them land, or none.
+public enum StagedFiles {
+    /// Calls `write` once per name with a path in a hidden folder inside `folder`, then moves
+    /// each file to its name there, or to the next free one (`name 2.png`), so nothing that
+    /// exists is replaced. A throw, or a name `write` did not fill, leaves nothing behind.
+    public static func publish(_ names: [String], into folder: URL, write: (Int, URL) throws -> Void) throws -> [URL] {
+        let fm = FileManager.default
+        try Paths.ensure(folder)
+        let staging = folder.appendingPathComponent(".esclop-\(UUID().uuidString.prefix(8))", isDirectory: true)
+        try fm.createDirectory(at: staging, withIntermediateDirectories: false)
+        defer { try? fm.removeItem(at: staging) }
+        let staged = names.map { staging.appendingPathComponent($0) }
+        for (index, url) in staged.enumerated() {
+            try write(index, url)
+            guard fm.fileExists(atPath: url.path) else { throw EsclopError.other("Could not write \(names[index])") }
+        }
+        var published: [URL] = []
+        do {
+            for url in staged {
+                // moveItem refuses an existing destination, so a file that appears meanwhile stays too.
+                let target = OutputLocation.unique(folder.appendingPathComponent(url.lastPathComponent))
+                try fm.moveItem(at: url, to: target)
+                published.append(target)
+            }
+        } catch {
+            for url in published { try? fm.removeItem(at: url) }
+            throw error
+        }
+        return published
+    }
+}
+
 public extension CropSize {
     /// "16:9" -> 1.777..., "1.5" -> 1.5. nil when absent or malformed.
     var aspectRatioValue: Double? {

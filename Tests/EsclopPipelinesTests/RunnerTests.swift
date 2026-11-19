@@ -329,6 +329,11 @@ func options(_ tmp: TempDir, scripts: Bool = false) -> PipelineRunOptions {
     let single = await runner(Recorder(), engine: one).run(steps: [.extractPagesAsImages(format: .png), .optimise()], on: [pdf], options: options(tmp))
     #expect(single.files[0].finalFile?.lastPathComponent == "doc-page1.png")
     #expect(single.files[0].log.last?.outcome == .done)
+
+    var none = FakeEngine(recorder: Recorder())
+    none.pages = 0
+    let empty = await runner(Recorder(), engine: none).run(steps: [.extractPagesAsImages()], on: [pdf], options: options(tmp))
+    #expect(empty.files[0].status == .failed)
 }
 
 @Test func contractOnlyEnginesFallBackOrSayWhatIsMissing() async throws {
