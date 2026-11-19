@@ -50,7 +50,8 @@ struct ImageInfo: Sendable {
 enum ImageIOCodec {
     /// Sets the density of a PNG, JPEG or TIFF to 72 dpi without re-encoding it: a PNG's `pHYs`
     /// and the resolution in its `eXIf`, else the resolution tags through ImageIO.
-    /// ponytail: HEIC and WebP keep their density; a 2x screenshot in those formats is rare.
+    /// ponytail: HEIC, WebP and BMP keep their density (ImageIO cannot rewrite it without
+    /// re-encoding); a 2x screenshot in those formats is rare.
     static func setOneX(_ url: URL) {
         guard var data = try? Data(contentsOf: url) else { return }
         guard data.starts(with: [0x89, 0x50, 0x4E, 0x47]) else { return setOneXThroughImageIO(url) }
