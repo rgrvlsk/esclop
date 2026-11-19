@@ -117,7 +117,9 @@ enum ImageIOCodec {
         }
         if let quality { properties[kCGImageDestinationLossyCompressionQuality] = quality }
         if type == .tiff {
-            properties[kCGImagePropertyTIFFDictionary] = [kCGImagePropertyTIFFCompression: 5] // LZW
+            var tiff = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any] ?? [:]
+            tiff[kCGImagePropertyTIFFCompression] = 5 // LZW
+            properties[kCGImagePropertyTIFFDictionary] = tiff
         }
         CGImageDestinationAddImage(destination, image, properties as CFDictionary)
         guard CGImageDestinationFinalize(destination) else {
@@ -126,10 +128,11 @@ enum ImageIOCodec {
     }
 
     /// Decodes anything macOS reads (HEIC, JPEG XL, AVIF, TIFF...) to an upright PNG the engine
-    /// can take.
-    static func decodeToPNG(_ source: URL, to url: URL) throws {
+    /// can take, with the EXIF (GPS included) in its eXIf chunk unless `strip`, so the engine
+    /// carries it into WebP and AVIF.
+    static func decodeToPNG(_ source: URL, to url: URL, strip: Bool) throws {
         let image = try uprightImage(source)
-        try write(image, to: url, type: .png, quality: nil, metadataFrom: nil, strip: true)
+        try write(image, to: url, type: .png, quality: nil, metadataFrom: source, strip: strip)
     }
 
     /// Rewrites metadata without re-encoding pixels (JPEG, PNG, TIFF, HEIC): drops EXIF, GPS,
@@ -167,21 +170,40 @@ enum ImageIOCodec {
         return types.first { CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, $0) != nil }
     }
 
-    /// Re-encodes at the same size, carrying the gain map across. JPEG and HEIC hold gain maps.
-    static func reencodeKeepingGainMap(_ url: URL, to output: URL, type: UTType, quality: Double, strip: Bool) throws {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-              let destination = CGImageDestinationCreateWithURL(output as CFURL, type.identifier as CFString, 1, nil)
-        else { throw EsclopError.unsupportedFile(url.lastPathComponent) }
-        var properties: [CFString: Any] = [kCGImageDestinationLossyCompressionQuality: quality]
-        if strip {
-            let original = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
-            properties[kCGImagePropertyExifDictionary] = kCFNull
-            properties[kCGImagePropertyGPSDictionary] = kCFNull
-            properties[kCGImagePropertyIPTCDictionary] = kCFNull
-            properties[kCGImagePropertyOrientation] = original?[kCGImagePropertyOrientation] ?? 1
+    /// Re-encodes every image at the same size (all pages of a multi-page TIFF, LZW), carrying
+    /// the gain map across when `keepGainMap`. JPEG and HEIC hold gain maps.
+    static func reencode(_ url: URL, to output: URL, type: UTType, quality: Double, strip: Bool, keepGainMap: Bool) throws {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { throw EsclopError.unsupportedFile(url.lastPathComponent) }
+        let count = CGImageSourceGetCount(source)
+        guard let destination = CGImageDestinationCreateWithURL(output as CFURL, type.identifier as CFString, count, nil) else {
+            throw EsclopError.unsupportedFile(url.lastPathComponent)
         }
-        CGImageDestinationAddImageFromSource(destination, source, 0, properties as CFDictionary)
-        if let auxType = gainMapType(source), let aux = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, auxType) {
+        for index in 0 ..< count {
+            let original = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any]
+            var properties: [CFString: Any] = [kCGImageDestinationLossyCompressionQuality: quality]
+            if strip {
+                properties[kCGImagePropertyExifDictionary] = kCFNull
+                properties[kCGImagePropertyGPSDictionary] = kCFNull
+                properties[kCGImagePropertyIPTCDictionary] = kCFNull
+                properties[kCGImagePropertyOrientation] = original?[kCGImagePropertyOrientation] ?? 1
+            }
+            if type == .tiff {
+                var tiff = original?[kCGImagePropertyTIFFDictionary] as? [CFString: Any] ?? [:]
+                tiff[kCGImagePropertyTIFFCompression] = 5 // LZW
+                if strip {
+                    // ponytail: TIFF text tags only; an XMP packet in a multi-page TIFF may stay.
+                    // Rewrite with CGImageDestinationCopyImageSource (as `stripMetadata`) if one does.
+                    for tag in [
+                        kCGImagePropertyTIFFArtist, kCGImagePropertyTIFFCopyright, kCGImagePropertyTIFFDateTime,
+                        kCGImagePropertyTIFFDocumentName, kCGImagePropertyTIFFHostComputer, kCGImagePropertyTIFFImageDescription,
+                        kCGImagePropertyTIFFMake, kCGImagePropertyTIFFModel, kCGImagePropertyTIFFSoftware,
+                    ] { tiff[tag] = kCFNull }
+                }
+                properties[kCGImagePropertyTIFFDictionary] = tiff
+            }
+            CGImageDestinationAddImageFromSource(destination, source, index, properties as CFDictionary)
+        }
+        if keepGainMap, let auxType = gainMapType(source), let aux = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, auxType) {
             CGImageDestinationAddAuxiliaryDataInfo(destination, auxType, aux)
         }
         guard CGImageDestinationFinalize(destination) else {

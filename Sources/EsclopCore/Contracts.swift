@@ -198,6 +198,9 @@ public struct OptimisationRequest: Codable, Identifiable, Sendable {
     public var loudnessLUFS: Double?
     /// Keep HDR (gain maps, PQ/HLG video) when the output format can carry it. nil follows the settings.
     public var keepHDR: Bool?
+    /// Also try a PNG without transparency as JPEG and keep the JPEG when it is much smaller.
+    /// nil follows the "adaptive image format" setting.
+    public var adaptiveImageFormat: Bool?
 
     public init(
         id: UUID = UUID(), sources: [URL], origin: RequestOrigin, quality: CompressionQuality = .normal,
@@ -206,13 +209,14 @@ public struct OptimisationRequest: Codable, Identifiable, Sendable {
         videoEncoder: VideoEncoder? = nil, pdfDPI: Int? = nil, location: OutputLocation = .inPlace,
         pipeline: String? = nil, showResultUI: Bool = true,
         fpsCap: Double? = nil, videoBitrateKbps: Int? = nil, audioBitrateKbps: Int? = nil,
-        loudnessLUFS: Double? = nil, keepHDR: Bool? = nil
+        loudnessLUFS: Double? = nil, keepHDR: Bool? = nil, adaptiveImageFormat: Bool? = nil
     ) {
         self.fpsCap = fpsCap
         self.videoBitrateKbps = videoBitrateKbps
         self.audioBitrateKbps = audioBitrateKbps
         self.loudnessLUFS = loudnessLUFS
         self.keepHDR = keepHDR
+        self.adaptiveImageFormat = adaptiveImageFormat
         self.id = id
         self.sources = sources
         self.origin = origin
@@ -294,6 +298,9 @@ public enum EsclopError: Error, Codable, Equatable, Sendable, CustomStringConver
     /// ("Signed PDFs are left as they are, so their signatures stay valid."), shown as it is or
     /// translated.
     case leftAsIs(String)
+    /// The result had a backup, but it is gone: removed by retention after `afterDays` days, or
+    /// some other way when that is nil. `file` is the source path the backup was of.
+    case backupRemoved(file: String, afterDays: Int?)
     case other(String)
 
     /// "This file isn’t a video L'Esclop can read. It may be damaged."
@@ -320,6 +327,8 @@ public enum EsclopError: Error, Codable, Equatable, Sendable, CustomStringConver
         case .appNotRunning: return "The esclop app is not running"
         case let .unreadable(kind): return Self.unreadableMessage(kind)
         case let .leftAsIs(reason): return reason
+        case let .backupRemoved(file, days?): return "The backup of \(file) was removed after \(days) \(days == 1 ? "day" : "days") (Settings → Backups)"
+        case let .backupRemoved(file, nil): return "The backup of \(file) is no longer there"
         case let .other(msg): return msg
         }
     }

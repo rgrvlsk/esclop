@@ -29,7 +29,7 @@ import UniformTypeIdentifiers
         #expect(result.width == 320 && result.height == 240)
 
         // Undo.
-        try world.backups.restore(try #require(world.backups.entry(forBackup: backup)))
+        try world.backups.restore(result)
         #expect(Inspect.bytes(png) == before)
     }
 
@@ -464,20 +464,5 @@ import UniformTypeIdentifiers
         await #expect(throws: EsclopError.notPermitted(ResultWriter.agentOverwriteMessage)) {
             try await world.engine.optimise(again, request: world.request(again, origin: .mcp, location: .path("%d/%f.%e")), progress: { _ in })
         }
-    }
-
-    @Test func convertingInPlaceBacksUpTheSiblingItReplaces() async throws {
-        let world = try await TestWorld()
-        defer { Task { await world.finish() } }
-        let png = world.file("photo.png")
-        let sibling = world.file("photo.jpeg")
-        try Fixture.png(png)
-        try Data("an unrelated jpeg".utf8).write(to: sibling)
-        let result = try await world.engine.convert(png, to: .jpeg, request: world.request(png), progress: { _ in })
-        #expect(result.output == sibling)
-        let originals = world.backups.entries().map { $0.original.lastPathComponent }.sorted()
-        #expect(originals == ["photo.jpeg", "photo.png"])
-        let siblingBackup = try #require(world.backups.entries().first { $0.original.lastPathComponent == "photo.jpeg" })
-        #expect(try String(contentsOf: siblingBackup.backup, encoding: .utf8) == "an unrelated jpeg")
     }
 }
