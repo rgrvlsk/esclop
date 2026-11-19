@@ -219,6 +219,99 @@ import UniformTypeIdentifiers
     }
 }
 
+/// The popover does what it shows (release hillclimb HC-07).
+@MainActor
+@Suite struct PopoverTruthTests {
+    /// Save As onto the file itself used to delete it; onto another file, a failed copy left
+    /// nothing. Now the copy is whole before it replaces anything.
+    @Test func saveAsNeverLosesAFile() throws {
+        let temp = TempDir()
+        let file = temp.file("a.png", bytes: 1000)
+        try AppModel.saveCopy(of: file, to: file)
+        #expect(AppModel.size(of: file) == 1000, "saving a file onto itself leaves it")
+        let other = temp.file("b.png", bytes: 50)
+        try AppModel.saveCopy(of: file, to: other)
+        #expect(AppModel.size(of: other) == 1000, "Replace puts the copy in its place")
+        let fresh = temp.url.appendingPathComponent("c.png")
+        try AppModel.saveCopy(of: file, to: fresh)
+        #expect(AppModel.size(of: fresh) == 1000)
+        #expect(throws: (any Error).self) { try AppModel.saveCopy(of: temp.url.appendingPathComponent("gone.png"), to: other) }
+        #expect(AppModel.size(of: other) == 1000, "a failed copy replaces nothing")
+        let names = try FileManager.default.contentsOfDirectory(atPath: temp.url.path)
+        #expect(!names.contains { $0.hasPrefix(".") }, "no staging copy is left")
+    }
+
+    /// ⌥ on a format tile reads the original from the backup and writes beside the file shown.
+    @Test func keepBothLandsBesideTheFile() async throws {
+        let harness = Harness()
+        let file = harness.temp.file("a.png", bytes: 100_000)
+        _ = await harness.model.run(harness.job(file))
+        let card = try #require(harness.model.cards.first)
+        let backup = try #require(card.result?.backup)
+        harness.model.convertKeepingBoth(card, to: .webp)
+        #expect(await eventually { harness.requests.requests.count == 2 })
+        let request = try #require(harness.requests.requests.last)
+        #expect(request.sources == [backup], "from the original")
+        let beside = file.deletingLastPathComponent().appendingPathComponent(file.deletingPathExtension().lastPathComponent + "-optimised.webp")
+        #expect(request.location == .path(beside.path), "beside the file, not in the backups folder")
+    }
+
+    /// After another choice the ticked box still describes the stored rule, not the new choice.
+    @Test func theRuleLineSaysWhatTheStoredRuleDoes() async throws {
+        let harness = Harness()
+        harness.model.frontmostApp = { "com.example.editor" }
+        try EsclopSettings.autoCopyToClipboard.set(false, in: harness.settings.store)
+        harness.model.handleClipboard(.optimiseImage(screenshotPNG(), .png))
+        #expect(await eventually { harness.model.cards.first?.result != nil })
+        let card = try #require(harness.model.cards.first)
+        harness.model.apply(OptimiseChoice(format: .webp), to: card)
+        #expect(await eventually { harness.requests.requests.count == 2 && card.result != nil })
+        harness.model.setRule(true, for: card)
+        harness.model.apply(OptimiseChoice(format: .avif), to: card)
+        #expect(await eventually { harness.requests.requests.count == 3 && card.result != nil })
+        let options = OptionsModel(card: card, app: harness.model)
+        #expect(options.ruleOn)
+        #expect(options.rule?.choice.format == .webp, "the box promises the rule that is stored")
+        #expect(harness.model.rules.all.map(\.choice.format) == [.webp])
+    }
+
+    /// A format tile clears the chosen quality; the slider goes back with it.
+    @Test func aFormatResetsTheQualitySlider() async throws {
+        let harness = Harness()
+        _ = await harness.model.run(harness.job(harness.temp.file("a.png", bytes: 100_000)))
+        let card = try #require(harness.model.cards.first)
+        let options = OptionsModel(card: card, app: harness.model)
+        options.quality = 40
+        options.commitQuality()
+        #expect(await eventually { harness.requests.requests.count == 2 && card.result != nil })
+        #expect(card.choice.quality == 40)
+        options.choose(format: .webp, keepBoth: false)
+        #expect(options.quality == Double(OptimiseChoice.quality(for: card.choice.compression)))
+        #expect(options.quality != 40)
+    }
+
+    /// After Fit or Crop the scale is still 1, but Original must run the original again.
+    @Test func originalAfterACropRunsTheOriginal() async throws {
+        let harness = Harness()
+        _ = await harness.model.run(harness.job(harness.temp.file("a.png", bytes: 100_000)))
+        let card = try #require(harness.model.cards.first)
+        harness.model.crop(card, to: CropSize(rect: CropRect(x: 0, y: 0, width: 10, height: 10)))
+        #expect(await eventually { harness.requests.requests.count == 2 && card.result != nil })
+        let options = OptionsModel(card: card, app: harness.model)
+        #expect(!options.isCurrent(1), "Original is not the chosen tile after a crop")
+        options.scale(to: 1)
+        #expect(await eventually { harness.requests.requests.count == 3 && card.result != nil })
+        let request = try #require(harness.requests.requests.last)
+        #expect(request.crop == nil && request.downscale == nil)
+        #expect(options.isCurrent(1))
+        options.scale(to: 1)
+        #expect(harness.requests.requests.count == 3, "the original again runs nothing")
+        options.scale(to: 0.5)
+        #expect(await eventually { harness.requests.requests.count == 4 && card.result != nil })
+        #expect(options.isCurrent(0.5))
+    }
+}
+
 @Suite struct SizeModelTests {
     let recording = MediaFacts(width: 2880, height: 1800, fps: 60, duration: 40, hasAudio: false)
 

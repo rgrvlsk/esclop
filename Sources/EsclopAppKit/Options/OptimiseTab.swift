@@ -314,8 +314,8 @@ struct RuleCheckbox: View {
 
             .toggleStyle(.checkbox)
             .disabled(model.card.isWorking)
-            if model.ruleOn, let origin = model.card.fileOrigin, let input = model.card.inputType {
-                Text(ClipboardRule(origin: origin, inputType: input, choice: model.card.appliedRule?.choice ?? model.card.choice).promise())
+            if let rule = model.rule {
+                Text(rule.promise())
                     .font(OptionsType.label)
                     .foregroundStyle(PopoverInk.secondary.color)
                     .padding(.leading, 20)
