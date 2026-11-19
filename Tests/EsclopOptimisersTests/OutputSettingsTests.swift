@@ -56,6 +56,15 @@ import UniformTypeIdentifiers
         let on = try await world.engine.optimise(shot, request: automatic, progress: { _ in })
         #expect(Inspect.size(on.output)! == (160, 120))
         #expect(ImageInfo.probe(on.output)?.dpi == 72)
+        // HEIC's density cannot be rewritten after the encode, so it is written at 72 dpi.
+        let heic = world.file("shot.heic")
+        try Fixture.write(
+            try Fixture.gradient(width: 320, height: 240, deep: false, alpha: false), to: heic, type: .heic,
+            properties: [kCGImagePropertyDPIWidth: 144, kCGImagePropertyDPIHeight: 144]
+        )
+        let halvedHEIC = try await world.engine.optimise(heic, request: world.request(heic, origin: .clipboard, location: .temporary), progress: { _ in })
+        #expect(Inspect.size(halvedHEIC.output)! == (160, 120))
+        #expect(ImageInfo.probe(halvedHEIC.output)?.dpi == 72)
         // 150 dpi is a scan, not a 2x screenshot.
         let scan = world.file("scan.png")
         try Fixture.write(

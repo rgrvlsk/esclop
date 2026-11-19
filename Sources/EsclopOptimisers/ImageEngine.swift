@@ -41,7 +41,10 @@ struct ImageEngine: Sendable {
         }
         var halved = plan
         halved.downscale = 0.5
-        var produced = try await produce(source, info: info, sourceFormat: sourceFormat, plan: halved, work: work, progress: progress)
+        // Written at 72 dpi from the start: HEIC's density cannot be rewritten afterwards.
+        var oneX = info
+        oneX.dpi = 72
+        var produced = try await produce(source, info: oneX, sourceFormat: sourceFormat, plan: halved, work: work, progress: progress)
         // Half the pixels at 72 dpi: the screenshot shows at the size it had.
         ImageIOCodec.setDensity(produced.url, dpi: 72)
         produced.steps.insert("Downscaled the 2x screenshot to 1x", at: 0)
@@ -422,7 +425,7 @@ struct ImageEngine: Sendable {
             try ImageIOCodec.reencode(source, to: output, type: type, quality: quality ?? 0.8, strip: strip, keepGainMap: false)
         } else {
             let image = try ImageIOCodec.render(ImageIOCodec.uprightImage(source), crop: geometry.crop, width: geometry.width, height: geometry.height)
-            try ImageIOCodec.write(image, to: output, type: type, quality: quality, metadataFrom: source, strip: strip)
+            try ImageIOCodec.write(image, to: output, type: type, quality: quality, metadataFrom: source, strip: strip, dpi: info.dpi)
             if geometry.changed { steps.append("Resized to \(geometry.width)x\(geometry.height)") }
         }
         steps.append(quality.map { "Encoded \(target.rawValue.uppercased()) at quality \(Int($0 * 100))" } ?? "Encoded \(target.rawValue.uppercased())")

@@ -74,9 +74,11 @@ app that wants one `EngineClient`).
   app's "Optimised … go", or the CLI with neither `-o` nor `--behaviour`) sends a result in
   another format where `convertedImage/Video/AudioBehaviour` says; an explicit location always
   wins. `.inPlace` backs up the original first; with a new extension the converted file
-  replaces the original (`photo.heic` becomes `photo.jpeg`, or `photo 2.jpeg` when an unrelated
-  `photo.jpeg` is already there). Same-format results keep the source's extension (`.jpg` stays
-  `.jpg`). `.sameFolder` uses `sameFolderNameTemplate` (`%f-optimised`) and never overwrites.
+  replaces the original (`photo.heic` becomes `photo.jpg`, or `photo 2.jpg` when an unrelated
+  `photo.jpg` is already there). Same-format results keep the source's extension (`.jpg` stays
+  `.jpg`); a new JPEG is `.jpg`. `.sameFolder` uses `sameFolderNameTemplate` (`%f-optimised`) and
+  never overwrites; with the default template a result in another format keeps the plain name
+  (`photo.png` gives `photo.webp`).
   `.temporary` writes under `Paths.temporary/results`. `.path(template)` expands `%f` (name), `%e`
   (output extension), `%d` (source folder), `~`; a trailing `/` or an existing folder receives
   `<name>.<ext>`; a relative template starts in the source's folder (the CLI anchors `-o` to the

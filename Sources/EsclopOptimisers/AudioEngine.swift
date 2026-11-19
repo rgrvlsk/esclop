@@ -38,9 +38,10 @@ struct AudioEngine: Sendable {
         let speed = plan.request.playbackSpeed.flatMap { $0 > 0 && abs($0 - 1) > 0.001 ? $0 : nil }
         let loudness = plan.request.loudnessLUFS ?? (env.value(EsclopSettings.normalizeLoudness) ? env.value(EsclopSettings.loudnessTarget) : nil)
         // Apple Lossless stays as it is unless something asks for a change: a format, a
-        // bitrate, a size, a speed or loudness, or `alac` in the Convert to AAC list.
+        // bitrate, a size, aggressive optimising, a speed or loudness, or `alac` in the Convert
+        // to AAC list.
         if audio.codec == "alac", plan.format == nil, plan.downscale == nil, plan.request.audioBitrateKbps == nil,
-           speed == nil, loudness == nil, !convertsToAAC("alac")
+           !plan.isAggressive, speed == nil, loudness == nil, !convertsToAAC("alac")
         {
             throw EsclopError.alreadySmaller
         }

@@ -51,7 +51,8 @@ enum ImageIOCodec {
     /// Sets the density of a PNG, JPEG or TIFF without re-encoding it: a PNG's `pHYs` (added
     /// when missing) and the resolution in its `eXIf`, else the resolution tags through ImageIO.
     /// ponytail: HEIC, WebP, AVIF and BMP keep theirs (ImageIO cannot rewrite it without
-    /// re-encoding; WebP and AVIF have none outside EXIF); `write` gives HEIC its density.
+    /// re-encoding; WebP and AVIF have none outside EXIF); `write` gives HEIC its density. One
+    /// value for both axes, whole dots per inch: a 204x196 dpi fax scan comes out 204x204.
     static func setDensity(_ url: URL, dpi: Double) {
         guard var data = try? Data(contentsOf: url) else { return }
         guard data.starts(with: [0x89, 0x50, 0x4E, 0x47]) else { return setDensityThroughImageIO(url, dpi: dpi) }
@@ -185,27 +186,26 @@ enum ImageIOCodec {
         return scaled
     }
 
-    /// Writes `image` as `type`. `metadataFrom` copies the density from another file, and its
-    /// EXIF/GPS/IPTC unless `strip`; the orientation is reset because the pixels are already upright.
+    /// Writes `image` as `type` at `dpi` when given. `metadataFrom` copies EXIF/GPS/IPTC from
+    /// another file unless `strip`; the orientation is reset because the pixels are already upright.
     static func write(
-        _ image: CGImage, to url: URL, type: UTType, quality: Double?, metadataFrom: URL? = nil, strip: Bool
+        _ image: CGImage, to url: URL, type: UTType, quality: Double?, metadataFrom: URL? = nil, strip: Bool, dpi: Double? = nil
     ) throws {
         guard let destination = CGImageDestinationCreateWithURL(url as CFURL, type.identifier as CFString, 1, nil) else {
             throw EsclopError.unsupportedFile("This Mac cannot write \(type.preferredFilenameExtension ?? type.identifier)")
         }
         var properties: [CFString: Any] = [:]
-        if let metadataFrom, let source = CGImageSourceCreateWithURL(metadataFrom as CFURL, nil),
+        if !strip, let metadataFrom, let source = CGImageSourceCreateWithURL(metadataFrom as CFURL, nil),
            let original = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
         {
-            // The density describes the picture, not the person: it stays when stripping.
-            for key in [kCGImagePropertyDPIWidth, kCGImagePropertyDPIHeight] {
+            for key in [kCGImagePropertyExifDictionary, kCGImagePropertyGPSDictionary, kCGImagePropertyIPTCDictionary, kCGImagePropertyTIFFDictionary] {
                 if let value = original[key] { properties[key] = value }
             }
-            if !strip {
-                for key in [kCGImagePropertyExifDictionary, kCGImagePropertyGPSDictionary, kCGImagePropertyIPTCDictionary, kCGImagePropertyTIFFDictionary] {
-                    if let value = original[key] { properties[key] = value }
-                }
-            }
+        }
+        // The density describes the picture, not the person: it stays when stripping.
+        if let dpi {
+            properties[kCGImagePropertyDPIWidth] = dpi
+            properties[kCGImagePropertyDPIHeight] = dpi
         }
         properties[kCGImagePropertyOrientation] = 1
         if var tiff = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any] {

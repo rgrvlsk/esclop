@@ -145,7 +145,9 @@ pub struct Carry {
     pub icc: Option<Vec<u8>>,
     /// TIFF payload.
     pub exif: Option<Vec<u8>>,
-    /// XMP packet.
+    /// XMP packet. ponytail: a packet over a JPEG marker (65,504 bytes, no extended XMP), a
+    /// compressed PNG `iTXt` and the rav1e AVIF build drop it without a step; split it into
+    /// extended XMP or add a step if large packets turn up.
     pub xmp: Option<Vec<u8>>,
 }
 
