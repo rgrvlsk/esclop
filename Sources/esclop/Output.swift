@@ -8,6 +8,7 @@ import ArgumentParser
 import EsclopCore
 import EsclopIPC
 import EsclopMCP
+import EsclopOptimisers
 import Foundation
 
 struct Terminal {
@@ -105,7 +106,7 @@ enum Output {
 
     static func exitCode(for error: EsclopError) -> Int32 {
         switch error {
-        case .fileNotFound: return 66
+        case .fileNotFound, .backupRemoved: return 66
         case .appNotRunning, .toolMissing: return 69
         case .notPermitted: return 77
         case .invalidArgument, .invalidPipeline, .unsupportedFile, .leftAsIs: return 64
@@ -205,22 +206,6 @@ final class InterruptHandler: @unchecked Sendable {
     }
 }
 
-enum Clipboard {
-    static func copy(_ files: [URL]) {
-        guard !files.isEmpty else { return }
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.writeObjects(files as [NSURL])
-    }
-
-    static func copy(text: String) {
-        guard !text.isEmpty else { return }
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
-    }
-}
-
 /// Builds the job, runs it through the service with progress and Ctrl-C, prints the outcome.
 func runFileJob(
     _ operation: JobOperation, files: FileOptions, global: GlobalOptions,
@@ -231,7 +216,8 @@ func runFileJob(
         if files.locationFromSettings { request.locationFromSettings = true }
         configure(&request)
     } finished: { report in
-        if files.copy { Clipboard.copy(report.results.map(\.output)) }
+        // Marked as L'Esclop's write, so the app's clipboard watcher does not optimise it again.
+        if files.copy, !report.results.isEmpty { Clipboard.write(files: report.results.map(\.output)) }
     }
 }
 

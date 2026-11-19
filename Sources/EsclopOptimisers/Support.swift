@@ -286,8 +286,9 @@ enum ResultWriter {
     }
 }
 
-/// Applies `backupRetentionDays` at most once an hour per process, after a new backup.
-enum BackupPruner {
+/// Applies `backupRetentionDays` at most once an hour per process, after a new backup, and once
+/// at app launch.
+public enum BackupPruner {
     private static let lock = NSLock()
     nonisolated(unsafe) private static var last: [String: Date] = [:]
 
@@ -304,6 +305,24 @@ enum BackupPruner {
         DispatchQueue.global(qos: .utility).async {
             let removed = backups.prune(olderThan: days)
             if removed > 0 { Log.backups.info("Pruned \(removed) backups older than \(days) days") }
+        }
+    }
+
+    /// At launch, so old originals go even when no new in-place job runs: backups older than
+    /// `days`, and copied images in `clipboard` not touched for as long. Blocks; call it off the
+    /// main actor. 0 days keeps everything.
+    // ponytail: "keep backups forever" keeps the copied images forever too, since a restore needs
+    // them; give the clipboard folder its own limit if someone keeps backups forever and it grows.
+    public static func pruneAtLaunch(days: Int, backups: BackupStore, clipboard: URL = Clipboard.folder, now: Date = Date()) {
+        guard days > 0 else { return }
+        let removed = backups.prune(olderThan: days, now: now)
+        if removed > 0 { Log.backups.info("Pruned \(removed) backups older than \(days) days") }
+        let cutoff = now.addingTimeInterval(-Double(days) * 86400)
+        let fm = FileManager.default
+        // One folder per copy; its date moves when the image in it is optimised again.
+        for folder in (try? fm.contentsOfDirectory(at: clipboard, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+        where ((try? folder.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? now) < cutoff {
+            try? fm.removeItem(at: folder)
         }
     }
 }

@@ -301,6 +301,9 @@ public enum EsclopError: Error, Codable, Equatable, Sendable, CustomStringConver
     /// ("Signed PDFs are left as they are, so their signatures stay valid."), shown as it is or
     /// translated.
     case leftAsIs(String)
+    /// The result had a backup, but it is gone: removed by retention after `afterDays` days, or
+    /// some other way when that is nil. `file` is the source path the backup was of.
+    case backupRemoved(file: String, afterDays: Int?)
     case other(String)
 
     /// "This file isn’t a video L'Esclop can read. It may be damaged."
@@ -327,6 +330,8 @@ public enum EsclopError: Error, Codable, Equatable, Sendable, CustomStringConver
         case .appNotRunning: return "The esclop app is not running"
         case let .unreadable(kind): return Self.unreadableMessage(kind)
         case let .leftAsIs(reason): return reason
+        case let .backupRemoved(file, days?): return "The backup of \(file) was removed after \(days) \(days == 1 ? "day" : "days") (Settings → Backups)"
+        case let .backupRemoved(file, nil): return "The backup of \(file) is no longer there"
         case let .other(msg): return msg
         }
     }

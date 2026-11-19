@@ -115,6 +115,7 @@ final class EventLog: @unchecked Sendable {
         let restored = await executor.run(OptimisationJob(request: request, operation: .uncropPDF))
         #expect(restored.results.first?.output == output)
         #expect(restored.results.first?.backup != nil, "in place keeps a backup")
+        #expect(BackupStore(root: temp.url.appendingPathComponent("backups")).entries().count == 1, "with its manifest, so retention prunes it")
         let back = try #require(PDFDocument(url: output))
         #expect(back.page(at: 0)!.bounds(for: .cropBox) == CGRect(x: 0, y: 0, width: 600, height: 600))
     }

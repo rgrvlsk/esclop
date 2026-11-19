@@ -15,38 +15,42 @@ import Testing
 @Suite struct ClipboardOwnWriteTests {
     func watcherSees(_ harness: Harness) -> ClipboardAction {
         let board = harness.pasteboard
-        let types = Set((board.types ?? []).map(\.rawValue))
-        return ClipboardPolicy(factory: harness.model.factory).decide(types: types, content: { Clipboard.read(board) }, frontmostApp: nil)
+        return ClipboardPolicy(factory: harness.model.factory).decide(harness.copyNow(), content: { Clipboard.read(board) })
     }
 
     @Test func copyUndoDownscaleLeavesOneResult() async throws {
         let harness = Harness()
-        harness.model.handleClipboard(.optimiseImage(screenshotPNG(), .png))
+        harness.model.handleClipboard(harness.copy(image: screenshotPNG()))
         #expect(await eventually { harness.model.cards.first?.result != nil })
         let card = try #require(harness.model.cards.first)
+        #expect(await eventually { Clipboard.isOwnWrite(harness.pasteboard) })
         #expect(watcherSees(harness) == .ignore(.ownWrite))
         harness.model.perform(.undo, on: card)
         #expect(await eventually { if case .restored = card.phase { return true } else { return false } })
+        await harness.clipboardSettles()
         #expect(watcherSees(harness) == .ignore(.ownWrite), "the restored original on the clipboard is ours too")
         harness.model.perform(.downscale, on: card)
         #expect(await eventually { harness.requests.requests.count == 2 && card.result != nil })
+        try await Task.sleep(for: .milliseconds(100))
+        await harness.clipboardSettles()
         #expect(watcherSees(harness) == .ignore(.ownWrite))
         #expect(harness.model.cards.count == 1)
     }
 
     @Test func optimiseClipboardOnOurOwnResultShowsItAgain() async throws {
         let harness = Harness()
-        harness.model.handleClipboard(.optimiseImage(screenshotPNG(), .png))
+        harness.model.handleClipboard(harness.copy(image: screenshotPNG()))
         #expect(await eventually { harness.model.cards.first?.result != nil })
         let card = try #require(harness.model.cards.first)
-        harness.model.optimiseClipboardNow(aggressive: false)
-        harness.model.optimiseClipboardNow(aggressive: false)
+        #expect(await eventually { Clipboard.isOwnWrite(harness.pasteboard) })
+        await harness.model.optimiseClipboard(aggressive: false)
+        await harness.model.optimiseClipboard(aggressive: false)
         #expect(harness.model.cards.map(\.id) == [card.id], "no twin result")
         #expect(harness.requests.requests.count == 1, "nothing ran again")
 
         // Dismissed, it comes back from Recent Results.
         harness.model.dismiss(card)
-        harness.model.optimiseClipboardNow(aggressive: false)
+        await harness.model.optimiseClipboard(aggressive: false)
         #expect(harness.model.cards.count == 1)
         #expect(harness.requests.requests.count == 1)
     }
@@ -54,13 +58,14 @@ import Testing
     @Test func ourBytesWithoutTheMarkerAreStillOurs() async throws {
         let harness = Harness()
         try EsclopSettings.autoCopyToClipboard.set(true, in: harness.settings.store)
-        harness.model.handleClipboard(.optimiseImage(screenshotPNG(), .png))
+        harness.model.handleClipboard(harness.copy(image: screenshotPNG()))
         #expect(await eventually { harness.model.cards.first?.result != nil })
         let output = try #require(harness.model.cards.first?.result?.output)
+        #expect(await eventually { Clipboard.isOwnWrite(harness.pasteboard) })
         // Another app copies the same bytes on, without L'Esclop's marker.
         let data = try Data(contentsOf: output)
-        harness.model.handleClipboard(.optimiseImage(data, .png))
-        harness.model.handleClipboard(.optimiseFiles([output]))
+        harness.model.handleClipboard(harness.copy(image: data))
+        harness.model.handleClipboard(harness.copy(files: [output]))
         try await Task.sleep(for: .milliseconds(300))
         #expect(harness.model.cards.count == 1)
         #expect(harness.requests.requests.count == 1)
