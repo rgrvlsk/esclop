@@ -2,6 +2,7 @@
 //
 // optimise, convert, downscale, crop, fit, strip, and the pdf subcommands.
 
+import AppKit
 import ArgumentParser
 import EsclopCore
 import EsclopIPC
@@ -197,7 +198,11 @@ struct Upload: AsyncParsableCommand {
     func run() async throws {
         let context = Integrations.context(origin: .cli, inProcess: false)
         try await runJob(.upload(target: target), inputs: inputs, printing: printing, context: context) { _ in } finished: { report in
-            if copy { Clipboard.copy(text: report.results.compactMap(\.link?.absoluteString).joined(separator: "\n")) }
+            let links = report.results.compactMap(\.link?.absoluteString)
+            if copy, !links.isEmpty {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(links.joined(separator: "\n"), forType: .string)
+            }
         }
     }
 }

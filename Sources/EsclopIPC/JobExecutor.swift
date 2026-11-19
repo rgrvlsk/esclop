@@ -187,12 +187,9 @@ public enum OutputPlanner {
         return location.destination(for: source, extension: ext)
     }
 
-    /// Copies `source` into the backups folder and returns the copy.
+    /// Copies `source` into the backups folder with its manifest, so retention prunes it like
+    /// any other backup, and returns the copy.
     public static func backup(_ source: URL, into folder: URL) throws -> URL {
-        let day = ISO8601DateFormatter.string(from: Date(), timeZone: .current, formatOptions: [.withFullDate])
-        let target = try Paths.ensure(folder.appendingPathComponent(day, isDirectory: true))
-            .appendingPathComponent("\(UUID().uuidString.prefix(8))-\(source.lastPathComponent)")
-        try FileManager.default.copyItem(at: source, to: target)
-        return target
+        try BackupStore(root: folder).backUp(source, output: source).backup
     }
 }

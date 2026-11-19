@@ -26,7 +26,7 @@ import UniformTypeIdentifiers
         harness.model.add(card)
         let model = OptionsModel(card: card, app: harness.model)
         model.facts = FileFacts(width: 1920, height: 1200)
-        #expect(model.scaledDimensions == "1920 × 1200", "the slider still works from the original")
+        #expect(model.currentScale == 1920.0 / 1920.0, "a crop is not a scale: the tiles still start from the original")
     }
 
     // F3: an unreadable file says so plainly, per kind, with no tool output and no path.

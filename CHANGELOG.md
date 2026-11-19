@@ -35,7 +35,17 @@ into the body of its GitHub release.
   chosen one fused into the panel, Format · Size · Actions, and no file header. Format shows the
   suggestion as a card with Convert, then the format tiles with their sizes up front: a click
   converts an image at once, a video's tile arms Convert. Rename moved to a click on the detail's
-  name.
+  name. Size has tiles for Original, 2000 px, 1280 px and Half with their sizes, a custom width
+  and height and Fit under; Crop is a tab of its own; Actions lists the pipelines, Upload and
+  Share… as rows, with Run a Shortcut and Open with. Copy, Save as, Show in Finder and Quick Look
+  are the popover's keys; Compare is the detail's loupe; "Keep visible" is in Settings only.
+- The drop zone is the design's row of tiles: "Optimise" with the file count and the preset
+  zones beside it, raised like the options popover's tiles, the one under the drag in charcoal,
+  and "Drop to optimise · Hold ⌘ to optimise harder" under them. No more dashed outlines.
+- The options popover stays open while a choice in it runs the file again, so sizes and formats
+  can be tried one after another. The Crop tab shows the picture with its frame from the start.
+  Its tabs, tiles, chips, rows and fields share one geometry and one elevation, in light and
+  dark.
 - Compression's Adaptive · Lossless · Aggressive left the popover: the default stays in
   Settings, Lossless lives in Settings only, and "Optimise harder" in Format runs the file again
   aggressively.
