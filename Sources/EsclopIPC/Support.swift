@@ -47,6 +47,9 @@ public struct ResultsLog: Sendable {
     public var keep: Int
     /// Appends between two trims; the first append in a process trims too.
     public var trimEvery: Int
+    /// ponytail: no line is shorter than this (a cleared one is about 130 bytes), so a log under
+    /// `keep * 2` of them cannot need a trim and is not read. Raise it if lines get shorter.
+    static let shortestLine = 100
 
     public init(url: URL, keep: Int = 500, trimEvery: Int = 100) {
         self.url = url
@@ -92,7 +95,7 @@ public struct ResultsLog: Sendable {
                     try handle.write(contentsOf: data)
                     // ponytail: the trim reads the whole log; on a schedule, not on every append.
                     let count = Self.trimCounts.counts[url.path].map { $0 + 1 } ?? trimEvery
-                    if count >= trimEvery { trimIfNeeded() }
+                    if count >= trimEvery, try handle.offset() > UInt64(keep * 2 * Self.shortestLine) { trimIfNeeded() }
                     Self.trimCounts.counts[url.path] = count >= trimEvery ? 0 : count
                 }
             } catch {
@@ -126,19 +129,28 @@ public struct ResultsLog: Sendable {
         }
     }
 
-    /// Newest first.
+    /// Newest first. Waits for the log's queue and reads the whole file: call it off the main actor.
     public func recent(limit: Int) -> [OptimisationResult] {
         guard let lines = Self.queue.sync(execute: { try? lines() }) else { return [] }
         let decoder = JSONCoding.wireDecoder()
-        var seen = Self.withdrawnIDs(in: lines, decoder: decoder)
+        // Each line is decoded at most once: the withdrawn ones, found by their bytes, for their
+        // ids; then the newest of the others as results, until there are `limit`.
+        let isWithdrawn = { (line: Data.SubSequence) in line.range(of: Self.withdrawnMark) != nil }
+        var seen = Set(lines.lazy.filter(isWithdrawn).compactMap { line in
+            (try? decoder.decode(Saving.self, from: Data(line))).flatMap { $0.withdrawn == true ? $0.id : nil }
+        })
         var results: [OptimisationResult] = []
-        for line in lines.reversed() {
+        for line in lines.reversed() where !isWithdrawn(line) {
             guard let result = try? decoder.decode(OptimisationResult.self, from: Data(line)), seen.insert(result.id).inserted else { continue }
             results.append(result)
             if results.count >= limit { break }
         }
         return results
     }
+
+    /// How `wireEncoder` writes a withdrawn line's mark. A name cannot hold it: its quotes would be
+    /// escaped.
+    private static let withdrawnMark = Data(#""withdrawn":true"#.utf8)
 
     /// What one line says about the saving, whether a whole result or a cleared one.
     public struct Saving: Codable, Sendable, Equatable {
@@ -178,12 +190,6 @@ public struct ResultsLog: Sendable {
         return all.filter { seen.insert($0.id).inserted }
     }
 
-    private static func withdrawnIDs(in lines: [Data.SubSequence], decoder: JSONDecoder) -> Set<UUID> {
-        Set(lines.compactMap { line in
-            (try? decoder.decode(Saving.self, from: Data(line))).flatMap { $0.withdrawn == true ? $0.id : nil }
-        })
-    }
-
     /// Clears the names: every line keeps only its sizes, kind and date (`Saving`), written in
     /// one atomic step. The saving stays; no file name or path is left in the log. Backups are
     /// not touched. Readers of `recent` (the CLI, MCP, the app) skip cleared lines: they do not
@@ -216,10 +222,13 @@ public struct ResultsLog: Sendable {
         // file stays as it is instead of being rewritten.
         if let first = lines.first, let oldest = try? decoder.decode(Saving.self, from: Data(first)), oldest.finishedAt >= since { return }
         let firstKept = lines.count - keep
-        let kept = lines.enumerated().filter { index, line in
-            index >= firstKept || ((try? decoder.decode(Saving.self, from: Data(line)))?.finishedAt ?? .distantPast) >= since
+        var out = Data()
+        for (index, line) in lines.enumerated()
+        where index >= firstKept || ((try? decoder.decode(Saving.self, from: Data(line)))?.finishedAt ?? .distantPast) >= since {
+            out.append(line)
+            out.append(0x0A)
         }
-        try? kept.map { Data($0.element) + Data([0x0A]) }.reduce(Data(), +).write(to: url, options: .atomic)
+        try? out.write(to: url, options: .atomic)
     }
 }
 

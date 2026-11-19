@@ -38,8 +38,6 @@ import Testing
 
     @Test func split() async throws {
         let harness = Harness()
-        let saved = UserDefaults.standard.string(forKey: CompareModel.modeKey)
-        defer { UserDefaults.standard.set(saved, forKey: CompareModel.modeKey) }
         let compare = await model(harness, mode: .split)
         compare.viewport.split = 0.42
         let sizes = try await SettingsRenderTests.renderBoth({ _ in CompareView(model: compare) }, size: Self.size, name: "compare-split")
@@ -49,8 +47,6 @@ import Testing
     @Test(.enabled(if: ProcessInfo.processInfo.environment["ESCLOP_RENDER_ALL"] == "1"))
     func otherLayouts() async throws {
         let harness = Harness()
-        let saved = UserDefaults.standard.string(forKey: CompareModel.modeKey)
-        defer { UserDefaults.standard.set(saved, forKey: CompareModel.modeKey) }
         let side = await model(harness, mode: .sideBySide)
         side.viewport.zoom = 2
         side.viewport.pan = CGSize(width: 120, height: 40)
@@ -80,8 +76,6 @@ import Testing
 @Suite(.serialized) struct CompareStabilityRenderTests {
     @Test func whatTheWindowShowsChangesUnderIt() async throws {
         let harness = Harness()
-        let saved = UserDefaults.standard.string(forKey: CompareModel.modeKey)
-        defer { UserDefaults.standard.set(saved, forKey: CompareModel.modeKey) }
         let compare = CompareModel(app: harness.model)
         let image = CompareFixtures.imageResult(in: harness.temp.url)
         compare.open(image)
@@ -124,7 +118,7 @@ import Testing
         try await act { try? FileManager.default.removeItem(at: pruned.backup!); compare.mode = .split }
         #expect(compare.sides == .pruned(after: pruned.output))
         // A link to a result the app no longer knows, while a comparison is on screen.
-        try await act { #expect(!compare.open(id: UUID())) }
+        try await act { #expect(await !compare.open(id: UUID())) }
         #expect(compare.isUnknown && compare.result == nil)
         // Back to the image while everything above is gone.
         try await act { compare.open(image) }

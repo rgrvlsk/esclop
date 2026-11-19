@@ -177,13 +177,14 @@ extension JSONValue: ExpressibleByStringLiteral, ExpressibleByIntegerLiteral, Ex
 
 // MARK: - Storage
 
-/// Where setting values live. `shared` is the app's suite; tests make their own.
+/// Where setting values live. `shared` is the app's suite (see `Paths.defaultsSuite`); tests
+/// make their own. A suite name that is a path is a plist there (`<path>.plist`).
 public final class SettingsStore: @unchecked Sendable {
     // UserDefaults is documented as thread safe.
     public let defaults: UserDefaults
     public let suiteName: String?
 
-    public static let shared = SettingsStore(suiteName: Paths.defaultsSuite)
+    public static let shared = SettingsStore(suiteName: Paths.defaultsSuite(environment: ProcessInfo.processInfo.environment))
 
     public init(suiteName: String) {
         self.suiteName = suiteName
@@ -208,6 +209,11 @@ public final class SettingsStore: @unchecked Sendable {
         }
         for key in SettingsRegistry.shared.keys {
             defaults.removeObject(forKey: key)
+        }
+        // That leaves an empty plist; a suite that is a path (tests, `ESCLOP_SUPPORT_DIR`) goes.
+        if let suiteName, suiteName.hasPrefix("/") {
+            defaults.synchronize()
+            try? FileManager.default.removeItem(atPath: suiteName + ".plist")
         }
     }
 }

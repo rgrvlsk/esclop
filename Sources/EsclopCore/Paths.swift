@@ -9,6 +9,13 @@ public enum Paths {
     public static let bundleIdentifier = "dev.esclop.app"
     public static let defaultsSuite = "dev.esclop.app"
 
+    /// Where the settings live: the app's suite, or `settings.plist` in `$ESCLOP_SUPPORT_DIR` when
+    /// it is set, so a scripted or test run never changes the person's settings.
+    public static func defaultsSuite(environment: [String: String]) -> String {
+        guard let support = environment["ESCLOP_SUPPORT_DIR"], !support.isEmpty else { return defaultsSuite }
+        return applicationSupport(environment: environment).appendingPathComponent("settings").path
+    }
+
     /// `~/Library/Application Support/esclop`, or `$ESCLOP_SUPPORT_DIR` when it is set (tests and
     /// scripted runs keep backups, pipelines, logs and results out of the person's folder).
     public static var applicationSupport: URL { applicationSupport(environment: ProcessInfo.processInfo.environment) }

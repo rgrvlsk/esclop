@@ -909,7 +909,7 @@ public final class AppModel {
         let shown = cards.first { $0.result?.id == result.id }
         do {
             let editInTrash = try await putBack(result)
-            let card = shown ?? ResultCard(jobID: result.id, source: result.source, origin: result.origin ?? .app, bytesBefore: result.bytesBefore, phase: .restored(result))
+            let card = shown ?? ResultCard(jobID: result.requestID ?? result.id, source: result.source, origin: result.origin ?? .app, bytesBefore: result.bytesBefore, phase: .restored(result))
             if shown == nil { add(card) }
             card.phase = .restored(result)
             card.loupe = nil
@@ -956,7 +956,7 @@ public final class AppModel {
         // folder: it has no name of its own.
         let copiedImage = result.source.path.hasPrefix(Paths.temporary.path)
         let origin = result.origin ?? (copiedImage ? .clipboard : .app)
-        let card = ResultCard(jobID: result.id, source: result.source, origin: origin, bytesBefore: result.bytesBefore, phase: .done(result))
+        let card = ResultCard(jobID: result.requestID ?? result.id, source: result.source, origin: origin, bytesBefore: result.bytesBefore, phase: .done(result))
         if copiedImage { card.displayName = Strings.text("Copied image") }
         add(card)
         loadThumbnail(card, url: result.output)
