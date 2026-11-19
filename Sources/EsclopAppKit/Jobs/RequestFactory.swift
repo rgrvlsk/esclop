@@ -22,30 +22,21 @@ public struct RequestFactory: Sendable {
 
     /// Where optimised files of `kind` go, from the "Optimised … go" settings.
     public func location(for kind: MediaKind?) -> OutputLocation {
-        let behaviour: FileBehaviour
-        switch kind {
-        case .video: behaviour = EsclopSettings.optimisedVideoBehaviour.value(in: settings)
-        case .pdf: behaviour = EsclopSettings.optimisedPDFBehaviour.value(in: settings)
-        case .audio: behaviour = EsclopSettings.optimisedAudioBehaviour.value(in: settings)
-        case .image, nil: behaviour = EsclopSettings.optimisedImageBehaviour.value(in: settings)
-        }
-        switch behaviour {
-        case .inPlace: return .inPlace
-        case .sameFolder: return .sameFolder
-        case .temporary: return .temporary
-        case .specificFolder: return .path(EsclopSettings.specificFolderTemplate.value(in: settings))
-        }
+        EsclopSettings.optimisedBehaviour(for: kind).value(in: settings)
+            .location(specificFolder: EsclopSettings.specificFolderTemplate.value(in: settings))
     }
 
     /// One job for one file. `location` overrides the settings (clipboard images work on a
-    /// temporary copy in place, so the backup is the original).
+    /// temporary copy in place, so the backup is the original). Without it, a result in another
+    /// format follows "Converted … go".
     public func job(
         for source: URL, origin: RequestOrigin, aggressive: Bool = false, location: OutputLocation? = nil
     ) -> OptimisationJob {
-        let request = OptimisationRequest(
+        var request = OptimisationRequest(
             sources: [source], origin: origin, quality: aggressive ? .aggressive : .normal,
             location: location ?? self.location(for: MediaKind.of(source))
         )
+        if location == nil { request.locationFromSettings = true }
         return OptimisationJob(request: request, operation: .optimise)
     }
 

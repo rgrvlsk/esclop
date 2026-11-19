@@ -49,6 +49,9 @@ struct Optimise: AsyncParsableCommand {
             request.pdfDPI = pdfDPI
             request.removeAudio = removeAudio
             request.playbackSpeed = playbackSpeedFactor
+            if pdfDPI != nil { noteFlag("--pdf-dpi", appliesTo: .pdf, "PDFs", sources: request.sources) }
+            if removeAudio { noteFlag("--remove-audio", appliesTo: .video, "videos", sources: request.sources) }
+            if playbackSpeedFactor != nil { noteFlag("--playback-speed-factor", appliesTo: .video, "videos", sources: request.sources) }
         }
     }
 }
@@ -177,17 +180,25 @@ struct Strip: AsyncParsableCommand {
 struct Upload: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "Upload files to an upload target set up in the app and print their links.",
-        discussion: "Targets (S3-compatible: AWS S3, Cloudflare R2, Backblaze B2, MinIO) are set up in L'Esclop Settings › Uploads, which keeps their keys in the Keychain. Only the app can read them, so the upload runs there; the app is started if it is not running. The last link is also put on the clipboard."
+        discussion: "Targets (S3-compatible: AWS S3, Cloudflare R2, Backblaze B2, MinIO) are set up in L'Esclop Settings › Uploads, which keeps their keys in the Keychain. Only the app can read them, so the upload runs there; the app is started if it is not running. The app puts the last link on the clipboard; --copy puts every link there."
     )
 
     @Option(name: .customLong("to"), help: "The upload target's name. Left out: the default one.")
     var target: String?
 
-    @OptionGroup var files: FileOptions
-    @OptionGroup var global: GlobalOptions
+    // Only what an upload honours: it writes no file, and only the app holds the keys.
+    @OptionGroup var inputs: FileInputs
+
+    @Flag(name: [.customShort("c"), .customLong("copy")], help: "Copy every link to the clipboard, one per line.")
+    var copy = false
+
+    @OptionGroup var printing: Printing
 
     func run() async throws {
-        try await runFileJob(.upload(target: target), files: files, global: global)
+        let context = Integrations.context(origin: .cli, inProcess: false)
+        try await runJob(.upload(target: target), inputs: inputs, printing: printing, context: context) { _ in } finished: { report in
+            if copy { Clipboard.copy(text: report.results.compactMap(\.link?.absoluteString).joined(separator: "\n")) }
+        }
     }
 }
 

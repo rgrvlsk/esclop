@@ -33,6 +33,9 @@ struct ImageEngine: Sendable {
         guard let info = ImageInfo.probe(source), let sourceFormat = info.format else {
             throw Self.unreadableOrUnsupported(source)
         }
+        var plan = plan
+        let halvesRetina = halvesRetina(info, plan: plan)
+        if halvesRetina { plan.downscale = 0.5 }
         let target = targetFormat(for: sourceFormat, info: info, plan: plan)
         if target == .pdf {
             return try imageToPDF(source, info: info, work: work)
@@ -46,6 +49,7 @@ struct ImageEngine: Sendable {
         try Self.checkKeepsFrames(info, from: sourceFormat, to: target, geometryChanged: geometry.changed)
         let formatChanged = target != sourceFormat
         var steps: [String] = []
+        if halvesRetina { steps.append("Downscaled the 2x screenshot to 1x") }
         if formatChanged { steps.append("Converted \(sourceFormat.rawValue.uppercased()) to \(target.rawValue.uppercased())") }
         let allowLarger = plan.allowsLarger(formatChanged: formatChanged)
 
@@ -76,6 +80,14 @@ struct ImageEngine: Sendable {
             produced = await adaptiveJPEG(instead: produced, curves: curves, strip: plan.strip, work: work)
         }
         return produced
+    }
+
+    /// "Downscale Retina screenshots": an automatic optimisation of a still 2x (144 dpi) image with
+    /// no size of its own halves its width and height, as a 1x screenshot of the same screen.
+    func halvesRetina(_ info: ImageInfo, plan: Plan) -> Bool {
+        plan.automatic && plan.operation == .optimise && plan.downscale == nil && plan.crop == nil
+            && !info.isAnimated && (info.dpi / 72).rounded() == 2
+            && env.value(EsclopSettings.downscaleRetinaImages)
     }
 
     /// The explicit format, else the automatic conversion lists, else the source's own format.
