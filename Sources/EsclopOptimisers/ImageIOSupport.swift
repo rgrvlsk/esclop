@@ -227,9 +227,9 @@ enum ImageIOCodec {
     /// Decodes anything macOS reads (HEIC, JPEG XL, AVIF, TIFF...) to an upright PNG the engine
     /// can take, with the EXIF (GPS included) in its eXIf chunk unless `strip`, so the engine
     /// carries it into WebP and AVIF.
-    static func decodeToPNG(_ source: URL, to url: URL, strip: Bool) throws {
+    static func decodeToPNG(_ source: URL, to url: URL, strip: Bool, dpi: Double) throws {
         let image = try uprightImage(source)
-        try write(image, to: url, type: .png, quality: nil, metadataFrom: source, strip: strip)
+        try write(image, to: url, type: .png, quality: nil, metadataFrom: source, strip: strip, dpi: dpi)
     }
 
     /// Rewrites metadata without re-encoding pixels (JPEG, PNG, TIFF, HEIC): drops EXIF, GPS,

@@ -287,6 +287,14 @@ import UniformTypeIdentifiers
         #expect(Inspect.type(result.output) == .jpeg)
         #expect(Inspect.size(result.output)! == (320, 240))
         #expect(result.steps.first == "Added a watermark (topLeft)")
+        // The watermarked picture keeps the source's density, also when stripping.
+        let print = world.file("print.jpg")
+        try Fixture.write(try Fixture.gradient(width: 320, height: 240, deep: false, alpha: false), to: print, type: .jpeg,
+                          properties: [kCGImageDestinationLossyCompressionQuality: 1.0, kCGImagePropertyDPIWidth: 300, kCGImagePropertyDPIHeight: 300])
+        var stripping = world.request(print, location: .temporary)
+        stripping.stripMetadata = true
+        let marked = try await world.engine.watermark(print, image: mark, request: stripping, progress: { _ in })
+        #expect(ImageInfo.probe(marked.output)?.dpi == 300)
     }
 
     @Test(.enabled(if: Harness.hasGifsicle)) func animatedGIFsStayAnimated() async throws {

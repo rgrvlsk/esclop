@@ -232,7 +232,7 @@ struct ImageEngine: Sendable {
             // The engine reads PNG, JPEG, WebP and GIF; ImageIO decodes everything else (and
             // applies the orientation so crop rectangles mean the same thing on both sides).
             let decoded = work.file("decoded.png")
-            try ImageIOCodec.decodeToPNG(source, to: decoded, strip: strip)
+            try ImageIOCodec.decodeToPNG(source, to: decoded, strip: strip, dpi: info.dpi)
             input = decoded
             inputFormat = .png
         }
@@ -497,7 +497,7 @@ struct ImageEngine: Sendable {
         else { throw EsclopError.fileNotFound(watermark.image.path) }
         let composed = try Self.compose(base, mark: mark, watermark: watermark)
         let intermediate = work.file("watermarked.png")
-        try ImageIOCodec.write(composed, to: intermediate, type: .png, quality: nil, metadataFrom: source, strip: plan.strip)
+        try ImageIOCodec.write(composed, to: intermediate, type: .png, quality: nil, metadataFrom: source, strip: plan.strip, dpi: info.dpi)
 
         var next = plan
         next.format = plan.format ?? targetFormat(for: sourceFormat, source: source, info: info, plan: plan)
@@ -559,7 +559,7 @@ struct ImageEngine: Sendable {
             var input = source
             if !Self.engineReadable.contains(sourceFormat) {
                 input = work.file("decoded.png")
-                try ImageIOCodec.decodeToPNG(source, to: input, strip: plan.strip)
+                try ImageIOCodec.decodeToPNG(source, to: input, strip: plan.strip, dpi: info.dpi)
             }
             let output = work.file(stem: "fit", ext: format.fileExtension)
             let reply = try await env.images.call("fit", input: input, output: output, params: [
