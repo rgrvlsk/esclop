@@ -2,8 +2,9 @@
 //
 // One floating result (docs/design/targets/README.md › Surfaces): the card at rest
 // (`CardFace`), the detail card it grows into, or a notice. The machine on the card decides the
-// level; this view draws it and takes the keys and VoiceOver's actions. The plain keys
-// (`CardKeys`) work on the card with the keys and on the card the pointer rests on.
+// level; this view draws it and takes the keys and VoiceOver's actions. The card keys
+// (`CardKeys`: ⌘ and a key, Space alone) work on the card with the keys and on the card the
+// pointer rests on.
 
 import EsclopCore
 import EsclopIPC
@@ -16,10 +17,10 @@ public struct FloatingResultView: View {
     let interact: (AppModel.Interaction) -> Void
     /// Makes the options popover's model when "…" opens it.
     let options: (() -> OptionsModel)?
-    /// Runs a plain key (`CardKeys`); false when it does nothing on this card.
+    /// Runs a card key (`CardKeys`); false when it does nothing on this card.
     let press: (Character) -> Bool
-    /// A menu, the options, a name, the loupe or a drag on any card has the keys: the plain
-    /// keys stand aside on every card.
+    /// A menu, the options, a name, the loupe or a drag on any card has the keys: the card keys
+    /// stand aside on every card.
     let keysTaken: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -110,15 +111,10 @@ public struct FloatingResultView: View {
         .onKeyPress(phases: .down) { key in
             if Self.editingText || keysTaken { return .ignored }
             let modifiers = key.modifiers.subtracting([.capsLock, .numericPad])
-            if modifiers == .command {
-                switch key.characters {
-                case "z": return run(.undo, in: info)
-                case "c": return run(.copy, in: info)
-                case "r": return run(.reveal, in: info)
-                default: return .ignored
-                }
-            }
-            guard modifiers.isEmpty, key.characters.count == 1, let character = key.characters.first else { return .ignored }
+            guard key.characters.count == 1, let character = key.characters.first?.lowercased().first else { return .ignored }
+            // ⌘R stays Show in Finder here, beside Clop's ⌘F.
+            if modifiers == .command, character == "r" { return run(.reveal, in: info) }
+            guard modifiers == (CardKeys.needsCommand(character) ? .command : []) else { return .ignored }
             return press(character) ? .handled : .ignored
         }
         .accessibilityElement(children: .ignore)
