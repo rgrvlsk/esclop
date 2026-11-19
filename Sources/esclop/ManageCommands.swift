@@ -354,7 +354,17 @@ struct Restore: AsyncParsableCommand {
 
     func run() async throws {
         try await guarded(global) {
-            let outcome = try await EsclopService(global.context()).restoreBackup(for: try PathInput.url(path), deleteBackup: false)
+            let outcome: RestoreOutcome
+            do {
+                outcome = try await EsclopService(global.context()).restoreBackup(for: try PathInput.url(path), deleteBackup: false)
+            } catch let EsclopError.invalidArgument(why) where why.hasPrefix("No recent result for ") {
+                // The service names the MCP tool; at a terminal the list is `esclop recent`. Not a
+                // usage error: the path is fine, there is just nothing to put back (exit 1). The
+                // JSON keeps the code `invalidArgument`, as before.
+                let error = EsclopError.invalidArgument(why.replacingOccurrences(of: "esclop_recent_results lists", with: "`esclop recent` lists"))
+                if global.json { Output.json(["error": error.description, "code": error.code]) } else { Output.error(error.description, terminal: global.terminal) }
+                return 1
+            }
             if global.json { Output.json(outcome); return 0 }
             let t = global.terminal
             print("\(t.green("✓")) \(t.bold(PathInput.abbreviate(URL(fileURLWithPath: outcome.restored)))) restored")
