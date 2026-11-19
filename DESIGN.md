@@ -49,7 +49,9 @@ system screenshot thumbnail. The look follows [docs/design/targets](docs/design/
    row gives its place, at its height, to a hint ("Click or hold to see original", "Release to
    see optimised") and Done, so nothing in the detail moves. Space swaps, the arrows move the
    lens 8 pt, Esc, Return or Done end it; × still closes the detail. The picture does not drag
-   out while the loupe is on. Other files compare in the Compare window.
+   out while the loupe is on. A round button at the hint's start opens the Compare window (split,
+   difference, zoom). When a file cannot be read, the lens goes and the hint says so ("Can't read
+   one of the files"); nothing swaps. Other files compare in the Compare window.
 
 Hover shows three round buttons over the picture's corner (Copy for a copied screenshot, Show
 in Finder for a file, then Undo and "…") and a close button over its outer corner, so the
@@ -57,7 +59,9 @@ object never changes size under the pointer. The card glows in the picture's ton
 drags out as the file (the original after a restore). Errors keep the original and say so in
 plain words ("This file isn't a video L'Esclop can read. It may be damaged.").
 Several results in a row: show the newest three, newest at the bottom, older ones go to the
-menu-bar history; never stack expanded details. Two or more failures share one of the three
+menu-bar history; never stack expanded details. A file at work keeps its place, with its Stop,
+while newer results arrive; a result that lands behind newer ones comes to the front, and so
+does a result chosen in Recent. Two or more failures share one of the three
 places (`pr2-failures`): an amber pill, "3 not optimised" ("not uploaded" for uploads, "failed"
 for a mix), that a click opens into their list, 320 pt wide, under an amber header in the serif:
 each file with its picture, why, and Retry, or no button when the file is gone ("The file was
@@ -86,6 +90,7 @@ the app, so the app in front keeps its windows, but it takes the keys, so ⌘O w
 - **Recent:** the files being optimised, then the last twelve results, five in view: the
   picture, the name, "2.4 MB → 612 kB · 9:41" and the saving. On hover, Copy and Show in Finder;
   a click shows the result's card again; the context menu adds Compare and Restore Original.
+  The arrows move through the rows and Return shows the card; VoiceOver has every action.
   Clear (privacy) forgets the names: the shared log keeps only sizes and dates, so the saving
   stays, and the CLI and MCP no longer list them. Files, backups and cards are not touched.
   Empty: "Copy a screenshot. You'll find it here, lighter."

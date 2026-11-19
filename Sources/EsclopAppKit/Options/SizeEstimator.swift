@@ -122,7 +122,7 @@ public enum SizeModel {
         let kbps: Double
         switch choice.format ?? input {
         case .flac: kbps = 700
-        case .wav: kbps = 1411
+        case .wav, .aiff: kbps = 1411
         case .opus: kbps = Double(choice.audioBitrate ?? 96)
         default: kbps = Double(choice.audioBitrate ?? 160) * (choice.compression == .aggressive ? 0.6 : 1)
         }

@@ -255,6 +255,23 @@ import Testing
         #expect(model.tryFolder == nil)
     }
 
+    @Test func aTryWritesOnlyInsideItsFolderAndRunsNoScripts() async throws {
+        let outside = temp.url.appendingPathComponent("outside", isDirectory: true)
+        let ran = temp.url.appendingPathComponent("ran")
+        _ = try store.save(text: "copy(to: \"\(outside.path)/\") -> runScript(code: \"touch '\(ran.path)'\")", name: "out")
+        let model = editor()
+        model.request(.saved("out"))
+        await model.tryIt(on: temp.file("one.png"))
+        let folder = try #require(model.tryFolder)
+        #expect(!FileManager.default.fileExists(atPath: outside.path), "nothing lands at the real destination")
+        #expect(!FileManager.default.fileExists(atPath: ran.path), "the script did not run")
+        guard case let .done(result) = model.tryState else { Issue.record("no result"); return }
+        #expect(result.steps.map(\.outcome) == [.done, .skipped])
+        let copied = try #require(result.finalFile)
+        #expect(copied.path.hasPrefix(folder.path + "/") && copied.path.hasSuffix(outside.path + "/one.png"))
+        #expect(FileManager.default.fileExists(atPath: copied.path))
+    }
+
     @Test func leftoversAreClearedAtLaunch() throws {
         let root = temp.url.appendingPathComponent("tmp", isDirectory: true)
         for name in ["try-1", "try-2", "clipboard-keep"] {
