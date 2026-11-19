@@ -377,12 +377,12 @@ public final class AppModel {
         let outcome: Result<OptimisationResult, EsclopError>
         var failedStep: String?
         var partial: OptimisationResult?
+        // Taken for every outcome: a stale entry must never settle a later file at that path.
+        let dropOriginal = dropCopies.removeValue(forKey: source.standardizedFileURL.path)
         if Task.isCancelled {
             outcome = .failure(.cancelled)
         } else {
             let cardID = card?.id
-            // Taken for every outcome: a stale entry must never settle a later file at that path.
-            let dropOriginal = dropCopies.removeValue(forKey: source.standardizedFileURL.path)
             do {
                 var result = try await executor.process(source, job: job) { [weak self, weak row] progress in
                     Task { @MainActor in
