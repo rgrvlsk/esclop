@@ -105,10 +105,11 @@ public final class AppServices {
             Task { @MainActor in folders?.refresh(retryDenied: true) }
         }
         // A pipeline saved, attached to a folder or deleted (here, by the CLI or by an agent).
-        pipelineFiles = FolderWatcher(everyChange: true) { [weak folders, weak pipelinesWindow] _ in
+        pipelineFiles = FolderWatcher(everyChange: true) { [weak folders, weak pipelinesWindow, weak model] _ in
             Task { @MainActor in
                 folders?.refresh()
                 pipelinesWindow?.model.reload()
+                if let model { Hotkeys.register((try? store.list()) ?? [], model: model) }
             }
         }
     }
@@ -151,6 +152,7 @@ public final class AppServices {
         // Shortcuts actions run in this process and use this model.
         ShortcutActions.model = model
         Hotkeys.register(model)
+        Hotkeys.register((try? model.service.context.pipelines.list()) ?? [], model: model)
         updater.start()
 
         onboarding.showIfFirstRun()

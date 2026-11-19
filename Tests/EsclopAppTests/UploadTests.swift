@@ -98,6 +98,17 @@ struct S3TestServer {
         #expect(cdn.link(key: "tests/photo one.png")?.absoluteString == "https://files.example.com/tests/photo%20one.png")
     }
 
+    @Test func theTestUploadChecksTheLinkOpensWithoutKeys() async throws {
+        let server = try await S3TestServer.start()
+        defer { server.stop() }
+        let temp = TempDir()
+        let file = temp.file("private.png")
+        let target = server.target()
+        let link = try await S3Uploader().upload(file, to: target, key: target.key(for: file), credentials: server.keys)
+        // The bucket is private: its own address does not open for the people the link goes to.
+        await #expect(throws: EsclopError.self) { try await S3Uploader().checkLink(link) }
+    }
+
     @Test func aWrongSecretIsRefusedAndTheFileStays() async throws {
         let server = try await S3TestServer.start()
         defer { server.stop() }
@@ -186,6 +197,20 @@ struct S3TestServer {
         let chosen = try #require(harness.model.cards.last)
         try await Task.sleep(for: .milliseconds(300))
         #expect(chosen.upload == nil, "a source not in the setting does not upload")
+    }
+
+    @Test func aBatchUploadsEveryResultAndEachRowSaysSo() async throws {
+        let server = try await S3TestServer.start()
+        defer { server.stop() }
+        let harness = harness(server)
+        try EsclopSettings.uploadAutomatically.set(["dropZone"], in: harness.settings.store)
+        try EsclopSettings.batchWindowFrom.set(2, in: harness.settings.store)
+        harness.model.optimiseDropped((1 ... 4).map { harness.temp.png("batch-\($0).png") }, harder: false)
+        let batch = try #require(harness.model.batch)
+        func uploaded(_ row: BatchRow) -> Bool { if case .uploaded = row.upload { true } else { false } }
+        #expect(await eventually(.seconds(30)) { batch.rows.count == 4 && batch.rows.allSatisfy(uploaded) })
+        #expect(harness.model.cards.isEmpty)
+        #expect(BatchPresentation.status(of: batch.rows[0]) == Strings.text("Uploaded · link copied"))
     }
 
     @Test func aJobFromTheCommandLineUploadsThroughTheApp() async throws {
@@ -291,6 +316,31 @@ struct S3TestServer {
         let host = AppPipelineHost(uploader: AppUploader(settings: settings.store, credentials: MemoryCredentialStore())) { _ in }
         let outcome = try await host.perform(.uploadTo(target: nil), file: key, options: PipelineRunOptions())
         guard case .unavailable = outcome else { Issue.record("the step uploaded a key: \(outcome)"); return }
+    }
+
+    @Test func aPublicLinkNeedsItsPathAndR2NeedsAPublicLink() {
+        var target = UploadTarget(name: "R2", endpoint: "https://account.r2.cloudflarestorage.com", bucket: "pictures", region: "auto")
+        #expect(target.problem == nil)
+        #expect(target.linkWarning != nil, "R2's endpoint never serves the copied link")
+        target.publicURL = "https://files.example.com/latest.png"
+        #expect(target.problem != nil, "every upload would copy the same address")
+        target.publicURL = "https://files.example.com/{path}"
+        #expect(target.problem == nil && target.linkWarning == nil)
+        #expect(UploadTarget(name: "S3", endpoint: "https://s3.eu-west-1.amazonaws.com", bucket: "b").linkWarning == nil)
+    }
+
+    @Test func aFileOverFiveGigabytesIsRefusedBeforeItGoes() async throws {
+        let temp = TempDir()
+        let file = temp.file("huge.mov", bytes: 0)
+        // Sparse: no disk is used.
+        let handle = try FileHandle(forWritingTo: file)
+        try handle.truncate(atOffset: UInt64(S3Uploader.largestPut) + 1)
+        try handle.close()
+        let target = UploadTarget(name: "Nowhere", endpoint: "https://s3.example.invalid", bucket: "b")
+        let keys = UploadCredentials(accessKeyID: "AKIDEXAMPLE", secret: "x")
+        await #expect(throws: EsclopError.invalidArgument(Strings.format("%@ is larger than 5 GB, the most L’Esclop can upload in one go.", "huge.mov"))) {
+            try await S3Uploader().upload(file, to: target, key: "huge.mov", credentials: keys)
+        }
     }
 
     @Test func damagedKeysAreNamedNotTakenForMissing() throws {

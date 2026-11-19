@@ -154,6 +154,11 @@ import Testing
         draft.accessKeyID = ""
         let editor = UploadTargetEditor(draft: draft, others: [targets[1]], model: model) {}
         try await Self.renderWindow(editor, size: CGSize(width: 520, height: 720), name: "settings-upload-editor", scheme: scheme)
+        // R2 without a public link: its links do not open for the people they are sent to.
+        var privateLink = targets[0]
+        privateLink.publicURL = ""
+        let warned = UploadTargetEditor(draft: UploadTargetDraft(privateLink, keysSaved: true), others: [targets[1]], model: model) {}
+        try await Self.renderWindow(warned, size: CGSize(width: 520, height: 760), name: "settings-upload-editor-private-link", scheme: scheme)
     }
 
     @Test(arguments: [ColorScheme.light, .dark])
