@@ -36,6 +36,9 @@ public enum Hotkeys {
     // MARK: Pipelines
 
     /// The names registered for pipelines now, to take back when the pipelines change.
+    // ponytail: KeyboardShortcuts cannot list names, so a pipeline deleted while the app was closed
+    // leaves its `KeyboardShortcuts_pipeline.<name>` default behind, with no handler; clear stale
+    // keys at launch if they ever matter.
     @MainActor private(set) static var pipelineNames: [KeyboardShortcuts.Name] = []
 
     /// The key name of a pipeline's hotkey.

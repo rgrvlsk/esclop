@@ -24,12 +24,14 @@ extension AppModel {
             Task {
                 // Our own write, back again without its marker: a result already, not a new copy.
                 guard await !clipboard.run({ $0.isOwnBytes(.image(data, type)) }) else { return }
-                optimiseImageData(data, type: type, aggressive: false, copy: copy, pipeline: { self.pipeline(for: .clipboard, file: $0) })
+                let triggered = pipelines(for: .clipboard)
+                optimiseImageData(data, type: type, aggressive: false, copy: copy, pipeline: { Self.first(of: triggered, for: $0) })
             }
         case let .optimiseFiles(urls, copied, copy):
             Task {
                 guard await !clipboard.run({ $0.isOwnBytes(.files(urls)) }) else { return }
-                optimise(urls, origin: .clipboard, copy: copy, copied: copied, pipeline: { self.pipeline(for: .clipboard, file: $0) })
+                let triggered = pipelines(for: .clipboard)
+                optimise(urls, origin: .clipboard, copy: copy, copied: copied, pipeline: { Self.first(of: triggered, for: $0) })
             }
         }
     }
@@ -241,16 +243,20 @@ extension AppModel {
         let files = PathInput.expand(urls, recursive: true).filter { MediaKind.of($0) != nil }
         guard !files.isEmpty else { return notice(Strings.text("Nothing to optimise"), Strings.text("Drop images, videos, PDFs or audio files.")) }
         // Harder is a plain optimisation the person asked for; a plain drop runs a drop-zone pipeline.
-        optimise(files, origin: .dropZone, aggressive: harder, copy: nil, pipeline: { harder ? nil : self.pipeline(for: .dropZone, file: $0) })
+        let triggered = harder ? [] : pipelines(for: .dropZone)
+        optimise(files, origin: .dropZone, aggressive: harder, copy: nil, pipeline: { Self.first(of: triggered, for: $0) })
     }
 
-    /// The saved pipeline that runs instead of the plain optimisation for a file from `trigger`:
-    /// the first by name with that trigger and steps for the file's kind.
-    func pipeline(for trigger: PipelineTrigger, file: URL) -> Pipeline? {
+    /// The saved pipelines with this trigger, by name: read once per copy or drop.
+    func pipelines(for trigger: PipelineTrigger) -> [Pipeline] {
+        ((try? service.context.pipelines.pipelines(triggeredBy: trigger)) ?? [])
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    /// The one that runs on `file` instead of the plain optimisation: the first with steps for its kind.
+    nonisolated static func first(of pipelines: [Pipeline], for file: URL) -> Pipeline? {
         guard let kind = MediaKind.of(file) else { return nil }
-        return ((try? service.context.pipelines.list()) ?? [])
-            .filter { $0.triggers.contains(trigger) && !$0.steps(for: kind).isEmpty }
-            .min { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        return pipelines.first { !$0.steps(for: kind).isEmpty }
     }
 
     /// Files dropped on a preset zone: the pipeline runs on each, through the usual floating
