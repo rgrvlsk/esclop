@@ -35,10 +35,11 @@ final class ClipboardKeeper: @unchecked Sendable {
 
     // MARK: On the queue
 
-    /// The clipboard holds `files` since change `count`. A newer change always wins, so copies
-    /// handled out of order cannot go back in time.
+    /// The clipboard holds `files` since change `count`. An older change never wins, so copies
+    /// handled out of order cannot go back in time; at the same change the latest hold does
+    /// ("Optimise Clipboard" on pixels saves them to a new file).
     func hold(_ files: [URL], at count: Int) {
-        if let held, held.count >= count { return }
+        if let held, held.count > count { return }
         held = (count, files)
     }
 

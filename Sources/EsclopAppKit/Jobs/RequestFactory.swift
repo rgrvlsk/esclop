@@ -40,6 +40,9 @@ public struct RequestFactory: Sendable {
     /// One job for one file. `location` overrides the settings (clipboard images work on a
     /// temporary copy in place, so the backup is the original). A copied file is optimised as a
     /// copy in the temporary folder, as Clop does: copying is not a request to change the original.
+    // ponytail: those copies stay in $TMPDIR/esclop/results until macOS clears the temporary
+    // folder (a Recent result's file can go first); prune them at launch like the copied images
+    // (`BackupPruner.pruneAtLaunch`) if they pile up or a missing file is reported.
     public func job(
         for source: URL, origin: RequestOrigin, aggressive: Bool = false, location: OutputLocation? = nil
     ) -> OptimisationJob {

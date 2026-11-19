@@ -61,12 +61,12 @@ extension AppModel {
         let batch = urls.count >= batchThreshold ? openBatch(origin: origin) : nil
         // Every file shows in the window at once, waiting, before its job starts.
         for url in urls { batch?.add(url, bytes: Self.size(of: url)) }
+        // A file retried after the rest went back goes back on its own.
         let onResult: ((OptimisationResult) -> Void)? = copyBack ? { result in
-            putBack.results.append((result.source, result.output))
-            // A file retried after the rest went back goes back on its own.
-            if putBack.done { Task { await self.putBackOnClipboard([(result.source, result.output)]) } }
+            guard putBack.done else { return }
+            Task { await self.putBackOnClipboard([(result.source, result.output)]) }
         } : nil
-        var runs: [Task<Void, Never>] = []
+        var runs: [Task<JobReport, Never>] = []
         for url in urls {
             let base = factory.job(for: url, origin: origin, aggressive: aggressive)
             runs.append(Task {
@@ -79,20 +79,20 @@ extension AppModel {
                     if found.rule != nil { found.choice.apply(to: &job.request) }
                     context = found
                 }
-                await run(job, context: context, batch: batch, onResult: onResult)
+                return await run(job, context: context, batch: batch, onResult: onResult)
             })
         }
         guard copyBack else { return }
         Task {
-            for run in runs { await run.value }
+            var results: [(old: URL, new: URL)] = []
+            for run in runs { results += await run.value.results.map { ($0.source, $0.output) } }
             putBack.done = true
-            await putBackOnClipboard(putBack.results)
+            await putBackOnClipboard(results)
         }
     }
 
-    /// The results of one copy, gathered until its last file is done.
+    /// Whether the results of one copy went back together, after its last file.
     @MainActor private final class PutBack {
-        var results: [(old: URL, new: URL)] = []
         var done = false
     }
 
@@ -135,6 +135,8 @@ extension AppModel {
            let result = recent.first(where: { r in urls.contains { $0.standardizedFileURL == r.output.standardizedFileURL } }),
            result.backup != nil || result.output != result.source
         {
+            // The result may be on the clipboard from before a relaunch, or from `esclop --copy`.
+            holdOnClipboard(urls, at: now.count)
             // In place, the original comes back first; a copy elsewhere left it untouched.
             if result.backup != nil { guard await restore(result) else { return } }
             if let card = cards.first(where: { $0.result?.id == result.id || $0.jobID == result.id }) { dismiss(card) }
