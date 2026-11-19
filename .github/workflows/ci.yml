@@ -110,7 +110,18 @@ jobs:
         run: |
           swift --version
           swift --version 2>&1 | grep -Eq 'Swift version (6\.([2-9]|[1-9][0-9])|[7-9])' || { echo "The macOS 26 SDK (Swift 6.2+) is needed for Liquid Glass." >&2; exit 1; }
-      - run: swift build --build-tests
+      # No cache in this job, so the build compiles every target with the toolchain that ships.
+      # A warning in the package's own code fails it; dependencies build with theirs suppressed.
+      - name: Build with no warning in the package's code
+        run: |
+          set -o pipefail
+          swift build --build-tests 2>&1 | tee "$RUNNER_TEMP/build.log"
+          warnings="$(grep -E '^(/[^ ]*/)?(Sources|Tests)/[^:]+:[0-9]+:[0-9]+: .*warning: |^macro expansion [^:]+:[0-9]+:[0-9]+: .*warning: ' "$RUNNER_TEMP/build.log" | sort -u || true)"
+          if [ -n "$warnings" ]; then
+            echo "::error::The build has warnings in the package's code:"
+            echo "$warnings"
+            exit 1
+          fi
       # The upload tests start a local S3 server (moto); install it before the suite starts.
       - name: Local S3 server for the upload tests
         run: Scripts/s3-test-server.sh install
