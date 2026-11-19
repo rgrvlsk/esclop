@@ -105,6 +105,10 @@ final class FakeDrag: NSObject, NSDraggingInfo {
         let failing = DropIntake(promises: [FakePromise(names: ["b.png"])], addresses: [URL(string: "https://example.com/c.jpg")!])
         let partial = await failing.resolve(into: temp.url) { _ in throw EsclopError.other("offline") }.value
         #expect(partial.files.map(\.lastPathComponent) == ["b.png"] && partial.failures.count == 1)
+        // A promise never kept does not hold the others back for ever.
+        let stuck = DropIntake(files: [temp.file("here.png")], promises: [FakePromise(names: ["never.png"], delivers: false)])
+        let late = await stuck.resolve(into: temp.url, patience: .milliseconds(200)).value
+        #expect(late.files.map(\.lastPathComponent) == ["here.png"] && late.failures.count == 1)
     }
 
     @Test func aPromisedFileIsOptimisedAsADroppedOne() async {
@@ -125,12 +129,20 @@ final class FakeDrag: NSObject, NSDraggingInfo {
         let result = try #require(harness.model.cards.first?.result)
         #expect(result.output != file && result.output.deletingLastPathComponent() == file.deletingLastPathComponent(), "beside the original")
         #expect(try Data(contentsOf: file) == original)
+        // Another choice on the card runs again beside the original, not over it.
+        let card = try #require(harness.model.cards.first)
+        harness.model.reprocess(card, choice: OptimiseChoice(compression: .aggressive))
+        #expect(await eventually { harness.requests.requests.count == 2 && card.result != nil })
+        #expect(harness.requests.requests.last?.location == .sameFolder)
+        #expect(try Data(contentsOf: file) == original)
 
         try harness.model.service.context.pipelines.save(PresetZonesTests.pipeline("Shrink", PresetZonesTests.everything))
         let zoned = harness.temp.png("zone.png")
         harness.model.runPresetZone("Shrink", on: [zoned], keepOriginals: true)
         #expect(await eventually { harness.model.cards.count == 2 && harness.model.cards.allSatisfy { $0.result != nil } })
         #expect(try Data(contentsOf: zoned) == original)
+        let zonedResult = try #require(harness.model.cards.last?.result)
+        #expect(zonedResult.source.deletingLastPathComponent() == zoned.deletingLastPathComponent() && zonedResult.source != zoned, "the copy sits beside")
 
         // Without ⌥ the setting's default, in place, still applies.
         let plain = harness.temp.png("plain.png")
@@ -180,8 +192,9 @@ final class FakeDrag: NSObject, NSDraggingInfo {
         let size = CGSize(width: 300, height: 160)
         let frame = DropZoneController.frame(for: size, under: CGPoint(x: 500, y: 400), in: visible)
         #expect(frame.midX == 500 && frame.maxY - Metrics.screenMargin < 400)
-        let corner = DropZoneController.frame(for: size, under: CGPoint(x: 990, y: 10), in: visible)
-        #expect(visible.contains(corner))
+        // Near the bottom of the screen, above the pointer instead.
+        let low = DropZoneController.frame(for: size, under: CGPoint(x: 990, y: 10), in: visible)
+        #expect(visible.contains(low) && low.minY + Metrics.screenMargin > 10)
     }
 
     /// Over a preset zone the line names its pipeline, and ⌘, which a pipeline does not use, is not offered.
@@ -207,6 +220,10 @@ final class FakeDrag: NSObject, NSDraggingInfo {
         #expect(media.count == 2 && media.kinds == [.image, .video])
         #expect(PresetZones.shown([PresetZone(name: "Images", kinds: [.image])], dragged: media.kinds).isEmpty)
         #expect(DropZoneController.media(in: [temp.url.appendingPathComponent("empty-or-missing")]).count == 0)
+        // Past the scan's limit with no media found yet, the folder still shows the zone.
+        _ = temp.file("big/1.txt")
+        _ = temp.file("big/2.txt")
+        #expect(DropZoneController.media(in: [temp.url.appendingPathComponent("big")], limit: 1) == (count: 1, kinds: []))
     }
 
     @Test func panelsAnchorToTheirCorner() {
@@ -220,11 +237,12 @@ final class FakeDrag: NSObject, NSDraggingInfo {
 /// Files another app promises, written when asked for, off the main thread as a real source does.
 struct FakePromise: FilePromise {
     var names: [String]
+    var delivers = true
 
     var promisedTypes: [String] { names.map { UTType(filenameExtension: ($0 as NSString).pathExtension)?.identifier ?? UTType.data.identifier } }
 
     func receive(into folder: URL, reader: @escaping @Sendable (Result<URL, any Error>) -> Void) {
-        for name in names {
+        for name in names where delivers {
             let file = folder.appendingPathComponent(name)
             DispatchQueue.global().async {
                 do {

@@ -266,9 +266,11 @@ extension AppModel {
         optimiseDrop(files, aggressive: harder, keepOriginals: keepOriginals, pipeline: { Self.first(of: triggered, for: $0) })
     }
 
-    /// With `keepOriginals`, a plain optimisation that would write in place writes beside the
-    /// original instead (the other places leave it alone already). A pipeline has its own places
-    /// for each step, so it runs on a copy in the temporary folder.
+    /// With `keepOriginals`, a plain optimisation writes beside the original, whatever the "go"
+    /// setting says (a folder template can name the original too). A pipeline has its own place
+    /// for each step, so it runs on a copy made beside the original.
+    // ponytail: a pipeline whose steps write elsewhere (convert to the same folder) leaves that
+    // copy beside its result; drop the copy after the run if people find it in their way.
     private func optimiseDrop(_ files: [URL], aggressive: Bool, keepOriginals: Bool, pipeline: @escaping (URL) -> Pipeline?) {
         guard keepOriginals else { return optimise(files, origin: .dropZone, aggressive: aggressive, copy: nil, pipeline: pipeline) }
         Task {
@@ -279,22 +281,20 @@ extension AppModel {
                     continue
                 }
                 do {
-                    sources.append(try await Self.copyAside(file))
+                    sources.append(try await Self.copyBeside(file))
                 } catch {
                     notice(Strings.format("Could not copy %@", file.lastPathComponent), CardPresentation.message(for: error))
                 }
             }
             guard !sources.isEmpty else { return }
-            optimise(sources, origin: .dropZone, aggressive: aggressive, copy: nil, adjust: { job in
-                if job.request.location == .inPlace { job.request.location = .sameFolder }
-            }, pipeline: pipeline)
+            optimise(sources, origin: .dropZone, aggressive: aggressive, copy: nil, adjust: { $0.request.location = .sameFolder }, pipeline: pipeline)
         }
     }
 
-    /// A copy of `file` in a new folder under the temporary one, made off the main thread.
-    nonisolated static func copyAside(_ file: URL) async throws -> URL {
-        let folder = try Paths.ensure(Paths.temporary.appendingPathComponent("kept/\(UUID().uuidString.prefix(8))", isDirectory: true))
-        let copy = folder.appendingPathComponent(file.lastPathComponent)
+    /// A copy of `file` beside it, named as a result there is ("photo-optimised.jpg"), made off
+    /// the main thread.
+    nonisolated static func copyBeside(_ file: URL) async throws -> URL {
+        let copy = try OutputPlanner.destination(for: file, location: .sameFolder, suffix: "optimised")
         try FileManager.default.copyItem(at: file, to: copy)
         return copy
     }

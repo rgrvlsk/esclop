@@ -117,6 +117,7 @@ struct FileOptions: ParsableArguments {
             do {
                 urls.append(try await download(address))
             } catch where skipErrors {
+                FileHandle.standardError.write(Data("skipped \(item): \(error)\n".utf8))
                 continue
             } catch let error as EsclopError {
                 throw error

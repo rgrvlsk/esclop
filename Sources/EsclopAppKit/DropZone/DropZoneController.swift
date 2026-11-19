@@ -210,7 +210,8 @@ final class DropZoneController {
     /// The files of a kind L'Esclop optimises, the ones inside folders too, and their kinds: what a
     /// drop optimises, so the count and the preset zones match it.
     // ponytail: at most `limit` folder entries are looked at, so a drag of a huge folder shows at
-    // once; past them the count is short. Count in the background after showing if that matters.
+    // once; past them the count is short, and a folder with no media among them counts as one
+    // file of unknown kind (every preset zone). Count in the background after showing if that matters.
     nonisolated static func media(in urls: [URL], limit: Int = 10_000) -> (count: Int, kinds: Set<MediaKind>) {
         var count = 0
         var kinds = Set<MediaKind>()
@@ -228,8 +229,12 @@ final class DropZoneController {
                 add(url)
                 continue
             }
+            let before = count
             for case let entry as URL in entries {
-                guard left > 0 else { break }
+                guard left > 0 else {
+                    if count == before { count += 1 }
+                    break
+                }
                 left -= 1
                 add(entry)
             }
@@ -305,13 +310,16 @@ final class DropZoneController {
         return true
     }
 
-    /// Just below the pointer and centred on it, inside the screen: no tile is under the pointer
-    /// when the zone opens, so a drop that was already on its way does not land on one by chance.
+    /// Just below the pointer and centred on it (above it near the bottom of the screen), inside
+    /// the screen: no tile is under the pointer when the zone opens, so a drop that was already
+    /// on its way does not land on one by chance.
     nonisolated static func frame(for size: CGSize, under pointer: CGPoint, in visible: CGRect) -> CGRect {
         // The panel's transparent margin may cover the pointer; only the tiles take a drop.
-        let top = pointer.y - 12 + Metrics.screenMargin
+        let gap = 12 - Metrics.screenMargin
+        var y = pointer.y - gap - size.height
+        if y < visible.minY { y = pointer.y + gap }
         let x = min(max(pointer.x - size.width / 2, visible.minX), visible.maxX - size.width)
-        let y = min(max(top - size.height, visible.minY), visible.maxY - size.height)
+        y = min(max(y, visible.minY), visible.maxY - size.height)
         return CGRect(x: x, y: y, width: size.width, height: size.height)
     }
 

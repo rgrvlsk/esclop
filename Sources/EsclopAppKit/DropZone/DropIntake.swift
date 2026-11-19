@@ -91,17 +91,21 @@ struct DropIntake {
     /// The local files to optimise: dropped files as they are, promised files once written into
     /// a new folder under `folder`, addresses once `download` has fetched them. The promises are
     /// asked for and the downloads started before this returns, so call it while the drop is
-    /// under way; the task ends when every file arrived or failed. Failures come back beside the
-    /// files, which go ahead without them.
+    /// under way; the task ends when every file arrived or failed, or when none arrived for
+    /// `patience` (an iCloud original Photos cannot fetch, an app that quit). Failures come back
+    /// beside the files, which go ahead without them.
+    // ponytail: promised and downloaded files stay in $TMPDIR/esclop until macOS clears it, like
+    // the copies in `results`; prune them at launch with those if they pile up.
     @MainActor
     func resolve(
         into folder: URL = Paths.temporary.appendingPathComponent("dropped", isDirectory: true),
+        patience: Duration = .seconds(60),
         download: @escaping @Sendable (URL) async throws -> URL = { try await WebDownload.fetch($0) }
     ) -> Task<(files: [URL], failures: [any Error]), Never> {
-        // The reader runs once per promised type; a promise of no type is not asked for, so the
-        // count below always reaches zero.
+        // The reader runs once per promised type; a promise of no type is not asked for.
         let asked = promises.filter { !$0.promisedTypes.isEmpty }
-        let expected = asked.reduce(0) { $0 + $1.promisedTypes.count } + addresses.count
+        let promised = asked.reduce(0) { $0 + $1.promisedTypes.count }
+        let expected = promised + addresses.count
         let (results, sink) = AsyncStream.makeStream(of: Result<URL, any Error>.self)
         if expected == 0 { sink.finish() }
         do {
@@ -110,8 +114,7 @@ struct DropIntake {
                 for promise in asked { promise.receive(into: destination) { sink.yield($0) } }
             }
         } catch {
-            sink.yield(.failure(error))
-            sink.finish()
+            for _ in 0 ..< promised { sink.yield(.failure(error)) }
         }
         for address in addresses {
             Task {
@@ -119,11 +122,23 @@ struct DropIntake {
             }
         }
         let files = files
+        let arrival = Arrival()
+        let watchdog = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: patience)
+                guard !Task.isCancelled, ContinuousClock.now - arrival.last >= patience else { continue }
+                sink.yield(.failure(EsclopError.other(Strings.text("A dropped file did not arrive: the app it came from did not deliver it."))))
+                sink.finish()
+                return
+            }
+        }
         return Task { @MainActor in
+            defer { watchdog.cancel() }
             var left = expected
             var received: [URL] = []
             var failures: [any Error] = []
             for await result in results {
+                arrival.last = .now
                 switch result {
                 case let .success(url): received.append(url)
                 case let .failure(error): failures.append(error)
@@ -134,5 +149,10 @@ struct DropIntake {
             received.sort { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
             return (files + received, failures)
         }
+    }
+
+    /// When the last promised or downloaded file arrived.
+    @MainActor private final class Arrival {
+        var last = ContinuousClock.now
     }
 }
