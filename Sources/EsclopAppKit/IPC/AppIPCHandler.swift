@@ -62,7 +62,8 @@ public final class AppIPCHandler: AppRequestHandler {
     }
 
     public func recentResults(limit: Int) async -> [OptimisationResult] {
-        Array(await model.recent.prefix(max(0, limit)))
+        // The shared log, not the panel's list: it knows what the CLI or an agent restored.
+        await model.service.results.recent(limit: max(0, limit))
     }
 
     public func quit() async {
