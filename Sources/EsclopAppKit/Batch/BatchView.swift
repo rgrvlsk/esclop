@@ -44,6 +44,7 @@ struct BatchHeader: View {
     let batch: Batch
     let app: AppModel
     let info: BatchPresentation
+    @State private var confirmingRestore = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -78,11 +79,17 @@ struct BatchHeader: View {
                     .keyboardShortcut(".", modifiers: .command)
                 }
                 Button {
-                    Task { await app.restoreAll(batch) }
+                    confirmingRestore = true
                 } label: {
                     Label(Strings.text("Restore All"), systemImage: "arrow.uturn.backward")
                 }
                 .disabled(batch.restorable.isEmpty)
+                .alert(Strings.text("Restore all originals?"), isPresented: $confirmingRestore) {
+                    Button(Strings.text("Restore All"), role: .destructive) { Task { await app.restoreAll(batch) } }
+                    Button(Strings.text("Cancel"), role: .cancel) {}
+                } message: {
+                    if batch.isRunning { Text(Strings.text("Files still to go are stopped first.")) }
+                }
                 Spacer()
                 Button {
                     app.reveal(batch.rows.filter(\.isFinished).map(\.shownFile))
@@ -116,6 +123,9 @@ struct BatchRowView: View {
                     .foregroundStyle(isError ? Color.red : .secondary)
                     .lineLimit(2)
                     .monospacedDigit()
+                if let restoreError = row.restoreError {
+                    Text(restoreError).font(.subheadline).foregroundStyle(Color.red).lineLimit(2)
+                }
                 bar.frame(maxWidth: 180)
             }
             Spacer(minLength: 8)
@@ -137,7 +147,7 @@ struct BatchRowView: View {
         .animation(Motion.hover, value: hovering)
         .contextMenu { menu }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(row.source.lastPathComponent), \(BatchPresentation.status(of: row))")
+        .accessibilityLabel([row.source.lastPathComponent, BatchPresentation.status(of: row), row.restoreError].compactMap(\.self).joined(separator: ", "))
         .accessibilityValue(BatchPresentation.figure(of: row) ?? "")
         .accessibilityActions { menu }
         .task(id: row.shownFile) {
@@ -148,6 +158,7 @@ struct BatchRowView: View {
 
     private var isError: Bool {
         if case .failed = row.state { return true }
+        if case .failed = row.upload { return true }
         return false
     }
 
@@ -180,7 +191,7 @@ struct BatchRowView: View {
 
     private var actions: some View {
         HStack(spacing: 4) {
-            if row.result?.backup != nil {
+            if row.canRestore {
                 RowButton(symbol: "arrow.uturn.backward", title: Strings.text("Restore the original")) { Task { await app.restore(row) } }
             }
             if canRetry {
@@ -206,7 +217,7 @@ struct BatchRowView: View {
         if let result = row.result {
             Button(Strings.text("Compare with the original…")) { app.onCompare?(result) }
         }
-        if row.result?.backup != nil {
+        if row.canRestore {
             Button(Strings.text("Restore the original")) { Task { await app.restore(row) } }
         }
 

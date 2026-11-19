@@ -56,11 +56,10 @@ public enum Metrics {
     /// Space between the results and the screen edge; also room for the glass shadow.
     public static let screenMargin: CGFloat = 16
 
-    // The drop zone keeps the earlier card geometry.
-    public static let dropZoneWidth: CGFloat = 300
+    /// The drop zone's panel: the options popover's radius, so the two read as one family.
+    public static let dropZoneRadius: CGFloat = 22
     public static let panelRadius: CGFloat = 12
     public static let controlRadius: CGFloat = 6
-    public static let dropZoneIcon: CGFloat = 44
 }
 
 public enum Motion {

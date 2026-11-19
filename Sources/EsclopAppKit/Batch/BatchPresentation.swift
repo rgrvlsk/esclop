@@ -73,6 +73,17 @@ public struct BatchPresentation: Equatable {
         case let .working(fraction):
             return fraction > 0 ? String(format: t("Optimising %d %%"), locale: locale, Int((fraction * 100).rounded())).replacingOccurrences(of: " %", with: Figures.space + "%") : t("Optimising…")
         case let .done(result):
+            // An automatic upload says how it goes; the saving stays in the figure.
+            switch row.upload {
+            case let .uploading(fraction):
+                return String(format: t("Uploading… %d %%"), locale: locale, Int((min(1, max(0, fraction)) * 100).rounded()))
+                    .replacingOccurrences(of: " %", with: Figures.space + "%")
+            case .uploaded: return t("Uploaded · link copied")
+            // ponytail: a row has no Upload Again; its Share tab or a card has. Add one when batch
+            // uploads fail often enough to matter.
+            case let .failed(message): return t("Not uploaded") + " · " + message
+            case nil: break
+            }
             if Figures.isNoSaving(before: result.bytesBefore, after: result.bytesAfter) {
                 return String(format: t("Already optimised · %@"), locale: locale, Figures.bytes(result.bytesAfter, locale: locale))
             }

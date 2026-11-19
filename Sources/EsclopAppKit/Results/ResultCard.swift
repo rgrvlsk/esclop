@@ -60,6 +60,11 @@ public final class ResultCard: Identifiable {
     /// The last run cropped, downscaled or fitted the file. Restore runs the choice again without
     /// that change, so it is not offered then.
     public var adjusted = false
+    /// The scale the last run applied to the original, 1 when it was not scaled (a crop is not a
+    /// scale): the Size tab's chosen tile.
+    public var downscale = 1.0
+    /// Undo is putting the original back; its buttons wait until it is done.
+    public var restoring = false
     /// The detail's name is being edited: the card's keys stand aside, and come back after.
     public var renaming = false
     /// The detail's picture is a loupe (Compare); nil when it is not.
@@ -168,3 +173,5 @@ public final class ResultCard: Identifiable {
         }
     }
 }
+
+extension ResultCard: ShowsUpload {}

@@ -92,7 +92,7 @@ public enum SettingsPane: String, CaseIterable, Identifiable, Hashable, Sendable
     public func footer(for section: SettingsSection) -> String? {
         switch section {
         case .agents:
-            return Strings.text("The MCP server checks every request from an agent against these switches, and the app checks it again. They start off, and agents cannot turn them on. The esclop command line acts for you and is not limited by them.")
+            return Strings.text("The MCP server checks every request from an agent against these switches, and the app checks it again. They start off. They bind agents that use MCP only: anything running as you, an agent with a shell too, can use the esclop command line, which acts for you without these limits.")
         default:
             return nil
         }

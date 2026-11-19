@@ -22,6 +22,21 @@ public protocol PipelineRunning: Sendable {
     ) async throws -> OptimisationResult
 }
 
+/// A pipeline step failed (or the run was cancelled) after earlier steps had already changed the
+/// file. `partial` is what they made, with its backup, so it is reported and can be restored.
+public struct PipelineStepFailure: Error, Sendable {
+    /// The step as pipeline text; nil when the run stopped between steps (a cancel).
+    public var step: String?
+    public var error: EsclopError
+    public var partial: OptimisationResult?
+
+    public init(step: String?, error: EsclopError, partial: OptimisationResult?) {
+        self.step = step
+        self.error = error
+        self.partial = partial
+    }
+}
+
 extension PipelineRunning {
     /// Whether the pipeline has `upload` steps, which agents need `allowUploads` for.
     public func usesUploads(_ pipeline: String) throws -> Bool { false }
@@ -62,6 +77,14 @@ public struct JobExecutor: Sendable {
                 let result = try await process(source, job: job) { events(.progress($0)) }
                 report.results.append(result)
                 events(.result(result))
+            } catch let failed as PipelineStepFailure {
+                if let partial = failed.partial {
+                    report.results.append(partial)
+                    events(.result(partial))
+                }
+                let failure = FileFailure(source: source, error: failed.error, step: failed.step)
+                report.failures.append(failure)
+                events(.failure(failure))
             } catch {
                 let failure = FileFailure(source: source, error: .wrap(error))
                 report.failures.append(failure)
@@ -145,73 +168,28 @@ public struct JobExecutor: Sendable {
     }
 }
 
-/// Where an operation writes, following `OutputLocation`.
+/// Where an operation writes, following `OutputLocation`: the same rule as the engines
+/// (`OutputLocation.destination`), so in place never replaces a sibling and a relative template
+/// starts in the source's folder everywhere.
 public enum OutputPlanner {
-    /// `%f` file name without extension, `%e` extension, `%d` source folder, `~` home.
+    /// `.sameFolder` names the file `<name>-<suffix>`. Creates the folder it lands in.
     public static func destination(for source: URL, location: OutputLocation, suffix: String, extension ext: String? = nil) throws -> URL {
-        let ext = ext ?? source.pathExtension
-        let name = source.deletingPathExtension().lastPathComponent
-        let folder = source.deletingLastPathComponent()
-        switch location {
-        case .inPlace:
-            return folder.appendingPathComponent(name).appendingPathExtension(ext)
-        case .sameFolder:
-            return uniqueURL(folder.appendingPathComponent("\(name)-\(suffix)").appendingPathExtension(ext))
-        case .temporary:
-            let temp = try Paths.ensure(Paths.temporary.appendingPathComponent(UUID().uuidString.prefix(8).description, isDirectory: true))
-            return temp.appendingPathComponent(name).appendingPathExtension(ext)
-        case let .path(template):
-            let (target, isFolder) = resolve(template, for: source, extension: ext)
-            try Paths.ensure(isFolder ? target : target.deletingLastPathComponent())
-            return isFolder ? target.appendingPathComponent(name).appendingPathExtension(ext) : target
-        }
-    }
-
-    /// Where a path template points for `source`, without touching the disk. `isFolder` when it
-    /// names a folder (ends in `/` or is an existing folder) the file goes into.
-    public static func resolve(_ template: String, for source: URL, extension ext: String? = nil) -> (url: URL, isFolder: Bool) {
-        let ext = ext ?? source.pathExtension
-        let expanded = (template
-            .replacingOccurrences(of: "%f", with: source.deletingPathExtension().lastPathComponent)
-            .replacingOccurrences(of: "%e", with: ext)
-            .replacingOccurrences(of: "%d", with: source.deletingLastPathComponent().path) as NSString).expandingTildeInPath
-        let target = expanded.hasPrefix("/")
-            ? URL(fileURLWithPath: expanded).standardizedFileURL
-            : URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(expanded).standardizedFileURL
-        var isDirectory: ObjCBool = false
-        let isFolder = template.hasSuffix("/") || (FileManager.default.fileExists(atPath: target.path, isDirectory: &isDirectory) && isDirectory.boolValue)
-        return (target, isFolder)
+        let target = location.destination(for: source, extension: ext ?? source.pathExtension, sameFolderTemplate: "%f-\(suffix)")
+        try Paths.ensure(target.deletingLastPathComponent())
+        return target
     }
 
     /// The file a job would write for `source` when `location` is a path, for the permission gate.
     public static func plannedFile(for source: URL, location: OutputLocation, operation: JobOperation) -> URL? {
-        guard case let .path(template) = location else { return nil }
+        guard case .path = location else { return nil }
         var ext = source.pathExtension
         if case let .convert(format) = operation { ext = format == .gifVideo ? "gif" : format.rawValue }
-        let (target, isFolder) = resolve(template, for: source, extension: ext)
-        return isFolder
-            ? target.appendingPathComponent(source.deletingPathExtension().lastPathComponent).appendingPathExtension(ext)
-            : target
+        return location.destination(for: source, extension: ext)
     }
 
-    /// Copies `source` into the backups folder and returns the copy.
+    /// Copies `source` into the backups folder with its manifest, so retention prunes it like
+    /// any other backup, and returns the copy.
     public static func backup(_ source: URL, into folder: URL) throws -> URL {
-        let day = ISO8601DateFormatter.string(from: Date(), timeZone: .current, formatOptions: [.withFullDate])
-        let target = try Paths.ensure(folder.appendingPathComponent(day, isDirectory: true))
-            .appendingPathComponent("\(UUID().uuidString.prefix(8))-\(source.lastPathComponent)")
-        try FileManager.default.copyItem(at: source, to: target)
-        return target
-    }
-
-    static func uniqueURL(_ url: URL) -> URL {
-        guard FileManager.default.fileExists(atPath: url.path) else { return url }
-        let base = url.deletingPathExtension().lastPathComponent
-        let ext = url.pathExtension
-        let folder = url.deletingLastPathComponent()
-        for n in 2 ... 9999 {
-            let candidate = folder.appendingPathComponent("\(base)-\(n)").appendingPathExtension(ext)
-            if !FileManager.default.fileExists(atPath: candidate.path) { return candidate }
-        }
-        return folder.appendingPathComponent("\(base)-\(UUID().uuidString.prefix(6))").appendingPathExtension(ext)
+        try BackupStore(root: folder).backUp(source, output: source).backup
     }
 }
