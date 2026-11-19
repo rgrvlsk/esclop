@@ -4891,6 +4891,16 @@
         }
       }
     },
+    "On the result under the pointer: Quick Look, Undo, Copy": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Al resultat sota el punter: Vista ràpida, Desfés, Copia"
+          }
+        }
+      }
+    },
     "Only if": {
       "localizations": {
         "ca": {
@@ -7057,6 +7067,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "espai"
+          }
+        }
+      }
+    },
+    "Space, ⌘Z, ⌘C": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espai, ⌘Z, ⌘C"
           }
         }
       }

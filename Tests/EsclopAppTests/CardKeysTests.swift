@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The card's plain keys (DESIGN.md › Keys): what each key does to which card, the resting
+// The card's keys (DESIGN.md › Keys): what each key does to which card, the resting
 // pointer's hotkeys, and a keyboard-only Undo of a copied screenshot. The UI check cannot press
 // keys in the app, so these are the evidence that the keys reach the model.
 
@@ -26,6 +26,14 @@ import Testing
             #expect(CardKeys.command(for: key, on: shot) == command, "key \(key)")
         }
         #expect(CardKeys.command(for: "q", on: shot) == nil)
+    }
+
+    /// Clop's modifiers: Space alone, every other key with ⌘, so a resting pointer never takes
+    /// letters typed into the app in front. The "…" menu shows the same chord.
+    @Test func onlySpaceGoesWithoutCommand() {
+        #expect(CardKeys.all.filter { !CardKeys.needsCommand($0) } == [" "])
+        #expect(CardKeys.label(for: .compare) == "⌘D")
+        #expect(CardKeys.label(for: .share) == nil)
     }
 
     /// The hover keys hold only what the card can do: a file at work takes Backspace (Stop) and

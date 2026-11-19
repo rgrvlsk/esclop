@@ -365,6 +365,13 @@ struct DonePage: View {
                         Text(hotkey.title)
                     }
                 }
+                // The card keys (DESIGN.md › Keys), the three most used.
+                GridRow {
+                    Text(Strings.text("Space, ⌘Z, ⌘C"))
+                        .font(.title3.weight(.medium))
+                        .gridColumnAlignment(.trailing)
+                    Text(Strings.text("On the result under the pointer: Quick Look, Undo, Copy"))
+                }
             }
             .padding(.top, 28)
             Text(Strings.text("Change the shortcuts in Settings → General."))

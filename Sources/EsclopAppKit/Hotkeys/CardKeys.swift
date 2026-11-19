@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The plain keys a result card takes, as in Clop: on the card under the pointer (`HoverKeys`,
-// without a click and without taking the keys from the app in front) and on the card that has
-// the keys (a click, or the "Go to the newest result" hotkey). DESIGN.md › Keys lists them.
+// The keys a result card takes, with Clop's modifiers: ⌘ and a key, Space alone. They work on
+// the card under the pointer (`HoverKeys`, without a click and without taking the window from
+// the app in front) and on the card that has the keys (a click, or the "Go to the newest result"
+// hotkey). DESIGN.md › Keys lists them. Keys are named by the character they type.
 
 import EsclopCore
 import Foundation
@@ -22,6 +23,10 @@ enum CardKeys {
     static let letters: KeyValuePairs<Character, CardPresentation.Action> = [
         "z": .undo, "c": .copy, "f": .reveal, "d": .compare, "k": .crop, "s": .save,
     ]
+
+    /// Space is pressed alone, as in Clop; every other key with ⌘, so a pointer resting on a card
+    /// never takes letters typed into the app in front.
+    static func needsCommand(_ key: Character) -> Bool { key != " " }
 
     /// Every key, in DESIGN.md's order.
     static let all: [Character] = [" "] + letters.map(\.key) + [delete, "-"] + (1...9).map { Character(String($0)) }
@@ -76,12 +81,12 @@ enum CardKeys {
 
     /// The key a "…" menu row shows at its end, as a system menu shows its key.
     static func label(for action: CardPresentation.Action) -> String? {
-        letters.first { $0.value == action }.map { $0.key.uppercased() }
+        letters.first { $0.value == action }.map { "⌘" + $0.key.uppercased() }
     }
 }
 
 extension AppModel {
-    /// Runs a plain key on `card`; false when the key does nothing there.
+    /// Runs a card key on `card` (its ⌘ already checked); false when it does nothing there.
     @discardableResult
     func press(_ key: Character, on card: ResultCard) -> Bool {
         guard let command = CardKeys.command(for: Character(key.lowercased()), on: card) else { return false }

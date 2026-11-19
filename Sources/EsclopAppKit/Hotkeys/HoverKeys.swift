@@ -26,8 +26,9 @@ final class HoverKeys {
     /// The keys `owner` holds now.
     var keys: [Character] { held.map(\.key) }
 
-    /// `owner` takes `keys` until it gives them back; another card's keys go first. A key that
-    /// another app already holds, or that the keyboard layout has no plain key for, is skipped.
+    /// `owner` takes `keys` (with ⌘, Space alone) until it gives them back; another card's keys
+    /// go first. A key that another app already holds, or that the keyboard layout types only
+    /// with Shift or Option, is skipped.
     func hold(_ keys: [Character], for owner: UUID, press: @escaping (Character) -> Void) {
         release()
         installHandler()
@@ -36,7 +37,8 @@ final class HoverKeys {
             guard let code = codes[key] else { continue }
             var ref: EventHotKeyRef?
             let id = EventHotKeyID(signature: Self.signature, id: UInt32(held.count))
-            if RegisterEventHotKey(code, 0, id, GetEventDispatcherTarget(), 0, &ref) == noErr, let ref {
+            let modifiers = CardKeys.needsCommand(key) ? UInt32(cmdKey) : 0
+            if RegisterEventHotKey(code, modifiers, id, GetEventDispatcherTarget(), 0, &ref) == noErr, let ref {
                 held.append((ref, key))
             }
         }
@@ -67,8 +69,8 @@ final class HoverKeys {
         handlerInstalled = InstallEventHandler(GetEventDispatcherTarget(), hoverKeyPressed, 1, &spec, nil, nil) == noErr
     }
 
-    /// The plain key that types each character in the current layout (on AZERTY the digits need
-    /// Shift, so they are not held there). Space and Backspace are the same key everywhere.
+    /// The key that types each character in the current layout without Shift or Option (on
+    /// AZERTY the digits need Shift, so they are not held there). Space and Backspace are the same key everywhere.
     static func keyCodes() -> [Character: UInt32] {
         var codes: [Character: UInt32] = [" ": UInt32(kVK_Space), CardKeys.delete: UInt32(kVK_Delete)]
         guard let source = TISCopyCurrentASCIICapableKeyboardLayoutInputSource()?.takeRetainedValue(),
