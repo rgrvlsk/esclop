@@ -87,7 +87,7 @@ struct ImageEngine: Sendable {
             source, info: info, sourceFormat: sourceFormat, target: target, geometry: geometry, curves: curves,
             strip: plan.strip, work: work, progress: progress, steps: steps, allowLarger: allowLarger
         )
-        if env.value(EsclopSettings.adaptiveImageSize), plan.format == nil, target == .png, !info.hasAlpha, !info.isAnimated {
+        if plan.request.adaptiveImageFormat ?? env.value(EsclopSettings.adaptiveImageSize), plan.format == nil, target == .png, !info.hasAlpha, !info.isAnimated {
             produced = await adaptiveJPEG(instead: produced, curves: curves, strip: plan.strip, work: work)
         }
         return produced
@@ -293,8 +293,8 @@ struct ImageEngine: Sendable {
         }
     }
 
-    /// With "adaptive image format" on, a PNG without transparency is also tried as JPEG and the
-    /// JPEG wins when it is smaller by more than 100 KB.
+    /// With "adaptive image format" on (or a request asking for it), a PNG without transparency
+    /// is also tried as JPEG and the JPEG wins when it is smaller by more than 100 KB.
     private func adaptiveJPEG(instead produced: Produced, curves: Curves, strip: Bool, work: WorkFolder) async -> Produced {
         let jpeg = work.file(stem: "adaptive", ext: "jpeg")
         guard (try? await encode(produced.url, inputFormat: .png, to: jpeg, target: .jpeg, curves: curves, strip: strip, work: work, report: { _ in })) != nil,

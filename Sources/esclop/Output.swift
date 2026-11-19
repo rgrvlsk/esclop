@@ -35,6 +35,7 @@ struct Terminal {
         let percent = saved ? "−\(ResultSummary.percentText(result.savedPercent))%" : "+\(ResultSummary.percentText(-result.savedPercent))%"
         var text = "\(green("✓")) \(bold(name)) \(ByteSize.format(result.bytesBefore)) \(dim("→")) \(ByteSize.format(result.bytesAfter)) \(saved ? green(percent) : yellow(percent))"
         if let link = result.link { return "\(green("✓")) \(bold(name)) \(dim("→")) \(cyan(link))" }
+        if result.skippedByFilter { return "\(dim("–")) \(bold(name)) \(dim("skipped by the filter"))" }
         if result.output != result.source { text += " \(dim("→")) \(cyan(PathInput.abbreviate(result.output)))" }
         return text
     }
@@ -42,7 +43,7 @@ struct Terminal {
     func line(_ failure: FailureSummary) -> String {
         let name = bold(URL(fileURLWithPath: failure.source).lastPathComponent)
         if failure.isUnchanged { return "\(dim("–")) \(name) \(dim("unchanged: already as small as it gets"))" }
-        return "\(red("✗")) \(name) \(red(failure.error))"
+        return "\(red("✗")) \(name) \(red(failure.message))"
     }
 }
 

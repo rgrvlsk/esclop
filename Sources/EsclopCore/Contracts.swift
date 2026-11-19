@@ -201,6 +201,9 @@ public struct OptimisationRequest: Codable, Identifiable, Sendable {
     /// a result in another format then goes where the "Converted … go" setting for its kind says.
     /// nil or false keeps `location`.
     public var locationFromSettings: Bool?
+    /// Also try a PNG without transparency as JPEG and keep the JPEG when it is much smaller.
+    /// nil follows the "adaptive image format" setting.
+    public var adaptiveImageFormat: Bool?
 
     public init(
         id: UUID = UUID(), sources: [URL], origin: RequestOrigin, quality: CompressionQuality = .normal,
@@ -209,13 +212,14 @@ public struct OptimisationRequest: Codable, Identifiable, Sendable {
         videoEncoder: VideoEncoder? = nil, pdfDPI: Int? = nil, location: OutputLocation = .inPlace,
         pipeline: String? = nil, showResultUI: Bool = true,
         fpsCap: Double? = nil, videoBitrateKbps: Int? = nil, audioBitrateKbps: Int? = nil,
-        loudnessLUFS: Double? = nil, keepHDR: Bool? = nil
+        loudnessLUFS: Double? = nil, keepHDR: Bool? = nil, adaptiveImageFormat: Bool? = nil
     ) {
         self.fpsCap = fpsCap
         self.videoBitrateKbps = videoBitrateKbps
         self.audioBitrateKbps = audioBitrateKbps
         self.loudnessLUFS = loudnessLUFS
         self.keepHDR = keepHDR
+        self.adaptiveImageFormat = adaptiveImageFormat
         self.id = id
         self.sources = sources
         self.origin = origin
