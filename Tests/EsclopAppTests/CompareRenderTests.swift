@@ -84,10 +84,12 @@ import Testing
         window.setContentSize(CGSize(width: 1040, height: 760))
         window.orderFrontRegardless()
         defer { window.close() }
+        // The window shows each change before the next: a layout pass applies it to the view at
+        // once, and the display draws it.
         func act(_ change: () async -> Void) async throws {
             await change()
-            try await Task.sleep(for: .milliseconds(120))
             window.contentView?.layoutSubtreeIfNeeded()
+            window.displayIfNeeded()
         }
         try await act { await compare.load() }
         // Every layout, zoomed and with the overlay, then back.
@@ -123,6 +125,7 @@ import Testing
         // Back to the image while everything above is gone.
         try await act { compare.open(image) }
         try await act { await compare.load() }
-        #expect(compare.afterImage != nil)
+        // The view's own load may still be decoding: `load()` returns at once for media it is loading.
+        #expect(await eventually { compare.afterImage != nil })
     }
 }
