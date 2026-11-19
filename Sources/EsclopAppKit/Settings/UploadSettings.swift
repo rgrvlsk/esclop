@@ -32,13 +32,10 @@ public struct UploadSettingsSupport {
             let key = target.key(for: file)
             let link = try await uploader.upload(file, to: target, key: key, credentials: keys)
             // The link the person will send must open without the keys. The test file goes after.
-            do {
-                try await uploader.checkLink(link)
-            } catch {
-                try? await uploader.delete(key, from: target, credentials: keys)
-                throw error
-            }
+            var unreachable: Error?
+            do { try await uploader.checkLink(link) } catch { unreachable = error }
             try? await uploader.delete(key, from: target, credentials: keys)
+            if let unreachable { throw unreachable }
             return link
         }
     }

@@ -150,7 +150,7 @@ public struct AppDesktop: PipelineDesktop {
         self.original = original
     }
 
-    public func copy(text: String) async { await model?.copyToClipboard(text: text) }
+    public func copy(text: String) async { await model?.copyToClipboard(text: text, automatic: true) }
 
     public func copy(imageData: Data, type: UTType) async { await model?.copyToClipboard(imageData: imageData, type: type) }
 

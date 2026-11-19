@@ -183,20 +183,13 @@ public final class AppModel {
         events: @escaping @Sendable (JobEvent) -> Void = { _ in },
         onResult: ((OptimisationResult) -> Void)? = nil
     ) async -> JobReport {
-        // A pipeline that failed late reports what its earlier steps made and the failing step
-        // (`PipelineStepFailure`) through the events: the report keeps both, as CLI and MCP do.
-        let late = LateFailures()
-        let events: @Sendable (JobEvent) -> Void = { [events] event in
-            late.note(event)
-            events(event)
-        }
         let batch = batch ?? (existing == nil && job.request.showResultUI && job.request.sources.count >= batchThreshold
             ? openBatch(origin: job.request.origin) : nil)
         // A fork shows as a result of its own beside a single floating result, not in a batch.
         let single = job.request.showResultUI && batch == nil && job.request.sources.count == 1 ? job.request.sources.first : nil
         let desktop = AppDesktop(model: self, original: single.map { ($0, Self.size(of: $0)) })
         let executor = executor(for: job.request.origin, desktop: job.request.origin == .mcp ? nil : desktop, sourceApp: sourceApp)
-        var tasks: [(URL, Task<Result<OptimisationResult, EsclopError>, Never>)] = []
+        var tasks: [(URL, Task<Result<OptimisationResult, PipelineStepFailure>, Never>)] = []
         for source in job.request.sources {
             if let batch {
                 let row = batch.row(for: source, bytes: Self.size(of: source))
@@ -228,10 +221,10 @@ public final class AppModel {
             for (source, task) in tasks {
                 switch await task.value {
                 case let .success(result): report.results.append(result)
-                case let .failure(error):
-                    let (partial, step) = late.found(for: source)
-                    if let partial { report.results.append(partial) }
-                    report.failures.append(FileFailure(source: source, error: error, step: step))
+                case let .failure(failure):
+                    // A pipeline that failed late: what its earlier steps made, and the step, as CLI and MCP report.
+                    if let partial = failure.partial { report.results.append(partial) }
+                    report.failures.append(FileFailure(source: source, error: failure.error, step: failure.step))
                 }
             }
             return report
@@ -258,7 +251,7 @@ public final class AppModel {
     private func startRow(
         _ row: BatchRow, in batch: Batch, job: OptimisationJob, executor: JobExecutor,
         events: @escaping @Sendable (JobEvent) -> Void, onResult: ((OptimisationResult) -> Void)?
-    ) -> Task<Result<OptimisationResult, EsclopError>, Never> {
+    ) -> Task<Result<OptimisationResult, PipelineStepFailure>, Never> {
         let source = row.source
         var single = job
         single.request.sources = [source]
@@ -332,7 +325,7 @@ public final class AppModel {
     private func process(
         _ source: URL, job: OptimisationJob, executor: JobExecutor, card: ResultCard?, row: BatchRow? = nil, batch: Batch? = nil,
         events: @escaping @Sendable (JobEvent) -> Void, onResult: ((OptimisationResult) -> Void)?
-    ) async -> Result<OptimisationResult, EsclopError> {
+    ) async -> Result<OptimisationResult, PipelineStepFailure> {
         activeFiles += 1
         defer { activeFiles -= 1 }
         if let batch {
@@ -350,6 +343,7 @@ public final class AppModel {
         if let row, !Task.isCancelled { row.state = .working(0) }
         let outcome: Result<OptimisationResult, EsclopError>
         var failedStep: String?
+        var partial: OptimisationResult?
         if Task.isCancelled {
             outcome = .failure(.cancelled)
         } else {
@@ -364,6 +358,7 @@ public final class AppModel {
                 outcome = .success(result)
             } catch let failed as PipelineStepFailure {
                 // Earlier steps changed the file: keep that in Recent, where its backup restores.
+                partial = failed.partial
                 if let partial = failed.partial {
                     events(.result(partial))
                     noteWritten([partial.output, partial.source] + [partial.backup].compactMap { $0 })
@@ -412,7 +407,7 @@ public final class AppModel {
             announce(BatchPresentation(batch: batch).announcement)
             copyLinks(of: batch)
         }
-        return outcome
+        return outcome.mapError { PipelineStepFailure(step: failedStep, error: $0, partial: partial) }
     }
 
     private func progress(_ fraction: Double, cardID: UUID) {
@@ -853,27 +848,5 @@ public final class AppModel {
 
     nonisolated static func size(of url: URL) -> Int {
         ((try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? NSNumber)?.intValue ?? 0
-    }
-}
-
-/// The last result and failing step each file's events reported, for a report built from task
-/// outcomes: a failed file's result event is the partial result its earlier steps made.
-private final class LateFailures: @unchecked Sendable {
-    private let lock = NSLock()
-    private var results: [String: OptimisationResult] = [:]
-    private var steps: [String: String] = [:]
-
-    func note(_ event: JobEvent) {
-        lock.withLock {
-            switch event {
-            case let .result(result): results[result.source.path] = result
-            case let .failure(failure): steps[failure.source.path] = failure.step
-            case .progress: break
-            }
-        }
-    }
-
-    func found(for source: URL) -> (partial: OptimisationResult?, step: String?) {
-        lock.withLock { (results[source.path], steps[source.path]) }
     }
 }
