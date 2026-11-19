@@ -206,10 +206,16 @@ import Testing
     @Test func dropZoneWording() {
         let state = DropZoneState(fileCount: 1)
         #expect(state.title == "Drop to optimise")
-        #expect(state.detail == "1 file. Hold ⌘ for harder")
+        #expect(state.tileTitle == "Optimise")
+        #expect(state.count == "1 file")
+        #expect(state.hint == "Hold ⌘ to optimise harder")
         state.harder = true
         state.fileCount = 3
         #expect(state.title == "Drop to optimise harder")
-        #expect(state.detail == "3 files with the aggressive settings")
+        #expect(state.tileTitle == "Optimise harder")
+        #expect(state.count == "3 files")
+        #expect(state.hint == "With the aggressive settings")
+        state.fileCount = 0
+        #expect(state.count.isEmpty, "shown without a drag: no count")
     }
 }
