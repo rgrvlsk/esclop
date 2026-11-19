@@ -85,6 +85,18 @@ struct Session {
         #expect(result.json.contains("\"savedPercent\""))
     }
 
+    @Test func aPipelineThatFailsLateIsAnError() async throws {
+        let session = try await Session.start()
+        defer { Task { await session.stop() } }
+        // The fake engine cannot watermark: the result of `optimise` is reported, and the file still failed.
+        let result = try await session.call("esclop_pipeline_run", [
+            "pipeline": #"optimise -> watermark(image: "mark.png")"#, "paths": .string(session.temp.file("a.png").path),
+        ])
+        #expect(result.isError, "\(result.text)")
+        #expect(result.json.contains("\"step\""), "\(result.json)")
+        #expect(session.engine.calls == ["optimise"])
+    }
+
     @Test func declinedElicitationChangesNothing() async throws {
         let session = try await Session.start(.decline)
         defer { Task { await session.stop() } }

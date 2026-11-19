@@ -112,8 +112,8 @@ public struct MenuPanel: View {
         .frame(width: Self.width)
         .background { MenuPanelSurface(notch: notch) }
         .padding(.top, MenuPanelSurface.notchHeight)
-        // The week's saving, again whenever a result arrives or the list is cleared.
-        .task(id: model.recent.first?.id) { savings = await Self.loadSavings(model.service.results) }
+        // The week's saving, again whenever a result arrives or leaves, or the list is cleared.
+        .task(id: model.recent.map(\.id)) { savings = await Self.loadSavings(model.service.results) }
         // The arrows work at once, as in a menu.
         .defaultFocus($listFocused, true)
         .onAppear { flags.start { option = $0.contains(.option) } }

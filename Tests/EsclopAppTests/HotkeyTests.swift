@@ -28,7 +28,8 @@ import Testing
         #expect(harness.requests.requests.first?.origin == .clipboard)
 
         // Pressed again on the result it wrote: no second run, no twin result.
-        Hotkeys.action(for: .optimiseClipboard)(harness.model)
+        #expect(await eventually { Clipboard.isOwnWrite(harness.pasteboard) })
+        await harness.model.optimiseClipboard(aggressive: false)
         #expect(harness.model.cards.count == 1)
         #expect(harness.requests.requests.count == 1)
     }
@@ -39,16 +40,18 @@ import Testing
         harness.pasteboard.setData(pngData(), forType: .png)
         Hotkeys.action(for: .optimiseClipboard)(harness.model)
         #expect(await eventually { harness.model.cards.first?.result != nil })
+        #expect(await eventually { Clipboard.isOwnWrite(harness.pasteboard) })
         Hotkeys.action(for: .optimiseClipboardHarder)(harness.model)
         #expect(await eventually { harness.requests.requests.count == 2 && harness.model.cards.last?.result != nil })
         #expect(harness.requests.requests.last?.quality == .aggressive)
         #expect(harness.model.cards.count == 1, "the harder result replaces the first")
     }
 
-    @Test func anEmptyClipboardSaysSo() {
+    @Test func anEmptyClipboardSaysSo() async {
         let harness = Harness()
         harness.pasteboard.clearContents()
         Hotkeys.action(for: .optimiseClipboard)(harness.model)
+        #expect(await eventually { !harness.model.cards.isEmpty })
         guard case let .notice(title, _) = harness.model.cards.first?.phase else {
             Issue.record("expected a notice")
             return

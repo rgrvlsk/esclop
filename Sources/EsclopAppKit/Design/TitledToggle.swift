@@ -18,6 +18,7 @@ struct TitledToggle: View {
             Text(subtitle)
         }
         .switchLabel(title: title, hint: subtitle)
+        .tint(Ink.charcoal)
     }
 }
 
