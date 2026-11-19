@@ -21,19 +21,19 @@ func rejects(_ arguments: [String]) -> Bool {
     @Test func optimise() throws {
         let command: Optimise = try parse(["optimise", "a.png", "~/b.mov", "-a", "--downscale-factor", "0.5", "--crop", "1920x1080",
                                            "--remove-audio", "--playback-speed-factor", "2", "--pdf-dpi", "150", "-r", "--types", "png", "jpg",
-                                           "--exclude-types", "gif", "-o", "~/out/", "--behaviour", "samefolder", "--skip-errors", "--no-gui", "-n", "-c", "-j", "--in-process"])
-        #expect(command.files.items == ["a.png", "~/b.mov"])
+                                           "--exclude-types", "gif", "-o", "~/out/", "--skip-errors", "--no-gui", "-n", "-c", "-j", "--in-process"])
+        #expect(command.files.inputs.items == ["a.png", "~/b.mov"])
         #expect(command.quality.aggressive)
         #expect(command.quality.quality == .aggressive)
         #expect(command.downscaleFactor == 0.5)
         #expect(command.crop == "1920x1080")
-        #expect(command.removeAudio && command.files.recursive && command.files.skipErrors && command.files.noProgress && command.files.copy)
+        #expect(command.removeAudio && command.files.inputs.recursive && command.files.inputs.skipErrors && command.files.inputs.noProgress && command.files.copy)
         #expect(command.playbackSpeedFactor == 2)
         #expect(command.pdfDPI == 150)
-        #expect(command.files.types == ["png", "jpg"])
-        #expect(command.files.excludeTypes == ["gif"])
+        #expect(command.files.inputs.types == ["png", "jpg"])
+        #expect(command.files.inputs.excludeTypes == ["gif"])
         #expect(command.files.location == .path("~/out/"))
-        #expect(!command.files.gui)
+        #expect(!command.files.inputs.gui)
         #expect(command.global.json && command.global.inProcess)
         #expect(try parse(["optimize", "a.png"], as: Optimise.self).files.location == .inPlace)
         #expect(try parse(["optimise", "a.png", "--compression", "70"], as: Optimise.self).quality.quality == CompressionQuality(tier: .custom, factor: 70))
@@ -46,6 +46,35 @@ func rejects(_ arguments: [String]) -> Bool {
         #expect(rejects(["optimise", "a.png", "--crop", "big"]))
         #expect(rejects(["optimise", "a.png", "--behaviour", "specificfolder"]))
         #expect(rejects(["optimise", "a.png", "--behaviour", "sideways"]))
+        // Two answers to "where do results go".
+        #expect(rejects(["optimise", "a.png", "--behaviour", "temp", "-o", "out/"]))
+        #expect(rejects(["optimise", "a.png", "--behaviour", "inplace", "-o", "out/"]))
+        #expect(throws: Never.self) { try parse(["optimise", "a.png", "--behaviour", "specificfolder", "-o", "out/"], as: Optimise.self) }
+    }
+
+    /// -o is read from the working directory, like every Unix tool; only a location the person
+    /// did not choose follows "Converted … go".
+    @Test func outputPathsStartInTheWorkingDirectory() throws {
+        #expect(FileOptions.anchored("out/", workingDirectory: "/work") == "/work/out/")
+        #expect(FileOptions.anchored("./out/%f.png", workingDirectory: "/work/") == "/work/out/%f.png")
+        for absolute in ["/abs/", "~/out/", "%d/small/%f"] {
+            #expect(FileOptions.anchored(absolute, workingDirectory: "/work") == absolute)
+        }
+        let cwd = FileManager.default.currentDirectoryPath
+        let command: Optimise = try parse(["optimise", "in/a.png", "-o", "out/"])
+        #expect(command.files.location == .path(cwd + (cwd.hasSuffix("/") ? "" : "/") + "out/"))
+        #expect(!command.files.locationFromSettings)
+        #expect(try parse(["convert", "-t", "webp", "a.png"], as: Convert.self).files.locationFromSettings)
+        #expect(try !parse(["convert", "-t", "webp", "a.png", "--behaviour", "inplace"], as: Convert.self).files.locationFromSettings)
+    }
+
+    /// upload takes only what it honours: no output location, no --in-process.
+    @Test func uploadOffersOnlyWhatItHonours() throws {
+        let command: Upload = try parse(["upload", "a.png", "--to", "r2", "-c", "-j"])
+        #expect(command.target == "r2" && command.copy && command.printing.json)
+        #expect(rejects(["upload", "a.png", "-o", "out/"]))
+        #expect(rejects(["upload", "a.png", "--behaviour", "temp"]))
+        #expect(rejects(["upload", "a.png", "--in-process"]))
     }
 
     @Test func convert() throws {
@@ -74,8 +103,8 @@ func rejects(_ arguments: [String]) -> Bool {
         #expect(rejects(["fit", "--under", "lots", "a.png"]))
         #expect(rejects(["fit", "a.png"]))
 
-        #expect(try parse(["strip", "a.jpg", "-r"], as: Strip.self).files.recursive)
-        #expect(try parse(["strip-exif", "a.jpg"], as: Strip.self).files.items == ["a.jpg"])
+        #expect(try parse(["strip", "a.jpg", "-r"], as: Strip.self).files.inputs.recursive)
+        #expect(try parse(["strip-exif", "a.jpg"], as: Strip.self).files.inputs.items == ["a.jpg"])
     }
 
     @Test func pdf() throws {
@@ -104,7 +133,7 @@ func rejects(_ arguments: [String]) -> Bool {
         #expect(try parse(["pipeline", "show", "web"], as: Pipeline.Show.self).name == "web")
         let run: Pipeline.Run = try parse(["pipeline", "run", "crop(longEdge: 1600) -> convert(to: webp)", "a.png", "b.png", "--behaviour", "samefolder"])
         #expect(run.pipeline.hasPrefix("crop"))
-        #expect(run.files.items == ["a.png", "b.png"])
+        #expect(run.files.inputs.items == ["a.png", "b.png"])
         let write: Pipeline.Write = try parse(["pipeline", "write", "web", "convert(to: webp)", "--replace"])
         #expect(write.replace && write.name == "web")
         #expect(try parse(["pipeline", "add", "web", "-", "--force"], as: Pipeline.Write.self).replace)
@@ -160,6 +189,25 @@ func rejects(_ arguments: [String]) -> Bool {
         #expect(Output.exitCode(for: .cancelled) == 130)
         #expect(Output.exitCode(for: .other("x")) == 1)
         #expect(Output.exitCode(for: .unreadable(kind: .video)) == 65)
+    }
+
+    /// A file already as small as it gets is unchanged, not failed: `set -e` scripts that
+    /// optimise twice keep going.
+    @Test func alreadySmallestIsNotAFailure() {
+        func code(_ errors: [EsclopError], results: Int = 0) -> Int32 {
+            var report = JobReport(route: "in-process")
+            report.failures = errors.map { FileFailure(source: URL(fileURLWithPath: "/x/a.png"), error: $0) }
+            let result = OptimisationResult(
+                source: URL(fileURLWithPath: "/x/b.png"), output: URL(fileURLWithPath: "/x/b.png"), kind: .image,
+                bytesBefore: 2, bytesAfter: 1, startedAt: Date(), finishedAt: Date(), steps: []
+            )
+            report.results = Array(repeating: result, count: results)
+            return Output.exitCode(for: JobSummary(operation: "optimise", report: report))
+        }
+        #expect(code([.alreadySmaller]) == 0)
+        #expect(code([.alreadySmaller], results: 1) == 0)
+        #expect(code([.alreadySmaller, .fileNotFound("/x/c.png")]) == 1)
+        #expect(code([.fileNotFound("/x/c.png")]) == 66)
     }
 
     /// Exit 65 when every file was unreadable, through the real binary: the per-file path, which

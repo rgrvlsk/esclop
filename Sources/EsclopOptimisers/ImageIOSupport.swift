@@ -22,6 +22,8 @@ struct ImageInfo: Sendable {
     var frameCount: Int
     var hasGainMap: Bool
     var bitDepth: Int
+    /// Pixels per inch; 72 when the file does not say. 144 is a 2x (Retina) screenshot.
+    var dpi: Double = 72
 
     var isAnimated: Bool { frameCount > 1 }
 
@@ -39,7 +41,8 @@ struct ImageInfo: Sendable {
             hasAlpha: properties[kCGImagePropertyHasAlpha] as? Bool ?? false,
             frameCount: CGImageSourceGetCount(source),
             hasGainMap: ImageIOCodec.gainMapType(source) != nil,
-            bitDepth: properties[kCGImagePropertyDepth] as? Int ?? 8
+            bitDepth: properties[kCGImagePropertyDepth] as? Int ?? 8,
+            dpi: (properties[kCGImagePropertyDPIWidth] as? NSNumber)?.doubleValue ?? 72
         )
     }
 }
