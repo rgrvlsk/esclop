@@ -36,8 +36,15 @@ pub struct AvifOptions {
 pub trait AvifCodec: Send + Sync {
     /// For `hello`, e.g. "libaom 3.15.3 (tune=iq)".
     fn describe(&self) -> String;
-    /// `icc` and `exif` (TIFF payload) are embedded when the codec can.
-    fn encode(&self, img: &DynamicImage, o: &AvifOptions, icc: Option<&[u8]>, exif: Option<&[u8]>) -> Result<Vec<u8>>;
+    /// `icc`, `exif` (TIFF payload) and `xmp` are embedded when the codec can.
+    fn encode(
+        &self,
+        img: &DynamicImage,
+        o: &AvifOptions,
+        icc: Option<&[u8]>,
+        exif: Option<&[u8]>,
+        xmp: Option<&[u8]>,
+    ) -> Result<Vec<u8>>;
 }
 
 /// The AVIF codec of this build, if any.

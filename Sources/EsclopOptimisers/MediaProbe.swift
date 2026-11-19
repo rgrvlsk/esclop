@@ -46,6 +46,7 @@ struct MediaInfo: Sendable {
     var audio: Audio?
     /// Every stream, in file order.
     var streams: [Stream] = []
+    var chapterCount = 0
 
     var hasCoverArt: Bool { streams.contains { $0.type == "video" && $0.attachedPicture } }
 
@@ -56,7 +57,7 @@ struct MediaInfo: Sendable {
         let result: ProcessResult
         do {
             result = try await ProcessRunner.run(
-                .ffprobe, ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", url.path],
+                .ffprobe, ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", "-show_chapters", url.path],
                 options: ProcessOptions(timeout: 60), locator: tools
             )
         } catch let EsclopError.toolFailed(tool, code, stderr) {
@@ -84,6 +85,7 @@ struct MediaInfo: Sendable {
             bitrate: number(format["bit_rate"]).map { Int($0 / 1000) },
             video: nil, audio: nil
         )
+        info.chapterCount = json["chapters"]?.arrayValue?.count ?? 0
         for stream in streams {
             let type = stream["codec_type"]?.stringValue
             let attached = stream["disposition"]?["attached_pic"]?.intValue == 1

@@ -139,9 +139,13 @@ public final class OptionsModel {
     func effective(_ choice: OptimiseChoice) -> OptimiseChoice {
         var resolved = choice
         if resolved.format == nil { resolved.format = inputFormat }
-        if resolved.stripMetadata == nil { resolved.stripMetadata = EsclopSettings.stripMetadata.value(in: app.settings) }
+        if resolved.stripMetadata == nil { resolved.stripMetadata = stripsByDefault }
         return resolved
     }
+
+    /// What "Remove metadata" is when the choice leaves it to the settings: audio keeps its
+    /// tags unless asked, whatever the setting says.
+    var stripsByDefault: Bool { kind != .audio && EsclopSettings.stripMetadata.value(in: app.settings) }
 
     /// Formats the tiles offer for this kind of file.
     public var formats: [OutputFormat] { Self.formats(for: kind) }

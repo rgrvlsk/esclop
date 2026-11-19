@@ -350,8 +350,8 @@ import UniformTypeIdentifiers
     }
 }
 
-/// Video and audio keep what they carry (HC-10). Fixtures use only what the bundled ffmpeg can
-/// write; subtitles and chapters need Homebrew's (mov_text, ffmetadata) and are checked there.
+/// Video and audio keep what they carry (HC-10, HC-21). Fixtures use only what the bundled ffmpeg
+/// can write; subtitles and chapters need Homebrew's readers (srt, ffmetadata) and are checked there.
 @Suite(.enabled(if: Harness.hasFFmpeg)) struct MediaKeepsWhatItCarriesTests {
     func ffprobe(_ url: URL) async throws -> JSONValue {
         let result = try await ProcessRunner.run(.ffprobe, ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", "-show_chapters", url.path])
@@ -363,13 +363,83 @@ import UniformTypeIdentifiers
         return output.split(separator: "\n").contains { $0.split(separator: " ").dropFirst().first == Substring(name) }
     }
 
+    /// An MKV with a video, two audio tracks (cat, eng), two SubRip subtitles (cat, spa) and two
+    /// chapters, all with language tags, and a title.
+    func richMKV(_ world: TestWorld, ffmpeg: URL) async throws -> URL {
+        let mkv = world.file("film.mkv")
+        let srt = world.file("film.srt"), chapters = world.file("film.txt")
+        try "1\n00:00:00,000 --> 00:00:01,500\nHola\n".write(to: srt, atomically: true, encoding: .utf8)
+        try ";FFMETADATA1\ntitle=Holiday\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=0\nEND=1000\ntitle=Intro\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=1000\nEND=2000\ntitle=Main\n"
+            .write(to: chapters, atomically: true, encoding: .utf8)
+        try await ProcessRunner.run(executable: ffmpeg, arguments: [
+            "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=d=2:s=320x240:r=30",
+            "-f", "lavfi", "-i", "sine=d=2", "-f", "lavfi", "-i", "sine=f=660:d=2", "-i", srt.path, "-i", srt.path, "-i", chapters.path,
+            "-map", "0", "-map", "1", "-map", "2", "-map", "3", "-map", "4", "-map_metadata", "5", "-map_chapters", "5",
+            "-c:v", "mjpeg", "-q:v", "2", "-pix_fmt", "yuvj420p", "-c:a", "aac", "-c:s", "copy",
+            "-metadata:s:a:0", "language=cat", "-metadata:s:a:1", "language=eng",
+            "-metadata:s:s:0", "language=cat", "-metadata:s:s:1", "language=spa", mkv.path,
+        ])
+        return mkv
+    }
+
+    func languages(_ json: JSONValue, _ type: String) -> [String?] {
+        (json["streams"]?.arrayValue ?? []).filter { $0["codec_type"]?.stringValue == type }.map { $0["tags"]?["language"]?.stringValue }
+    }
+
+    func chapterTitles(_ json: JSONValue) -> [String] {
+        json["chapters"]?.arrayValue?.compactMap { $0["tags"]?["title"]?.stringValue } ?? []
+    }
+
+    /// `strip` removes what describes the person and nothing else: every track, language and
+    /// chapter stays (it used to keep only video and audio).
+    @Test func strippingAVideoKeepsEveryTrackLanguageAndChapter() async throws {
+        guard let ffmpeg = await Fixture.richFFmpeg() else { return }
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let mkv = try await richMKV(world, ffmpeg: ffmpeg)
+        let result = try await world.engine.stripMetadata(mkv, request: world.request(mkv, location: .temporary))
+        let json = try await ffprobe(result.output)
+        #expect(languages(json, "audio") == ["cat", "eng"])
+        #expect(languages(json, "subtitle") == ["cat", "spa"])
+        #expect(chapterTitles(json) == ["Intro", "Main"])
+        #expect(json["format"]?["tags"]?["title"] == nil)
+    }
+
+    /// MKV to MP4 rewrites text subtitles as mov_text instead of dropping them.
+    @Test func convertingToMP4KeepsTextSubtitles() async throws {
+        guard let ffmpeg = await Fixture.richFFmpeg() else { return }
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let mkv = try await richMKV(world, ffmpeg: ffmpeg)
+        let result = try await world.engine.convert(mkv, to: .mp4, request: world.request(mkv, location: .temporary), progress: { _ in })
+        let json = try await ffprobe(result.output)
+        let subtitles = (json["streams"]?.arrayValue ?? []).filter { $0["codec_type"]?.stringValue == "subtitle" }
+        #expect(subtitles.map { $0["codec_name"]?.stringValue } == ["mov_text", "mov_text"])
+        #expect(languages(json, "subtitle") == ["cat", "spa"])
+        #expect(!result.steps.contains { $0.hasPrefix("Left out") })
+    }
+
+    /// Chapter times do not follow a speed change, so the chapters go, and a step says so.
+    @Test func aSpeedChangeLeavesOutTheChaptersAndSaysSo() async throws {
+        guard let ffmpeg = await Fixture.richFFmpeg() else { return }
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let mkv = try await richMKV(world, ffmpeg: ffmpeg)
+        var request = world.request(mkv, location: .temporary)
+        request.playbackSpeed = 2
+        let result = try await world.engine.optimise(mkv, request: request, progress: { _ in })
+        #expect(chapterTitles(try await ffprobe(result.output)).isEmpty)
+        #expect(result.steps.contains("Left out 2 chapters: their times do not follow a speed change"))
+    }
+
     @Test func optimisingKeepsEveryTrackLanguageSubtitleAndChapter() async throws {
         let world = try await TestWorld()
         defer { Task { await world.finish() } }
         let mp4 = world.file("tracks.mp4")
-        let rich = await ffmpegLists("-encoders", "mov_text")
+        let richFFmpeg = await Fixture.richFFmpeg()
+        let rich = richFFmpeg != nil
         var args = ["-hide_banner", "-loglevel", "error", "-y",
-                    "-f", "lavfi", "-i", "testsrc2=d=2:s=320x240:r=30", "-f", "lavfi", "-i", "testsrc=d=2:s=160x120:r=30",
+                    "-f", "lavfi", "-i", "testsrc2=d=2:s=320x240:r=30", "-f", "lavfi", "-i", "color=c=blue:d=2:s=160x120:r=30",
                     "-f", "lavfi", "-i", "sine=d=2"]
         if rich {
             let srt = world.file("sub.srt"), chapters = world.file("chapters.txt")
@@ -380,7 +450,7 @@ import UniformTypeIdentifiers
         }
         args += ["-map", "0", "-map", "1", "-map", "2", "-c:v", "mjpeg", "-q:v", "2", "-pix_fmt", "yuvj420p", "-c:a", "aac",
                  "-metadata", "title=Holiday", "-metadata:s:a:0", "language=cat", mp4.path]
-        try await ProcessRunner.run(.ffmpeg, args)
+        if let richFFmpeg { try await ProcessRunner.run(executable: richFFmpeg, arguments: args) } else { try await ProcessRunner.run(.ffmpeg, args) }
 
         var request = world.request(mp4)
         request.stripMetadata = true
@@ -407,6 +477,7 @@ import UniformTypeIdentifiers
         let video = try await Inspect.media(result.output).video
         #expect(video?.width == 640)
         #expect(video?.height == 360)
+        #expect(result.steps.contains("Not enlarged to 2560x1440; kept 640x360"))
     }
 
     @Test func gifFollowsThePlaybackSpeedAndIsNeverFittedAsAnMP4() async throws {
@@ -429,9 +500,13 @@ import UniformTypeIdentifiers
         let world = try await TestWorld()
         defer { Task { await world.finish() } }
         let alac = world.file("album.m4a")
-        try await ProcessRunner.run(.ffmpeg, [
-            "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "anoisesrc=d=3:a=0.3", "-ac", "2", "-c:a", "alac_at", alac.path,
-        ])
+        let noise = world.file("noise.wav")
+        try Fixture.noiseWAV(noise)
+        try await ProcessRunner.run(.ffmpeg, ["-hide_banner", "-loglevel", "error", "-y", "-i", noise.path, "-c:a", "alac_at", alac.path])
+        // Apple Lossless stays lossless unless the Convert to AAC list names it.
+        await #expect(throws: EsclopError.alreadySmaller) { try await world.engine.optimise(alac, request: world.request(alac), progress: { _ in }) }
+        #expect(try await Inspect.media(alac).audio?.codec == "alac")
+        try EsclopSettings.formatsToConvertToAAC.set(["aiff", "aif", "flac", "alac"], in: world.settings)
         let aac = try await world.engine.optimise(alac, request: world.request(alac), progress: { _ in })
         #expect(aac.steps.contains("Converted Apple Lossless to AAC"))
         #expect(try await Inspect.media(aac.output).audio?.codec == "aac")
@@ -454,5 +529,46 @@ import UniformTypeIdentifiers
         aggressive.quality = .aggressive
         let adpcm = try await world.engine.convert(flac, to: .wav, request: aggressive, progress: { _ in })
         #expect(adpcm.steps.contains("Encoded as IMA ADPCM, which is lossy"))
+    }
+
+    /// A song keeps its title and artist on a plain optimise, whatever the strip setting says;
+    /// only an explicit strip removes them.
+    @Test func songsKeepTheirTagsUnlessStripIsAsked() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let mp3 = world.file("song.mp3")
+        let noise = world.file("noise.wav")
+        try Fixture.noiseWAV(noise)
+        try await ProcessRunner.run(.ffmpeg, [
+            "-hide_banner", "-loglevel", "error", "-y", "-i", noise.path,
+            "-c:a", "libmp3lame", "-b:a", "320k", "-metadata", "title=Cançó", "-metadata", "artist=Grup", mp3.path,
+        ])
+        try EsclopSettings.stripMetadata.set(true, in: world.settings)
+        let kept = try await world.engine.optimise(mp3, request: world.request(mp3, location: .temporary), progress: { _ in })
+        #expect(try await ffprobe(kept.output)["format"]?["tags"]?["title"]?.stringValue == "Cançó")
+        #expect(kept.steps.contains { $0.hasPrefix("Encoded VBR, about ") })
+
+        var strip = world.request(mp3, location: .temporary)
+        strip.stripMetadata = true
+        let stripped = try await world.engine.optimise(mp3, request: strip, progress: { _ in })
+        #expect(try await ffprobe(stripped.output)["format"]?["tags"]?["title"] == nil)
+    }
+
+    /// Audio downscale scales the source's bitrate (it used to ignore the factor).
+    @Test func audioDownscaleScalesTheBitrate() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let m4a = world.file("talk.m4a")
+        let noise = world.file("noise.wav")
+        try Fixture.noiseWAV(noise)
+        try await ProcessRunner.run(.ffmpeg, ["-hide_banner", "-loglevel", "error", "-y", "-i", noise.path, "-c:a", "aac", "-b:a", "256k", m4a.path])
+        let input = try #require(try await Inspect.media(m4a).audio?.bitrate)
+        let result = try await world.engine.downscale(m4a, factor: 0.25, request: world.request(m4a, location: .temporary), progress: { _ in })
+        let kbps = try #require(result.steps.compactMap { step -> Int? in
+            guard step.hasPrefix("Encoded at ") else { return nil }
+            return Int(step.dropFirst("Encoded at ".count).prefix { $0.isNumber })
+        }.first)
+        #expect(kbps <= max(56, input / 4))
+        #expect(kbps >= 56, "never under AAC's lowest step")
     }
 }

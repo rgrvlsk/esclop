@@ -165,7 +165,7 @@ struct FormatOptions: View {
 
             OptionsRow {
                 SwitchRow(title: Strings.text("Remove metadata"), isOn: Binding(
-                    get: { choice.stripMetadata ?? EsclopSettings.stripMetadata.value(in: model.app.settings) },
+                    get: { choice.stripMetadata ?? model.stripsByDefault },
                     set: { value in model.update { $0.stripMetadata = value } }
                 ))
             }

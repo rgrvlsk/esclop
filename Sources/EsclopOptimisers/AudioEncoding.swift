@@ -13,7 +13,8 @@
 // mapped the formats onto L'Esclop's `OutputFormat`, added a fallback from AudioToolbox AAC to
 // ffmpeg's own AAC encoder, and dropped the settings and UI plumbing.
 // Modified 2026-11-19: lossless output keeps the source's sample rate and bit depth, and the
-// codec in the file (not only its extension) decides whether the format stays the same.
+// codec in the file (not only its extension) decides whether the format stays the same; step
+// lines name LAME's average rate for the VBR quality.
 
 import EsclopCore
 import Foundation
@@ -157,6 +158,12 @@ enum AudioCodec: String, CaseIterable, Sendable {
         case ...192: return 2
         default: return 0
         }
+    }
+
+    /// LAME's average kbit/s for a VBR quality (its documented -V 0 to -V 9 table), for step
+    /// lines: the real rate depends on the sound.
+    static func lameVBRAverage(quality: Int) -> Int {
+        [245, 225, 190, 175, 165, 130, 115, 100, 85, 65][min(9, max(0, quality))]
     }
 
     /// ffmpeg encoder arguments. `appleAAC` picks AudioToolbox's encoder (better at low

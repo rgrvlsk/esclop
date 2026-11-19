@@ -17,7 +17,14 @@ impl AvifCodec for Ravif {
         "rav1e (ravif, 4:4:4)".into()
     }
 
-    fn encode(&self, img: &DynamicImage, o: &AvifOptions, _icc: Option<&[u8]>, exif: Option<&[u8]>) -> Result<Vec<u8>> {
+    fn encode(
+        &self,
+        img: &DynamicImage,
+        o: &AvifOptions,
+        _icc: Option<&[u8]>,
+        exif: Option<&[u8]>,
+        _xmp: Option<&[u8]>,
+    ) -> Result<Vec<u8>> {
         use rgb::FromSlice;
         let (w, h) = (img.width() as usize, img.height() as usize);
         let mut enc = ravif::Encoder::new()

@@ -285,7 +285,7 @@ public enum EsclopSettings {
     )
     public static let formatsToConvertToAAC = Setting<[String]>(
         "formatsToConvertToAAC", default: ["aiff", "aif", "flac"], title: "Convert to AAC",
-        description: "Audio formats (file extensions) converted to AAC (M4A) when optimised.",
+        description: "Audio formats (file extensions, or alac for Apple Lossless) converted to AAC (M4A) when optimised.",
         section: .audio
     )
     public static let formatsToConvertToMP3 = Setting<[String]>(
