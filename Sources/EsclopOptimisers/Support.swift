@@ -115,6 +115,8 @@ struct Produced: Sendable {
     var steps: [String]
     /// Format or geometry changed, so a larger file is still a valid answer.
     var allowLarger: Bool
+    /// No pixel or sample changed (a lossless recompression), so any saving is worth keeping.
+    var lossless = false
 }
 
 /// A scratch folder for one operation, removed when done.
@@ -172,6 +174,16 @@ struct ProgressSink: Sendable {
 // MARK: - Placing results
 
 enum ResultWriter {
+    /// A lossy re-encode in the same format and size replaces the original only when it saves
+    /// at least this share: a smaller gain is not worth another generation of loss.
+    /// ponytail: one share for every kind and size; per-format thresholds if a format needs one.
+    static let minimumLossyGain = 0.03
+
+    /// Bytes a result has to save to replace its source: one byte when lossless.
+    static func minimumSaving(of bytes: Int, lossless: Bool) -> Int {
+        lossless ? 1 : max(1, Int((Double(bytes) * minimumLossyGain).rounded(.up)))
+    }
+
     /// Moves `produced` where the request says and returns the result. Backs up the original
     /// before anything overwrites it, marks the output, copies the original's dates.
     static func place(
@@ -184,7 +196,7 @@ enum ResultWriter {
         guard bytesAfter > 0 else {
             throw EsclopError.other("The optimiser produced an empty file for \(source.lastPathComponent)")
         }
-        if !produced.allowLarger, bytesAfter >= bytesBefore {
+        if !produced.allowLarger, bytesBefore - bytesAfter < minimumSaving(of: bytesBefore, lossless: produced.lossless) {
             throw EsclopError.alreadySmaller
         }
 
@@ -309,20 +321,26 @@ public enum BackupPruner {
     }
 
     /// At launch, so old originals go even when no new in-place job runs: backups older than
-    /// `days`, and copied images in `clipboard` not touched for as long. Blocks; call it off the
-    /// main actor. 0 days keeps everything.
-    // ponytail: "keep backups forever" keeps the copied images forever too, since a restore needs
-    // them; give the clipboard folder its own limit if someone keeps backups forever and it grows.
-    public static func pruneAtLaunch(days: Int, backups: BackupStore, clipboard: URL = Clipboard.folder, now: Date = Date()) {
+    /// `days`, and copied images in `clipboard` and optimised copies of copied files in `results`
+    /// not touched for as long. Blocks; call it off the main actor. 0 days keeps everything.
+    // ponytail: "keep backups forever" keeps the copied images and the results folder (a copy of
+    // each file a clipboard pipeline ran on) forever too, since a restore needs them; give those
+    // folders their own limit if someone keeps backups forever and they grow.
+    public static func pruneAtLaunch(
+        days: Int, backups: BackupStore, clipboard: URL = Clipboard.folder,
+        results: URL = Paths.temporary.appendingPathComponent("results", isDirectory: true), now: Date = Date()
+    ) {
         guard days > 0 else { return }
         let removed = backups.prune(olderThan: days, now: now)
         if removed > 0 { Log.backups.info("Pruned \(removed) backups older than \(days) days") }
         let cutoff = now.addingTimeInterval(-Double(days) * 86400)
         let fm = FileManager.default
         // One folder per copy; its date moves when the image in it is optimised again.
-        for folder in (try? fm.contentsOfDirectory(at: clipboard, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
-        where ((try? folder.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? now) < cutoff {
-            try? fm.removeItem(at: folder)
+        for parent in [clipboard, results] {
+            for folder in (try? fm.contentsOfDirectory(at: parent, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+            where ((try? folder.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? now) < cutoff {
+                try? fm.removeItem(at: folder)
+            }
         }
     }
 }

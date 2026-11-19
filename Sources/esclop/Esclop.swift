@@ -74,7 +74,7 @@ enum Behaviour: String, ExpressibleByArgument, CaseIterable {
 
 /// The files a command works on, shared by every file command and upload.
 struct FileInputs: ParsableArguments {
-    @Argument(help: "Files or folders. ~, file:// URLs and relative paths work.")
+    @Argument(help: "Files or folders. ~, file:// URLs and relative paths work; http(s) addresses are downloaded to the temporary folder first.")
     var items: [String] = []
 
     @Flag(name: .shortAndLong, help: "Include files in subfolders.")
@@ -95,8 +95,26 @@ struct FileInputs: ParsableArguments {
     @Flag(name: [.customShort("n"), .customLong("no-progress")], help: "No progress on stderr.")
     var noProgress = false
 
-    func sources() throws -> [URL] {
-        let urls = try items.map { try PathInput.url($0) }
+    /// The files to work on. A web address is the person's request to download it: it is
+    /// fetched into the temporary folder and that copy is the file worked on.
+    func sources(download: (URL) async throws -> URL = { try await WebDownload.fetch($0) }) async throws -> [URL] {
+        var urls: [URL] = []
+        for item in items {
+            guard let address = try WebDownload.address(item) else {
+                urls.append(try PathInput.url(item))
+                continue
+            }
+            do {
+                urls.append(try await download(address))
+            } catch where skipErrors {
+                FileHandle.standardError.write(Data("skipped \(item): \(error)\n".utf8))
+                continue
+            } catch let error as EsclopError {
+                throw error
+            } catch {
+                throw EsclopError.other("Could not download \(item): \(error.localizedDescription)")
+            }
+        }
         let include = Set(types.map { $0.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: ".")) })
         let exclude = Set(excludeTypes.map { $0.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: ".")) })
         var files = PathInput.expand(urls, recursive: recursive, extensions: include)

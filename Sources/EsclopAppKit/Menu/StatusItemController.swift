@@ -57,7 +57,7 @@ public final class StatusItemController: NSObject {
         let shadow = Self.shadowRoom
         let width = MenuPanel.width + 2 * shadow
         let probe = MenuPanel(model: model, actions: makeActions { [weak self] in self?.close() }, notch: nil)
-        host.rootView = AnyView(probe.padding(shadow))
+        host.rootView = AnyView(probe.padding(shadow).designTint())
         let height = host.fittingSize.height
         var x = glyph.midX - width / 2
         x = min(max(x, screen.minX + 4 - shadow), screen.maxX - 4 + shadow - width)
@@ -74,6 +74,7 @@ public final class StatusItemController: NSObject {
                     frame.size.height = height
                     panel.setFrame(frame, display: true)
                 }
+                .designTint()
         )
         panel.setFrame(frame, display: false)
 

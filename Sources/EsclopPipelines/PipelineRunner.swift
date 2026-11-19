@@ -332,6 +332,7 @@ struct FileRun {
             let dir = try pageDirectory(location)
             let request = baseRequest(location: .path(dir.path))
             let pages = try await ops.extractPages(current, format: format, scale: quality.scale, into: dir, request: request, progress: engineProgress)
+            guard !pages.isEmpty else { throw EsclopError.other("No pages were exported from \(current.lastPathComponent)") }
             self.report.extraOutputs += pages
             if pages.count == 1 { current = pages[0] }
             return (.done, "\(pages.count) page\(pages.count == 1 ? "" : "s") in \(dir.path)")
@@ -375,6 +376,8 @@ struct FileRun {
             return (.done, "renamed to \(name)")
 
         case let .delete(path):
+            // A trial deletes nothing, as it runs no scripts: the step is shown as skipped.
+            if options.trialFolder != nil { return (.skipped, "files are not deleted in a trial") }
             guard options.allowDelete else { throw EsclopError.notPermitted("deleting files is not allowed here") }
             let target: URL = switch path {
             case "sourceFile": source

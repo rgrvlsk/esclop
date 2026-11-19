@@ -319,7 +319,8 @@ public struct MenuPanel: View {
                         }
                     }
                     // The list is one stop for the keys, as a menu is: the arrows move on into the
-                    // commands, Return runs the row. No focus ring; the row's wash shows where it is.
+                    // commands, Return runs the row, Space is Quick Look on a result (as on a card
+                    // and in Finder). No focus ring; the row's wash shows where it is.
                     // ponytail: with nothing in Recent there is no list, so the arrows do not
                     // reach the commands. Trigger: the keys moving up to the panel.
                     .focusable()
@@ -328,7 +329,7 @@ public struct MenuPanel: View {
                     .onKeyPress(.downArrow) { move(1, in: results, proxy) }
                     .onKeyPress(.upArrow) { move(-1, in: results, proxy) }
                     .onKeyPress(.return) { open(results) }
-                    .onKeyPress(.space) { open(results) }
+                    .onKeyPress(.space) { quickLook(results) }
                 }
             }
         }
@@ -367,6 +368,15 @@ public struct MenuPanel: View {
 
     private func optimiseFiles() { actions.close(); model.chooseFiles() }
     private func optimiseClipboard() { actions.close(); model.optimiseClipboardNow(aggressive: option) }
+
+    private func quickLook(_ results: [OptimisationResult]) -> KeyPress.Result {
+        guard case let .result(id) = highlighted,
+              let result = results.first(where: { $0.id == id }),
+              FileManager.default.fileExists(atPath: result.output.path) else { return .ignored }
+        // Quick Look takes the keys, so the panel closes as it does for any other window.
+        QuickLookPresenter.shared.toggle(result.output)
+        return .handled
+    }
 
     /// Restore and Compare reach this many results from the panel until All Results exists.
     static let recentLimit = 12
