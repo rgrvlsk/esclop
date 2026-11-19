@@ -51,7 +51,11 @@ struct AudioEngine: Sendable {
         let deep = (audio.bitsPerSample ?? 16) > 16
         var aiff24Bit = false
         if codec == .aiff, deep { aiff24Bit = await FFmpegCapabilities.shared.encoders(tools: env.tools).contains("pcm_s24be") }
-        if codec == .aiff, deep, !aiff24Bit { steps.append("Reduced to 16 bits: this ffmpeg has no 24-bit AIFF encoder") }
+        if codec == .aiff, deep, !aiff24Bit {
+            steps.append("Reduced to 16 bits: this ffmpeg has no 24-bit AIFF encoder")
+        } else if codec == .aiff || (codec == .wav && !plan.isAggressive), (audio.bitsPerSample ?? 0) > 24 {
+            steps.append("Reduced to 24 bits")
+        }
 
         let output = work.file(stem: "encoded", ext: codec.fileExtension)
         let speed = plan.request.playbackSpeed.flatMap { $0 > 0 && abs($0 - 1) > 0.001 ? $0 : nil }

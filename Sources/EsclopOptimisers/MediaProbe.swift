@@ -44,10 +44,10 @@ struct MediaInfo: Sendable {
     var bitrate: Int?
     var video: Video?
     var audio: Audio?
-    var hasCoverArt: Bool
-    var audioStreamCount: Int
     /// Every stream, in file order.
     var streams: [Stream] = []
+
+    var hasCoverArt: Bool { streams.contains { $0.type == "video" && $0.attachedPicture } }
 
     func streams(_ type: String) -> [Stream] { streams.filter { $0.type == type && !$0.attachedPicture } }
 
@@ -82,15 +82,13 @@ struct MediaInfo: Sendable {
         var info = MediaInfo(
             duration: number(format["duration"]),
             bitrate: number(format["bit_rate"]).map { Int($0 / 1000) },
-            video: nil, audio: nil, hasCoverArt: false, audioStreamCount: 0
+            video: nil, audio: nil
         )
         for stream in streams {
             let type = stream["codec_type"]?.stringValue
             let attached = stream["disposition"]?["attached_pic"]?.intValue == 1
             info.streams.append(Stream(type: type ?? "unknown", codec: stream["codec_name"]?.stringValue ?? "unknown", attachedPicture: attached))
-            if type == "video", attached {
-                info.hasCoverArt = true
-            } else if type == "video", info.video == nil {
+            if type == "video", !attached, info.video == nil {
                 var width = stream["width"]?.intValue ?? 0
                 var height = stream["height"]?.intValue ?? 0
                 let rotation = Self.rotation(stream)
@@ -105,7 +103,6 @@ struct MediaInfo: Sendable {
                     colorSpace: stream["color_space"]?.stringValue
                 )
             } else if type == "audio" {
-                info.audioStreamCount += 1
                 if info.audio == nil {
                     info.audio = Audio(
                         codec: stream["codec_name"]?.stringValue ?? "unknown",
@@ -176,8 +173,9 @@ final class FFmpegProgress: @unchecked Sendable {
 
     // ponytail: one limit for every ffmpeg run. ffmpeg prints its progress twice a second, so
     // five minutes without the output time moving means it hangs (a read that never returns, a
-    // stuck encoder). Ceiling: the palette GIF path writes nothing until it has read the whole
-    // video; a per-run limit if a GIF of a very long video ever needs more.
+    // stuck encoder). Ceiling: runs whose output time stands still while they work: the palette
+    // GIF path (nothing out until the whole video is read), the `+faststart` rewrite of a huge
+    // file on a slow volume, a very long encoder lookahead. A per-run limit if one is ever hit.
     static let stallLimit: TimeInterval = 300
 
     /// Options for an ffmpeg run with `-progress pipe:1`: progress to the sink, and the run

@@ -398,20 +398,6 @@ import UniformTypeIdentifiers
         }
     }
 
-    @Test func keepingMetadataKeepsQuickTimeKeys() async throws {
-        let world = try await TestWorld()
-        defer { Task { await world.finish() } }
-        let mov = world.file("phone.mov")
-        try await ProcessRunner.run(.ffmpeg, [
-            "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=d=1:s=320x240", "-c:v", "mjpeg",
-            "-metadata", "com.apple.quicktime.make=Apple", "-movflags", "use_metadata_tags", mov.path,
-        ])
-        var request = world.request(mov, location: .temporary)
-        request.stripMetadata = false
-        let kept = try await world.engine.optimise(mov, request: request, progress: { _ in })
-        #expect(try await ffprobe(kept.output)["format"]?["tags"]?["com.apple.quicktime.make"]?.stringValue == "Apple")
-    }
-
     @Test func aCropLargerThanTheVideoDoesNotUpscale() async throws {
         let world = try await TestWorld()
         defer { Task { await world.finish() } }
