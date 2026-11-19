@@ -48,8 +48,12 @@ import Testing
         }
         let actions = MenuPanelActions(settings: {}, pipelines: {}, welcome: {}, checkForUpdates: {}, close: {})
         try await SettingsRenderTests.renderBoth({ _ in
-            MenuPanel(model: harness.model, actions: actions, notch: 200, range: .week, highlighted: ids[1]).padding(18)
+            MenuPanel(model: harness.model, actions: actions, notch: 200, range: .week, highlighted: .result(ids[1])).padding(18)
         }, size: CGSize(width: MenuPanel.width + 36, height: 600), name: "menu-panel-week")
+        // The arrows go on past Recent into the commands: one row washed, as in a menu.
+        try await SettingsRenderTests.renderBoth({ _ in
+            MenuPanel(model: harness.model, actions: actions, notch: 200, range: .week, highlighted: .optimiseFiles).padding(18)
+        }, size: CGSize(width: MenuPanel.width + 36, height: 600), name: "menu-panel-command")
         // Nothing yet: no "−0 B".
         let empty = Harness()
         try await SettingsRenderTests.renderBoth({ _ in

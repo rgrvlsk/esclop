@@ -42,10 +42,12 @@ extension AppModel {
 
     // MARK: Size
 
-    /// Scales from the original; 1 is the original itself, with no adjustment left over (after
-    /// Fit or Crop too).
+    /// Scales from the original, keeping the crop; 1 is the original itself, with no crop, scale
+    /// or fit left over.
     public func downscale(_ card: ResultCard, to factor: Double) {
-        guard factor < 1 else { return reprocess(card) }
+        guard factor < 1 else {
+            return reprocess(card) { $0.request.downscale = nil; $0.request.crop = nil }
+        }
         reprocess(card) { $0.request.downscale = factor }
     }
 
@@ -57,7 +59,14 @@ extension AppModel {
         reprocess(card) { $0.request.crop = size }
     }
 
+    /// The Crop tab's Reset on a cropped file: the whole picture again, the scale kept.
+    public func removeCrop(_ card: ResultCard) {
+        reprocess(card) { $0.request.crop = nil }
+    }
+
     /// PDFs crop by setting each page's crop box to the aspect ratio.
+    /// ponytail: a PDF's crop box is not kept on the card, so another choice runs it uncropped.
+    /// Trigger: someone re-running a cropped PDF with another compression.
     public func cropPDF(_ card: ResultCard, aspect ratio: Double) {
         reprocess(card) { $0.operation = .cropPDF(PDFCropSpec(aspectRatio: ratio)) }
     }
@@ -145,8 +154,10 @@ extension AppModel {
         do {
             try Self.saveCopy(of: file, to: target)
         } catch {
-            NSSound.beep()
-            announce(Strings.format("Could not save %@", target.lastPathComponent))
+            // Seen and heard: the notice says why, VoiceOver reads it.
+            let title = Strings.format("Could not save %@", target.lastPathComponent)
+            notice(title, CardPresentation.message(for: error))
+            announce(title)
         }
     }
 

@@ -61,10 +61,17 @@ public final class ResultCard: Identifiable {
     /// that change, so it is not offered then.
     public var adjusted = false
     /// The scale the last run applied to the original, 1 when it was not scaled (a crop is not a
-    /// scale): the Size tab's chosen tile.
+    /// scale): the Size tab's chosen tile. Every re-run applies it again, until Original.
     public var downscale = 1.0
+    /// The crop the last run applied to the original; every re-run applies it again, until
+    /// Original or Reset.
+    public var crop: CropSize?
     /// Undo is putting the original back; its buttons wait until it is done.
     public var restoring = false
+    /// A re-run is getting ready (its restore); another waits until the card is working.
+    public var rerunning = false
+    /// Undo moved a version edited after optimising to the Trash: the restored card says so.
+    public var editInTrash = false
     /// The detail's name is being edited: the card's keys stand aside, and come back after.
     public var renaming = false
     /// The detail's picture is a loupe (Compare); nil when it is not.

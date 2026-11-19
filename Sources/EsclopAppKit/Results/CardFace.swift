@@ -305,7 +305,8 @@ struct CardFooter: View {
             mark.frame(width: slot, height: slot)
             VStack(alignment: .leading, spacing: 2) {
                 Text(info.headline).font(.system(size: 13, weight: .semibold)).foregroundStyle(Ink.text).lineLimit(1)
-                caption(info.caption)
+                // Two lines: "Your edited version is in the Trash" in Catalan needs them.
+                caption(info.caption, lines: 2)
             }
         }
     }
@@ -321,8 +322,8 @@ struct CardFooter: View {
         }
     }
 
-    private func caption(_ text: String) -> some View {
-        Text(text).font(.system(size: 11)).foregroundStyle(Ink.secondary).lineLimit(1).truncationMode(.middle)
+    private func caption(_ text: String, lines: Int = 1) -> some View {
+        Text(text).font(.system(size: 11)).foregroundStyle(Ink.secondary).lineLimit(lines).truncationMode(.middle)
     }
 }
 
