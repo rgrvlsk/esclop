@@ -44,6 +44,8 @@ public struct CardPresentation: Equatable, Sendable {
         /// Opens the options on the Optimise tab: format, size, crop. The detail's "…" menu
         /// names it Convert… (docs/design/targets: pr2-detail-card).
         case convertOptions
+        /// A watched-folder notice about too many files at once: optimise them after all.
+        case optimiseAnyway
 
         /// The label on a button in the detail card.
         public var title: String {
@@ -71,6 +73,7 @@ public struct CardPresentation: Equatable, Sendable {
             case .share: return Strings.text("Share…")
             case .trash: return Strings.text("Move to Trash")
             case .convertOptions: return Strings.text("Convert…")
+            case .optimiseAnyway: return Strings.text("Optimise Them Anyway")
             }
         }
 
@@ -115,6 +118,7 @@ public struct CardPresentation: Equatable, Sendable {
             case .save, .saveAs: return "square.and.arrow.down"
             case .share: return "square.and.arrow.up"
             case .trash: return "trash"
+            case .optimiseAnyway: return "arrow.forward"
             }
         }
     }
@@ -283,7 +287,7 @@ public struct CardPresentation: Equatable, Sendable {
             fileName = ""
             capsule = .notice(title: title, detail: message)
             tone = .neutral
-            actions = [.dismiss]
+            actions = card.optimiseAnyway == nil ? [.dismiss] : [.optimiseAnyway, .dismiss]
             accessibilityLabel = "\(title). \(message)"
         }
         applyUpload(card, name: fileName, t: t, f: f)

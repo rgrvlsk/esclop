@@ -170,6 +170,13 @@ import Testing
             #expect(size.width == Metrics.thumbnailWidth, "\(name) is a 208 pt card")
         }
         try render(object(card(.notice(title: "Skipping the next copy", detail: "Press again to pause everything."))), name: "result-notice", scheme: scheme)
+        // A watched folder's burst, with its one action.
+        let tooMany = card(.notice(
+            title: WatchedFolders.tooManyTitle(.image, count: 4),
+            detail: Strings.format("They appeared together in %@, so L’Esclop left them alone.", "~/Downloads")
+        ))
+        tooMany.optimiseAnyway = {}
+        try render(object(tooMany), name: "result-notice-action", scheme: scheme)
     }
 
     /// The detail (pr2-detail-card): a dropped photo shows its folder, a copied screenshot goes back
