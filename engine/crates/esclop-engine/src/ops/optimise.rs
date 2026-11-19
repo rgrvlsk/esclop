@@ -131,6 +131,13 @@ pub fn jpeg(req: &Request, ctx: &Ctx) -> Result<OpResult> {
                 markers: &markers,
             },
         )?;
+        // The encoder writes a fresh JFIF header; the source's DPI goes in it.
+        // ponytail: only here; `convert`, `resize` and `crop` keep the EXIF resolution but not a
+        // JFIF-only density. Carry it in `SourceMeta` if a JFIF-only print JPEG gets resized.
+        let mut out = out;
+        if let Some(d) = meta::jfif_density(&parts) {
+            meta::set_jfif_density(&mut out, d);
+        }
         best = Some(Encoded {
             bytes: out,
             width: w,
