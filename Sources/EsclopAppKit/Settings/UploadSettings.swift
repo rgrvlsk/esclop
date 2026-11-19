@@ -29,9 +29,13 @@ public struct UploadSettingsSupport {
             try Data("L'Esclop upload test\n".utf8).write(to: file)
             defer { try? FileManager.default.removeItem(at: file) }
             let uploader = S3Uploader()
-            let link = try await uploader.upload(file, to: target, key: target.key(for: file), credentials: keys)
-            // The link the person will send must open without the keys.
-            try await uploader.checkLink(link)
+            let key = target.key(for: file)
+            let link = try await uploader.upload(file, to: target, key: key, credentials: keys)
+            // The link the person will send must open without the keys. The test file goes after.
+            var unreachable: Error?
+            do { try await uploader.checkLink(link) } catch { unreachable = error }
+            try? await uploader.delete(key, from: target, credentials: keys)
+            if let unreachable { throw unreachable }
             return link
         }
     }
@@ -86,6 +90,7 @@ struct UploadTargetList: View {
         }
         .sheet(item: $editing) { draft in
             UploadTargetEditor(draft: draft, others: targets.filter { $0.name != draft.original }, model: model) { editing = nil }
+                .designTint()
         }
         .confirmationDialog(
             Strings.format("Remove the upload target “%@”?", removing?.name ?? ""),
@@ -236,6 +241,7 @@ struct UploadTargetEditor: View {
                     }
                 }
                 .keyboardShortcut(.defaultAction)
+                .primaryButton()
                 .disabled(problem != nil)
             }
         }
@@ -246,14 +252,14 @@ struct UploadTargetEditor: View {
     @ViewBuilder
     private func status(problem: String?) -> some View {
         if let saveError {
-            Label(saveError, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
+            Label(saveError, systemImage: "exclamationmark.triangle").foregroundStyle(Ink.error)
         } else if testing {
             HStack { ProgressView().controlSize(.small); Text(Strings.text("Uploading a test file…")) }
         } else if case let .success(link) = outcome {
-            Label(Strings.format("Uploaded: %@", link.absoluteString), systemImage: "checkmark.circle").foregroundStyle(.green)
+            Label(Strings.format("Uploaded: %@", link.absoluteString), systemImage: "checkmark.circle").foregroundStyle(Ink.charcoalText)
                 .textSelection(.enabled)
         } else if case let .failure(error) = outcome {
-            Label(CardPresentation.message(for: error), systemImage: "exclamationmark.triangle").foregroundStyle(.red)
+            Label(CardPresentation.message(for: error), systemImage: "exclamationmark.triangle").foregroundStyle(Ink.error)
         } else if let problem {
             Text(problem).font(.callout).foregroundStyle(.secondary)
         }
@@ -325,6 +331,7 @@ struct UploadSourceSwitches: View {
                 ))
                 .toggleStyle(.switch)
                 .controlSize(.small)
+                .tint(Ink.charcoal)
                 .padding(.leading, 12)
             }
         }

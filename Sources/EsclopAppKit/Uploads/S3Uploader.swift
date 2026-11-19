@@ -63,6 +63,22 @@ public struct S3Uploader: Sendable {
         return link
     }
 
+    /// Removes `key` from the target's bucket (the test upload's file, once checked).
+    public func delete(_ key: String, from target: UploadTarget, credentials: UploadCredentials) async throws {
+        guard let url = target.objectURL(key: key) else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        let signed = S3Signer.sign(
+            method: "DELETE", url: url, headers: ["host": S3Signer.hostHeader(url)],
+            accessKey: credentials.accessKeyID, secret: credentials.secret, region: target.region, date: now()
+        )
+        for (name, value) in signed { request.setValue(value, forHTTPHeaderField: name) }
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200 ..< 300).contains(http.statusCode) else {
+            throw EsclopError.other(Self.refusal(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: data))
+        }
+    }
+
     /// The largest file one PUT takes (S3's limit, also R2's and B2's).
     static let largestPut: Int64 = 5 * 1024 * 1024 * 1024
 

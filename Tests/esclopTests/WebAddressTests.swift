@@ -53,7 +53,7 @@ final class LocalServer: @unchecked Sendable {
         let server = try await LocalServer(contentType: "image/png", body: Self.png)
         defer { server.stop() }
         let command: Optimise = try parse(["optimise", "http://127.0.0.1:\(server.port)/pixel?w=800"])
-        let sources = try await command.files.sources()
+        let sources = try await command.files.inputs.sources()
         let file = try #require(sources.first)
         #expect(sources.count == 1)
         #expect(file.pathExtension == "png")
@@ -67,15 +67,15 @@ final class LocalServer: @unchecked Sendable {
         defer { server.stop() }
         let address = "http://127.0.0.1:\(server.port)/gone.png"
         await #expect(throws: EsclopError.other("\(address) answered 404")) {
-            try await (try parse(["optimise", address]) as Optimise).files.sources()
+            try await (try parse(["optimise", address]) as Optimise).files.inputs.sources()
         }
-        #expect(try await (try parse(["optimise", address, "--skip-errors"]) as Optimise).files.sources().isEmpty)
+        #expect(try await (try parse(["optimise", address, "--skip-errors"]) as Optimise).files.inputs.sources().isEmpty)
     }
 
     /// Only http and https are downloaded; another scheme is refused rather than read as a path.
     @Test func otherSchemesAreRefused() async throws {
         for address in ["ftp://example.com/a.png", "smb://server/share/b.png"] {
-            await #expect(throws: EsclopError.self) { try await (try parse(["optimise", address]) as Optimise).files.sources() }
+            await #expect(throws: EsclopError.self) { try await (try parse(["optimise", address]) as Optimise).files.inputs.sources() }
         }
         #expect(try WebDownload.address("a:b.png") == nil, "a colon alone is a file name")
         #expect(try WebDownload.address("file:///tmp/a.png") == nil)

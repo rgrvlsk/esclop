@@ -143,6 +143,7 @@ public struct EsclopService: Sendable {
         } else {
             report = await executor.run(job) { if case let .progress(p) = $0 { progress(p) } }
         }
+        report.results = report.results.map { var result = $0; result.origin = result.origin ?? job.request.origin; return result }
         results.append(report.results)
         return report
     }
@@ -313,13 +314,14 @@ public struct EsclopService: Sendable {
         guard let result = candidates.first(where: { canonical($0.output) == target || canonical($0.source) == target }) else {
             throw EsclopError.invalidArgument("No recent result for \(path.path). esclop_recent_results lists what can be restored")
         }
-        return try restoreBackup(of: result, deleteBackup: deleteBackup)
+        return try await restoreBackup(of: result, deleteBackup: deleteBackup)
     }
 
     /// Puts back the original of a result already in hand (the app's own windows), through
     /// `BackupStore.restore`: what was at the path and changed since, and a converted output, go
-    /// to the Trash and the outcome lists them.
-    public func restoreBackup(of result: OptimisationResult, deleteBackup: Bool) throws -> RestoreOutcome {
+    /// to the Trash and the outcome lists them. Async so the copy and the log's lock stay off the
+    /// caller's actor.
+    public func restoreBackup(of result: OptimisationResult, deleteBackup: Bool) async throws -> RestoreOutcome {
         try policy.checkRestore(deleteBackup: deleteBackup)
         guard let backup = result.backup else {
             throw EsclopError.fileNotFound("No backup is kept for \(result.source.path); it was not changed in place")
@@ -335,6 +337,8 @@ public struct EsclopService: Sendable {
         }
         let report = try BackupStore(root: context.locations.backups).restore(result)
         if deleteBackup { try fm.removeItem(at: backup) }
+        // The original is back: the result no longer counts in the saving or lists in Recent.
+        results.append([], withdrawing: [result])
         return RestoreOutcome(
             restored: result.source.path, from: backup.path, backupDeleted: deleteBackup,
             leftInPlace: report.leftInPlace?.path,

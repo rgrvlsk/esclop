@@ -10,11 +10,11 @@ import SwiftUI
 public struct Figure: View {
     /// The four sizes.
     public enum Size: CGFloat, CaseIterable, Sendable {
-        /// The card, inside its 50 pt ring (`CardFooter.ring`).
+        /// The card, inside its 50 pt ring (`CardFooter.ring`); a batch window's row.
         case card = 17
         /// The menu panel, the options popover.
         case panel = 32
-        /// The detail, inside its 62 pt ring; batch and All Results until they have their own.
+        /// The detail, inside its 62 pt ring; the batch window's header, and All Results until it has its own.
         case detail = 20
         /// The first run.
         case firstRun = 72

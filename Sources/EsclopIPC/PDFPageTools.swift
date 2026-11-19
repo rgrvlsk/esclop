@@ -21,6 +21,7 @@ public struct PDFPageTools: Sendable {
             throw EsclopError.invalidArgument("The aspect ratio must be a positive number")
         }
         let document = try open(source)
+        try PDFSignature.refuseSigned(source)
         for index in 0 ..< document.pageCount {
             guard let page = document.page(at: index) else { continue }
             let media = page.bounds(for: .mediaBox)
@@ -38,6 +39,7 @@ public struct PDFPageTools: Sendable {
     @discardableResult
     public func uncrop(_ source: URL, to output: URL) throws -> Int {
         let document = try open(source)
+        try PDFSignature.refuseSigned(source)
         for index in 0 ..< document.pageCount {
             guard let page = document.page(at: index) else { continue }
             page.setBounds(page.bounds(for: .mediaBox), for: .cropBox)
@@ -46,35 +48,34 @@ public struct PDFPageTools: Sendable {
         return document.pageCount
     }
 
-    /// Renders pages (1-based numbers, all when nil) as PNG or JPEG files in `folder`.
+    /// Renders pages (1-based numbers, all when nil) as PNG or JPEG files in `folder`, all of
+    /// them or none, under the next free name when one is taken.
     public func exportPages(_ source: URL, pages: [Int]?, format: OutputFormat, dpi: Double, into folder: URL) throws -> [URL] {
         guard format == .png || format == .jpeg else {
             throw EsclopError.invalidArgument("Pages export as png or jpeg")
         }
         guard dpi >= 18, dpi <= 1200 else { throw EsclopError.invalidArgument("DPI must be between 18 and 1200") }
         let document = try open(source)
-        let wanted = pages ?? Array(1 ... max(1, document.pageCount))
+        var seen = Set<Int>()
+        let wanted = (pages ?? Array(1 ... max(1, document.pageCount))).filter { seen.insert($0).inserted }
         if let bad = wanted.first(where: { $0 < 1 || $0 > document.pageCount }) {
             throw EsclopError.invalidArgument("Page \(bad) is outside 1...\(document.pageCount)")
         }
-        try Paths.ensure(folder)
         let base = source.deletingPathExtension().lastPathComponent
         let digits = String(document.pageCount).count
         let type: UTType = format == .png ? .png : .jpeg
-        var written: [URL] = []
-        for number in wanted {
-            guard let page = document.page(at: number - 1) else { continue }
+        let names = wanted.map { number in
+            "\(base)-\(String(repeating: "0", count: max(0, digits - String(number).count)))\(number).\(format.rawValue)"
+        }
+        return try StagedFiles.publish(names, into: folder) { index, url in
+            guard let page = document.page(at: wanted[index] - 1) else { throw EsclopError.other("Cannot read page \(wanted[index])") }
             let image = try render(page, scale: dpi / 72, opaque: format == .jpeg)
-            let name = "\(base)-\(String(repeating: "0", count: max(0, digits - String(number).count)))\(number).\(format.rawValue)"
-            let url = folder.appendingPathComponent(name)
             guard let destination = CGImageDestinationCreateWithURL(url as CFURL, type.identifier as CFString, 1, nil) else {
-                throw EsclopError.other("Cannot write \(url.path)")
+                throw EsclopError.other("Cannot write \(names[index])")
             }
             CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: 0.9] as CFDictionary)
-            guard CGImageDestinationFinalize(destination) else { throw EsclopError.other("Cannot write \(url.path)") }
-            written.append(url)
+            guard CGImageDestinationFinalize(destination) else { throw EsclopError.other("Cannot write \(names[index])") }
         }
-        return written
     }
 
     /// The crop box for one page. `rotation` swaps the ratio for pages displayed sideways.
