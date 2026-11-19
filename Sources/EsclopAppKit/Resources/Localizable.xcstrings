@@ -401,32 +401,22 @@
         }
       }
     },
+    "%d files": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d fitxers"
+          }
+        }
+      }
+    },
     "%d files optimised": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "%d fitxers optimitzats"
-          }
-        }
-      }
-    },
-    "%d files with the aggressive settings": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%d fitxers amb la configuració agressiva"
-          }
-        }
-      }
-    },
-    "%d files. Hold ⌘ for harder": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%d fitxers. Mantén ⌘ per comprimir més"
           }
         }
       }
@@ -571,32 +561,22 @@
         }
       }
     },
+    "1 file": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 fitxer"
+          }
+        }
+      }
+    },
     "1 file optimised": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "1 fitxer optimitzat"
-          }
-        }
-      }
-    },
-    "1 file with the aggressive settings": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "1 fitxer amb la configuració agressiva"
-          }
-        }
-      }
-    },
-    "1 file. Hold ⌘ for harder": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "1 fitxer. Mantén ⌘ per comprimir més"
           }
         }
       }
@@ -2651,16 +2631,6 @@
         }
       }
     },
-    "Drag files here. Hold ⌘ for harder": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Arrossega fitxers aquí. Mantén ⌘ per comprimir més"
-          }
-        }
-      }
-    },
     "Drag the file into another app": {
       "localizations": {
         "ca": {
@@ -3517,6 +3487,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Amaga la llista"
+          }
+        }
+      }
+    },
+    "Hold ⌘ to optimise harder": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mantén ⌘ per comprimir més"
           }
         }
       }
@@ -8607,6 +8587,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Amplada"
+          }
+        }
+      }
+    },
+    "With the aggressive settings": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amb la configuració agressiva"
           }
         }
       }
