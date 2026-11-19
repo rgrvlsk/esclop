@@ -37,7 +37,7 @@ struct FolderListEditor: View {
                 Text(Strings.text("No folders")).foregroundStyle(.secondary)
             }
             ForEach(folders, id: \.self) { folder in
-                FolderRow(folder: folder, status: FolderStatus.check(WatchPlan.canonical(folder))) {
+                FolderRow(folder: folder, status: status(of: folder)) {
                     write(folders.filter { $0 != folder })
                 }
             }
@@ -58,6 +58,14 @@ struct FolderListEditor: View {
                 .buttonStyle(.borderless)
                 .accessibilityLabel(Strings.format("Add a folder to %@", descriptor.title))
         }
+    }
+
+    /// What the folder itself says, unless the watcher could not start. Reading the watcher's
+    /// statuses redraws the row when a folder appears, moves or goes away.
+    func status(of folder: String) -> FolderStatus {
+        let url = WatchPlan.canonical(folder)
+        if model.watchedFolders?.statuses[url] == .notWatching { return .notWatching }
+        return FolderStatus.check(url)
     }
 
     func write(_ list: [String]) {
@@ -135,7 +143,8 @@ struct FolderRow: View {
         switch status {
         case .watching: return nil
         case .missing: return Strings.text("This folder no longer exists, or its disk is not connected. It is skipped until it is back.")
-        case .unreadable: return Strings.text("macOS does not let L’Esclop read this folder. Allow it in System Settings › Privacy & Security › Files and Folders.")
+        case .unreadable: return Strings.text("macOS does not let L’Esclop read this folder. Allow it in System Settings › Privacy & Security › Files & Folders.")
+        case .notWatching: return Strings.text("L’Esclop could not start watching this folder. It tries again when the folder lists change, or the next time L’Esclop opens.")
         }
     }
 

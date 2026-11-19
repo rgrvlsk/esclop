@@ -148,6 +148,23 @@ enum Fixture {
         try await ProcessRunner.run(.ffmpeg, args)
     }
 
+    /// Stereo 16-bit white noise as a WAV, written here: the bundled ffmpeg has no noise
+    /// source, and noise is what lossy codecs cannot shrink to nothing.
+    static func noiseWAV(_ url: URL, seconds: Int = 3, sampleRate: Int = 44100) throws {
+        var generator = SystemRandomNumberGenerator()
+        let frames = seconds * sampleRate
+        var samples = Data(capacity: frames * 4)
+        for _ in 0 ..< frames * 2 {
+            let value = Int16.random(in: -9000 ... 9000, using: &generator)
+            withUnsafeBytes(of: value.littleEndian) { samples.append(contentsOf: $0) }
+        }
+        func le<T: FixedWidthInteger>(_ value: T) -> [UInt8] { withUnsafeBytes(of: value.littleEndian, Array.init) }
+        var wav = Data("RIFF".utf8) + le(UInt32(36 + samples.count)) + Data("WAVEfmt ".utf8)
+        wav += le(UInt32(16)) + le(UInt16(1)) + le(UInt16(2)) + le(UInt32(sampleRate)) + le(UInt32(sampleRate * 4)) + le(UInt16(4)) + le(UInt16(16))
+        wav += Data("data".utf8) + le(UInt32(samples.count)) + samples
+        try wav.write(to: url)
+    }
+
     static func wav(_ url: URL, seconds: Int = 2) async throws {
         try await ProcessRunner.run(.ffmpeg, [
             "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=f=440:d=\(seconds):sample_rate=44100",
@@ -217,4 +234,25 @@ enum Inspect {
     static func media(_ url: URL) async throws -> MediaInfo {
         try await MediaInfo.probe(url, tools: .shared)
     }
+}
+
+/// A one-page PDF whose form field carries a signature value (a `/ByteRange`).
+func signedPDF(at url: URL) throws {
+    let objects = [
+        "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] /SigFlags 3 >> >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [4 0 R] >>",
+        "<< /Type /Annot /Subtype /Widget /FT /Sig /T (Sig1) /Rect [0 0 0 0] /P 3 0 R /V 5 0 R >>",
+        "<< /Type /Sig /Filter /Adobe.PPKLite /ByteRange [0 100 200 300] /Contents <00> >>",
+    ]
+    var text = "%PDF-1.7\n"
+    var offsets: [Int] = []
+    for (index, object) in objects.enumerated() {
+        offsets.append(text.utf8.count)
+        text += "\(index + 1) 0 obj\n\(object)\nendobj\n"
+    }
+    let xref = text.utf8.count
+    text += "xref\n0 \(objects.count + 1)\n0000000000 65535 f \n" + offsets.map { String(format: "%010d 00000 n \n", $0) }.joined()
+    text += "trailer\n<< /Size \(objects.count + 1) /Root 1 0 R >>\nstartxref\n\(xref)\n%%EOF\n"
+    try Data(text.utf8).write(to: url)
 }

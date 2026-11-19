@@ -51,15 +51,8 @@ public final class AppServices {
         settingsModel.uploads = .live()
         settingsWindow = SettingsWindowController(model: settingsModel, agents: AgentsModel(), actions: SettingsActions(
             reveal: { [weak model] in model?.reveal([$0]) },
-            copy: { text in
-                // ponytail: on the main thread, like `copyLink`; see there.
-                let pasteboard = NSPasteboard.general
-                pasteboard.clearContents()
-                // Marked as L'Esclop's own write, so the clipboard watcher leaves it alone.
-                pasteboard.declareTypes([.string, Clipboard.optimisedType], owner: nil)
-                pasteboard.setString(text, forType: .string)
-                pasteboard.setData(Data(), forType: Clipboard.optimisedType)
-            },
+            // On the clipboard queue, marked as L'Esclop's own write, so the watcher leaves it alone.
+            copy: { [weak model] text in Task { await model?.copyToClipboard(text: text) } },
             supportFolder: model.service.context.locations.support,
             openPipelines: { [weak model] in model?.onOpenPipelines?(nil) }
         ))
@@ -99,16 +92,18 @@ public final class AppServices {
         }
         let folders = WatchedFolders(model: model, pipelines: { (try? store.list()) ?? [] })
         self.folders = folders
+        settingsModel.watchedFolders = folders
         model.onPauseChange = { [weak folders] in folders?.refresh() }
         // Folder lists changed here or by `esclop settings set` in another process.
         folderSettings = DefaultsObserver(defaults: settings.defaults, keys: WatchedFolders.settingKeys) { [weak folders] _ in
             Task { @MainActor in folders?.refresh(retryDenied: true) }
         }
         // A pipeline saved, attached to a folder or deleted (here, by the CLI or by an agent).
-        pipelineFiles = FolderWatcher(everyChange: true) { [weak folders, weak pipelinesWindow] _ in
+        pipelineFiles = FolderWatcher(everyChange: true) { [weak folders, weak pipelinesWindow, weak model] _ in
             Task { @MainActor in
                 folders?.refresh()
                 pipelinesWindow?.model.reload()
+                if let model { Hotkeys.register((try? store.list()) ?? [], model: model) }
             }
         }
     }
@@ -151,6 +146,7 @@ public final class AppServices {
         // Shortcuts actions run in this process and use this model.
         ShortcutActions.model = model
         Hotkeys.register(model)
+        Hotkeys.register((try? model.service.context.pipelines.list()) ?? [], model: model)
         updater.start()
 
         onboarding.showIfFirstRun()

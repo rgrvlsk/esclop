@@ -20,10 +20,20 @@ extension AppModel {
         reprocess(card, choice: choice)
     }
 
-    /// ⌥ on a format tile: a converted copy next to the file, keeping both.
+    /// ⌥ on a format tile: a converted copy next to the file, keeping both. It reads the
+    /// original (the backup while a result stands) and lands beside the file the person sees,
+    /// under the original's name, never in the backups folder.
     public func convertKeepingBoth(_ card: ResultCard, to format: OutputFormat) {
         guard let original = originalFile(of: card) else { return }
-        var job = factory.job(for: original, origin: .app, location: .sameFolder)
+        let name = (card.result?.source ?? original).lastPathComponent
+        let beside = card.shownFile.deletingLastPathComponent().appendingPathComponent(name)
+        let target = OutputLocation.sameFolder.destination(
+            for: beside, extension: format.fileExtension,
+            sameFolderTemplate: EsclopSettings.sameFolderNameTemplate.value(in: settings)
+        )
+        // ponytail: `.path` expands %f, %e and %d, so a folder or name holding one of them lands
+        // wrong; add an exact-file location case if someone hits it.
+        var job = factory.job(for: original, origin: .app, location: .path(target.path))
         var choice = card.choice
         choice.format = format
         choice.apply(to: &job.request)
@@ -32,9 +42,11 @@ extension AppModel {
 
     // MARK: Size
 
+    /// Scales from the original; 1 is the original itself, with no adjustment left over (after
+    /// Fit or Crop too).
     public func downscale(_ card: ResultCard, to factor: Double) {
-        reprocess(card) { $0.request.downscale = factor < 1 ? factor : nil }
-        card.downscale = min(1, factor)
+        guard factor < 1 else { return reprocess(card) }
+        reprocess(card) { $0.request.downscale = factor }
     }
 
     public func fit(_ card: ResultCard, under bytes: Int) {
@@ -70,9 +82,10 @@ extension AppModel {
         }
     }
 
-    public func ruleExists(for card: ResultCard) -> Bool {
-        guard let origin = card.fileOrigin, let inputType = card.inputType else { return false }
-        return rules.rule(origin: origin, inputType: inputType) != nil
+    /// The stored rule for the card's origin and input format.
+    public func storedRule(for card: ResultCard) -> ClipboardRule? {
+        guard let origin = card.fileOrigin, let inputType = card.inputType else { return nil }
+        return rules.rule(origin: origin, inputType: inputType)
     }
 
     // MARK: Origin
@@ -129,8 +142,32 @@ extension AppModel {
         if let type = UTType(filenameExtension: file.pathExtension) { panel.allowedContentTypes = [type] }
         NSApp.activate(ignoringOtherApps: true)
         guard panel.runModal() == .OK, let target = panel.url else { return }
-        try? FileManager.default.removeItem(at: target)
-        try? FileManager.default.copyItem(at: file, to: target)
+        do {
+            try Self.saveCopy(of: file, to: target)
+        } catch {
+            NSSound.beep()
+            announce(Strings.format("Could not save %@", target.lastPathComponent))
+        }
+    }
+
+    /// Copies `file` to `target`, replacing what is there only once the copy is whole: the copy
+    /// goes beside the target first. Saving a file onto itself leaves it as it is.
+    static func saveCopy(of file: URL, to target: URL) throws {
+        guard target.standardizedFileURL.resolvingSymlinksInPath() != file.standardizedFileURL.resolvingSymlinksInPath() else { return }
+        let fm = FileManager.default
+        let staging = target.deletingLastPathComponent()
+            .appendingPathComponent(".\(target.lastPathComponent).esclop-\(UUID().uuidString.prefix(8))")
+        try fm.copyItem(at: file, to: staging)
+        do {
+            if fm.fileExists(atPath: target.path) {
+                _ = try fm.replaceItemAt(target, withItemAt: staging)
+            } else {
+                try fm.moveItem(at: staging, to: target)
+            }
+        } catch {
+            try? fm.removeItem(at: staging)
+            throw error
+        }
     }
 
     /// Moves an optimised file to the Trash and removes its card. Its backup stays, as for any
@@ -203,8 +240,8 @@ extension AppModel {
     }
 
     /// Shelf and upload apps L'Esclop hands files to, when installed.
-    public static let shelfApps = ["at.EternalStorms.Yoink", "at.EternalStorms.Yoink-setapp", "me.damir.dropover-mac", "com.hachipoo.Dockside"]
-    public static let uploadApps = ["net.mkswap.Dropshare5", "net.mkswap.Dropshare5-setapp"]
+    public static let shelfApps = AppPipelineHost.shelves.flatMap(\.bundleIDs)
+    public static let uploadApps = AppPipelineHost.uploadApps.flatMap(\.bundleIDs)
 
     public static func installed(_ bundleIDs: [String]) -> [URL] {
         bundleIDs.compactMap { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) }
@@ -223,8 +260,10 @@ extension AppModel {
         return String(decoding: result.stdout, as: UTF8.self).split(separator: "\n").map(String.init).filter { !$0.isEmpty }.sorted()
     }
 
-    public var pipelineNames: [String] {
-        (try? service.context.pipelines.list().map(\.name)) ?? []
+    /// The saved pipelines that do something for `kind`.
+    public func pipelineNames(for kind: MediaKind?) -> [String] {
+        let pipelines = (try? service.context.pipelines.list()) ?? []
+        return pipelines.filter { pipeline in kind.map { pipeline.kinds.contains($0) } ?? true }.map(\.name)
     }
 
     /// Runs a saved pipeline on files the person chose (the pipeline editor's Run).
@@ -255,6 +294,15 @@ final class QuickLookPresenter: NSObject, @preconcurrency QLPreviewPanelDataSour
         panel.dataSource = self
         panel.reloadData()
         panel.makeKeyAndOrderFront(nil)
+    }
+
+    /// Space on a card: shows the file, or closes Quick Look when it shows it already.
+    func toggle(_ url: URL) {
+        if file == url, QLPreviewPanel.sharedPreviewPanelExists(), let panel = QLPreviewPanel.shared(), panel.isVisible {
+            panel.orderOut(nil)
+        } else {
+            show(url)
+        }
     }
 
     func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { file == nil ? 0 : 1 }
