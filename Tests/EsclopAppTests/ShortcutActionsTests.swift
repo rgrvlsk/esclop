@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import AppIntents
+import AppKit
 import EsclopCore
 import EsclopIPC
 import EsclopPipelines
@@ -77,6 +79,121 @@ import Testing
         #expect(outputs.count == 1)
     }
 
+    @Test func theSharedChoicesMapToTheRequest() async throws {
+        let harness = Harness()
+        let factory = harness.model.factory
+        let video = harness.temp.file("a.mp4"), image = harness.temp.file("b.png")
+        // Defaults: where Settings say, as before these choices existed.
+        let plain = ShortcutActions.job(.optimise(harder: false), for: image, options: .init(), factory: factory).request
+        #expect(plain.locationFromSettings == true && plain.showResultUI && plain.quality == .normal && !plain.removeAudio)
+        let folder = harness.temp.url.appendingPathComponent("out", isDirectory: true)
+        let places: [(ShortcutActions.Place, OutputLocation)] = [(.inPlace, .inPlace), (.besideOriginal, .sameFolder), (.folder(folder), .path(folder.path + "/"))]
+        for (place, location) in places {
+            let request = ShortcutActions.job(.convert(.webp), for: image, options: .init(place: place), factory: factory).request
+            #expect(request.location == location && request.locationFromSettings != true, "\(place)")
+        }
+        let options = ShortcutActions.Options(hideResult: true, compression: .lossless, removeAudio: true)
+        let forVideo = ShortcutActions.job(.downscale(0.5), for: video, options: options, factory: factory).request
+        #expect(!forVideo.showResultUI && forVideo.removeAudio && forVideo.quality == CompressionQuality(tier: .custom, factor: 0))
+        #expect(!ShortcutActions.job(.downscale(0.5), for: image, options: options, factory: factory).request.removeAudio, "videos only")
+        // Optimise harder is aggressive unless a compression is chosen, which wins.
+        #expect(ShortcutActions.job(.optimise(harder: true), for: image, options: .init(), factory: factory).request.quality == .aggressive)
+        #expect(ShortcutActions.job(.optimise(harder: true), for: image, options: .init(compression: .adaptive), factory: factory).request.quality == .normal)
+        let speed = ShortcutActions.job(.playbackSpeed(2), for: video, options: .init(), factory: factory)
+        #expect(speed.request.playbackSpeed == 2 && speed.operation == .optimise)
+        let crop = ShortcutActions.job(.cropPDF(PDFCropSpec(aspectRatio: 0.75)), for: harness.temp.file("c.pdf"), options: .init(), factory: factory)
+        #expect(crop.operation == .cropPDF(PDFCropSpec(aspectRatio: 0.75)))
+    }
+
+    @Test func aFolderIsNeededForInAFolder() throws {
+        #expect(throws: ShortcutActions.Failure.self) { try shortcutOptions(place: .folder, folder: nil, hideResult: false, copy: false) }
+        let temp = TempDir()
+        let file = temp.file("a.png")
+        #expect(throws: ShortcutActions.Failure.self, "a file is not a folder") {
+            try shortcutOptions(place: .folder, folder: IntentFile(fileURL: file), hideResult: false, copy: false)
+        }
+        let options = try shortcutOptions(place: .folder, folder: IntentFile(fileURL: temp.url), hideResult: true, copy: true, compression: .aggressive)
+        #expect(options == ShortcutActions.Options(hideResult: true, place: .folder(temp.url), compression: .aggressive, copy: true))
+        #expect(try shortcutOptions(place: .besideOriginal, folder: nil, hideResult: false, copy: false).place == .besideOriginal)
+    }
+
+    @Test func resultsGoWhereAskedAndOnTheClipboard() async throws {
+        let harness = Harness()
+        let file = harness.temp.file("a.png")
+        let outputs = try await withModel(harness) {
+            try await ShortcutActions.run(.optimise(harder: false), on: [file], options: .init(place: .besideOriginal, copy: true))
+        }
+        #expect(outputs.count == 1 && outputs[0] != file, "a new file beside the original")
+        #expect(outputs[0].deletingLastPathComponent() == file.deletingLastPathComponent())
+        await harness.clipboardSettles()
+        let copied = harness.pasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL]
+        #expect(copied == outputs)
+        _ = try await withModel(harness) { try await ShortcutActions.run(.optimise(harder: false), on: [harness.temp.file("b.png")], options: .init(hideResult: true)) }
+        #expect(harness.model.cards.count == 1, "a hidden result shows no card")
+    }
+
+    @Test func manyFilesAreOneBatchWindowAndComeBackInOrder() async throws {
+        let harness = Harness()
+        let files = (1 ... harness.model.batchThreshold).map { harness.temp.file("\($0).png") }
+        let outputs = try await withModel(harness) { try await ShortcutActions.run(.optimise(harder: false), on: files) }
+        #expect(outputs == files)
+        #expect(harness.model.batch?.rows.count == files.count, "one window for all of them")
+        #expect(harness.model.cards.isEmpty, "no floating result per file")
+    }
+
+    @Test func speedTakesVideoAndAudioOnly() async throws {
+        let harness = Harness()
+        try await withModel(harness) {
+            _ = try await ShortcutActions.run(.playbackSpeed(1.5), on: [harness.temp.file("a.mp4"), harness.temp.file("b.mp3")])
+            await #expect(throws: ShortcutActions.Failure.self) { try await ShortcutActions.run(.playbackSpeed(2), on: [harness.temp.file("c.png")]) }
+            await #expect(throws: ShortcutActions.Failure.self) { try await ShortcutActions.run(.playbackSpeed(0), on: [harness.temp.file("d.mp4")]) }
+        }
+        #expect(harness.requests.requests.map(\.playbackSpeed) == [1.5, 1.5])
+    }
+
+    @Test func cropPDFSetsTheCropBoxOfPDFsOnly() async throws {
+        let harness = Harness()
+        let pdf = harness.temp.url.appendingPathComponent("doc.pdf")
+        // Portrait: the crop turns the ratio to each page's orientation.
+        var box = CGRect(x: 0, y: 0, width: 300, height: 500)
+        let context = try #require(CGContext(pdf as CFURL, mediaBox: &box, nil))
+        context.beginPDFPage(nil)
+        context.setFillColor(CGColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1))
+        context.fill(CGRect(x: 20, y: 20, width: 260, height: 460))
+        context.endPDFPage()
+        context.closePDF()
+        let spec = try CropPDFIntent.spec("3:4", extend: false)
+        #expect(spec.aspectRatio == 0.75)
+        #expect(try CropPDFIntent.spec("A4", extend: true) == PDFCropSpec(aspectRatio: 210.0 / 297.0, extend: true))
+        #expect(throws: ShortcutActions.Failure.self) { try CropPDFIntent.spec("roughly square", extend: false) }
+        let outputs = try await withModel(harness) { try await ShortcutActions.run(.cropPDF(spec), on: [pdf], options: .init(place: .besideOriginal)) }
+        let page = try #require(CGPDFDocument(outputs[0] as CFURL)?.page(at: 1))
+        let crop = page.getBoxRect(.cropBox)
+        #expect(abs(crop.width / crop.height - 0.75) < 0.01, "cropped to 3:4: \(crop)")
+        await withModel(harness) {
+            await #expect(throws: ShortcutActions.Failure.self) { try await ShortcutActions.run(.cropPDF(spec), on: [harness.temp.file("a.png")]) }
+        }
+    }
+
+    @Test func optimiseFromURLDownloadsThenOptimises() async throws {
+        let harness = Harness()
+        let downloaded = harness.temp.file("photo.png")
+        let fetched = Fetched()
+        ShortcutActions.download = { url in fetched.append(url); return downloaded }
+        defer { ShortcutActions.download = { try await WebDownload.fetch($0) } }
+        let outputs = try await withModel(harness) {
+            try await ShortcutActions.optimise(addresses: [URL(string: "https://example.com/photo")!], harder: true)
+        }
+        #expect(fetched.urls == [URL(string: "https://example.com/photo")!])
+        #expect(outputs == [downloaded])
+        #expect(harness.requests.requests.first?.quality == .aggressive)
+        await withModel(harness) {
+            await #expect(throws: ShortcutActions.Failure.self) { try await ShortcutActions.optimise(addresses: [URL(string: "ftp://example.com/a.png")!], harder: false) }
+            await #expect(throws: ShortcutActions.Failure.self) { try await ShortcutActions.optimise(addresses: [], harder: false) }
+        }
+        #expect(fetched.urls.count == 1, "only http and https are fetched")
+    }
+
     @Test func settingsAreReadAndCheckedByTheRegistry() async throws {
         let harness = Harness()
         ShortcutActions.model = harness.model
@@ -107,6 +224,14 @@ import Testing
     }
 }
 
+/// The addresses a test download was asked for.
+final class Fetched: @unchecked Sendable {
+    private let lock = NSLock()
+    private var list: [URL] = []
+    func append(_ url: URL) { lock.lock(); list.append(url); lock.unlock() }
+    var urls: [URL] { lock.lock(); defer { lock.unlock() }; return list }
+}
+
 /// Everything Shortcuts shows for L'Esclop's actions has Catalan: titles, descriptions,
 /// parameter names and summaries, read from the intents' sources.
 @Suite struct ShortcutStringsTests {
@@ -132,6 +257,6 @@ import Testing
         #expect(keys.count > 30, "the scan found the actions' strings: \(keys.count)")
         let missing = keys.filter { CatalanCoverageTests.catalan[$0] == nil }.sorted()
         #expect(missing.isEmpty, "untranslated: \(missing)")
-        #expect(keys.contains("Optimise ${files}"))
+        #expect(keys.contains("Optimise ${files} and save ${place}"))
     }
 }

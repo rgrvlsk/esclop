@@ -5,6 +5,7 @@
 
 import AppIntents
 import EsclopCore
+import EsclopIPC
 import EsclopPipelines
 import Foundation
 
@@ -100,4 +101,39 @@ public struct SettingQuery: EntityQuery, Sendable {
     public func suggestedEntities() async throws -> [SettingChoice] {
         Self.all
     }
+}
+
+/// Where an action saves its results. "Where Settings say" follows the "Optimised … go" and
+/// "Converted … go" settings, as the action did before it had this choice.
+public enum ResultPlace: String, AppEnum, CaseIterable, Sendable {
+    case settings, inPlace, besideOriginal, folder
+
+    public static let typeDisplayRepresentation: TypeDisplayRepresentation = "Place"
+    public static let caseDisplayRepresentations: [ResultPlace: DisplayRepresentation] = [
+        .settings: "where Settings say", .inPlace: "over the original", .besideOriginal: "beside the original", .folder: "in a folder",
+    ]
+}
+
+/// How hard to compress: the options popover's levels.
+public enum CompressionLevel: String, AppEnum, CaseIterable, Sendable {
+    case adaptive, lossless, aggressive
+
+    public static let typeDisplayRepresentation: TypeDisplayRepresentation = "Compression"
+    public static let caseDisplayRepresentations: [CompressionLevel: DisplayRepresentation] = [
+        .adaptive: "Adaptive", .lossless: "Lossless", .aggressive: "Aggressive",
+    ]
+
+    var choice: OptimiseChoice.Compression {
+        switch self {
+        case .adaptive: .adaptive
+        case .lossless: .lossless
+        case .aggressive: .aggressive
+        }
+    }
+}
+
+/// The paper sizes and devices `Crop PDF` offers; a ratio such as 3:4 can be typed too.
+public struct PDFShapeOptions: DynamicOptionsProvider {
+    public init() {}
+    public func results() async throws -> [String] { EsclopIPC.AspectRatio.presets.map(\.name) }
 }
