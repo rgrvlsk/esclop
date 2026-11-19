@@ -147,6 +147,7 @@ import Testing
         harness.model.perform(.reveal, on: card)
         #expect(harness.revealed.urls == [file])
         harness.model.perform(.copy, on: card)
+        await harness.clipboardSettles()
         #expect(Clipboard.isOwnWrite(harness.pasteboard))
         #expect(Clipboard.read(harness.pasteboard) == .files([file.standardizedFileURL]))
         harness.model.perform(.dismiss, on: card)
@@ -156,7 +157,7 @@ import Testing
     @Test func copiedImagesAreOptimisedAndPutBack() async throws {
         let harness = Harness()
         let data = pngData() + Data(count: 60_000)
-        harness.model.handleClipboard(.optimiseImage(data, .png))
+        harness.model.handleClipboard(harness.copy(image: data))
         #expect(await eventually { harness.model.cards.first?.result != nil })
         let card = try #require(harness.model.cards.first)
         #expect(card.presentation.fileName == "Copied image")
