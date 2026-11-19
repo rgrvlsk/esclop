@@ -133,6 +133,9 @@ public final class AppServices {
         dropZone.start()
         folders.refresh()
         PipelineEditorModel.removeLeftovers()
+        let retention = EsclopSettings.backupRetentionDays.value(in: model.settings)
+        let backups = BackupStore(root: model.service.context.locations.backups)
+        Task.detached(priority: .utility) { BackupPruner.pruneAtLaunch(days: retention, backups: backups) }
         try? FileManager.default.createDirectory(at: model.service.context.pipelines.directory, withIntermediateDirectories: true)
         pipelineFiles?.start([model.service.context.pipelines.directory])
         let workspace = NSWorkspace.shared.notificationCenter

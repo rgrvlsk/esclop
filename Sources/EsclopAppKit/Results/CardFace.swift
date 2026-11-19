@@ -77,6 +77,23 @@ struct CardFace: View {
                 }
             }
             .animation(Motion.hover, value: showsClose)
+            // The options popover hangs from the picture at "…"'s place, not from the button: the
+            // row of buttons changes while a choice from the popover runs (only "…" stays), and a
+            // popover whose button moves is dismissed by SwiftUI the moment the run starts.
+            .popover(
+                isPresented: Binding(
+                    get: { card.machine.menuOpen && card.machine.level == .thumbnail },
+                    set: { if !$0 { interact(.menu(false)) } }
+                ),
+                attachmentAnchor: .point(UnitPoint(x: 1 - (Self.buttonInset + Metrics.toolSize / 2) / Self.pictureWidth, y: 1)),
+                arrowEdge: corner.isTop ? .top : .bottom
+            ) {
+                if let options {
+                    OptionsPopover(model: options(), arrowAtBottom: !corner.isTop)
+                } else {
+                    OptionsPlaceholder(card: card, info: info, perform: perform)
+                }
+            }
     }
 
     private var showsClose: Bool { card.machine.hovering && card.machine.level == .thumbnail && info.actions.contains(.dismiss) }
@@ -89,19 +106,6 @@ struct CardFace: View {
         HStack(spacing: Self.buttonGap) {
             ForEach(info.tools, id: \.self) { action in
                 PillButton(action: action, perform: perform)
-                    .popover(
-                        isPresented: Binding(
-                            get: { action == .more && card.machine.menuOpen },
-                            set: { if !$0 { interact(.menu(false)) } }
-                        ),
-                        arrowEdge: corner.isTop ? .top : .bottom
-                    ) {
-                        if let options {
-                            OptionsPopover(model: options(), arrowAtBottom: !corner.isTop)
-                        } else {
-                            OptionsPlaceholder(card: card, info: info, perform: perform)
-                        }
-                    }
             }
         }
     }
