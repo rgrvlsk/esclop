@@ -143,7 +143,7 @@ struct FolderRow: View {
         switch status {
         case .watching: return nil
         case .missing: return Strings.text("This folder no longer exists, or its disk is not connected. It is skipped until it is back.")
-        case .unreadable: return Strings.text("macOS does not let L’Esclop read this folder. Allow it in System Settings › Privacy & Security › Files and Folders.")
+        case .unreadable: return Strings.text("macOS does not let L’Esclop read this folder. Allow it in System Settings › Privacy & Security › Files & Folders.")
         case .notWatching: return Strings.text("L’Esclop could not start watching this folder. It tries again when the folder lists change, or the next time L’Esclop opens.")
         }
     }

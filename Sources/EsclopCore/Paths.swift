@@ -9,8 +9,14 @@ public enum Paths {
     public static let bundleIdentifier = "dev.esclop.app"
     public static let defaultsSuite = "dev.esclop.app"
 
-    /// `~/Library/Application Support/esclop`
-    public static var applicationSupport: URL {
+    /// `~/Library/Application Support/esclop`, or `$ESCLOP_SUPPORT_DIR` when it is set (tests and
+    /// scripted runs keep backups, pipelines, logs and results out of the person's folder).
+    public static var applicationSupport: URL { applicationSupport(environment: ProcessInfo.processInfo.environment) }
+
+    public static func applicationSupport(environment: [String: String]) -> URL {
+        if let support = environment["ESCLOP_SUPPORT_DIR"], !support.isEmpty {
+            return URL(fileURLWithPath: (support as NSString).expandingTildeInPath, isDirectory: true)
+        }
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
         return base.appendingPathComponent("esclop", isDirectory: true)

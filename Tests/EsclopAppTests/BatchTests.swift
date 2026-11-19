@@ -11,6 +11,19 @@ import Testing
 
 @MainActor
 @Suite struct BatchTests {
+    /// "1 ja optimitzats" read wrong: one file takes the singular, in English and in Catalan.
+    @Test func aCountOfOneIsSingular() {
+        let batch = Batch(origin: .dropZone)
+        batch.add(URL(fileURLWithPath: "/tmp/a.png"), bytes: 100).state = .unchanged
+        batch.add(URL(fileURLWithPath: "/tmp/b.png"), bytes: 100).state = .failed("x")
+        batch.add(URL(fileURLWithPath: "/tmp/c.png"), bytes: 100).state = .cancelled
+        batch.add(URL(fileURLWithPath: "/tmp/d.png"), bytes: 100)
+        #expect(BatchPresentation(batch: batch, locale: Locale(identifier: "en")).counts == "1 already optimised · 1 failed · 1 stopped · 1 to go")
+        #expect(BatchPresentation(batch: batch, locale: Locale(identifier: "ca")).counts == "1 ja optimitzat · 1 amb error · 1 aturat · en falta 1")
+        batch.add(URL(fileURLWithPath: "/tmp/e.png"), bytes: 100).state = .unchanged
+        #expect(BatchPresentation(batch: batch, locale: Locale(identifier: "ca")).counts.hasPrefix("2 ja optimitzats"))
+    }
+
     func files(_ harness: Harness, _ count: Int, bytes: Int = 100_000) -> [URL] {
         (1 ... count).map { harness.temp.file("file \($0).png", bytes: bytes) }
     }
@@ -98,6 +111,42 @@ import Testing
         stopped.retry?()
         #expect(await eventually { stopped.result != nil })
         #expect(BatchPresentation.status(of: stopped, locale: Locale(identifier: "en")) == "100\u{00A0}kB → 40\u{00A0}kB")
+    }
+
+    /// A Restore that fails keeps the row's result and saving, and Try again stays away.
+    @Test func aFailedRestoreKeepsTheResult() async throws {
+        let harness = Harness()
+        harness.model.optimise(files(harness, 4), origin: .dropZone)
+        let batch = try #require(harness.model.batch)
+        #expect(await eventually { !batch.isRunning })
+        let saved = batch.bytesAfter
+        try FileManager.default.removeItem(at: try #require(batch.rows[1].result?.backup))
+        #expect(!batch.rows[1].canRestore, "no Restore once the backup is gone")
+        #expect(batch.restorable.count == 3)
+
+        let row = batch.rows[0]
+        let folder = row.source.deletingLastPathComponent()
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: folder.path)
+        await harness.model.restore(row)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: folder.path)
+        #expect(row.result != nil)
+        #expect(row.restoreError != nil)
+        #expect(batch.optimised == 4 && batch.failed == 0)
+        #expect(batch.bytesAfter == saved, "the saving still counts")
+        #expect(AppModel.size(of: row.source) == 40_000)
+    }
+
+    /// Restore All during a run stops what is still to go first.
+    @Test func restoreAllStopsTheRunFirst() async throws {
+        let harness = Harness(delay: .milliseconds(200), gate: WorkGate(limit: 1))
+        let sources = files(harness, 6, bytes: 50_000)
+        harness.model.optimise(sources, origin: .dropZone)
+        let batch = try #require(harness.model.batch)
+        #expect(await eventually { batch.optimised >= 1 })
+        await harness.model.restoreAll(batch)
+        #expect(!batch.isRunning)
+        #expect(batch.optimised == 0, "nothing optimised after its neighbours came back")
+        #expect(sources.allSatisfy { AppModel.size(of: $0) == 50_000 })
     }
 
     @Test func restoreAllPutsEveryOriginalBack() async throws {
