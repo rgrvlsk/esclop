@@ -139,9 +139,10 @@ on that one file. It replaces a long context menu. It is not the menu-bar menu. 
 - **Actions:** rows, each with a round symbol, what it does and what it gives, and a play button:
   the person's pipelines ("Your pipeline"), Upload ("Copies a link"; Set Up Uploads… without a
   target, with a chevron since it opens Settings), Copy Link after an upload, Share… ("AirDrop, Mail, Messages"), shelf and upload apps
-  when installed; then Run a Shortcut › and Open with ›, and a dashed "Edit Pipelines…". Copy
-  ⌘C, Save as ⌘S, Show in Finder ⌘R and Quick Look ⌘Y are keys of the popover; Compare is
-  the detail's loupe; how long results stay visible is in Settings.
+  when installed; then flat rows Copy ⌘C, Save as… ⌘S and Quick Look ⌘Y with their keys, Run a
+  Shortcut › and Open with ›, and a dashed "Edit Pipelines…". Pipelines are listed only for
+  the kinds they do something for. The keys, and Show in Finder ⌘R, work from every tab;
+  Compare is the detail's loupe; how long results stay visible is in Settings.
 - Every choice that changes size shows an estimate before it is applied. Long lists are
   drill-downs inside the popover, never inline walls. Only installed apps are listed.
 
@@ -166,7 +167,9 @@ At the bottom of Optimise a small native checkbox turns the current choice into 
 "Always apply to PNG screenshots". The rule key is origin + input format. Unticking deletes the
 rule, so the next item of that kind gets the default behaviour again; ⌘Z only restores the
 current file. When a rule was applied, the result capsule shows a small rule glyph with the
-tooltip "Rule: PNG screenshots → WebP", and the popover opens with the box ticked. Rules are
+tooltip "Rule: PNG screenshots → WebP", and the popover opens with the box ticked. The line under
+a ticked box says what the stored rule does; trying another choice leaves the rule as it is,
+and ticking the box again stores the new choice. Rules are
 listed and edited in Settings › Automation › Clipboard rules.
 
 ## Batch window

@@ -318,10 +318,11 @@ struct PDF: AsyncParsableCommand {
                 let folder = try output.map { try PathInput.url($0) }
                     ?? source.deletingLastPathComponent().appendingPathComponent(source.deletingPathExtension().lastPathComponent + " pages", isDirectory: true)
                 let written = try PDFPageTools().exportPages(source, pages: try pages.map(Self.parsePages), format: format, dpi: dpi, into: folder)
+                let bytes = written.reduce(0) { $0 + PageExport.size(of: $1) }
                 if global.json {
-                    Output.json(PageExport(source: source.path, pages: written.map(\.path)))
+                    Output.json(PageExport(source: source.path, pages: written.map(\.path), bytes: bytes))
                 } else {
-                    print("\(global.terminal.green("✓")) \(written.count) page\(written.count == 1 ? "" : "s") \(global.terminal.dim("→")) \(global.terminal.cyan(PathInput.abbreviate(folder)))")
+                    print("\(global.terminal.green("✓")) \(written.count) page\(written.count == 1 ? "" : "s") \(ByteSize.format(bytes)) \(global.terminal.dim("→")) \(global.terminal.cyan(PathInput.abbreviate(folder)))")
                 }
                 return 0
             }
@@ -332,4 +333,10 @@ struct PDF: AsyncParsableCommand {
 struct PageExport: Codable {
     var source: String
     var pages: [String]
+    /// The size of all the pages together.
+    var bytes: Int
+
+    static func size(of url: URL) -> Int {
+        ((try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? NSNumber)?.intValue ?? 0
+    }
 }
