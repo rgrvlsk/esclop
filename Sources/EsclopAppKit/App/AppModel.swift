@@ -651,6 +651,9 @@ public final class AppModel {
     // MARK: Card actions
 
     public func perform(_ action: CardPresentation.Action, on card: ResultCard) {
+        // Undo, Copy or Save on a card the "Go to the newest result" hotkey reached gives the keys
+        // back to the app in front, by key or by click.
+        defer { if card.lentKeys, CardKeys.givesKeysBack(action) { returnKeys(from: card) } }
         switch action {
         case .undo:
             // One restore at a time: a second click while it runs would leave a stray copy.

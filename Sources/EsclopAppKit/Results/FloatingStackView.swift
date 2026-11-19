@@ -14,6 +14,9 @@ struct FloatingStackView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// The cards measure where they are from here (`FloatingResultView`'s pointer rest).
+    static let space = "FloatingStack"
+
     private var menuOpen: Bool {
         model.visibleCards.contains { $0.machine.detailMenuOpen }
     }
@@ -65,6 +68,7 @@ struct FloatingStackView: View {
         .animation(reduceMotion ? Motion.crossfade : Motion.enter, value: model.visibleCards.map(\.id))
         .animation(reduceMotion ? Motion.crossfade : Motion.enter, value: model.groupsFailures)
         .fixedSize()
+        .coordinateSpace(.named(Self.space))
         .onGeometryChange(for: CGSize.self, of: \.size) { onSize($0) }
     }
 }

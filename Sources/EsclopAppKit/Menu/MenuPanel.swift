@@ -340,7 +340,9 @@ public struct MenuPanel: View {
     }
 
     private func quickLook(_ results: [OptimisationResult]) -> KeyPress.Result {
-        guard let result = results.first(where: { $0.id == highlighted }) else { return .ignored }
+        guard let result = results.first(where: { $0.id == highlighted }),
+              FileManager.default.fileExists(atPath: result.output.path) else { return .ignored }
+        // Quick Look takes the keys, so the panel closes as it does for any other window.
         QuickLookPresenter.shared.toggle(result.output)
         return .handled
     }

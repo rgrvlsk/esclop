@@ -258,8 +258,8 @@ pointer moved onto and rests on (after 200 ms, with no click, and the app in fro
 window; a card that appears or moves under a still pointer waits for it to move), and on the
 card with the keys (a click, or the "Go to the newest result" hotkey, unset by default, in
 Settings › General, with a Set… link on the last onboarding page). The hotkey lends the keys:
-Esc on the card, or ⌘Z, ⌘C or ⌘S, gives them back to the app in front and the card stays; a
-second Esc dismisses it. Space alone: Quick Look (again to close). With ⌘: ⌘Z Undo · ⌘C Copy ·
+Esc on the card, or Undo, Copy or Save (by key or by click), gives them back to the app in
+front and the card stays. Space alone: Quick Look (again to close). With ⌘: ⌘Z Undo · ⌘C Copy ·
 ⌘F Show in Finder · ⌘D Compare · ⌘K Crop · ⌘S Save · ⌘⌫ Dismiss (the file stays) · ⌘− smaller
 (75 %, 50 %, then a tenth at a time to 10 %) · ⌘1–⌘9 that size (10 %–90 %), each from the
 original. Letters never go alone: a pointer resting on a card must not take what the person

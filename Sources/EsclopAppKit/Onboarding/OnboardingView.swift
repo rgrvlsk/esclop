@@ -330,6 +330,8 @@ struct AgentsPage: View {
 struct DonePage: View {
     /// Opens a hotkey's row in Settings.
     var setShortcut: (KeyboardShortcuts.Name) -> Void = { _ in }
+    /// Read again when the window comes back from Settings, where a key may have been set.
+    @State private var shortcutsRead = 0
 
     /// "Look for <icon> at the top of the screen…": the sentence comes from the catalog with %@
     /// where the icon goes, so each language puts it where it reads naturally.
@@ -364,6 +366,7 @@ struct DonePage: View {
                 ForEach(Hotkeys.all, id: \.name.rawValue) { hotkey in
                     GridRow {
                         Group {
+                            let _ = shortcutsRead
                             if let shortcut = KeyboardShortcuts.getShortcut(for: hotkey.name) {
                                 Text(shortcut.description)
                                     .font(.title3.weight(.medium))
@@ -380,6 +383,7 @@ struct DonePage: View {
                 }
             }
             .padding(.top, 28)
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in shortcutsRead += 1 }
             Text(Strings.text("Change the shortcuts in Settings → General."))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
