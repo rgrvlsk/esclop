@@ -8421,6 +8421,16 @@
         }
       }
     },
+    "Videos with subtitles this format cannot keep are left as they are.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els vídeos amb subtítols que aquest format no pot conservar es deixen tal com estan."
+          }
+        }
+      }
+    },
     "View": {
       "localizations": {
         "ca": {
@@ -10266,7 +10276,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conserva els mapes de guany HDR i el vídeo HDR quan el format de sortida els admet. Desactivat, es converteix a SDR."
+            "value": "Conserva els mapes de guany HDR i el vídeo HDR quan el format de sortida els admet. Desactivat, les fotos passen a SDR i el vídeo a 8 bits, sense mapatge de tons."
           }
         }
       }
