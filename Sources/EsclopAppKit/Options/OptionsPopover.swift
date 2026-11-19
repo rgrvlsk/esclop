@@ -58,6 +58,7 @@ public struct OptionsPopover: View {
         .background { PopoverEdgePin(arrowAtBottom: arrowAtBottom).frame(width: 0, height: 0) }
         .task { await model.appear() }
         .onDisappear { model.disappear() }
+        .designTint()
     }
 
     @ViewBuilder private var content: some View {
@@ -83,7 +84,8 @@ public struct OptionsPopover: View {
         }
     }
 
-    /// The listed ⌘ shortcuts work from any tab.
+    /// The listed ⌘ shortcuts work from any tab. Copy, Save as… and Quick Look are also rows of
+    /// the Actions tab (ShareTab), which show these keys: change both together.
     private var shortcuts: some View {
         Group {
             Button("") { model.app.perform(.copy, on: model.card) }.keyboardShortcut("c")

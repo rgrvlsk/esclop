@@ -24,6 +24,18 @@ import Testing
         return compare
     }
 
+    /// Outside a window, so controls draw active, under the test process's system blue accent:
+    /// Keep is charcoal, never blue or white (T1). The controller adds the root tint.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["ESCLOP_RENDER_ALL"] == "1"), arguments: [ColorScheme.light, .dark])
+    func activeControls(scheme: ColorScheme) async throws {
+        let harness = Harness()
+        let saved = UserDefaults.standard.string(forKey: CompareModel.modeKey)
+        defer { UserDefaults.standard.set(saved, forKey: CompareModel.modeKey) }
+        let compare = await model(harness, mode: .flip)
+        compare.showsDifference = true
+        try await OptionsRenderTests().snapshot(CompareView(model: compare).designTint().frame(width: Self.size.width, height: Self.size.height), name: "compare-active", scheme: scheme)
+    }
+
     @Test func split() async throws {
         let harness = Harness()
         let saved = UserDefaults.standard.string(forKey: CompareModel.modeKey)
@@ -78,10 +90,12 @@ import Testing
         window.setContentSize(CGSize(width: 1040, height: 760))
         window.orderFrontRegardless()
         defer { window.close() }
+        // The window shows each change before the next: a layout pass applies it to the view at
+        // once, and the display draws it.
         func act(_ change: () async -> Void) async throws {
             await change()
-            try await Task.sleep(for: .milliseconds(120))
             window.contentView?.layoutSubtreeIfNeeded()
+            window.displayIfNeeded()
         }
         try await act { await compare.load() }
         // Every layout, zoomed and with the overlay, then back.
@@ -117,6 +131,7 @@ import Testing
         // Back to the image while everything above is gone.
         try await act { compare.open(image) }
         try await act { await compare.load() }
-        #expect(compare.afterImage != nil)
+        // The view's own load may still be decoding: `load()` returns at once for media it is loading.
+        #expect(await eventually { compare.afterImage != nil })
     }
 }
