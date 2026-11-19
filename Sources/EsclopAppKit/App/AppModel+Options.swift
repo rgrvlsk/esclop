@@ -110,14 +110,13 @@ extension AppModel {
         } catch {
             return false
         }
-        let heldIt = pasteboardHolds(result.output)
         var renamed = result
         renamed.output = target
         if result.source == result.output { renamed.source = target }
         card.phase = .done(renamed)
         card.displayName = nil
         record(renamed)
-        if heldIt { writeClipboard(files: [target]) }
+        Task { await putBackOnClipboard([(result.output, target)]) }
         return true
     }
 
@@ -204,8 +203,8 @@ extension AppModel {
     }
 
     /// Shelf and upload apps L'Esclop hands files to, when installed.
-    public static let shelfApps = ["at.EternalStorms.Yoink", "at.EternalStorms.Yoink-setapp", "me.damir.dropover-mac", "com.hachipoo.Dockside"]
-    public static let uploadApps = ["net.mkswap.Dropshare5", "net.mkswap.Dropshare5-setapp"]
+    public static let shelfApps = AppPipelineHost.shelves.flatMap(\.bundleIDs)
+    public static let uploadApps = AppPipelineHost.uploadApps.flatMap(\.bundleIDs)
 
     public static func installed(_ bundleIDs: [String]) -> [URL] {
         bundleIDs.compactMap { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) }

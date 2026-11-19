@@ -101,9 +101,9 @@ public struct FloatingResultMachine: Equatable, Sendable {
         hideDeadline = now + hideAfter
     }
 
-    /// The result changed in place (a restore): start its time again at the thumbnail.
+    /// The result changed in place (a restore, an upload, shown again): start its time again.
+    /// The level stays: an open detail stays open (Undo closes it on its own).
     public mutating func refreshed(at now: Date, hideAfter: TimeInterval?) {
-        level = .thumbnail
         self.hideAfter = hideAfter
         hideDeadline = hideAfter.map { now + $0 }
     }

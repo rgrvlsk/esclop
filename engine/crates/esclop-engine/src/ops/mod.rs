@@ -159,10 +159,9 @@ pub fn carry(meta: &SourceMeta, out: &OutputParams, upright: bool) -> Carry {
             }
             e
         })
-    } else if keep.contains(&Keep::Orientation) && !upright && meta.orientation != 1 {
-        Some(meta::minimal_exif(meta.orientation))
     } else {
-        None
+        let orientation = (keep.contains(&Keep::Orientation) && !upright).then_some(meta.orientation);
+        meta::kept_exif(meta.exif.as_deref(), orientation, keep.contains(&Keep::Icc))
     };
     Carry { icc, exif }
 }
