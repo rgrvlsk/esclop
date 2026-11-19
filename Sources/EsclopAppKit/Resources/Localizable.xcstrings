@@ -2511,6 +2511,16 @@
         }
       }
     },
+    "Could not save %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha pogut desar %@"
+          }
+        }
+      }
+    },
     "Could not save the rule": {
       "localizations": {
         "ca": {

@@ -84,7 +84,8 @@ public struct OptionsPopover: View {
         }
     }
 
-    /// The listed ⌘ shortcuts work from any tab.
+    /// The listed ⌘ shortcuts work from any tab. Copy, Save as… and Quick Look are also rows of
+    /// the Actions tab (ShareTab), which show these keys: change both together.
     private var shortcuts: some View {
         Group {
             Button("") { model.app.perform(.copy, on: model.card) }.keyboardShortcut("c")
