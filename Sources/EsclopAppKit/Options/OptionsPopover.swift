@@ -67,6 +67,7 @@ public struct OptionsPopover: View {
             switch model.tab {
             case .optimise: OptimiseTab(model: model)
             case .size: SizeTab(model: model)
+            case .crop: CropSection(model: model)
             case .sound: SoundTab(model: model)
             case .share: ShareTab(model: model)
             }
@@ -89,6 +90,8 @@ public struct OptionsPopover: View {
             Button("") { model.app.saveAs(model.card) }.keyboardShortcut("s")
             Button("") { model.app.perform(.reveal, on: model.card) }.keyboardShortcut("r")
             Button("") { model.app.perform(.undo, on: model.card) }.keyboardShortcut("z")
+            // ⌘Y as in Finder: a bare Space would take the key from a focused tile or checkbox.
+            Button("") { model.app.quickLook(model.card) }.keyboardShortcut("y")
         }
         .opacity(0)
         .allowsHitTesting(false)
@@ -110,14 +113,16 @@ struct FusedTabs: View {
             ForEach(tabs) { tab in
                 let selected = tab == selection
                 Button { selection = tab } label: {
+                    // Thin symbols, about a third of the tab, as in the owner's reference
+                        // (Intellecta's tabs).
                     Image(systemName: tab.symbol)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: 14, weight: .regular))
                         .foregroundStyle(PopoverInk.primary.color)
                         .frame(width: Self.side, height: Self.side)
                         .background {
-                            if !selected {
-                                Circle().fill(Surface.cream).shadow(color: .black.opacity(0.1), radius: 1.5, y: 1)
-                            }
+                            // Resting tabs are raised like every control; the chosen one is the
+                            // same circle, fused into the panel.
+                            if !selected { Color.clear.raised(Circle(), fill: Surface.tile) }
                         }
                         .contentShape(Circle())
                 }
@@ -174,14 +179,16 @@ struct FusedTabShape: Shape {
     var inset: CGFloat
 
     func path(in rect: CGRect) -> Path {
-        let lip = tab.insetBy(dx: -6, dy: -6)
+        // The chosen tab is the same circle as the others (owner: one geometry for the tabs).
+        let lip = tab
         let circle = CGPath(roundedRect: lip, cornerWidth: lip.width / 2, cornerHeight: lip.width / 2, transform: nil)
         let neck = CGPath(rect: CGRect(x: lip.minX, y: lip.midY, width: lip.width, height: panelTop - lip.midY + FusedPanel.radius), transform: nil)
         let panel = CGPath(
             roundedRect: CGRect(x: inset, y: panelTop, width: rect.width - 2 * inset, height: FusedPanel.radius * 2),
             cornerWidth: FusedPanel.radius, cornerHeight: FusedPanel.radius, transform: nil
         )
-        return Path(LiquidMenuShape.fillet(circle.union(neck).union(panel), radius: 8))
+        // A wide fillet where the tab meets the panel, as in the reference (about 11 pt).
+        return Path(LiquidMenuShape.fillet(circle.union(neck).union(panel), radius: 11))
     }
 }
 
