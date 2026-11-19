@@ -81,6 +81,9 @@ public final class ClipboardWatcher: @unchecked Sendable {
             lastPaused = paused
             onPauseChange(paused)
         }
+        // ponytail: the copy is attributed to the apps in front at this poll and the one before;
+        // an app in front only between two polls (0.5 s) is missed. Follow app activations
+        // (NSWorkspace.didActivateApplicationNotification) if an ignored app's copy gets through.
         let appBefore = lastApp
         let app = frontmostApp()
         lastApp = app

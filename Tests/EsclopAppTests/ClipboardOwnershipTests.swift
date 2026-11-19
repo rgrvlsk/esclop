@@ -43,6 +43,17 @@ import Testing
         #expect(clipboardPaths(harness) == [card.shownFile.standardizedFileURL.path])
     }
 
+    @Test func optimiseClipboardAfterAStoppedRunPutsItsResultBack() async throws {
+        let harness = Harness(delay: .milliseconds(300))
+        harness.model.handleClipboard(harness.copy(image: screenshotPNG()))
+        #expect(await eventually { harness.model.cards.first?.isWorking == true })
+        harness.model.dismiss(try #require(harness.model.cards.first))
+        // The same copy, now through the hotkey: saved to a file of its own.
+        await harness.model.optimiseClipboard(aggressive: false)
+        #expect(await eventually { harness.model.cards.first?.result != nil })
+        #expect(await eventually { Clipboard.isOwnWrite(harness.pasteboard) }, "the result is on the clipboard")
+    }
+
     @Test(arguments: [2, 4])
     func everyCopiedFileGoesBackInItsPlace(images: Int) async throws {
         let harness = Harness()

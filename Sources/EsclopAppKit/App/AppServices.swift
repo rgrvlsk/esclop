@@ -52,6 +52,7 @@ public final class AppServices {
         settingsWindow = SettingsWindowController(model: settingsModel, agents: AgentsModel(), actions: SettingsActions(
             reveal: { [weak model] in model?.reveal([$0]) },
             copy: { text in
+                // ponytail: on the main thread, like `copyLink`; see there.
                 let pasteboard = NSPasteboard.general
                 pasteboard.clearContents()
                 // Marked as L'Esclop's own write, so the clipboard watcher leaves it alone.
