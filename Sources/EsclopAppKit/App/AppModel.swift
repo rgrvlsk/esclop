@@ -86,9 +86,24 @@ public final class AppModel {
     /// The newest three results, oldest first (the newest sits at the bottom). Grouped failures
     /// take one of the three places (`failureGroup`).
     public var visibleCards: [ResultCard] {
-        guard groupsFailures else { return Array(cards.suffix(Self.visibleLimit)) }
+        guard groupsFailures else { return Self.newest(cards, Self.visibleLimit) }
         let grouped = Set(failedCards.map(\.id))
-        return Array(cards.filter { !grouped.contains($0.id) }.suffix(Self.visibleLimit - 1))
+        return Self.newest(cards.filter { !grouped.contains($0.id) }, Self.visibleLimit - 1)
+    }
+
+    /// The newest `limit` cards, oldest first, the files at work before the finished ones, so a
+    /// file at work keeps its Stop while newer results arrive. ponytail: past `limit` files at
+    /// work at once the oldest ones hide, and the menu's working rows have no Stop. Trigger: Stop
+    /// on those rows, if several clipboard and drop jobs at once turn out to be common.
+    static func newest(_ list: [ResultCard], _ limit: Int) -> [ResultCard] {
+        let working = Set(list.filter(\.isWorking).suffix(limit).map(\.id))
+        var room = limit - working.count
+        var kept = working
+        for card in list.reversed() where !card.isWorking && room > 0 {
+            room -= 1
+            kept.insert(card.id)
+        }
+        return list.filter { kept.contains($0.id) }
     }
 
     /// The failed results the group holds, oldest first. One the person is using (open,
@@ -332,6 +347,7 @@ public final class AppModel {
         card?.startedAt = now()
         if let row, !Task.isCancelled { row.state = .working(0) }
         let outcome: Result<OptimisationResult, EsclopError>
+        var failedStep: String?
         if Task.isCancelled {
             outcome = .failure(.cancelled)
         } else {
@@ -344,6 +360,15 @@ public final class AppModel {
                     }
                 }
                 outcome = .success(result)
+            } catch let failed as PipelineStepFailure {
+                // Earlier steps changed the file: keep that in Recent, where its backup restores.
+                if let partial = failed.partial {
+                    events(.result(partial))
+                    noteWritten([partial.output, partial.source] + [partial.backup].compactMap { $0 })
+                    record(partial)
+                }
+                failedStep = failed.step
+                outcome = .failure(Task.isCancelled ? .cancelled : failed.error)
             } catch {
                 outcome = .failure(Task.isCancelled ? .cancelled : .wrap(error))
             }
@@ -370,7 +395,7 @@ public final class AppModel {
             }
             onResult?(result)
         case let .failure(error):
-            events(.failure(FileFailure(source: source, error: error)))
+            events(.failure(FileFailure(source: source, error: error, step: failedStep)))
             if error == .alreadySmaller {
                 card?.phase = .unchanged(bytes: Self.size(of: source))
                 row?.state = .unchanged
@@ -456,6 +481,8 @@ public final class AppModel {
     /// A card runs again in place: back to working with its new choice.
     private func restart(_ card: ResultCard, context: CardContext?) {
         card.phase = .working(fraction: 0)
+        // A copy saved from the last result is not this one: Save is offered again.
+        card.savedCopy = nil
         if let context {
             card.choice = context.choice
             card.appliedRule = context.rule
@@ -472,6 +499,7 @@ public final class AppModel {
     public func dismiss(_ card: ResultCard) {
         card.timer?.cancel()
         if card.isWorking { card.cancelWork?() }
+        card.uploadTask?.cancel()
         cards.removeAll { $0.id == card.id }
     }
 
@@ -529,6 +557,13 @@ public final class AppModel {
     /// The result arrived, failed or changed: its auto-hide starts now.
     func settle(_ card: ResultCard) {
         let time = now()
+        // A result that lands behind newer ones (a file at work keeps its place while others
+        // finish) comes to the front, so it never arrives unseen.
+        // Grouped failures stay in the pill's list, in their order (oldest first).
+        let grouped = groupsFailures && failedCards.contains { $0.id == card.id }
+        if !grouped, !visibleCards.contains(where: { $0.id == card.id }), let index = cards.firstIndex(where: { $0.id == card.id }) {
+            cards.append(cards.remove(at: index))
+        }
         let delay = hideDelay(for: card).map(Self.seconds)
         switch card.phase {
         case .working: return
@@ -638,8 +673,15 @@ public final class AppModel {
     public func perform(_ action: CardPresentation.Action, on card: ResultCard) {
         switch action {
         case .undo:
-            guard let result = card.result else { return }
-            Task { await restore(result) }
+            // One restore at a time: a second click while it runs would leave a stray copy.
+            guard let result = card.result, !card.restoring else { return }
+            card.restoring = true
+            Task {
+                await restore(result)
+                card.restoring = false
+                // Undo goes back to the card; the other changes in place keep an open detail.
+                if case .restored = card.phase { interact(card, .closeDetail) }
+            }
         case let .convert(format):
             var choice = card.choice
             choice.format = format
@@ -655,9 +697,11 @@ public final class AppModel {
         case .compare:
             // In the detail a picture compares in place, with the loupe; the rest in the window,
             // and everything with VoiceOver, which can read the window and not the lens.
-            if card.machine.level == .detail, card.presentation.loupe, card.loupeSides != nil, !NSWorkspace.shared.isVoiceOverEnabled {
+            // With the loupe on, Compare goes on to the window (split, difference, zoom).
+            if card.loupe == nil, card.machine.level == .detail, card.presentation.loupe, card.loupeSides != nil, !NSWorkspace.shared.isVoiceOverEnabled {
                 card.loupe = LoupeState()
             } else if let result = card.result {
+                card.loupe = nil
                 onCompare?(result)
             }
         case .openDetail:
@@ -791,20 +835,34 @@ public final class AppModel {
     /// The floating result for `result`, shown again when it had gone (the compare window runs
     /// "try another" through it, as the popover does).
     func cardShowing(_ result: OptimisationResult) -> ResultCard {
-        if let card = cards.first(where: { $0.result?.id == result.id }) { return card }
-        show(result)
-        return cards.first { $0.result?.id == result.id }!
+        cards.first { $0.result?.id == result.id } ?? show(result)
     }
 
-    /// Shows a recent result's card again.
-    public func show(_ result: OptimisationResult) {
-
-        if cards.contains(where: { $0.result?.id == result.id }) { return }
-        let card = ResultCard(jobID: result.id, source: result.source, origin: .app, bytesBefore: result.bytesBefore, phase: .done(result))
+    /// Shows a recent result's card again, and returns it.
+    @discardableResult
+    public func show(_ result: OptimisationResult) -> ResultCard {
+        // Its card, done or restored, never a twin that offers Undo again.
+        if let index = cards.firstIndex(where: { card in
+            if case let .restored(restored) = card.phase { return restored.id == result.id }
+            return card.result?.id == result.id
+        }) {
+            // It comes to the front, its time starts again.
+            let card = cards.remove(at: index)
+            cards.append(card)
+            settle(card)
+            return card
+        }
+        // A copied image lives in L'Esclop's temporary folder: it comes back as one, with Copy.
+        // ponytail: the results log keeps no origin, so a copied file comes back with Show in
+        // Finder. Trigger: the log recording the request's origin.
+        let copiedImage = result.source.path.hasPrefix(Paths.temporary.path)
+        let card = ResultCard(jobID: result.id, source: result.source, origin: copiedImage ? .clipboard : .app, bytesBefore: result.bytesBefore, phase: .done(result))
+        if copiedImage { card.displayName = Strings.text("Copied image") }
         add(card)
         loadThumbnail(card, url: result.output)
         if let backup = result.backup { loadThumbnail(card, url: backup, original: true) }
         settle(card)
+        return card
     }
 
     nonisolated static func size(of url: URL) -> Int {

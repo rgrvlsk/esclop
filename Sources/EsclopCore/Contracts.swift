@@ -33,7 +33,7 @@ public enum OutputFormat: String, Codable, CaseIterable, Sendable {
     // video
     case mp4, mov, webm, mkv, hevc, av1, gifVideo = "gif-video"
     // audio
-    case mp3, aac, m4a, flac, wav, opus
+    case mp3, aac, m4a, flac, wav, opus, aiff
     // documents
     case pdf
 
@@ -41,7 +41,7 @@ public enum OutputFormat: String, Codable, CaseIterable, Sendable {
         switch self {
         case .jpeg, .png, .webp, .avif, .heic, .jxl, .gif, .tiff, .bmp: return .image
         case .mp4, .mov, .webm, .mkv, .hevc, .av1, .gifVideo: return .video
-        case .mp3, .aac, .m4a, .flac, .wav, .opus: return .audio
+        case .mp3, .aac, .m4a, .flac, .wav, .opus, .aiff: return .audio
         case .pdf: return .pdf
         }
     }
@@ -75,6 +75,7 @@ public enum OutputFormat: String, Codable, CaseIterable, Sendable {
         case "qt": self = .mov
         case "ogg", "oga": self = .opus
         case "wave": self = .wav
+        case "aif", "aifc": self = .aiff
         case "gifvideo": self = .gifVideo
         default: return nil
         }
@@ -197,6 +198,13 @@ public struct OptimisationRequest: Codable, Identifiable, Sendable {
     public var loudnessLUFS: Double?
     /// Keep HDR (gain maps, PQ/HLG video) when the output format can carry it. nil follows the settings.
     public var keepHDR: Bool?
+    /// true when `location` is the default where the job came from, not one chosen for this job:
+    /// a result in another format then goes where the "Converted … go" setting for its kind says.
+    /// nil or false keeps `location`.
+    public var locationFromSettings: Bool?
+    /// Also try a PNG without transparency as JPEG and keep the JPEG when it is much smaller.
+    /// nil follows the "adaptive image format" setting.
+    public var adaptiveImageFormat: Bool?
 
     public init(
         id: UUID = UUID(), sources: [URL], origin: RequestOrigin, quality: CompressionQuality = .normal,
@@ -205,13 +213,14 @@ public struct OptimisationRequest: Codable, Identifiable, Sendable {
         videoEncoder: VideoEncoder? = nil, pdfDPI: Int? = nil, location: OutputLocation = .inPlace,
         pipeline: String? = nil, showResultUI: Bool = true,
         fpsCap: Double? = nil, videoBitrateKbps: Int? = nil, audioBitrateKbps: Int? = nil,
-        loudnessLUFS: Double? = nil, keepHDR: Bool? = nil
+        loudnessLUFS: Double? = nil, keepHDR: Bool? = nil, adaptiveImageFormat: Bool? = nil
     ) {
         self.fpsCap = fpsCap
         self.videoBitrateKbps = videoBitrateKbps
         self.audioBitrateKbps = audioBitrateKbps
         self.loudnessLUFS = loudnessLUFS
         self.keepHDR = keepHDR
+        self.adaptiveImageFormat = adaptiveImageFormat
         self.id = id
         self.sources = sources
         self.origin = origin

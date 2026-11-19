@@ -119,16 +119,27 @@ struct S3TestServer {
         defer { server.stop() }
         let temp = TempDir()
         let file = temp.file("big.mov", bytes: 60_000_000)
-        let (sending, sent) = AsyncStream<Void>.makeStream()
+        // Stopped from the first report of bytes sent, on the session's queue while the upload is
+        // in flight: a stop from this test waits for the main actor, which other suites can hold
+        // long enough for all 60 MB to go up first.
+        // ponytail: the session's delegate queue must run that report before the transfer and the
+        // reply complete. If this fails again with a link returned, point the test at a local
+        // listener in Tests/ that never replies, so the upload cannot finish.
+        let stop = Stop()
         let task = Task {
-            defer { sent.finish() }
-            return try await S3Uploader().upload(file, to: server.target(), key: "tests/big.mov", credentials: server.keys) { _ in sent.yield() }
+            try await S3Uploader().upload(file, to: server.target(), key: "tests/big.mov", credentials: server.keys) { _ in stop.now() }
         }
-        // Stop it on the first bytes sent, not after a guessed delay: a fast runner sent all
-        // 60 MB within 30 ms and the upload finished before the stop.
-        for await _ in sending { break }
-        task.cancel()
+        stop.hold(task)
         await #expect(throws: EsclopError.cancelled) { try await task.value }
+    }
+
+    /// Cancels the task it holds. A report that comes before `hold` cancels nothing, and a later
+    /// report does it.
+    final class Stop: @unchecked Sendable {
+        private let lock = NSLock()
+        private var stored: Task<URL, Error>?
+        func hold(_ task: Task<URL, Error>) { lock.withLock { stored = task } }
+        func now() { lock.withLock { stored }?.cancel() }
     }
 
     // MARK: The app
