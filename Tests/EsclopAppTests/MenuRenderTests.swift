@@ -33,4 +33,27 @@ import Testing
         let paused = NSHostingView(rootView: MenuPanel(model: harness.model, actions: actions)).fittingSize.height
         #expect(paused > running + 30, "the paused line shows: \(running) → \(paused)")
     }
+
+    /// The 7 days chip names its range in the heading; a range with nothing saved says so; each
+    /// kind has its own stand-in until its picture loads; the arrows' row is washed.
+    @Test func menuPanelWeekKindsAndKeys() async throws {
+        let harness = Harness()
+        let files: [(String, MediaKind)] = [("Report.pdf", .pdf), ("Interview.m4a", .audio), ("Screen Recording.mov", .video)]
+        var ids: [UUID] = []
+        for (name, kind) in files {
+            let file = harness.temp.url.appendingPathComponent(name)
+            let result = OptimisationResult(source: file, output: file, kind: kind, bytesBefore: 8_100_000, bytesAfter: 5_000_000, startedAt: Date(), finishedAt: Date())
+            harness.model.record(result)
+            ids.append(result.id)
+        }
+        let actions = MenuPanelActions(settings: {}, pipelines: {}, welcome: {}, checkForUpdates: {}, close: {})
+        try await SettingsRenderTests.renderBoth({ _ in
+            MenuPanel(model: harness.model, actions: actions, notch: 200, range: .week, highlighted: ids[1]).padding(18)
+        }, size: CGSize(width: MenuPanel.width + 36, height: 600), name: "menu-panel-week")
+        // Nothing yet: no "−0 B".
+        let empty = Harness()
+        try await SettingsRenderTests.renderBoth({ _ in
+            MenuPanel(model: empty.model, actions: actions, notch: 200).padding(18)
+        }, size: CGSize(width: MenuPanel.width + 36, height: 520), name: "menu-panel-empty")
+    }
 }

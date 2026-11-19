@@ -80,11 +80,21 @@ public struct MenuPanel: View {
     @State private var savings: [ResultsLog.Saving] = []
     @State private var option = false
     @State private var flags = ModifierFlagsWatcher()
+    /// The recent result the arrow keys are on; Return shows its card.
+    @State private var highlighted: UUID?
+    @FocusState private var listFocused: Bool
 
     public init(model: AppModel, actions: MenuPanelActions, notch: CGFloat? = nil) {
         self.model = model
         self.actions = actions
         self.notch = notch
+    }
+
+    /// Opens on a range and a row, for the renders.
+    init(model: AppModel, actions: MenuPanelActions, notch: CGFloat?, range: SavingRange, highlighted: UUID?) {
+        self.init(model: model, actions: actions, notch: notch)
+        _range = State(initialValue: range)
+        _highlighted = State(initialValue: highlighted)
     }
 
     public static let width: CGFloat = 316
@@ -104,6 +114,8 @@ public struct MenuPanel: View {
         .padding(.top, MenuPanelSurface.notchHeight)
         // The week's saving, again whenever a result arrives or leaves, or the list is cleared.
         .task(id: model.recent.map(\.id)) { savings = await Self.loadSavings(model.service.results) }
+        // The arrows work at once, as in a menu.
+        .defaultFocus($listFocused, true)
         .onAppear { flags.start { option = $0.contains(.option) } }
         .onDisappear { flags.stop() }
     }
@@ -116,7 +128,7 @@ public struct MenuPanel: View {
 
     private var header: some View {
         HStack {
-            Text(Strings.text("Today"))
+            Text(range == .today ? Strings.text("Today") : Strings.text("Last 7 days"))
                 .font(Typeface.heading)
                 .foregroundStyle(Ink.text)
                 .accessibilityAddTraits(.isHeader)
@@ -194,8 +206,12 @@ public struct MenuPanel: View {
     static var arcHeight: CGFloat { SavingGauge.arcHeight(width: arcWidth, lineWidth: 5) }
 
     /// The other range, under the figure: "Last 7 days −19.6 GB", or "Today −2.8 GB".
+    /// Nothing saved yet reads as such, never "−0 B".
     private func caption(_ other: SavingTotals) -> String {
-        let amount = Figures.bytes(max(other.saved, 0))
+        guard other.saved > 0 else {
+            return range == .today ? Strings.text("Nothing saved in the last 7 days") : Strings.text("Nothing saved today")
+        }
+        let amount = Figures.bytes(other.saved)
         return range == .today
             ? Strings.format("Last 7 days −%@", amount)
             : Strings.format("Today −%@", amount)
@@ -275,21 +291,51 @@ public struct MenuPanel: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
             } else {
-                let rows = VStack(spacing: 0) {
-                    ForEach(working, id: \.id) { card in WorkingRow(card: card) }
-                    ForEach(results, id: \.id) { result in
-                        RecentRow(result: result, model: model, close: actions.close)
+                ScrollViewReader { proxy in
+                    let rows = VStack(spacing: 0) {
+                        ForEach(working, id: \.id) { card in WorkingRow(card: card) }
+                        ForEach(results, id: \.id) { result in
+                            RecentRow(result: result, model: model, highlighted: highlighted == result.id, close: actions.close)
+                                .id(result.id)
+                        }
                     }
-                }
-                if working.count + results.count > Self.rowsShown {
-                    ScrollView { rows }.frame(height: CGFloat(Self.rowsShown) * RecentRow.height)
-                } else {
-                    rows
+                    Group {
+                        if working.count + results.count > Self.rowsShown {
+                            ScrollView { rows }.frame(height: CGFloat(Self.rowsShown) * RecentRow.height)
+                        } else {
+                            rows
+                        }
+                    }
+                    // The list is one stop for the keys, as a menu is: the arrows move, Return
+                    // shows the result's card. No focus ring; the row's wash shows where it is.
+                    .focusable()
+                    .focused($listFocused)
+                    .focusEffectDisabled()
+                    .onKeyPress(.downArrow) { move(1, in: results, proxy) }
+                    .onKeyPress(.upArrow) { move(-1, in: results, proxy) }
+                    .onKeyPress(.return) { open(results) }
+                    .onKeyPress(.space) { open(results) }
                 }
             }
         }
         .padding(.bottom, 6)
         .background(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous).fill(Surface.tile))
+    }
+
+    private func move(_ step: Int, in results: [OptimisationResult], _ proxy: ScrollViewProxy) -> KeyPress.Result {
+        guard !results.isEmpty else { return .ignored }
+        let current = results.firstIndex { $0.id == highlighted }
+        let index = current.map { min(max($0 + step, 0), results.count - 1) } ?? (step > 0 ? 0 : results.count - 1)
+        highlighted = results[index].id
+        proxy.scrollTo(results[index].id)
+        return .handled
+    }
+
+    private func open(_ results: [OptimisationResult]) -> KeyPress.Result {
+        guard let result = results.first(where: { $0.id == highlighted }) else { return .ignored }
+        actions.close()
+        model.show(result)
+        return .handled
     }
 
     /// Restore and Compare reach this many results from the panel until All Results exists.
@@ -386,65 +432,93 @@ struct WorkingRow: View {
 }
 
 /// One recent result: its picture, name, sizes and time, the saving; on hover Copy and Show in
-/// Finder. A click shows its card again; the context menu has the rest.
+/// Finder. A click, or Return on the row the arrows are on, shows its card again; the context
+/// menu and VoiceOver's actions have the rest.
 struct RecentRow: View {
     let result: OptimisationResult
     let model: AppModel
+    /// The arrow keys are on it.
+    var highlighted = false
     let close: () -> Void
 
     @State private var picture: CGImage?
     @State private var hovering = false
 
     static let height: CGFloat = 52
+    /// Copy and Show in Finder, 28 pt each, 6 pt apart.
+    static let toolsWidth: CGFloat = 62
 
     var body: some View {
-        HStack(spacing: 10) {
-            thumbnail
-            VStack(alignment: .leading, spacing: 2) {
-                Text(result.output.lastPathComponent)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Ink.text)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                (Text(Figures.bytes(result.bytesBefore)).foregroundStyle(Ink.original)
-                    + Text(" → \(Figures.bytes(result.bytesAfter)) · \(result.finishedAt.formatted(date: .omitted, time: .shortened))").foregroundStyle(Ink.secondary))
-                    .font(.system(size: 12))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-                    .monospacedDigit()
-            }
-            Spacer(minLength: 4)
-            if hovering {
-                HStack(spacing: 6) {
-                    round("square.on.square", Strings.text("Copy")) { model.writeClipboard(files: [result.output]) }
-                    round("folder", Strings.text("Show in Finder")) { close(); model.reveal([result.output]) }
+        Button { close(); model.show(result) } label: {
+            HStack(spacing: 10) {
+                thumbnail
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(result.output.lastPathComponent)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Ink.text)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    (Text(Figures.bytes(result.bytesBefore)).foregroundStyle(Ink.original)
+                        + Text(" → \(Figures.bytes(result.bytesAfter)) · \(result.finishedAt.formatted(date: .omitted, time: .shortened))").foregroundStyle(Ink.secondary))
+                        .font(.system(size: 12))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                        .monospacedDigit()
                 }
-                .transition(.opacity)
+                Spacer(minLength: 4)
+                // Room for the hover buttons, which sit over the row, outside its button.
+                if hovering { Color.clear.frame(width: Self.toolsWidth, height: 1) }
+                figure
             }
-            Figure(percentSaved: Self.percent(result), size: .card, color: result.bytesAfter < result.bytesBefore ? AnyShapeStyle(Ink.saving) : AnyShapeStyle(Ink.secondary))
-                .fixedSize()
+            .padding(.horizontal, 14)
+            .frame(height: Self.height)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Ink.text.opacity(highlighted || hovering ? 0.06 : 0)).padding(.horizontal, 4))
+            .contentShape(Rectangle())
         }
-        .padding(.horizontal, 14)
-        .frame(height: Self.height)
-        .contentShape(Rectangle())
+        .buttonStyle(.plain)
+        .overlay(alignment: .trailing) {
+            if hovering {
+                HStack(spacing: 10) {
+                    HStack(spacing: 6) {
+                        round("square.on.square", Strings.text("Copy"), action: copy)
+                        round("folder", Strings.text("Show in Finder"), action: reveal)
+                    }
+                    figure.hidden()
+                }
+                .padding(.horizontal, 14)
+                .transition(.opacity)
+                // VoiceOver has them as the row's actions.
+                .accessibilityHidden(true)
+            }
+        }
         .onHover { inside in withAnimation(Motion.hover) { hovering = inside } }
-        .onTapGesture { close(); model.show(result) }
         .contextMenu {
-            Button(Strings.text("Show in Finder")) { close(); model.reveal([result.output]) }
-            Button(Strings.text("Copy")) { model.writeClipboard(files: [result.output]) }
-            if result.backup != nil || result.output.standardizedFileURL != result.source.standardizedFileURL {
-                Button(Strings.text("Compare")) { close(); model.onCompare?(result) }
-            }
-            if model.restorable.contains(where: { $0.id == result.id }) {
-                Button(Strings.text("Restore Original")) { Task { await model.restore(result) } }
-            }
+            Button(Strings.text("Show in Finder"), action: reveal)
+            Button(Strings.text("Copy"), action: copy)
+            if comparable { Button(Strings.text("Compare"), action: compare) }
+            if restorable { Button(Strings.text("Restore Original"), action: restore) }
         }
         .task(id: result.output) { picture = await Thumbnails.load(result.output, side: 64) }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction(named: Strings.text("Show in Finder")) { close(); model.reveal([result.output]) }
-        .accessibilityAction(named: Strings.text("Copy")) { model.writeClipboard(files: [result.output]) }
+        .accessibilityActions {
+            Button(Strings.text("Show in Finder"), action: reveal)
+            Button(Strings.text("Copy"), action: copy)
+            if comparable { Button(Strings.text("Compare"), action: compare) }
+            if restorable { Button(Strings.text("Restore Original"), action: restore) }
+        }
     }
+
+    private var figure: some View {
+        Figure(percentSaved: Self.percent(result), size: .card, color: result.bytesAfter < result.bytesBefore ? AnyShapeStyle(Ink.saving) : AnyShapeStyle(Ink.secondary))
+            .fixedSize()
+    }
+
+    private var comparable: Bool { result.backup != nil || result.output.standardizedFileURL != result.source.standardizedFileURL }
+    private var restorable: Bool { model.restorable.contains { $0.id == result.id } }
+
+    private func copy() { model.writeClipboard(files: [result.output]) }
+    private func reveal() { close(); model.reveal([result.output]) }
+    private func compare() { close(); model.onCompare?(result) }
+    private func restore() { Task { await model.restore(result) } }
 
     static func percent(_ result: OptimisationResult) -> Int {
         guard result.bytesBefore > 0 else { return 0 }
@@ -456,13 +530,14 @@ struct RecentRow: View {
             if let picture {
                 Image(decorative: picture, scale: 2).resizable().aspectRatio(contentMode: .fill)
             } else {
-                Image(systemName: "photo").font(.system(size: 14)).foregroundStyle(Ink.secondary)
+                Image(systemName: Picture.symbol(for: result.kind)).font(.system(size: 14)).foregroundStyle(Ink.secondary)
             }
         }
         .frame(width: 44, height: 36)
         .background(Rectangle().fill(NeutralFill.resting))
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .pictureHairline(8)
+        .accessibilityHidden(true)
     }
 
     private func round(_ symbol: String, _ title: String, action: @escaping () -> Void) -> some View {
