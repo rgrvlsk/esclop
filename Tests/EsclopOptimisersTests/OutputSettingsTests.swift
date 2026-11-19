@@ -39,13 +39,37 @@ import UniformTypeIdentifiers
         #expect(!FileManager.default.fileExists(atPath: png.path))
     }
 
+    /// An agent's call with no place follows "Converted … go" too, but an in-place setting does not
+    /// let it overwrite originals: without that permission it keeps its default, next to the file.
+    @Test func agentConversionsFollowConvertedBehaviourWithinTheirPermission() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let png = world.file("photo.png")
+        try Fixture.png(png)
+        try EsclopSettings.convertedImageBehaviour.set(.temporary, in: world.settings)
+        var request = world.request(png, origin: .mcp, location: .sameFolder)
+        request.locationFromSettings = true
+
+        let temporary = try await world.engine.convert(png, to: .jpeg, request: request, progress: { _ in })
+        #expect(temporary.output.deletingLastPathComponent() != png.deletingLastPathComponent())
+
+        try EsclopSettings.convertedImageBehaviour.set(.inPlace, in: world.settings)
+        let beside = try await world.engine.convert(png, to: .jpeg, request: request, progress: { _ in })
+        #expect(beside.output == world.file("photo.jpg"))
+        #expect(FileManager.default.fileExists(atPath: png.path))
+    }
+
     @Test func retinaScreenshotsAreHalvedWhenAsked() async throws {
         let world = try await TestWorld()
         defer { Task { await world.finish() } }
+        // The density and the EXIF comment macOS puts on a screenshot, saved or copied.
+        let retina: [CFString: Any] = [
+            kCGImagePropertyDPIWidth: 144, kCGImagePropertyDPIHeight: 144,
+            kCGImagePropertyExifDictionary: [kCGImagePropertyExifUserComment: "Screenshot"],
+        ]
         let shot = world.file("shot.png")
         try Fixture.write(
-            try Fixture.gradient(width: 320, height: 240, deep: true, alpha: false), to: shot, type: .png,
-            properties: [kCGImagePropertyDPIWidth: 144, kCGImagePropertyDPIHeight: 144]
+            try Fixture.gradient(width: 320, height: 240, deep: true, alpha: false), to: shot, type: .png, properties: retina
         )
         let automatic = world.request(shot, origin: .clipboard, location: .temporary)
 
@@ -59,17 +83,24 @@ import UniformTypeIdentifiers
         // HEIC's density cannot be rewritten after the encode, so it is written at 72 dpi.
         let heic = world.file("shot.heic")
         try Fixture.write(
-            try Fixture.gradient(width: 320, height: 240, deep: false, alpha: false), to: heic, type: .heic,
-            properties: [kCGImagePropertyDPIWidth: 144, kCGImagePropertyDPIHeight: 144]
+            try Fixture.gradient(width: 320, height: 240, deep: false, alpha: false), to: heic, type: .heic, properties: retina
         )
         let halvedHEIC = try await world.engine.optimise(heic, request: world.request(heic, origin: .clipboard, location: .temporary), progress: { _ in })
         #expect(Inspect.size(halvedHEIC.output)! == (160, 120))
         #expect(ImageInfo.probe(halvedHEIC.output)?.dpi == 72)
+        // A 144 dpi picture that is not a screenshot (a watermarked photo, an export) keeps its pixels.
+        let photo = world.file("photo.png")
+        try Fixture.write(
+            try Fixture.gradient(width: 320, height: 240, deep: true, alpha: false), to: photo, type: .png,
+            properties: [kCGImagePropertyDPIWidth: 144, kCGImagePropertyDPIHeight: 144]
+        )
+        let kept = try await world.engine.optimise(photo, request: world.request(photo, origin: .clipboard, location: .temporary), progress: { _ in })
+        #expect(Inspect.size(kept.output)! == (320, 240))
         // 150 dpi is a scan, not a 2x screenshot.
         let scan = world.file("scan.png")
         try Fixture.write(
             try Fixture.gradient(width: 320, height: 240, deep: true, alpha: false), to: scan, type: .png,
-            properties: [kCGImagePropertyDPIWidth: 150, kCGImagePropertyDPIHeight: 150]
+            properties: retina.merging([kCGImagePropertyDPIWidth: 150, kCGImagePropertyDPIHeight: 150]) { $1 }
         )
         let scanned = try await world.engine.optimise(scan, request: world.request(scan, origin: .clipboard, location: .temporary), progress: { _ in })
         #expect(Inspect.size(scanned.output)! == (320, 240))

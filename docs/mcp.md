@@ -85,7 +85,9 @@ every file failed or the call was refused.
 Where results go: `location` is `inPlace` (replace the original, keeping a backup), `sameFolder`
 (a new file next to it) or `temporary`; `output` takes a folder ending in `/` or a path template
 (`%f` name, `%e` extension, `%d` folder). Left out, it is `inPlace` when the person allows agents
-to overwrite originals and `sameFolder` otherwise.
+to overwrite originals and `sameFolder` otherwise; a result in another format then goes where the
+person's "Converted … go" setting says, except that an agent without that permission never
+converts in place.
 
 | Tool | What it does | Example arguments |
 |---|---|---|

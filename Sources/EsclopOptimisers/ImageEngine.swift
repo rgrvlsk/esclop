@@ -127,11 +127,12 @@ struct ImageEngine: Sendable {
         info.hasAlpha && ImageIOCodec.hasTransparentPixels(source)
     }
 
-    /// "Downscale Retina screenshots": an automatic optimisation of a still 2x (144 dpi) image with
-    /// no size of its own halves its width and height, as a 1x screenshot of the same screen.
+    /// "Downscale Retina screenshots": an automatic optimisation of a still 2x (144 dpi) screenshot
+    /// with no size of its own halves its width and height, as a 1x screenshot of the same screen.
+    /// Only a screenshot: a 144 dpi photo or drawing keeps its pixels.
     func halvesRetina(_ info: ImageInfo, plan: Plan) -> Bool {
         plan.automatic && plan.operation == .optimise && plan.downscale == nil && plan.crop == nil
-            && !info.isAnimated && abs(info.dpi - 144) < 1
+            && info.isScreenshot && !info.isAnimated && abs(info.dpi - 144) < 1
             && env.value(EsclopSettings.downscaleRetinaImages)
     }
 
