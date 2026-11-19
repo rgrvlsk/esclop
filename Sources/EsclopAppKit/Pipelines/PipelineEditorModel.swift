@@ -95,9 +95,11 @@ public final class PipelineEditorModel {
         let allowScripts = settings.map { AgentPolicy(origin: .app, permissions: $0).allowed(.allowRunScripts) } ?? true
         tryRunner = { pipeline, file in
             guard let engine else { return nil }
-            // No clipboard, uploads or other apps: a try changes nothing outside its copy's folder.
+            // No clipboard, uploads, other apps, scripts or Shortcuts, and every destination moves
+            // into the copy's folder: a try changes nothing outside it.
             let runner = PipelineRunner(engine: engine, host: NoopPipelineHost())
-            let options = PipelineRunOptions(origin: .app, allowRunScripts: allowScripts, allowDelete: false, temporaryDirectory: file.deletingLastPathComponent())
+            let folder = file.deletingLastPathComponent()
+            let options = PipelineRunOptions(origin: .app, allowRunScripts: allowScripts, allowDelete: false, temporaryDirectory: folder, trialFolder: folder)
             return await runner.run(pipeline, on: [file], options: options)
         }
         reload()

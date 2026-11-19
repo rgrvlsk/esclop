@@ -82,6 +82,7 @@ struct FakeEngine: OptimisationEngine, PipelineMediaOperations {
         if let d = request.pdfDPI { detail += ", \(d)dpi" }
         if request.removeAudio { detail += ", mute" }
         if let s = request.playbackSpeed { detail += ", speed \(s)" }
+        if request.adaptiveImageFormat == true { detail += ", adaptive" }
         return try process("optimise", source, request: request, detail: detail)
     }
 
