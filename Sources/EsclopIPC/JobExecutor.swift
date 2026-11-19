@@ -138,7 +138,7 @@ public struct JobExecutor: Sendable {
             return OptimisationResult(
                 source: source, output: source, kind: MediaKind.of(source) ?? .image,
                 bytesBefore: size, bytesAfter: size, startedAt: started, finishedAt: Date(),
-                steps: ["uploaded: \(link.absoluteString)"], link: link
+                steps: ["uploaded: \(link.absoluteString)"], link: link, requestID: request.id
             )
         }
     }
@@ -157,9 +157,9 @@ public struct JobExecutor: Sendable {
         }
         let pages = try body(output)
         return OptimisationResult(
-            id: UUID(), source: source, output: output, backup: backup, kind: .pdf,
+            source: source, output: output, backup: backup, kind: .pdf,
             bytesBefore: before, bytesAfter: Self.size(of: output),
-            startedAt: started, finishedAt: Date(), steps: ["\(step) (\(pages) pages)"]
+            startedAt: started, finishedAt: Date(), steps: ["\(step) (\(pages) pages)"], requestID: request.id
         )
     }
 

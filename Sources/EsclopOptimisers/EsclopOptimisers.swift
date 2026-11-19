@@ -295,8 +295,8 @@ public struct EsclopEngine: OptimisationEngine {
             }
         }
         return OptimisationResult(
-            id: request.id, source: source, output: output, kind: kind, bytesBefore: bytes, bytesAfter: bytes,
-            startedAt: started, finishedAt: Date(), steps: ["Already under \(ByteFormat.string(target))"]
+            source: source, output: output, kind: kind, bytesBefore: bytes, bytesAfter: bytes,
+            startedAt: started, finishedAt: Date(), steps: ["Already under \(ByteFormat.string(target))"], requestID: request.id
         )
     }
 

@@ -189,6 +189,23 @@ import Testing
         #expect(try await second.raw["slept"] != nil)
     }
 
+    /// Two files that crash the engine, one after the other, each fail on their own; their crashes
+    /// are not a crash loop, so the next file still runs.
+    @Test func twoCrashingFilesDoNotHoldBackTheNext() async throws {
+        let client = try await client()
+        defer { Task { await client.shutdown() } }
+        _ = try await client.capabilities()
+        for _ in 0 ..< 2 {
+            do {
+                try await client.call("crash")
+                Issue.record("crash should fail")
+            } catch let EsclopError.toolFailed(_, _, stderr) {
+                #expect(stderr.contains("crashing on purpose"), "\(stderr)")
+            }
+        }
+        #expect(try await client.call("sleep", params: ["seconds": 0.01]).raw["slept"] != nil)
+    }
+
     @Test func missingEngineIsAToolMissingError() async throws {
         let client = EngineClient(locator: ToolLocator(searchDirectories: [], pathDirectories: []))
         #expect(!client.isInstalled)

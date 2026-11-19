@@ -33,6 +33,22 @@ import UniformTypeIdentifiers
         #expect(Inspect.bytes(png) == before)
     }
 
+    /// Each file of a job is a result of its own; the request id is kept beside it.
+    @Test func theFilesOfOneRequestGetResultsOfTheirOwn() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let first = world.file("a.png"), second = world.file("b.png")
+        try Fixture.png(first)
+        try Fixture.png(second)
+        let request = world.request(first, second)
+        let results = [
+            try await world.engine.optimise(first, request: request, progress: { _ in }),
+            try await world.engine.optimise(second, request: request, progress: { _ in }),
+        ]
+        #expect(results[0].id != results[1].id)
+        #expect(results.map(\.requestID) == [request.id, request.id])
+    }
+
     @Test func alreadyOptimisedFilesAreLeftAlone() async throws {
         let world = try await TestWorld()
         defer { Task { await world.finish() } }

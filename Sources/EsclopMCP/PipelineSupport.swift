@@ -200,7 +200,7 @@ public struct StorePipelineRunner: PipelineRunning {
                 bytesBefore: before, bytesAfter: file.finalFile.map(Self.size) ?? 0,
                 width: last?.width, height: last?.height, duration: last?.duration,
                 startedAt: started, finishedAt: Date(),
-                steps: prefix + log + file.extraOutputs.map { "also wrote \($0.path)" }
+                steps: prefix + log + file.extraOutputs.map { "also wrote \($0.path)" }, requestID: requestID
             )
         }
         switch file.status {

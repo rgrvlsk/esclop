@@ -186,6 +186,21 @@ import Testing
         await #expect(throws: EsclopError.self) { _ = try await makeService(temp, origin: .mcp).restoreBackup(for: original, deleteBackup: false) }
     }
 
+    /// Deleting the backup on restore removes its whole entry, so the totals stop counting it.
+    @Test func restoreDeletingTheBackupRemovesItsEntry() async throws {
+        let temp = TempDir()
+        let original = temp.file("photo.jpg", bytes: 5000)
+        let service = makeService(temp, origin: .cli)
+        let store = BackupStore(root: temp.url.appendingPathComponent("support/backups", isDirectory: true))
+        let entry = try store.backUp(original)
+        try Data(count: 100).write(to: original)
+        service.results.append([OptimisationResult(source: original, output: original, backup: entry.backup, kind: .image, bytesBefore: 5000, bytesAfter: 100, startedAt: Date(), finishedAt: Date())])
+        _ = try await service.restoreBackup(for: original, deleteBackup: true)
+        #expect(try Data(contentsOf: original).count == 5000)
+        #expect(store.entries().isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: entry.backup.deletingLastPathComponent().path))
+    }
+
     /// /tmp and /private/tmp are one folder: a restore finds the result by either path.
     @Test func restoreFindsTheResultThroughASymlink() async throws {
         let temp = TempDir()

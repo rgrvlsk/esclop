@@ -31,7 +31,7 @@ public final class CompareModel {
     private var restoredHere = Set<UUID>()
 
     public var mode: Mode {
-        didSet { UserDefaults.standard.set(mode.rawValue, forKey: Self.modeKey) }
+        didSet { app.settings.defaults.set(mode.rawValue, forKey: Self.modeKey) }
     }
     public var viewport = CompareViewport()
     /// Flip mode shows the original.
@@ -55,7 +55,7 @@ public final class CompareModel {
 
     public init(app: AppModel) {
         self.app = app
-        mode = UserDefaults.standard.string(forKey: Self.modeKey).flatMap(Mode.init(rawValue:)) ?? .split
+        mode = app.settings.defaults.string(forKey: Self.modeKey).flatMap(Mode.init(rawValue:)) ?? .split
     }
 
     // MARK: What is shown
@@ -90,22 +90,32 @@ public final class CompareModel {
 
     /// Shows `result`, following its floating result if there is one.
     public func open(_ result: OptimisationResult) {
+        opened += 1
         stored = result
         cardID = app.cards.first { $0.result?.id == result.id }?.id
         isUnknown = false
         reset()
     }
 
+    /// Counts what was opened, so a read of the log that ends after a newer open is dropped.
+    @ObservationIgnored private var opened = 0
+
     /// Opens a result by id: the app's recent results, then the shared log. False when unknown,
     /// and then the comparison on screen is cleared, so the window never shows another result.
+    /// True, changing nothing, when something else was opened while the log was read.
     @discardableResult
-    public func open(id: UUID) -> Bool {
-        if let card = app.cards.first(where: { $0.result?.id == id }), let result = card.result {
+    public func open(id: UUID) async -> Bool {
+        if let result = app.cards.lazy.compactMap(\.result).first(where: { $0.id == id }) ?? app.recent.first(where: { $0.id == id }) {
             open(result)
             return true
         }
-        let known = app.recent + app.service.results.recent(limit: 500)
-        guard let result = known.first(where: { $0.id == id }) else {
+        // The log is read off the main actor: it waits for the log's queue and reads the file.
+        opened += 1
+        let asked = opened
+        let log = app.service.results
+        let logged = await Task.detached(priority: .userInitiated) { log.recent(limit: 500) }.value
+        guard asked == opened else { return true }
+        guard let result = logged.first(where: { $0.id == id }) else {
             stored = nil
             cardID = nil
             isUnknown = true
