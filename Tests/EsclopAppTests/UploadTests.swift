@@ -71,6 +71,32 @@ struct S3TestServer {
     }
 }
 
+/// A port on 127.0.0.1 that takes connections and their bytes (the kernel queues them) and never
+/// answers.
+struct SilentServer {
+    let port: UInt16
+    private let socket: Int32
+
+    init() throws {
+        let socket = Darwin.socket(AF_INET, SOCK_STREAM, 0)
+        var address = sockaddr_in()
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_addr.s_addr = inet_addr("127.0.0.1")
+        var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+        let bound = withUnsafeMutablePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                bind(socket, $0, length) == 0 && listen(socket, 4) == 0 && getsockname(socket, $0, &length) == 0
+            }
+        }
+        guard socket >= 0, bound else { close(socket); throw EsclopError.other("no local port: \(String(cString: strerror(errno)))") }
+        self.socket = socket
+        port = UInt16(bigEndian: address.sin_port)
+    }
+
+    func stop() { close(socket) }
+}
+
 /// Uploads against a real S3 server on this Mac: the signature, the link, progress, refusal and
 /// cancellation, then the app's paths (a card, an automatic upload, a job from the command line or
 /// an agent, a pipeline step).
@@ -129,17 +155,20 @@ struct S3TestServer {
     }
 
     @Test func anUploadCanBeStopped() async throws {
-        let server = try await S3TestServer.start()
+        // A server that never answers: the upload can only end by being stopped, however long
+        // other suites hold the main actor before the stop (a real server finished all 60 MB first).
+        let server = try SilentServer()
         defer { server.stop() }
         let temp = TempDir()
-        let file = temp.file("big.mov", bytes: 60_000_000)
+        let file = temp.file("big.mov", bytes: 4_000_000)
+        let target = UploadTarget(name: "Silent", endpoint: "http://127.0.0.1:\(server.port)", bucket: "b", region: "us-east-1", path: "%f.%e")
+        let keys = UploadCredentials(accessKeyID: "key", secret: "secret")
         let (sending, sent) = AsyncStream<Void>.makeStream()
         let task = Task {
             defer { sent.finish() }
-            return try await S3Uploader().upload(file, to: server.target(), key: "tests/big.mov", credentials: server.keys) { _ in sent.yield() }
+            return try await S3Uploader().upload(file, to: target, key: "big.mov", credentials: keys) { _ in sent.yield() }
         }
-        // Stop it on the first bytes sent, not after a guessed delay: a fast runner sent all
-        // 60 MB within 30 ms and the upload finished before the stop.
+        // Stopped once bytes are on their way, so the stop lands mid-upload.
         for await _ in sending { break }
         task.cancel()
         await #expect(throws: EsclopError.cancelled) { try await task.value }
