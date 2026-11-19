@@ -32,6 +32,16 @@ import Testing
         return model
     }
 
+    /// Outside a window, so controls draw active, under the test process's system blue accent:
+    /// switches and the script notice's link stay charcoal (T1). The controller adds the root tint.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func activeControls(scheme: ColorScheme) async throws {
+        let temp = TempDir()
+        let model = try model(temp)
+        model.draft[trigger: .clipboard] = true
+        try await OptionsRenderTests().snapshot(PipelineEditorView(model: model).designTint().frame(width: 960, height: 1000), name: "pipelines-active", scheme: scheme)
+    }
+
     @Test func form() async throws {
         let temp = TempDir()
         let model = try model(temp)

@@ -24,6 +24,7 @@ struct PipelineTriggersSection: View {
                     )
                 } else {
                     Toggle(PipelineVocabulary.triggerTitle(trigger.name), isOn: $model.draft[trigger: trigger])
+                        .tint(Ink.charcoal)
                 }
             }
 
