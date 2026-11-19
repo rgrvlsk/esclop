@@ -372,6 +372,8 @@ final class EventLog: @unchecked Sendable {
         log.append([], withdrawing: [first])
         #expect(log.recent(limit: 10).map(\.id) == [second.id])
         #expect(log.savings().map(\.id) == [second.id])
+        log.append([first])
+        #expect(log.savings().map(\.id) == [second.id], "a batch that writes its results again at its end does not revive it")
         try log.redactAll()
         #expect(log.savings().map(\.id) == [second.id])
     }

@@ -5,6 +5,7 @@
 
 import EsclopCore
 import Foundation
+import os
 
 // MARK: - Locations
 
@@ -44,7 +45,8 @@ public struct EsclopLocations: Sendable, Hashable {
 /// append its own; readers de-duplicate by result id, the newest line winning. Cleared results
 /// (`redactAll`) stay as their sizes and dates alone, so the saving still counts them; `recent`
 /// never returns them. A withdrawn result (restored, or replaced by a re-run of its card) gets a
-/// newer line of its sizes marked `withdrawn`: it no longer counts, and `recent` skips it.
+/// line of its sizes marked `withdrawn`: wherever that line is, the result no longer counts and
+/// `recent` skips it, so a batch that appends its results again at its end does not revive one.
 public struct ResultsLog: Sendable {
     public let url: URL
     public var keep: Int
@@ -99,7 +101,7 @@ public struct ResultsLog: Sendable {
                     Self.trimCounts.counts[url.path] = count >= trimEvery ? 0 : count
                 }
             } catch {
-                return
+                Log.core.error("Could not add to \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .private)")
             }
         }
         if wait { Self.queue.sync(execute: write) } else { Self.queue.async(execute: write) }
@@ -133,15 +135,10 @@ public struct ResultsLog: Sendable {
     public func recent(limit: Int) -> [OptimisationResult] {
         guard let lines = Self.queue.sync(execute: { try? lines() }) else { return [] }
         let decoder = JSONCoding.wireDecoder()
-        var seen = Set<UUID>()
+        var seen = Self.withdrawnIDs(in: lines, decoder: decoder)
         var results: [OptimisationResult] = []
         for line in lines.reversed() {
-            guard let result = try? decoder.decode(OptimisationResult.self, from: Data(line)) else {
-                // A cleared or withdrawn line hides the older lines of its result.
-                if let saving = try? decoder.decode(Saving.self, from: Data(line)) { seen.insert(saving.id) }
-                continue
-            }
-            guard seen.insert(result.id).inserted else { continue }
+            guard let result = try? decoder.decode(OptimisationResult.self, from: Data(line)), seen.insert(result.id).inserted else { continue }
             results.append(result)
             if results.count >= limit { break }
         }
@@ -181,11 +178,15 @@ public struct ResultsLog: Sendable {
     public func savings() -> [Saving] {
         guard let lines = Self.queue.sync(execute: { try? lines() }) else { return [] }
         let decoder = JSONCoding.wireDecoder()
-        var seen = Set<UUID>()
-        return lines.reversed().compactMap { line in
-            guard let saving = try? decoder.decode(Saving.self, from: Data(line)), seen.insert(saving.id).inserted, saving.withdrawn != true else { return nil }
-            return saving
-        }
+        let all = lines.reversed().compactMap { try? decoder.decode(Saving.self, from: Data($0)) }
+        var seen = Set(all.filter { $0.withdrawn == true }.map(\.id))
+        return all.filter { seen.insert($0.id).inserted }
+    }
+
+    private static func withdrawnIDs(in lines: [Data.SubSequence], decoder: JSONDecoder) -> Set<UUID> {
+        Set(lines.compactMap { line in
+            (try? decoder.decode(Saving.self, from: Data(line))).flatMap { $0.withdrawn == true ? $0.id : nil }
+        })
     }
 
     /// Clears the names: every line keeps only its sizes, kind and date (`Saving`), written in

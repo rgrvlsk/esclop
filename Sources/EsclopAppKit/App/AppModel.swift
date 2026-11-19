@@ -756,7 +756,7 @@ public final class AppModel {
     public func restore(_ result: OptimisationResult) async {
         let card = cards.first { $0.result?.id == result.id }
         do {
-            _ = try await service.restoreBackup(for: result.output, deleteBackup: false)
+            _ = try service.restoreBackup(of: result, deleteBackup: false)
             restoredIDs.insert(result.id)
             forget(result)
             noteWritten([result.source, result.output])
