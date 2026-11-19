@@ -171,7 +171,11 @@ public struct AppDesktop: PipelineDesktop {
 
     public func open(_ file: URL, with app: URL) async throws {
         // The Share tab's "Open with" and shelf rows.
-        _ = try await NSWorkspace.shared.open([file], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
+        do {
+            _ = try await NSWorkspace.shared.open([file], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
+        } catch {
+            throw EsclopError.other(error.localizedDescription)
+        }
     }
 
     public func presentFork(_ file: URL) async {
