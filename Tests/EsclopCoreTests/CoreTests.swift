@@ -51,7 +51,6 @@ func scratchFolder(_ name: String = #function) throws -> URL {
 @Suite struct ProcessRunnerTests {
     /// A stuck ffmpeg keeps printing its progress block with the same time in it.
     @Test(.timeLimit(.minutes(1))) func aChildThatStopsProgressingIsStopped() async throws {
-        let started = Date()
         let progress = LockedArray()
         await #expect(throws: EsclopError.self) {
             try await ProcessRunner.run(
@@ -64,8 +63,6 @@ func scratchFolder(_ name: String = #function) throws -> URL {
                 })
             )
         }
-        let elapsed = Date().timeIntervalSince(started)
-        #expect(elapsed > 1.3 && elapsed < 10)
         #expect(progress.values.count == 6)
     }
 

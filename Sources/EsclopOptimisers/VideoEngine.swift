@@ -380,13 +380,14 @@ struct VideoEngine: Sendable {
         args += encoderArgs(settings, softwareFallback: softwareFallback)
         args += audioArgs(settings, appleAAC: appleAAC)
         // Stripping removes what describes the person (location, device, dates); track languages
-        // and chapters describe the content and stay.
+        // and chapters describe the content and stay. ponytail: other per-stream tags (an MKV
+        // track title, mkvmerge's statistics date) stay too; list them here if one proves personal.
         args += settings.strip ? ["-map_metadata:g", "-1", "-metadata:s", "creation_time="] : ["-map_metadata", "0"]
         args += ["-map_chapters", "0"]
-        if [.mp4, .mov, .hevc, .av1].contains(settings.container) {
-            // QuickTime keys (com.apple.quicktime.location.ISO6709, make, model) need use_metadata_tags.
-            args += ["-movflags", settings.strip ? "+faststart" : "+faststart+use_metadata_tags"]
-        }
+        // Not stripping still loses QuickTime keys (com.apple.quicktime.location.ISO6709, make,
+        // model): ffmpeg's `use_metadata_tags` writes them in a form AVFoundation cannot read and
+        // hides the ordinary tags (title, artist) from it too. Keeping them needs a copy outside ffmpeg.
+        if [.mp4, .mov, .hevc, .av1].contains(settings.container) { args += ["-movflags", "+faststart"] }
         args += ["-progress", "pipe:1", "-nostats", output.path]
         return args
     }
@@ -539,7 +540,8 @@ struct VideoEngine: Sendable {
             settings.reencodeAudio = true
             settings.audioBitrate = audioKbps
         }
-        var videoKbps = max(30, Int(totalKbps) - audioKbps)
+        // `-b:v` applies to every video track.
+        var videoKbps = max(30, (Int(totalKbps) - audioKbps) / (1 + settings.extraVideoTracks))
 
         // Under about 0.04 bits per pixel the picture falls apart; shrink the frame instead.
         let fps = settings.fpsCap ?? video.fps ?? 30

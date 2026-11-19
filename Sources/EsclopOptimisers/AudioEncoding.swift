@@ -162,7 +162,7 @@ enum AudioCodec: String, CaseIterable, Sendable {
     /// ffmpeg encoder arguments. `appleAAC` picks AudioToolbox's encoder (better at low
     /// bitrates); without it ffmpeg's native AAC encoder is used. Lossless output keeps the
     /// source's sample rate, and 24 bits for anything deeper than 16 (`aiff24Bit`: this ffmpeg
-    /// has `pcm_s24be`; neither build has 32-bit PCM encoders).
+    /// has `pcm_s24be`). The bundled ffmpeg has no 32-bit PCM encoders, so 32-bit becomes 24.
     func encodingArgs(bitrate: Int, aggressive: Bool, inputBits: Int?, aiff24Bit: Bool = false, appleAAC: Bool = true) -> [String] {
         let deep = (inputBits ?? 16) > 16
         switch self {
