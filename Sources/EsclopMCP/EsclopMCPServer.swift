@@ -61,8 +61,8 @@ public struct EsclopMCPServer: Sendable {
     - Some tools ask the person directly (elicitation) when a choice is missing. If the client cannot show \
     the question, the tool fails with the options: ask in the chat and call again with the answer.
     - Pipelines are saved step sequences in a small DSL; the write_pipeline prompt has the reference. \
-    Attaching a pipeline to a folder or the clipboard makes L'Esclop process files automatically from then \
-    on: say so before attaching.
+    Attaching a pipeline to a folder, the clipboard or the drop zone makes the L'Esclop app run it on its \
+    own, from then on, on new files there, on what the person copies or on what they drop: say so before attaching.
     """
 
     /// Starts a server on `transport` (stdio in production, in-memory in tests).

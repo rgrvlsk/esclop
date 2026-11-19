@@ -329,6 +329,11 @@ func options(_ tmp: TempDir, scripts: Bool = false) -> PipelineRunOptions {
     let single = await runner(Recorder(), engine: one).run(steps: [.extractPagesAsImages(format: .png), .optimise()], on: [pdf], options: options(tmp))
     #expect(single.files[0].finalFile?.lastPathComponent == "doc-page1.png")
     #expect(single.files[0].log.last?.outcome == .done)
+
+    var none = FakeEngine(recorder: Recorder())
+    none.pages = 0
+    let empty = await runner(Recorder(), engine: none).run(steps: [.extractPagesAsImages()], on: [pdf], options: options(tmp))
+    #expect(empty.files[0].status == .failed)
 }
 
 @Test func contractOnlyEnginesFallBackOrSayWhatIsMissing() async throws {
@@ -445,6 +450,18 @@ func options(_ tmp: TempDir, scripts: Bool = false) -> PipelineRunOptions {
     #expect(file.finalFile?.path.hasPrefix(trial.path + "/") == true)
     #expect(file.log.suffix(2).map(\.outcome) == [.skipped, .skipped])
     #expect(!rec.calls.contains { $0.hasPrefix("zsh") || $0.hasPrefix("shortcuts") }, "\(rec.calls)")
+}
+
+@Test func aTrialSkipsDeleteAsItSkipsScripts() async throws {
+    let tmp = try TempDir()
+    let png = try tmp.file("trial/a.png")
+    var opts = options(tmp)
+    opts.allowDelete = false
+    opts.trialFolder = png.deletingLastPathComponent()
+    let report = await runner(Recorder()).run(steps: [.delete(path: "sourceFile")], on: [png], options: opts)
+    #expect(report.files[0].status == .completed, "\(report.files[0].log)")
+    #expect(report.files[0].log.map(\.outcome) == [.skipped])
+    #expect(FileManager.default.fileExists(atPath: png.path))
 }
 
 @Test func adaptiveOptimiseAsksTheEngineForIt() async throws {

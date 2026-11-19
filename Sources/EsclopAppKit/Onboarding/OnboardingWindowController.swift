@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The first-run window. Opens by itself on the first launch; the menu's "Welcome to L'Esclop…"
-// opens it again at the first step. Finishing or skipping closes it.
+// opens it again at the first step. Finishing or skipping closes it; closing it finishes it.
 
 import AppKit
 import SwiftUI
@@ -11,6 +11,7 @@ public final class OnboardingWindowController {
     public let model: OnboardingModel
     let settings: SettingsWindowController
     private var window: NSWindow?
+    private var closing: (any NSObjectProtocol)?
 
     public init(model: OnboardingModel, settings: SettingsWindowController) {
         self.model = model
@@ -31,7 +32,7 @@ public final class OnboardingWindowController {
         window.makeKeyAndOrderFront(nil)
     }
 
-    private func makeWindow() -> NSWindow {
+    func makeWindow() -> NSWindow {
         let view = OnboardingView(
             onboarding: model, settings: settings.model, agents: settings.agents, actions: settings.actions
         ) { [weak settings] in settings?.show() }
@@ -43,6 +44,10 @@ public final class OnboardingWindowController {
         window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
         window.center()
+        // The close button and ⌘W end the tour like Skip; it stays in the menu.
+        closing = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: nil) { [weak model] _ in
+            MainActor.assumeIsolated { model?.windowClosed() }
+        }
         return window
     }
 }

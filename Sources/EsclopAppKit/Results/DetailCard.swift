@@ -3,9 +3,10 @@
 // The floating result's second level (docs/design/targets: pr2-detail-card): the card grown to
 // 320 pt. The picture, the name and the file's facts, the saving at the next size up, and the
 // actions as 1 + 2 + "…": the most likely one in charcoal, two round ones beside it, the rest in a
-// menu. A click, Return or Space opens it; there Return or Space runs the charcoal button; × and
-// Esc close it. While the file runs again the charcoal button is Stop and the detail turns aqua.
+// menu. A click or Return opens it; there Return runs the charcoal button (Space is Quick Look,
+// DESIGN.md › Keys); × and Esc close it. While the file runs again the charcoal button is Stop and the detail turns aqua.
 
+import AppKit
 import EsclopCore
 import SwiftUI
 
@@ -60,7 +61,7 @@ struct DetailCard: View {
                 .accessibilityHidden(comparing)
                 .overlay {
                     if comparing, let loupe = card.loupe {
-                        LoupeHint(state: loupe) { card.loupe = nil }
+                        LoupeHint(state: loupe, window: { perform(.compare) }, done: { card.loupe = nil })
                     }
                 }
         }
@@ -196,6 +197,7 @@ struct DetailActions: View {
     private func round(_ action: CardPresentation.Action) -> some View {
         VStack(spacing: 4) {
             PillButton(action: action, size: Self.round, perform: perform)
+                .disabled(action == .undo && card.restoring)
             Text(action.caption)
                 .font(Typeface.section)
                 .textCase(.uppercase)
@@ -240,16 +242,13 @@ struct PrimaryButton: View {
 
     var body: some View {
         Button { perform(action) } label: {
-            HStack(spacing: 8) {
-                Image(systemName: action.symbol).font(.system(size: 15, weight: .regular)).frame(width: 20)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(action.title).font(.system(size: 13, weight: .semibold))
-                    if let detail {
-                        // Full white: 80 % held only 3.7:1 on dark charcoal.
-                        Text(detail).font(Typeface.caption)
-                    }
+            // The symbol gives way before the words do ("Mostra al Finder" needs the room).
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    Image(systemName: action.symbol).font(.system(size: 15, weight: .regular)).frame(width: 20)
+                    words
                 }
-                .lineLimit(1)
+                words
             }
             .foregroundStyle(Ink.onCharcoal)
             .padding(.horizontal, 12)
@@ -258,7 +257,18 @@ struct PrimaryButton: View {
             .contentShape(Capsule())
         }
         .buttonStyle(PressScale())
-        .help(action.accessibilityName)
+        .help(CardKeys.help(for: action))
+    }
+
+    private var words: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(action.title).font(.system(size: 13, weight: .semibold))
+            if let detail {
+                // Full white: 80 % held only 3.7:1 on dark charcoal.
+                Text(detail).font(Typeface.caption)
+            }
+        }
+        .lineLimit(1)
     }
 }
 
@@ -345,9 +355,17 @@ struct DetailName: View {
         card.renaming = false
     }
 
+    /// A name already taken (or one the file system refuses) beeps and keeps the field open.
+    /// ponytail: a change of case only counts as taken on a case-insensitive volume. Trigger:
+    /// rename through a temporary name, if people ask for it.
     private func commit() {
-        end()
-        if !draft.isEmpty, draft != stem { rename(draft) }
+        let name = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, name != stem else { return end() }
+        let before = card.result?.output
+        rename(name)
+        guard card.result?.output == before else { return end() }
+        NSSound.beep()
+        focused = true
     }
 }
 

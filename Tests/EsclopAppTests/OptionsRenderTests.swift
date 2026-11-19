@@ -87,12 +87,17 @@ import UniformTypeIdentifiers
         let harness = Harness()
         let size = model(card(.done(renders.saved())), harness: harness) { model in
             model.tab = .size
-            model.scale = 0.5
-            model.estimates[model.scaleRequest] = 180_000
+            for (factor, bytes) in [(2000.0 / 2940, 1_100_000), (1280.0 / 2940, 520_000), (0.5, 610_000)] {
+                model.estimates[model.scaleRequest(factor)] = bytes
+            }
+        }
+        try await snapshot(size, name: "options-size", scheme: scheme)
+        let crop = model(card(.done(renders.saved())), harness: harness) { model in
+            model.tab = .crop
             model.startCrop(aspect: .ratio(16, 9))
             if let request = model.cropRequest { model.estimates[request] = 520_000 }
         }
-        try await snapshot(size, name: "options-size", scheme: scheme)
+        try await snapshot(crop, name: "options-crop", scheme: scheme)
         let share = model(card(.done(renders.saved())), harness: harness) { $0.tab = .share }
         try await snapshot(share, name: "options-share", scheme: scheme)
     }
@@ -108,17 +113,25 @@ import UniformTypeIdentifiers
     }
 
     /// The default buttons of onboarding and the agent sheet, outside a window: window renders
-    /// draw them inactive (a test process is never the active app), these show the accent.
+    /// draw them inactive (a test process is never the active app), these show the accent. A test
+    /// process has no bundle accent, so macOS gives it the system's, blue under Multicolour or
+    /// Blue: the case where the app's own accent does not apply. The buttons stay charcoal.
     @Test(arguments: [ColorScheme.light, .dark])
     func primaryButtons(scheme: ColorScheme) async throws {
         let row = HStack(spacing: 12) {
-            Button("Get Started") {}.primaryButton()
-            Button("Continue") {}.primaryButton()
-            Button("Done") {}.primaryButton()
-            Button("Connect") {}.primaryButton()
+            Button(Strings.text("Get Started")) {}.primaryButton()
+            Button(Strings.text("Continue")) {}.primaryButton()
+            Button(Strings.text("Done")) {}.primaryButton()
+            Button(Strings.text("Connect")) {}.primaryButton()
         }
         .padding(OptionsType.padding)
         try await snapshot(row, name: "primary-buttons", scheme: scheme)
+
+        let renderer = ImageRenderer(content: row.environment(\.colorScheme, scheme))
+        renderer.scale = 1
+        let image = try #require(renderer.cgImage)
+        let pixel = try #require(NSBitmapImageRep(cgImage: image).colorAt(x: Int(OptionsType.padding) + 8, y: image.height / 2)?.usingColorSpace(.sRGB))
+        #expect(pixel.blueComponent < pixel.redComponent + 0.08, "system blue: \(pixel)")
     }
 
     @Test(arguments: [ColorScheme.light, .dark])

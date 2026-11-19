@@ -45,7 +45,7 @@ public final class PipelineEditorWindowController {
     }
 
     private func makeWindow() -> NSWindow {
-        let host = NSHostingController(rootView: PipelineEditorView(model: model))
+        let host = NSHostingController(rootView: PipelineEditorView(model: model).designTint())
         host.sceneBridgingOptions = [.toolbars]
         let window = NSWindow(contentViewController: host)
         window.title = Strings.text("Pipelines")

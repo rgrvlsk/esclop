@@ -56,6 +56,8 @@ struct ShrinkingEngine: OptimisationEngine {
     var failure: EsclopError?
     var delay: Duration = .zero
     var log: RequestLog?
+    /// Where `.temporary` results go; `.sameFolder` ones go beside the source, the rest in place.
+    var temporaryRoot: URL?
 
     func optimise(_ source: URL, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult {
         log?.add(request)
@@ -64,6 +66,23 @@ struct ShrinkingEngine: OptimisationEngine {
         if let failure { throw failure }
         let started = Date()
         let before = AppModel.size(of: source)
+        if request.location == .temporary, let temporaryRoot {
+            let output = request.location.destination(for: source, extension: source.pathExtension, temporaryRoot: temporaryRoot)
+            try Paths.ensure(output.deletingLastPathComponent())
+            try Data(repeating: 0x42, count: Int(Double(before) * factor)).write(to: output)
+            return OptimisationResult(
+                id: request.id, source: source, output: output, kind: MediaKind.of(source) ?? .image,
+                bytesBefore: before, bytesAfter: AppModel.size(of: output), startedAt: started, finishedAt: Date()
+            )
+        }
+        if request.location == .sameFolder {
+            let output = try OutputPlanner.destination(for: source, location: .sameFolder, suffix: "optimised")
+            try Data(repeating: 0x42, count: Int(Double(before) * factor)).write(to: output)
+            return OptimisationResult(
+                id: request.id, source: source, output: output, kind: MediaKind.of(source) ?? .image,
+                bytesBefore: before, bytesAfter: AppModel.size(of: output), startedAt: started, finishedAt: Date()
+            )
+        }
         let backup = try OutputPlanner.backup(source, into: backups)
         try Data(repeating: 0x42, count: Int(Double(before) * factor)).write(to: source)
         return OptimisationResult(
@@ -100,7 +119,10 @@ struct Harness {
         let locations = EsclopLocations(support: temp.url.appendingPathComponent("support", isDirectory: true))
         let service = EsclopService(ServiceContext(
             origin: .app,
-            engine: ShrinkingEngine(backups: locations.backups, failure: failure, delay: delay, log: requests),
+            engine: ShrinkingEngine(
+                backups: locations.backups, failure: failure, delay: delay, log: requests,
+                temporaryRoot: temp.url.appendingPathComponent("esclop-temporary", isDirectory: true)
+            ),
             engineName: "test", settings: RegistrySettingsProvider(store: settings.store),
             pipelines: PipelineStore(directory: locations.pipelines, useTrash: false),
             locations: locations, useApp: false
@@ -110,6 +132,29 @@ struct Harness {
         model.loadsThumbnails = false
         let announcements = announcements
         model.announce = { announcements.texts.append($0) }
+    }
+
+    /// A copy made in another app: the clipboard holds `data`, and the watcher's decision on it.
+    func copy(image data: Data, app: String? = nil) -> ClipboardAction {
+        pasteboard.clearContents()
+        pasteboard.setData(data, forType: .png)
+        return .optimiseImage(data, .png, copyNow(app: app))
+    }
+
+    /// Files copied in Finder; `optimise` are the ones the watcher lets through (all by default).
+    func copy(files: [URL], optimise: [URL]? = nil) -> ClipboardAction {
+        pasteboard.clearContents()
+        pasteboard.writeObjects(files as [NSURL])
+        return .optimiseFiles(optimise ?? files, copied: files, copyNow())
+    }
+
+    func copyNow(app: String? = nil) -> ClipboardCopy {
+        ClipboardCopy(changeCount: pasteboard.changeCount, app: app, types: Set((pasteboard.types ?? []).map(\.rawValue)))
+    }
+
+    /// Waits until every clipboard read and write queued so far has run.
+    func clipboardSettles() async {
+        await model.clipboard.run { _ in }
     }
 
     func job(_ file: URL, origin: RequestOrigin = .dropZone, showUI: Bool = true, location: OutputLocation = .inPlace) -> OptimisationJob {

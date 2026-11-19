@@ -57,6 +57,7 @@ struct PDFEngine: Sendable {
         var input = source
         var steps: [String] = []
         if let crop = plan.crop, let aspect = crop.aspectRatioValue {
+            try PDFSignature.refuseSigned(source)
             let cropped = work.file(stem: "cropped", ext: "pdf")
             try Self.crop(document, aspect: aspect, to: cropped)
             input = cropped
@@ -68,7 +69,7 @@ struct PDFEngine: Sendable {
         let (dpi, sourceMax) = resolveDPI(for: input, plan: plan)
         let output = work.file(stem: "optimised", ext: "pdf")
         let reply = try await engine(input, to: output, dpi: dpi, factor: plan.factor(for: .pdf, format: .pdf, env: env), strip: plan.strip, progress: progress)
-        if let sourceMax, dpi < sourceMax {
+        if let sourceMax, dpi < sourceMax, dpi < PDFResolution.noDownsampleDPI {
             steps.append("Downsampled images from \(sourceMax) to \(dpi) dpi")
         } else if dpi < PDFResolution.noDownsampleDPI {
             steps.append("Images at most \(dpi) dpi")
@@ -151,6 +152,7 @@ struct PDFEngine: Sendable {
     /// Resets every page's crop box to its media box.
     func uncrop(_ source: URL, work: WorkFolder) throws -> Produced {
         let document = try document(source)
+        try PDFSignature.refuseSigned(source)
         for index in 0 ..< document.pageCount {
             guard let page = document.page(at: index) else { continue }
             page.setBounds(page.bounds(for: .mediaBox), for: .cropBox)
@@ -160,35 +162,43 @@ struct PDFEngine: Sendable {
         return Produced(url: output, width: nil, height: nil, duration: nil, steps: ["Restored the full pages"], allowLarger: true)
     }
 
-    /// Renders pages to PNG or JPEG files in `folder` (`<name>-<page>.<ext>`).
+    /// Renders pages to PNG or JPEG files in `folder` (`<name>-<page>.<ext>`, or the next free
+    /// name), all of them or none: a page that cannot be rendered fails the whole export.
     func extractPages(_ source: URL, format: OutputFormat, dpi: Int, to folder: URL) throws -> [URL] {
+        try extractPages(source, format: format, dpi: dpi, to: folder, render: Self.render)
+    }
+
+    /// `render` draws one page at a scale (1 = 72 dpi); nil when it cannot. A seam for the test
+    /// that makes one page fail; callers use the overload above.
+    func extractPages(_ source: URL, format: OutputFormat, dpi: Int, to folder: URL, render: (PDFPage, Double) -> CGImage?) throws -> [URL] {
         let document = try document(source)
         guard format == .png || format == .jpeg else {
             throw EsclopError.invalidArgument("Pages render to PNG or JPEG")
         }
-        try Paths.ensure(folder)
         let stem = source.deletingPathExtension().lastPathComponent
         let scale = Double(max(18, min(dpi, 1200))) / 72
-        var urls: [URL] = []
-        for index in 0 ..< document.pageCount {
-            guard let page = document.page(at: index) else { continue }
-            let bounds = page.bounds(for: .cropBox)
-            let rotated = page.rotation % 180 != 0
-            let width = Int((rotated ? bounds.height : bounds.width) * scale)
-            let height = Int((rotated ? bounds.width : bounds.height) * scale)
-            guard let context = CGContext(
-                data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
-                space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-            ) else { continue }
-            context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
-            context.fill(CGRect(x: 0, y: 0, width: width, height: height))
-            context.scaleBy(x: scale, y: scale)
-            page.draw(with: .cropBox, to: context)
-            guard let image = context.makeImage() else { continue }
-            let url = folder.appendingPathComponent("\(stem)-\(index + 1)").appendingPathExtension(format.fileExtension)
+        let names = (1 ... document.pageCount).map { "\(stem)-\($0).\(format.fileExtension)" }
+        return try StagedFiles.publish(names, into: folder) { index, url in
+            guard let page = document.page(at: index), let image = render(page, scale) else {
+                throw EsclopError.other("Could not render page \(index + 1) of \(source.lastPathComponent)")
+            }
             try ImageIOCodec.write(image, to: url, type: format == .png ? .png : .jpeg, quality: format == .jpeg ? 0.85 : nil, strip: true)
-            urls.append(url)
         }
-        return urls
+    }
+
+    static func render(_ page: PDFPage, scale: Double) -> CGImage? {
+        let bounds = page.bounds(for: .cropBox)
+        let rotated = page.rotation % 180 != 0
+        let width = Int((rotated ? bounds.height : bounds.width) * scale)
+        let height = Int((rotated ? bounds.width : bounds.height) * scale)
+        guard let context = CGContext(
+            data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        context.scaleBy(x: scale, y: scale)
+        page.draw(with: .cropBox, to: context)
+        return context.makeImage()
     }
 }

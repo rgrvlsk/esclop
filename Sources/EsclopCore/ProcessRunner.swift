@@ -12,6 +12,11 @@
 // Timers, completion and kill escalation run on a private serial queue per child instead, which
 // GCD always serves. A call ends once the child has exited and its pipes are drained, or a short
 // grace after it exited when a descendant keeps the pipes open.
+//
+// macOS has no "die with the parent" flag, so each one-shot child gets a watchdog: a shell that
+// waits on a pipe only this process writes to. A newline after the child exits lets it go; when
+// this process dies (a crash, a force quit) the pipe closes and the shell kills the child.
+// `esclop-engine serve` needs none: it reads its stdin and exits at its end.
 
 import Foundation
 
@@ -21,6 +26,12 @@ public struct ProcessOptions: Sendable {
     public var currentDirectory: URL?
     /// Seconds before the child is terminated and the run fails. nil waits for ever.
     public var timeout: TimeInterval?
+    /// Seconds the child may go without progress before it is terminated and the run fails.
+    /// For tools that report progress as they go; nil never checks.
+    public var stallTimeout: TimeInterval?
+    /// Which stdout lines show progress, for `stallTimeout`. nil counts any output. (A stuck
+    /// ffmpeg keeps printing its `-progress` block, with the same time in it.)
+    public var madeProgress: (@Sendable (String) -> Bool)?
     /// Written to the child's stdin, which is then closed. nil gives it /dev/null.
     public var stdin: Data?
     /// Exit codes that count as success (pngquant-style tools use others for "no gain").
@@ -39,8 +50,11 @@ public struct ProcessOptions: Sendable {
         environment: [String: String] = [:], currentDirectory: URL? = nil, timeout: TimeInterval? = nil,
         stdin: Data? = nil, acceptedExitCodes: Set<Int32> = [0],
         onStdoutLine: (@Sendable (String) -> Void)? = nil, onStderrLine: (@Sendable (String) -> Void)? = nil,
-        stderrLimit: Int = 64 * 1024, drainGrace: TimeInterval = 2, acceptsAnyExitCode: Bool = false
+        stderrLimit: Int = 64 * 1024, drainGrace: TimeInterval = 2, acceptsAnyExitCode: Bool = false,
+        stallTimeout: TimeInterval? = nil, madeProgress: (@Sendable (String) -> Bool)? = nil
     ) {
+        self.stallTimeout = stallTimeout
+        self.madeProgress = madeProgress
         self.drainGrace = drainGrace
         self.acceptsAnyExitCode = acceptsAnyExitCode
         self.environment = environment
@@ -203,15 +217,19 @@ private final class Execution: @unchecked Sendable {
     private var err = Data()
     private var outLines = LineSplitter()
     private var errLines = LineSplitter()
+    /// When the child last made progress (under `lock`).
+    private var lastOutput = Date()
 
     // Owned by `queue`.
     private var continuation: CheckedContinuation<ProcessResult, Error>?
     private var handles: [FileHandle] = []
     private var process: Process?
+    private var watchdog: FileHandle?
     private var exitStatus: Int32?
     private var openStreams = 2
     private var cancelled = false
     private var timedOut = false
+    private var stalled = false
     private var started = Date()
 
     init(name: String, options: ProcessOptions) {
@@ -225,15 +243,22 @@ private final class Execution: @unchecked Sendable {
     func appendStdout(_ data: Data) {
         let lines: [String]
         lock.lock()
+        if options.madeProgress == nil { lastOutput = Date() }
         out.append(data)
-        lines = options.onStdoutLine == nil ? [] : outLines.push(data)
+        lines = options.onStdoutLine == nil && options.madeProgress == nil ? [] : outLines.push(data)
         lock.unlock()
         lines.forEach { options.onStdoutLine?($0) }
+        if let madeProgress = options.madeProgress, lines.contains(where: madeProgress) {
+            lock.lock()
+            lastOutput = Date()
+            lock.unlock()
+        }
     }
 
     func appendStderr(_ data: Data) {
         let lines: [String]
         lock.lock()
+        if options.madeProgress == nil { lastOutput = Date() }
         err.append(data)
         if err.count > options.stderrLimit * 2 {
             err = err.suffix(options.stderrLimit)
@@ -264,6 +289,9 @@ private final class Execution: @unchecked Sendable {
             self.continuation = continuation
             self.handles = handles
             self.started = Date()
+            self.lock.lock()
+            self.lastOutput = self.started
+            self.lock.unlock()
             if self.cancelled {
                 self.finish(.failure(EsclopError.cancelled))
                 return false
@@ -272,6 +300,9 @@ private final class Execution: @unchecked Sendable {
         }
         if proceed, let timeout = options.timeout {
             queue.asyncAfter(deadline: .now() + timeout) { self.timeOut() }
+        }
+        if proceed, let limit = options.stallTimeout {
+            queue.asyncAfter(deadline: .now() + limit) { self.checkStall(limit) }
         }
         return proceed
     }
@@ -285,8 +316,9 @@ private final class Execution: @unchecked Sendable {
     func launched(_ process: Process) {
         queue.async {
             self.process = process
+            if self.exitStatus == nil { self.watchdog = Self.watchdog(for: process.processIdentifier) }
             // Cancelled or timed out while launching: the caller has its answer, the child goes.
-            if self.cancelled || self.timedOut { self.stop() }
+            if self.cancelled || self.timedOut || self.stalled { self.stop() }
         }
     }
 
@@ -301,6 +333,7 @@ private final class Execution: @unchecked Sendable {
     func exited(_ status: Int32) {
         queue.async {
             self.exitStatus = status
+            self.releaseWatchdog()
             if self.openStreams > 0 {
                 self.queue.asyncAfter(deadline: .now() + self.options.drainGrace) {
                     guard self.continuation != nil else { return }
@@ -338,6 +371,24 @@ private final class Execution: @unchecked Sendable {
         }
     }
 
+    /// Stops a child that has made no progress for `limit`; otherwise looks again when it could be.
+    private func checkStall(_ limit: TimeInterval) {
+        guard continuation != nil, exitStatus == nil, !cancelled, !timedOut else { return }
+        lock.lock()
+        let quiet = Date().timeIntervalSince(lastOutput)
+        lock.unlock()
+        guard quiet >= limit else {
+            queue.asyncAfter(deadline: .now() + (limit - quiet)) { self.checkStall(limit) }
+            return
+        }
+        stalled = true
+        if process == nil {
+            finish(.failure(timeoutError(status: -1)))
+        } else {
+            stop()
+        }
+    }
+
     /// SIGTERM, then SIGKILL if the child is still there two seconds later.
     private func stop() {
         guard let process, exitStatus == nil else { return }
@@ -352,11 +403,11 @@ private final class Execution: @unchecked Sendable {
         guard continuation != nil, let status = exitStatus, openStreams <= 0 else { return }
         if cancelled {
             finish(.failure(EsclopError.cancelled))
-        } else if timedOut {
+        } else if timedOut || stalled {
             finish(.failure(timeoutError(status: status)))
         } else if !options.acceptsAnyExitCode, !options.acceptedExitCodes.contains(status) {
             let stderr = ProcessRunner.tail(stderrString)
-            Log.process.error("\(self.name, privacy: .public) exited \(status): \(stderr, privacy: .public)")
+            Log.process.error("\(self.name, privacy: .public) exited \(status): \(stderr, privacy: .private)")
             finish(.failure(EsclopError.toolFailed(tool: name, exitCode: status, stderr: stderr)))
         } else {
             lock.lock()
@@ -380,8 +431,38 @@ private final class Execution: @unchecked Sendable {
     }
 
     private func timeoutError(status: Int32) -> EsclopError {
-        let seconds = options.timeout.map { $0 < 10 ? String(format: "%.1f", $0) : String(Int($0)) } ?? "?"
-        return .toolFailed(tool: name, exitCode: status, stderr: "timed out after \(seconds) s. \(ProcessRunner.tail(stderrString))")
+        let limit = stalled ? options.stallTimeout : options.timeout
+        let seconds = limit.map { $0 < 10 ? String(format: "%.1f", $0) : String(Int($0)) } ?? "?"
+        let what = stalled ? "made no progress for \(seconds) s" : "timed out after \(seconds) s"
+        return .toolFailed(tool: name, exitCode: status, stderr: "\(what). \(ProcessRunner.tail(stderrString))")
+    }
+
+    /// A shell that SIGKILLs `pid` once the returned pipe closes without a newline (this process
+    /// died). ponytail: one shell per child (a few milliseconds); a single shared watchdog if
+    /// that ever shows in a profile. Descendants of the child are not covered.
+    private static func watchdog(for pid: Int32) -> FileHandle? {
+        let shell = Process()
+        shell.executableURL = URL(fileURLWithPath: "/bin/sh")
+        shell.arguments = ["-c", "read _ || kill -KILL \"$0\" 2>/dev/null", String(pid)]
+        let pipe = Pipe()
+        shell.standardInput = pipe
+        shell.standardOutput = FileHandle.nullDevice
+        shell.standardError = FileHandle.nullDevice
+        do {
+            try shell.run()
+        } catch {
+            Log.process.error("No watchdog for pid \(pid): \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+        return pipe.fileHandleForWriting
+    }
+
+    /// The child has exited: its watchdog goes without killing anything.
+    private func releaseWatchdog() {
+        guard let watchdog else { return }
+        self.watchdog = nil
+        try? watchdog.write(contentsOf: Data("\n".utf8))
+        try? watchdog.close()
     }
 
     /// SIGTERM, then SIGKILL two seconds later, for children this file does not track.

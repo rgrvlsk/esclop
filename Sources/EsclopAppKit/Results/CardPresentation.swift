@@ -44,6 +44,8 @@ public struct CardPresentation: Equatable, Sendable {
         /// Opens the options on the Optimise tab: format, size, crop. The detail's "…" menu
         /// names it Convert… (docs/design/targets: pr2-detail-card).
         case convertOptions
+        /// A watched-folder notice about too many files at once: optimise them after all.
+        case optimiseAnyway
 
         /// The label on a button in the detail card.
         public var title: String {
@@ -71,6 +73,7 @@ public struct CardPresentation: Equatable, Sendable {
             case .share: return Strings.text("Share…")
             case .trash: return Strings.text("Move to Trash")
             case .convertOptions: return Strings.text("Convert…")
+            case .optimiseAnyway: return Strings.text("Optimise Them Anyway")
             }
         }
 
@@ -115,6 +118,7 @@ public struct CardPresentation: Equatable, Sendable {
             case .save, .saveAs: return "square.and.arrow.down"
             case .share: return "square.and.arrow.up"
             case .trash: return "trash"
+            case .optimiseAnyway: return "arrow.forward"
             }
         }
     }
@@ -257,6 +261,8 @@ public struct CardPresentation: Equatable, Sendable {
             actions = Self.distinct([.openDetail] + tools + [.reveal, .copy, .dismiss])
             accessibilityLabel = f("%@, already optimised, kept the original", name)
         case let .restored(result):
+            // ponytail: Undo that moved an edited file to the Trash should add "Your edited
+            // version is in the Trash". Trigger: RestoreOutcome.movedToTrash (PR #53) on main.
             fileName = card.displayName ?? result.source.lastPathComponent
             capsule = .status(symbol: "arrow.uturn.backward", text: f("Original restored · %@", Figures.bytes(result.bytesBefore, locale: locale)))
             headline = t("Original restored")
@@ -283,7 +289,7 @@ public struct CardPresentation: Equatable, Sendable {
             fileName = ""
             capsule = .notice(title: title, detail: message)
             tone = .neutral
-            actions = [.dismiss]
+            actions = card.optimiseAnyway == nil ? [.dismiss] : [.optimiseAnyway, .dismiss]
             accessibilityLabel = "\(title). \(message)"
         }
         applyUpload(card, name: fileName, t: t, f: f)
@@ -464,6 +470,10 @@ public struct CardPresentation: Equatable, Sendable {
             return Strings.format("L’Esclop cannot optimise this kind of file (%@).", URL(fileURLWithPath: file).lastPathComponent)
         case let .fileNotFound(path):
             return Strings.format("%@ is no longer there.", URL(fileURLWithPath: path).lastPathComponent)
+        case let .backupRemoved(_, days?):
+            return days == 1 ? Strings.text("The original was removed after 1 day.") : Strings.format("The original was removed after %d days.", days)
+        case .backupRemoved(_, nil):
+            return Strings.text("The original’s backup is no longer there.")
         case let .toolFailed(tool, code, stderr):
             let line = readable(stderr.split(separator: "\n").last.map(String.init) ?? "")
             return line.isEmpty ? Strings.format("%@ stopped with code %d", tool, Int(code)) : Strings.format("%@ stopped with code %d: %@", tool, Int(code), line)
@@ -475,9 +485,38 @@ public struct CardPresentation: Equatable, Sendable {
         case let .leftAsIs(reason):
             return Strings.text(reason)
         case let .notPermitted(why):
-            return why
+            return forPeople(why)
+        case let .invalidArgument(why) where why.hasPrefix(Self.noRecentResult):
+            // "No recent result for /path. esclop_recent_results lists…": the tool name is for agents.
+            let path = why.dropFirst(Self.noRecentResult.count).components(separatedBy: ". ").first ?? ""
+            return Strings.format("There is no recent result for %@ to restore.", URL(fileURLWithPath: path).lastPathComponent)
+        case .alreadySmaller:
+            return Strings.text("The file is already as small as it gets.")
+        case let .other(message):
+            // A sentence the catalogue knows (BackupStore.untrashableEdit) is translated; any
+            // other stays as it is.
+            return Strings.text(message)
         case let other:
             return other.description
         }
+    }
+
+    // ponytail: matches the engine's English (Service.restoreBackup, PDFEngine, PDFPageTools); a
+    // reworded engine message shows in English again, CatalanCoverageTests names the three.
+    private static let noRecentResult = "No recent result for "
+
+    /// The engine writes these refusals for agents and logs; a card says them in the person's
+    /// language. Anything not listed is looked up as it is, then shown as it is.
+    // ponytail: still English on a card: refusals that carry a path (PipelineRunner's "… already
+    // exists and replacing files is not allowed here", "pipelines never delete folders (…)") and
+    // `.invalidArgument`, `.invalidPipeline`, `.other`. Key them when a card shows one in practice.
+    private static func forPeople(_ why: String) -> String {
+        if why.hasPrefix("agents may not overwrite originals") {
+            return Strings.text("Agents may not replace originals. Allow it in Settings › Agents and MCP, or ask for the result somewhere else.")
+        }
+        if why.hasSuffix(" is password protected") {
+            return Strings.format("%@ is password protected.", String(why.dropLast(" is password protected".count)))
+        }
+        return Strings.text(why)
     }
 }

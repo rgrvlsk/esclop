@@ -11,10 +11,26 @@ import EsclopOptimisers
 import Foundation
 import UniformTypeIdentifiers
 
+/// One copy, read once on the clipboard queue: the change count it has (the clipboard is still
+/// that copy while the count stays), the app in front and the pasteboard types. Every later
+/// decision about the copy uses these values, never a second look.
+public struct ClipboardCopy: Equatable, Sendable {
+    public var changeCount: Int
+    public var app: String?
+    public var types: Set<String>
+
+    public init(changeCount: Int, app: String? = nil, types: Set<String> = []) {
+        self.changeCount = changeCount
+        self.app = app
+        self.types = types
+    }
+}
+
 public enum ClipboardAction: Equatable, Sendable {
     case ignore(Reason)
-    case optimiseImage(Data, UTType)
-    case optimiseFiles([URL])
+    case optimiseImage(Data, UTType, ClipboardCopy)
+    /// The files to optimise, and every file copied, in order: the results go back in their places.
+    case optimiseFiles([URL], copied: [URL], ClipboardCopy)
 
     public enum Reason: Equatable, Sendable {
         case ownWrite, transient, paused, ignoredApp, empty, unsupported
@@ -36,26 +52,29 @@ public struct ClipboardPolicy: Sendable {
 
     public var isPaused: Bool { EsclopSettings.pauseAutomaticOptimisations.value(in: factory.settings) }
 
-    /// `content` is only read when the cheap checks pass.
-    public func decide(types: Set<String>, content: () -> ClipboardContent, frontmostApp: String?) -> ClipboardAction {
-        if types.contains(Clipboard.optimisedType.rawValue) { return .ignore(.ownWrite) }
-        if !types.isDisjoint(with: Self.transientTypes) { return .ignore(.transient) }
+    /// Copied text matters only when it can be the path of an image to optimise; otherwise the
+    /// watcher does not read it.
+    public var readsText: Bool { EsclopSettings.optimiseImagePathClipboard.value(in: factory.settings) }
+
+    /// `content` is only read when the cheap checks pass. `appBefore` is the app that was in front
+    /// at the poll before: a copy made just before switching apps belongs to it.
+    public func decide(_ copy: ClipboardCopy, appBefore: String? = nil, content: () -> ClipboardContent) -> ClipboardAction {
+        if copy.types.contains(Clipboard.optimisedType.rawValue) { return .ignore(.ownWrite) }
+        if !copy.types.isDisjoint(with: Self.transientTypes) { return .ignore(.transient) }
         if isPaused { return .ignore(.paused) }
         let ignoredApps = EsclopSettings.clipboardIgnoredAppBundleIds.value(in: factory.settings)
-        if let frontmostApp, ignoredApps.contains(frontmostApp) { return .ignore(.ignoredApp) }
+        if [copy.app, appBefore].contains(where: { $0.map(ignoredApps.contains) ?? false }) { return .ignore(.ignoredApp) }
 
         switch content() {
         case let .image(data, type):
             guard factory.clipboardAllows(.image) else { return .ignore(.skipped(.disabled)) }
             if let skip = factory.sizeSkip(data.count, kind: .image) { return .ignore(.skipped(skip)) }
-            return .optimiseImage(data, type)
+            return .optimiseImage(data, type, copy)
         case let .files(urls):
-            return files(urls)
+            return files(urls, copy: copy)
         case let .path(url):
-            guard MediaKind.of(url) == .image, EsclopSettings.optimiseImagePathClipboard.value(in: factory.settings) else {
-                return .ignore(.unsupported)
-            }
-            return files([url])
+            guard MediaKind.of(url) == .image, readsText else { return .ignore(.unsupported) }
+            return files([url], copy: copy)
         case .base64Image:
             // Text stays text: replacing a data URL with an image would surprise the person.
             return .ignore(.unsupported)
@@ -64,7 +83,7 @@ public struct ClipboardPolicy: Sendable {
         }
     }
 
-    private func files(_ urls: [URL]) -> ClipboardAction {
+    private func files(_ urls: [URL], copy: ClipboardCopy) -> ClipboardAction {
         var firstSkip: RequestFactory.Skip?
         var eligible: [URL] = []
         for url in urls {
@@ -74,7 +93,7 @@ public struct ClipboardPolicy: Sendable {
                 eligible.append(url)
             }
         }
-        if !eligible.isEmpty { return .optimiseFiles(eligible) }
+        if !eligible.isEmpty { return .optimiseFiles(eligible, copied: urls, copy) }
         return .ignore(.skipped(firstSkip ?? .unsupported))
     }
 }
