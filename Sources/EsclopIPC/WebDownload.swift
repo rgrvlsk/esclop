@@ -18,7 +18,9 @@ public enum WebDownload {
     // $TMPDIR. A screen recording above it is refused; raise it, or cap per kind, if people hit it.
     public static let largest = 2_000_000_000
     /// The whole download, from the request to the last byte.
-    public static let timeLimit: TimeInterval = 15 * 60
+    // ponytail: an hour takes the whole cap at about 4.5 Mbit/s; a slower line fails a large
+    // video. Use an idle timeout with the cap alone if people on slow lines hit it.
+    public static let timeLimit: TimeInterval = 60 * 60
 
     /// The session downloads use: `timeLimit` for the whole transfer.
     public static let session: URLSession = {
@@ -103,8 +105,9 @@ public enum WebDownload {
             if max(response.expectedContentLength, received) > Int64(largest) {
                 return .other("\(url.absoluteString) is larger than \(ByteSize.format(largest)), the most L'Esclop downloads")
             }
+            // A web page served at a media address (a login page at `photo.jpg`) is refused too.
             let name = WebDownload.name(for: url, response: response)
-            if MediaKind.of(URL(fileURLWithPath: name)) == nil {
+            if MediaKind.of(URL(fileURLWithPath: name)) == nil || response.mimeType?.lowercased().hasPrefix("text/") == true {
                 let type = response.mimeType.map { " (\($0))" } ?? ""
                 return .other("\(url.absoluteString) is not an image, video, PDF or audio file\(type)")
             }

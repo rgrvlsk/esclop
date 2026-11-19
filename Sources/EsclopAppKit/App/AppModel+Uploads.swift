@@ -102,7 +102,11 @@ extension AppModel {
         let links = batch.rows.compactMap { row -> URL? in if case let .uploaded(link, _) = row.upload { link } else { nil } } + batch.pipelineLinks
         guard !links.isEmpty else { return }
         let since = batch.linksSince
-        Task { await copyToClipboard(links: links, since: since) }
+        Task {
+            // Kept off the clipboard (something was copied meanwhile): each row says the link is ready.
+            guard await !copyToClipboard(links: links, since: since) else { return }
+            for row in batch.rows { if case let .uploaded(link, _) = row.upload { row.upload = .uploaded(link, copied: false) } }
+        }
     }
 
     /// A pipeline's upload step's link: with its batch's links when the batch ends, else on the
@@ -114,6 +118,8 @@ extension AppModel {
             return
         }
         if let since, batch.linksSince == nil { batch.linksSince = since }
+        // ponytail: kept apart from the rows, in the order they came; a row run again adds its
+        // new link beside the old one. Key them by row if pipeline batches with uploads get retried.
         batch.pipelineLinks.append(link)
     }
 

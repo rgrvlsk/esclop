@@ -195,7 +195,8 @@ import Testing
         let client = try await client()
         defer { Task { await client.shutdown() } }
         _ = try await client.capabilities()
-        // The crash takes the sleeper down twice, so each goes on alone.
+        // The crash takes the sleeper down twice, so each goes on alone. ponytail: the 1 s wait
+        // below assumes both crashes and restarts are over by then, inside the sleeper's 3 s.
         async let sleeper = client.call("sleep", params: ["seconds": 3.0])
         async let crasher: Void = { _ = try? await client.call("crash") }()
         try await Task.sleep(nanoseconds: 1_000_000_000)

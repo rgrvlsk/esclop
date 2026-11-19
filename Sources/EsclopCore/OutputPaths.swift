@@ -139,8 +139,11 @@ public enum StagedFiles {
 public extension StagedFiles {
     /// Removes what a kill in the middle of a swap left in `folder`: the hidden files and folders
     /// L'Esclop stages beside a target (`.photo.jpg.esclop-1A2B3C4D`, `.esclop-1A2B3C4D`,
-    /// `.photo.jpg.esclop-restore-1A2B3C4D`), once a day old. Every job that writes into a folder
-    /// calls it first.
+    /// `.photo.jpg.esclop-restore-1A2B3C4D`), once a day old. The engines' writes and
+    /// `publish` call it first; the other stagers (restore, a pipeline's move, Save) leave theirs
+    /// for the next of those in the folder.
+    /// The age is the status change date: a staged file keeps its source's modification date
+    /// (dates are preserved), but a move or a copy sets that one to now.
     // ponytail: a day old, so a swap still copying to a slow disk is never taken; lists the
     // folder on every write. Keep a list of swept folders if a huge folder makes that show.
     static func removeLeftovers(in folder: URL, now: Date = Date()) {
@@ -148,8 +151,8 @@ public extension StagedFiles {
         guard let names = try? fm.contentsOfDirectory(atPath: folder.path) else { return }
         for name in names where name.hasPrefix(".") && name.wholeMatch(of: leftover) != nil {
             let url = folder.appendingPathComponent(name)
-            guard let modified = (try? fm.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date,
-                  now.timeIntervalSince(modified) > 86400 else { continue }
+            guard let changed = (try? url.resourceValues(forKeys: [.attributeModificationDateKey]))?.attributeModificationDate,
+                  now.timeIntervalSince(changed) > 86400 else { continue }
             try? fm.removeItem(at: url)
         }
     }

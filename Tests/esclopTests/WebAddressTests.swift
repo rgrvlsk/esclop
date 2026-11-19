@@ -91,9 +91,11 @@ final class LocalServer: @unchecked Sendable {
         }
         let page = try await LocalServer(contentType: "text/html", body: Data("<html></html>".utf8))
         defer { page.stop() }
-        let address = URL(string: "http://127.0.0.1:\(page.port)/gallery")!
-        await #expect(throws: EsclopError.other("\(address.absoluteString) is not an image, video, PDF or audio file (text/html)")) {
-            try await WebDownload.fetch(address, into: folder)
+        for path in ["gallery", "photo.jpg"] {
+            let address = URL(string: "http://127.0.0.1:\(page.port)/\(path)")!
+            await #expect(throws: EsclopError.other("\(address.absoluteString) is not an image, video, PDF or audio file (text/html)")) {
+                try await WebDownload.fetch(address, into: folder)
+            }
         }
         #expect((try? FileManager.default.contentsOfDirectory(atPath: folder.path))?.isEmpty ?? true, "nothing is kept")
         #expect(WebDownload.isInsecure(URL(string: "http://example.com/a.png")!))
