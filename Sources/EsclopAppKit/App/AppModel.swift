@@ -803,8 +803,8 @@ public final class AppModel {
     func reprocess(_ card: ResultCard, choice: OptimiseChoice? = nil, adjust: ((inout OptimisationJob) -> Void)? = nil) {
         let origin = card.origin, displayName = card.displayName
         let wasClipboardImage = Self.isCopiedImage(card.source)
-        // Every run starts from the original: only `downscale(_:to:)` keeps a scale. It is set
-        // here, before the run, because `downscale(_:to:)` sets its own scale right after.
+        // Every run starts from the original: the scale resets here, and the run that starts
+        // sets it below. A failed restore puts the old scale back, as the card keeps its result.
         let keptScale = card.downscale
         card.downscale = 1
         let choice = choice ?? card.choice
@@ -841,6 +841,8 @@ public final class AppModel {
             var job = factory.job(for: source, origin: origin, location: wasClipboardImage ? .inPlace : nil)
             choice.apply(to: &job.request)
             adjust?(&job)
+            // The Size tab's chosen tile follows the run that starts, from a tile or the hover button.
+            card.downscale = job.request.downscale ?? 1
             let copyBack = origin == .clipboard && EsclopSettings.autoCopyToClipboard.value(in: settings)
             await run(job, displayName: displayName, context: context, reusing: card, onResult: { result in
                 if let replaced {
@@ -850,6 +852,9 @@ public final class AppModel {
                 guard copyBack else { return }
                 Task { await self.putBackOnClipboard(shown.map { ($0, result.output) }) }
             })
+            // A failed card has no "…": the popover closes so the failure and its Retry show,
+            // instead of controls that can no longer run anything.
+            if case .failed = card.phase, card.machine.menuOpen { interact(card, .menu(false)) }
         }
     }
 
