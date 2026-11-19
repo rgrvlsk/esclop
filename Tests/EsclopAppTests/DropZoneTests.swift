@@ -87,28 +87,40 @@ final class FakeDrag: NSObject, NSDraggingInfo {
         #expect(DropZoneController.media(on: pasteboard).count == 0)
     }
 
-    /// Promised files (Photos, Mail) and web addresses become local files before they are optimised.
+    /// Promised files (Photos, Mail) and web addresses become local files before they are
+    /// optimised, together when they come together.
     @Test func promisesAndAddressesArriveAsLocalFiles() async throws {
         let temp = TempDir()
         let intake = DropIntake(promises: [FakePromise(names: ["photo.png", "clip.mov"])], addresses: [URL(string: "https://example.com/a.jpg")!])
         #expect(intake.remoteMedia.count == 3 && intake.remoteMedia.kinds == [.image, .video])
         let downloads = temp.url.appendingPathComponent("downloads")
-        let (files, failures) = await intake.resolve(into: temp.url) { address in
+        let handed = Handed()
+        intake.resolve(into: temp.url, gather: .seconds(30), download: { address in
             let file = try Paths.ensure(downloads).appendingPathComponent(address.lastPathComponent)
             try pngData().write(to: file)
             return file
-        }.value
-        #expect(failures.isEmpty)
-        #expect(files.map(\.lastPathComponent) == ["a.jpg", "clip.mov", "photo.png"])
-        #expect(files.allSatisfy { FileManager.default.fileExists(atPath: $0.path) })
+        }, deliver: handed.take)
+        #expect(await eventually { handed.batches.count == 1 })
+        #expect(handed.batches[0].files.map(\.lastPathComponent).sorted() == ["a.jpg", "clip.mov", "photo.png"])
+        #expect(handed.batches[0].failures == 0)
+        #expect(handed.batches[0].files.allSatisfy { FileManager.default.fileExists(atPath: $0.path) })
         // A failed download leaves the others to go ahead.
-        let failing = DropIntake(promises: [FakePromise(names: ["b.png"])], addresses: [URL(string: "https://example.com/c.jpg")!])
-        let partial = await failing.resolve(into: temp.url) { _ in throw EsclopError.other("offline") }.value
-        #expect(partial.files.map(\.lastPathComponent) == ["b.png"] && partial.failures.count == 1)
-        // A promise never kept does not hold the others back for ever.
-        let stuck = DropIntake(files: [temp.file("here.png")], promises: [FakePromise(names: ["never.png"], delivers: false)])
-        let late = await stuck.resolve(into: temp.url, patience: .milliseconds(200)).value
-        #expect(late.files.map(\.lastPathComponent) == ["here.png"] && late.failures.count == 1)
+        let failing = Handed()
+        DropIntake(promises: [FakePromise(names: ["b.png"])], addresses: [URL(string: "https://example.com/c.jpg")!])
+            .resolve(into: temp.url, gather: .seconds(30), download: { _ in throw EsclopError.other("offline") }, deliver: failing.take)
+        #expect(await eventually { failing.batches.count == 1 })
+        #expect(failing.batches[0].files.map(\.lastPathComponent) == ["b.png"] && failing.batches[0].failures == 1)
+        // A promise never kept holds back nothing: the dropped file goes after the pause.
+        let stuck = Handed()
+        DropIntake(files: [temp.file("here.png")], promises: [FakePromise(names: ["never.png"], delivers: false)])
+            .resolve(into: temp.url, gather: .milliseconds(100), deliver: stuck.take)
+        #expect(await eventually { stuck.batches.count == 1 })
+        #expect(stuck.batches[0].files.map(\.lastPathComponent) == ["here.png"])
+    }
+
+    @MainActor final class Handed {
+        var batches: [(files: [URL], failures: Int)] = []
+        func take(_ files: [URL], _ failures: [any Error]) { batches.append((files, failures.count)) }
     }
 
     @Test func aPromisedFileIsOptimisedAsADroppedOne() async {

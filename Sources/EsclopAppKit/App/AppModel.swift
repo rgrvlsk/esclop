@@ -753,6 +753,7 @@ public final class AppModel {
             case let .restored(result):
                 source = result.source
                 shown = [result.source]
+                besideOriginal = result.backup == nil && result.output.standardizedFileURL != result.source.standardizedFileURL
             case .working, .failed, .notice:
                 return
             case .unchanged:

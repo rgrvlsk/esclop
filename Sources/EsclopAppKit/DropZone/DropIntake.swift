@@ -88,26 +88,30 @@ struct DropIntake {
         return (count, kinds)
     }
 
-    /// The local files to optimise: dropped files as they are, promised files once written into
-    /// a new folder under `folder`, addresses once `download` has fetched them. The promises are
-    /// asked for and the downloads started before this returns, so call it while the drop is
-    /// under way; the task ends when every file arrived or failed, or when none arrived for
-    /// `patience` (an iCloud original Photos cannot fetch, an app that quit). Failures come back
-    /// beside the files, which go ahead without them.
+    /// Hands the local files to `deliver`: dropped files as they are, promised files once
+    /// written into a new folder under `folder`, addresses once `download` has fetched them. The
+    /// promises are asked for and the downloads started before this returns, so call it while
+    /// the drop is under way. Files go ahead as they arrive, gathered while they come within
+    /// `gather` of each other, so a drop of many photos is one batch and a slow video or a file
+    /// that never comes holds back no other. Failures come with the files they arrived beside.
     // ponytail: promised and downloaded files stay in $TMPDIR/esclop until macOS clears it, like
-    // the copies in `results`; prune them at launch with those if they pile up.
+    // the copies in `results`; prune them at launch with those if they pile up. A legacy promise
+    // is taken to list one type per file (unverified); one listing fewer would lose the rest.
+    // Files more than `gather` apart are separate batches, each counted against
+    // `batchWindowFrom` (slow iCloud originals give cards, not one window); gather longer if so.
     @MainActor
     func resolve(
         into folder: URL = Paths.temporary.appendingPathComponent("dropped", isDirectory: true),
-        patience: Duration = .seconds(60),
-        download: @escaping @Sendable (URL) async throws -> URL = { try await WebDownload.fetch($0) }
-    ) -> Task<(files: [URL], failures: [any Error]), Never> {
+        gather: Duration = .milliseconds(500),
+        download: @escaping @Sendable (URL) async throws -> URL = { try await WebDownload.fetch($0) },
+        deliver: @escaping @MainActor (_ files: [URL], _ failures: [any Error]) -> Void
+    ) {
         // The reader runs once per promised type; a promise of no type is not asked for.
         let asked = promises.filter { !$0.promisedTypes.isEmpty }
         let promised = asked.reduce(0) { $0 + $1.promisedTypes.count }
         let expected = promised + addresses.count
+        guard expected > 0 else { return deliver(files, []) }
         let (results, sink) = AsyncStream.makeStream(of: Result<URL, any Error>.self)
-        if expected == 0 { sink.finish() }
         do {
             if !asked.isEmpty {
                 let destination = try Paths.ensure(folder.appendingPathComponent(String(UUID().uuidString.prefix(8)), isDirectory: true))
@@ -121,38 +125,46 @@ struct DropIntake {
                 do { sink.yield(.success(try await download(address))) } catch { sink.yield(.failure(error)) }
             }
         }
-        let files = files
-        let arrival = Arrival()
-        let watchdog = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: patience)
-                guard !Task.isCancelled, ContinuousClock.now - arrival.last >= patience else { continue }
-                sink.yield(.failure(EsclopError.other(Strings.text("A dropped file did not arrive: the app it came from did not deliver it."))))
-                sink.finish()
-                return
-            }
-        }
-        return Task { @MainActor in
-            defer { watchdog.cancel() }
+        let batch = Batch(files: files)
+        Task { @MainActor in
             var left = expected
-            var received: [URL] = []
-            var failures: [any Error] = []
+            batch.handOver(after: gather, to: deliver)
             for await result in results {
-                arrival.last = .now
                 switch result {
-                case let .success(url): received.append(url)
-                case let .failure(error): failures.append(error)
+                case let .success(url): batch.files.append(url)
+                case let .failure(error): batch.failures.append(error)
                 }
                 left -= 1
                 if left == 0 { break }
+                batch.handOver(after: gather, to: deliver)
             }
-            received.sort { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
-            return (files + received, failures)
+            batch.flush?.cancel()
+            batch.hand(to: deliver)
         }
     }
 
-    /// When the last promised or downloaded file arrived.
-    @MainActor private final class Arrival {
-        var last = ContinuousClock.now
+    /// What arrived and is not handed over yet.
+    @MainActor private final class Batch {
+        var files: [URL]
+        var failures: [any Error] = []
+        var flush: Task<Void, Never>?
+
+        init(files: [URL]) { self.files = files }
+
+        /// Unless another file arrives first: a pause hands over what came so far.
+        func handOver(after gather: Duration, to deliver: @escaping @MainActor ([URL], [any Error]) -> Void) {
+            flush?.cancel()
+            flush = Task { @MainActor in
+                try? await Task.sleep(for: gather)
+                if !Task.isCancelled { self.hand(to: deliver) }
+            }
+        }
+
+        func hand(to deliver: @MainActor ([URL], [any Error]) -> Void) {
+            guard !files.isEmpty || !failures.isEmpty else { return }
+            deliver(files, failures)
+            files = []
+            failures = []
+        }
     }
 }

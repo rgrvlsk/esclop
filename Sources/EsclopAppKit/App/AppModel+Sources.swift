@@ -240,11 +240,9 @@ extension AppModel {
     // MARK: Drop zone
 
     /// A drop on the zone: on the plain tile (`zone` nil) or on a preset zone. Promised and
-    /// downloaded files arrive first (the promises are asked for now, during the drop).
+    /// downloaded files go ahead as they arrive (the promises are asked for now, during the drop).
     func takeDrop(_ intake: DropIntake, harder: Bool, keepOriginals: Bool, zone: String?) {
-        let arriving = intake.resolve()
-        Task {
-            let (files, failures) = await arriving.value
+        intake.resolve { [self] files, failures in
             if let failure = failures.first {
                 notice(Strings.text("Could not get the dropped file"), CardPresentation.message(for: failure))
                 guard !files.isEmpty else { return }
@@ -281,7 +279,12 @@ extension AppModel {
                     continue
                 }
                 do {
-                    sources.append(try await Self.copyBeside(file))
+                    // A watched folder must not take the copy for a new file to optimise.
+                    let copy = try OutputPlanner.destination(for: file, location: .sameFolder, suffix: "optimised")
+                    noteWritten([copy])
+                    try await Self.copy(file, to: copy)
+                    noteWritten([copy])
+                    sources.append(copy)
                 } catch {
                     notice(Strings.format("Could not copy %@", file.lastPathComponent), CardPresentation.message(for: error))
                 }
@@ -291,12 +294,10 @@ extension AppModel {
         }
     }
 
-    /// A copy of `file` beside it, named as a result there is ("photo-optimised.jpg"), made off
-    /// the main thread.
-    nonisolated static func copyBeside(_ file: URL) async throws -> URL {
-        let copy = try OutputPlanner.destination(for: file, location: .sameFolder, suffix: "optimised")
+    /// Copies off the main thread. The copy beside the original is "photo-optimised.jpg",
+    /// the default same-folder name, whatever `sameFolderNameTemplate` says.
+    nonisolated static func copy(_ file: URL, to copy: URL) async throws {
         try FileManager.default.copyItem(at: file, to: copy)
-        return copy
     }
 
     /// The saved pipelines with this trigger, by name: read once per copy or drop.
