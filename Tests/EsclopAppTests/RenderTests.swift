@@ -283,6 +283,9 @@ import Testing
         let four = try render(DropZoneView(state: DropZoneState(fileCount: 2, zones: zones, hoveredZone: "fit under 1 MB")), name: "drop-zone-presets", scheme: scheme)
         #expect(four.width > DropTiles.plainWidth * 4, "the zones sit beside the plain target")
         try render(DropZoneView(state: DropZoneState(fileCount: 0, zones: Array(zones.prefix(3)), zonesLeading: false)), name: "drop-zone-presets-left", scheme: scheme)
+        // ⌥ held: the line says the originals stay; under the pointer after an ⌥ tap: how to hide it.
+        try render(DropZoneView(state: DropZoneState(fileCount: 3, hovering: true, keepOriginals: true, zones: Array(zones.prefix(2)))), name: "drop-zone-keep", scheme: scheme)
+        try render(DropZoneView(state: DropZoneState(fileCount: 3, atPointer: true, zones: Array(zones.prefix(2)))), name: "drop-zone-pointer", scheme: scheme)
     }
 
     @Test(arguments: [ColorScheme.light, .dark])

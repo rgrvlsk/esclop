@@ -215,8 +215,17 @@ Symbols; checkmarks are symbols, not text glyphs.
   file count (124 × 104 pt), then up to four preset zones (100 × 104 pt, symbol in a flat circle,
   name in two lines at most) toward the screen. The tile under the drag turns charcoal at the
   same height. Under the row: "Drop to optimise · Hold ⌘ to optimise harder"; with ⌘ the tile
-  reads "Optimise harder" and the hint "With the aggressive settings" in the warm colour. Not ⌥:
-  in Finder ⌥ already means copy during a drag, and originals are always backed up.
+  reads "Optimise harder" and the hint "With the aggressive settings" in the warm colour. Over a
+  preset zone the line names its pipeline ("Drop to run “to WebP”") without the ⌘ hint, which a
+  pipeline does not use. ⌥ held at the drop keeps the originals, as ⌥ means copy in a Finder
+  drag: a plain optimisation writes beside the original instead of in place, a pipeline runs on
+  a copy in the temporary folder, and the hint reads "The originals stay as they are" in the
+  primary ink. It takes files, folders (the count is the media inside, which also picks the
+  preset zones), files promised by Photos or Mail, and image and video addresses from a browser,
+  which are fetched into the temporary folder first. A tap on ⌥ during a drag opens the zone just
+  below the pointer (hint "Tap ⌥ to hide"), and the next tap hides it; with "Show the drop zone
+  only after tapping ⌥" that tap is the only way it shows. While results follow the pointer, the
+  zone follows the drag to the display under it.
 - Settings: sidebar panes with the search at the top of the sidebar, grouped forms with native
   controls (switches, menus, sliders with their figure, fields with a stepper and unit). Each
   row has its title and a one-line explanation; a reset arrow appears beside the title while

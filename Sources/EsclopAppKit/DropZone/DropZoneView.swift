@@ -2,8 +2,9 @@
 //
 // The drop zone at the results corner (`pr5-drop-zone`): one row of raised tiles on the popover's
 // surface, the plain "Optimise" tile and up to four preset zones facing the screen, and under them
-// "Drop to optimise · Hold ⌘ to optimise harder". The tile under the drag turns charcoal at the
-// same height, as a chosen tile does in the options popover: one geometry, one elevation.
+// "Drop to optimise · Hold ⌘ to optimise harder" (over a preset zone: "Drop to run “name”"; with
+// ⌥: "The originals stay as they are"). The tile under the drag turns charcoal at the same height,
+// as a chosen tile does in the options popover: one geometry, one elevation.
 
 import SwiftUI
 
@@ -29,6 +30,7 @@ public struct DropZoneView: View {
         .glassSurface(RoundedRectangle(cornerRadius: Metrics.dropZoneRadius, style: .continuous))
         .animation(Motion.hover, value: state.hovering)
         .animation(Motion.hover, value: state.harder)
+        .animation(Motion.hover, value: state.keepOriginals)
         .animation(Motion.hover, value: state.hoveredZone)
     }
 
@@ -52,7 +54,7 @@ public struct DropZoneView: View {
         }
         .reportFrame(DropZoneState.plainTarget, to: state)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel([state.title, state.count, state.hint].filter { !$0.isEmpty }.joined(separator: ", "))
+        .accessibilityLabel([state.plainTitle, state.count, state.plainHint].filter { !$0.isEmpty }.joined(separator: ", "))
     }
 
     @ViewBuilder
@@ -79,14 +81,22 @@ public struct DropZoneView: View {
     private var hintLine: some View {
         HStack(spacing: 5) {
             Text(state.title)
-            Text(verbatim: "·").accessibilityHidden(true)
-            Text(state.hint).foregroundStyle(state.harder ? PopoverInk.warm.color : PopoverInk.secondary.color)
+            if !state.hint.isEmpty {
+                Text(verbatim: "·").accessibilityHidden(true)
+                Text(state.hint).foregroundStyle(hintInk)
+            }
         }
         .font(OptionsType.label)
         .foregroundStyle(PopoverInk.secondary.color)
         .lineLimit(1)
         .minimumScaleFactor(0.85)
         .accessibilityHidden(true)
+    }
+
+    /// ⌥ says what it keeps in the primary ink; ⌘'s aggressive settings in the warm colour.
+    private var hintInk: Color {
+        if state.keepOriginals { return PopoverInk.primary.color }
+        return state.harder ? PopoverInk.warm.color : PopoverInk.secondary.color
     }
 }
 
