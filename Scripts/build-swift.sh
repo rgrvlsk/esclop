@@ -24,28 +24,34 @@ SCRATCH="${ESCLOP_SCRATCH_PATH:-$ROOT/.build}"
 BUILD_SYSTEM="${ESCLOP_BUILD_SYSTEM:-swiftbuild}"
 
 # Each slice is copied out as soon as it is built: some SwiftPM versions give every triple the
-# same output directory, so the next build would overwrite it.
+# same output directory, so the next build would overwrite it. Some engine versions answer a
+# triple with a universal binary: its slices are all kept, and an architecture already in hand
+# is not built again.
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/build-swift.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
-slices=()
 for arch in arm64 x86_64; do
   triple="$arch-apple-macosx14.0"
+  if [ -f "$TMP/$arch" ]; then
+    echo "build-swift: $PRODUCT for $triple came with the earlier build, not built again" >&2
+    continue
+  fi
   echo "build-swift: $PRODUCT for $triple" >&2
   swift build -c release --build-system "$BUILD_SYSTEM" --scratch-path "$SCRATCH" --product "$PRODUCT" --triple "$triple" >&2
-  cp "$(swift build -c release --build-system "$BUILD_SYSTEM" --scratch-path "$SCRATCH" --triple "$triple" --show-bin-path)/$PRODUCT" "$TMP/$arch"
-  built="$(lipo -archs "$TMP/$arch")"
-  if [ "$built" != "$arch" ]; then
-    # Some engine versions answer a triple with a universal binary: keep the slice asked for.
-    case " $built " in
-      *" $arch "*) lipo "$TMP/$arch" -thin "$arch" -output "$TMP/$arch.thin" && mv "$TMP/$arch.thin" "$TMP/$arch" ;;
-      *) echo "build-swift: the $triple build is not $arch but: $built" >&2; exit 1 ;;
-    esac
-  fi
-  slices+=("$TMP/$arch")
+  cp "$(swift build -c release --build-system "$BUILD_SYSTEM" --scratch-path "$SCRATCH" --triple "$triple" --show-bin-path)/$PRODUCT" "$TMP/built"
+  built="$(lipo -archs "$TMP/built")"
+  case " $built " in
+    *" $arch "*) ;;
+    *) echo "build-swift: the $triple build is not $arch but: $built" >&2; exit 1 ;;
+  esac
+  for slice in $built; do
+    case "$slice" in arm64 | x86_64) ;; *) continue ;; esac
+    [ -f "$TMP/$slice" ] && continue
+    if [ "$built" = "$slice" ]; then cp "$TMP/built" "$TMP/$slice"; else lipo "$TMP/built" -thin "$slice" -output "$TMP/$slice"; fi
+  done
 done
 mkdir -p "$(dirname "$OUT")"
 rm -f "$OUT"
-lipo -create "${slices[@]}" -output "$OUT"
+lipo -create "$TMP/arm64" "$TMP/x86_64" -output "$OUT"
 strip -x "$OUT"
 codesign --force --sign - "$OUT" >/dev/null 2>&1
 echo "build-swift: $(lipo -archs "$OUT") -> $OUT" >&2
