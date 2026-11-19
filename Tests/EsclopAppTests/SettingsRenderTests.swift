@@ -196,6 +196,18 @@ import Testing
         try await SettingsRenderTests.renderWindow(SettingsView(model: model, agents: agents), size: CGSize(width: 800, height: 900), name: "settings-agents-connect", scheme: scheme)
     }
 
+    /// The note under the permission switches, which states who they bind.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func permissionsNote(scheme: ColorScheme) async throws {
+        let fixture = AgentsFixture()
+        let settings = TestSettings()
+        let model = SettingsViewModel(provider: RegistrySettingsProvider(store: settings.store), extraRows: SettingsPaneView.extraRows)
+        model.pane = .agents
+        let agents = AgentsModel(installer: fixture.installer, command: AgentsFixture.command)
+        await agents.refresh()
+        try await SettingsRenderTests.renderWindow(SettingsView(model: model, agents: agents), size: CGSize(width: 800, height: 1500), name: "settings-agents-permissions", scheme: scheme)
+    }
+
     @Test(arguments: [ColorScheme.light, .dark])
     func changePreview(scheme: ColorScheme) async throws {
         let fixture = AgentsFixture()

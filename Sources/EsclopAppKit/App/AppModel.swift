@@ -266,7 +266,7 @@ public final class AppModel {
     public func restore(_ row: BatchRow) async {
         guard let result = row.result, result.backup != nil else { return }
         do {
-            _ = try service.restoreBackup(of: result, deleteBackup: false)
+            _ = try await service.restoreBackup(of: result, deleteBackup: false)
             restoredIDs.insert(result.id)
             forget(result)
             noteWritten([result.source, result.output])
@@ -756,7 +756,7 @@ public final class AppModel {
     public func restore(_ result: OptimisationResult) async {
         let card = cards.first { $0.result?.id == result.id }
         do {
-            _ = try service.restoreBackup(of: result, deleteBackup: false)
+            _ = try await service.restoreBackup(of: result, deleteBackup: false)
             restoredIDs.insert(result.id)
             forget(result)
             noteWritten([result.source, result.output])

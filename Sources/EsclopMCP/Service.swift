@@ -310,11 +310,12 @@ public struct EsclopService: Sendable {
         guard let result = candidates.first(where: { canonical($0.output) == target || canonical($0.source) == target }) else {
             throw EsclopError.invalidArgument("No recent result for \(path.path). esclop_recent_results lists what can be restored")
         }
-        return try restoreBackup(of: result, deleteBackup: deleteBackup)
+        return try await restoreBackup(of: result, deleteBackup: deleteBackup)
     }
 
-    /// Puts back the original of a result already in hand (the app's own windows).
-    public func restoreBackup(of result: OptimisationResult, deleteBackup: Bool) throws -> RestoreOutcome {
+    /// Puts back the original of a result already in hand (the app's own windows). Async so the
+    /// copy and the log's lock stay off the caller's actor.
+    public func restoreBackup(of result: OptimisationResult, deleteBackup: Bool) async throws -> RestoreOutcome {
         try policy.checkRestore(deleteBackup: deleteBackup)
         guard let backup = result.backup, FileManager.default.fileExists(atPath: backup.path) else {
             throw EsclopError.fileNotFound("No backup is kept for \(result.source.path); it was not changed in place")
