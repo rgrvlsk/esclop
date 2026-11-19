@@ -200,6 +200,7 @@ extension EsclopError {
     /// Any error as an `EsclopError`, keeping its message.
     public static func wrap(_ error: Error) -> EsclopError {
         if let error = error as? EsclopError { return error }
+        if let error = error as? PipelineStepFailure { return error.error }
         if error is CancellationError { return .cancelled }
         return .other(String(describing: error))
     }

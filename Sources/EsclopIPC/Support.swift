@@ -319,10 +319,17 @@ public struct ResultSummary: Codable, Sendable, Hashable {
         finishedAt = result.finishedAt
     }
 
+    /// The first step of a pipeline result whose filter stopped the file before any step ran.
+    public static let filteredStep = "filtered: no step applied"
+
+    /// A pipeline's filter stopped the file: nothing was done to it.
+    public var skippedByFilter: Bool { steps.first == Self.filteredStep }
+
     /// `photo.png 1.2 MB → 340 KB (−72%) → ~/Desktop/photo-optimised.png`
     public var line: String {
         let name = URL(fileURLWithPath: source).lastPathComponent
         if let link { return "\(name) uploaded → \(link)" }
+        if skippedByFilter { return "\(name) skipped by the filter" }
         let change = savedBytes >= 0 ? "−\(Self.percent(savedPercent))%" : "+\(Self.percent(-savedPercent))%"
         var text = "\(name) \(ByteSize.format(bytesBefore)) → \(ByteSize.format(bytesAfter)) (\(change))"
         if output != source { text += " → \(PathInput.abbreviate(output))" }
@@ -338,12 +345,18 @@ public struct FailureSummary: Codable, Sendable, Hashable {
     public var source: String
     public var error: String
     public var code: String
+    /// The pipeline step that failed.
+    public var step: String?
 
     public init(_ failure: FileFailure) {
         source = failure.source.path
         error = failure.error.description
         code = failure.error.code
+        step = failure.step
     }
+
+    /// The error, after the step that failed when there is one.
+    public var message: String { step.map { "\($0): \(error)" } ?? error }
 }
 
 public struct JobSummary: Codable, Sendable {
@@ -370,7 +383,7 @@ public struct JobSummary: Codable, Sendable {
     /// A few lines for a person or an agent: one per file, then a total when there are several.
     public var text: String {
         var lines = results.map(\.line)
-        lines += failures.map { "✗ \(URL(fileURLWithPath: $0.source).lastPathComponent): \($0.error)" }
+        lines += failures.map { "✗ \(URL(fileURLWithPath: $0.source).lastPathComponent): \($0.message)" }
         if results.count > 1 {
             lines.append("Total \(ByteSize.format(bytesBefore)) → \(ByteSize.format(bytesAfter)) (−\(ResultSummary.percent(savedPercent))%) over \(results.count) files")
         }

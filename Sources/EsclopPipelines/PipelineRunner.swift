@@ -24,10 +24,13 @@ public struct PipelineRunOptions: Sendable {
     public var binDirectory: URL?
     /// Where forks, shortcut outputs and `temporaryFolder` page images go.
     public var temporaryDirectory: URL
+    /// A "Try it" run: every file the run writes stays in this folder (a destination outside it
+    /// moves inside, under its full path), and scripts and Shortcuts are skipped.
+    public var trialFolder: URL?
 
     public init(
         origin: RequestOrigin = .cli, allowRunScripts: Bool = false, allowDelete: Bool = true, sourceApp: String? = nil,
-        quality: CompressionQuality = .normal, binDirectory: URL? = nil, temporaryDirectory: URL = Paths.temporary
+        quality: CompressionQuality = .normal, binDirectory: URL? = nil, temporaryDirectory: URL = Paths.temporary, trialFolder: URL? = nil
     ) {
         self.origin = origin
         self.allowRunScripts = allowRunScripts
@@ -36,6 +39,7 @@ public struct PipelineRunOptions: Sendable {
         self.quality = quality
         self.binDirectory = binDirectory
         self.temporaryDirectory = temporaryDirectory
+        self.trialFolder = trialFolder
     }
 }
 
@@ -103,6 +107,8 @@ public struct PipelineFileReport: Codable, Sendable {
     public var results: [OptimisationResult]
     public var log: [PipelineLogEntry]
     public var error: String?
+    /// The error that stopped the file, when it failed: `error` keeps its text.
+    public var cause: EsclopError?
 }
 
 public struct PipelineRunReport: Codable, Sendable {
@@ -256,6 +262,7 @@ struct FileRun {
                 log(.failed, message)
                 self.report.status = .failed
                 self.report.error = message
+                self.report.cause = (error as? EsclopError) ?? .other(message)
                 break
             }
             if stopped {
@@ -286,7 +293,7 @@ struct FileRun {
             case (_, .lossless), (_, .visuallyLossless): quality = CompressionQuality(tier: .custom, factor: 0)
             default: break
             }
-            if compression == .adaptive || adaptive { note = "adaptive optimisation is not available yet; used the regular settings" }
+            if compression == .adaptive { note = "adaptive compression is not available yet; used the regular settings" }
             let videoEncoder: VideoEncoder? = switch encoder {
             case .fast: .h264VideoToolbox
             case .slowHighQuality, .visuallyLossless: .h264Software
@@ -296,6 +303,8 @@ struct FileRun {
                 $0.quality = quality
                 $0.videoEncoder = videoEncoder
                 $0.pdfDPI = dpi
+                // false leaves the "adaptive image format" setting in charge.
+                if adaptive { $0.adaptiveImageFormat = true }
             }) { url, req in try await engine.optimise(url, request: req, progress: engineProgress) }
 
         case let .downscale(factor, location):
@@ -344,14 +353,14 @@ struct FileRun {
         case let .copy(to):
             let dest = try destination(for: to)
             guard dest != current else { return (.unchanged, "already there") }
-            try replaceItem(at: dest) { try fm.copyItem(at: current, to: dest) }
+            try place(at: dest, move: false)
             current = dest
             return (.done, "copied to \(dest.path)")
 
         case let .move(to):
             let dest = try destination(for: to)
             guard dest != current else { return (.unchanged, "already there") }
-            try replaceItem(at: dest) { try fm.moveItem(at: current, to: dest) }
+            try place(at: dest, move: true)
             current = dest
             return (.done, "moved to \(dest.path)")
 
@@ -361,7 +370,7 @@ struct FileRun {
             if !hasExtension(name, wanted: current.pathExtension) { name += current.pathExtension.isEmpty ? "" : ".\(current.pathExtension)" }
             let dest = current.deletingLastPathComponent().appendingPathComponent(name)
             guard dest != current else { return (.unchanged, nil) }
-            try replaceItem(at: dest) { try fm.moveItem(at: current, to: dest) }
+            try place(at: dest, move: true)
             current = dest
             return (.done, "renamed to \(name)")
 
@@ -474,6 +483,10 @@ struct FileRun {
         let ext = newExtension ?? current.pathExtension
         let originalDir = source.deletingLastPathComponent()
         switch location {
+        case .temporary where options.trialFolder != nil:
+            let dir = options.trialFolder!.appendingPathComponent("temporary-\(UUID().uuidString.prefix(8))", isDirectory: true)
+            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            return .path(dir.appendingPathComponent(current.deletingPathExtension().lastPathComponent).appendingPathExtension(ext).path)
         case .inPlace, .temporary:
             return location
         case .sameFolder:
@@ -482,7 +495,7 @@ struct FileRun {
         case let .path(template):
             let resolved = context.resolve(template)
             guard !resolved.isEmpty else { return .inPlace }
-            var path = absolute(resolved, relativeTo: originalDir)
+            var path = contained(absolute(resolved, relativeTo: originalDir))
             var isDir: ObjCBool = false
             if resolved.hasSuffix("/") || (fm.fileExists(atPath: path, isDirectory: &isDir) && isDir.boolValue) {
                 path = URL(fileURLWithPath: path).appendingPathComponent(current.deletingPathExtension().lastPathComponent).appendingPathExtension(ext).path
@@ -499,7 +512,7 @@ struct FileRun {
     func destination(for template: String) throws -> URL {
         let resolved = context.resolve(template)
         guard !resolved.isEmpty else { throw EsclopError.invalidArgument("empty destination") }
-        var path = absolute(resolved, relativeTo: current.deletingLastPathComponent())
+        var path = contained(absolute(resolved, relativeTo: current.deletingLastPathComponent()))
         var isDir: ObjCBool = false
         if resolved.hasSuffix("/") || (fm.fileExists(atPath: path, isDirectory: &isDir) && isDir.boolValue) {
             try fm.createDirectory(atPath: path, withIntermediateDirectories: true)
@@ -517,22 +530,57 @@ struct FileRun {
         case .sameFolder: source.deletingLastPathComponent()
         case .inPlace: current.deletingLastPathComponent()
         case .temporary: options.temporaryDirectory
-        case let .path(t): URL(fileURLWithPath: absolute(context.resolve(t), relativeTo: source.deletingLastPathComponent()))
+        case let .path(t): URL(fileURLWithPath: contained(absolute(context.resolve(t), relativeTo: source.deletingLastPathComponent())))
         }
         try fm.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }
 
-    /// Overwrites like Clop does: an existing file at the destination is replaced.
-    func replaceItem(at dest: URL, _ action: () throws -> Void) throws {
-        if fm.fileExists(atPath: dest.path) {
-            // Replacing a file is deleting it: the same switch as the delete step.
-            guard options.allowDelete else {
-                throw EsclopError.notPermitted("\(dest.path) already exists and replacing files is not allowed here")
-            }
-            try fm.removeItem(at: dest)
+    /// Copies or moves the current file to `dest`. An existing file there is replaced like Clop
+    /// does, but only once the new one is complete beside it: a copy that fails half way (a full
+    /// disk, no permission) leaves the old file as it was.
+    func place(at dest: URL, move: Bool) throws {
+        var isDir: ObjCBool = false
+        guard fm.fileExists(atPath: dest.path, isDirectory: &isDir) else {
+            return move ? try fm.moveItem(at: current, to: dest) : try fm.copyItem(at: current, to: dest)
         }
-        try action()
+        if isDir.boolValue { throw EsclopError.notPermitted("pipelines never replace folders (\(dest.path))") }
+        if isSameFile(dest, current) {
+            // Only the case of the name differs (`a.PNG` to `a.png`): rename, never replace.
+            if move { try fm.moveItem(at: current, to: dest) }
+            return
+        }
+        // Replacing a file is deleting it: the same switch as the delete step.
+        guard options.allowDelete else {
+            throw EsclopError.notPermitted("\(dest.path) already exists and replacing files is not allowed here")
+        }
+        let staging = dest.deletingLastPathComponent().appendingPathComponent(".\(dest.lastPathComponent).esclop-\(UUID().uuidString.prefix(8))")
+        do {
+            try fm.copyItem(at: current, to: staging)
+            _ = try fm.replaceItemAt(dest, withItemAt: staging)
+        } catch {
+            try? fm.removeItem(at: staging)
+            throw error
+        }
+        if move { try fm.removeItem(at: current) }
+    }
+
+    func isSameFile(_ a: URL, _ b: URL) -> Bool {
+        let key: Set<URLResourceKey> = [.fileResourceIdentifierKey]
+        guard let x = try? a.resourceValues(forKeys: key).fileResourceIdentifier,
+              let y = try? b.resourceValues(forKeys: key).fileResourceIdentifier else { return false }
+        return x.isEqual(y)
+    }
+
+    /// In a "Try it" run, a path outside the trial folder moves inside it, under its full path,
+    /// so nothing lands outside the copy's folder and the log still shows where it would go.
+    func contained(_ path: String) -> String {
+        guard let trial = options.trialFolder else { return path }
+        let target = URL(fileURLWithPath: path).standardizedFileURL
+        let real = { (url: URL) in url.resolvingSymlinksInPath().path }
+        let root = real(trial.standardizedFileURL)
+        if real(target) == root || real(target).hasPrefix(root + "/") { return target.path }
+        return trial.appendingPathComponent(target.path).standardizedFileURL.path
     }
 
     func absolute(_ path: String, relativeTo dir: URL) -> String {
@@ -564,12 +612,12 @@ struct FileRun {
             guard case let .path(p) = try resolve(location, newExtension: nil) else {
                 // `.sameFolder` for a file already next to the original: copy with a suffix.
                 let dest = source.deletingLastPathComponent().appendingPathComponent("\(current.deletingPathExtension().lastPathComponent)-fork").appendingPathExtension(current.pathExtension)
-                try replaceItem(at: dest) { try fm.copyItem(at: current, to: dest) }
+                try place(at: dest, move: false)
                 report.extraOutputs.append(dest)
                 return try await presentFork(dest)
             }
             let dest = URL(fileURLWithPath: p)
-            if dest != current { try replaceItem(at: dest) { try fm.copyItem(at: current, to: dest) } }
+            if dest != current { try place(at: dest, move: false) }
             forked = dest
         }
         report.extraOutputs.append(forked)
@@ -615,6 +663,7 @@ struct FileRun {
     // MARK: Scripts and Shortcuts
 
     mutating func runScript(path: String?, code: String?, kind: MediaKind) async throws -> StepOutcome {
+        if options.trialFolder != nil { return (.skipped, "scripts do not run in a trial") }
         guard options.allowRunScripts else {
             throw EsclopError.notPermitted("running scripts is turned off; allow it in esclop's settings")
         }
@@ -651,6 +700,7 @@ struct FileRun {
     }
 
     mutating func runShortcut(_ name: String, kind: MediaKind) async throws -> StepOutcome {
+        if options.trialFolder != nil { return (.skipped, "Shortcuts do not run in a trial") }
         let dir = options.temporaryDirectory.appendingPathComponent("shortcut-\(UUID().uuidString.prefix(8))", isDirectory: true)
         try fm.createDirectory(at: dir, withIntermediateDirectories: true)
         let out = dir.appendingPathComponent(current.lastPathComponent)
