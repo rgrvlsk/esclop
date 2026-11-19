@@ -82,6 +82,9 @@ public struct MenuPanel: View {
     @State private var flags = ModifierFlagsWatcher()
     /// The row the arrows or the pointer are on, one at a time as in a menu: Return runs it.
     @State private var highlighted: Item?
+    /// Where the pointer was at the last arrow key: a row the list scrolls under a pointer that
+    /// did not move does not take the highlight, as in NSMenu.
+    @State private var keyedAt: CGPoint?
     @FocusState private var listFocused: Bool
 
     public init(model: AppModel, actions: MenuPanelActions, notch: CGFloat? = nil) {
@@ -120,7 +123,11 @@ public struct MenuPanel: View {
         // The arrows work at once, as in a menu.
         .defaultFocus($listFocused, true)
         .onAppear { flags.start { option = $0.contains(.option) } }
-        .onDisappear { flags.stop() }
+        .onDisappear {
+            flags.stop()
+            // The next open starts with no row chosen, so Return runs nothing unseen.
+            highlighted = nil
+        }
     }
 
     static func loadSavings(_ log: ResultsLog) async -> [ResultsLog.Saving] {
@@ -313,6 +320,8 @@ public struct MenuPanel: View {
                     }
                     // The list is one stop for the keys, as a menu is: the arrows move on into the
                     // commands, Return runs the row. No focus ring; the row's wash shows where it is.
+                    // ponytail: with nothing in Recent there is no list, so the arrows do not
+                    // reach the commands. Trigger: the keys moving up to the panel.
                     .focusable()
                     .focused($listFocused)
                     .focusEffectDisabled()
@@ -332,6 +341,7 @@ public struct MenuPanel: View {
         let current = highlighted.flatMap(items.firstIndex)
         let index = current.map { min(max($0 + step, 0), items.count - 1) } ?? (step > 0 ? 0 : items.count - 1)
         highlighted = items[index]
+        keyedAt = NSEvent.mouseLocation
         if case let .result(id) = items[index] { proxy.scrollTo(id) }
         return .handled
     }
@@ -351,6 +361,7 @@ public struct MenuPanel: View {
 
     /// The pointer moves the highlight, as in NSMenu; leaving the row clears it.
     private func hover(_ item: Item, _ inside: Bool) {
+        guard NSEvent.mouseLocation != keyedAt else { return }
         if inside { highlighted = item } else if highlighted == item { highlighted = nil }
     }
 

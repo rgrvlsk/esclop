@@ -65,11 +65,12 @@ public final class ResultCard: Identifiable {
     public var downscale = 1.0
     /// The crop the last run applied to the original; every re-run applies it again, until
     /// Original or Reset.
+    /// ponytail: the crop and the scale live as long as the card; a card made again (from Recent
+    /// after it hid, or by Retry) runs uncropped. Trigger: the results log recording them.
     public var crop: CropSize?
-    /// Undo is putting the original back; its buttons wait until it is done.
+    /// Undo or a re-run is putting the original back; Undo and another re-run wait until it is
+    /// done.
     public var restoring = false
-    /// A re-run is getting ready (its restore); another waits until the card is working.
-    public var rerunning = false
     /// Undo moved a version edited after optimising to the Trash: the restored card says so.
     public var editInTrash = false
     /// The detail's name is being edited: the card's keys stand aside, and come back after.

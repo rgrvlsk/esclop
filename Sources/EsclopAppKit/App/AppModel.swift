@@ -316,8 +316,9 @@ public final class AppModel {
 
     /// Whether a restore that moved `trashed` files to the Trash took an edited version with them.
     /// ponytail: the Trash also takes a converted output, so an edit counts only beyond it. A
-    /// converted output that was gone or stayed put, beside an edit, hides the line (never a
-    /// false one). Trigger: RestoreOutcome naming the edit apart.
+    /// converted output that was gone or stayed put beside an edit, or an edit made to the
+    /// converted output itself, hides the line (never a false one). Trigger: RestoreOutcome
+    /// naming the edit apart.
     nonisolated static func editWentToTrash(trashed: Int, restoring result: OptimisationResult) -> Bool {
         let converted = result.output.standardizedFileURL != result.source.standardizedFileURL
         return trashed > (converted ? 1 : 0)
@@ -771,10 +772,11 @@ public final class AppModel {
     /// (`adjust` clears them). The card stays and shows the new result, so an open options
     /// popover keeps its anchor; a rule stays shown only while its choice is the one used.
     func reprocess(_ card: ResultCard, choice: OptimiseChoice? = nil, adjust: ((inout OptimisationJob) -> Void)? = nil) {
-        // One re-run at a time: a second one during the restore would run the file twice. Once
-        // the run starts the card is working, which refuses another.
-        guard !card.rerunning else { return }
-        card.rerunning = true
+        // One restore at a time, Undo's or a re-run's: a second one would put the original back
+        // twice and send it to the Trash as an edit. Once the run starts the card is working,
+        // which refuses another re-run.
+        guard !card.restoring else { return }
+        card.restoring = true
         let origin = card.origin, displayName = card.displayName
         let wasClipboardImage = Self.isCopiedImage(card.source)
         // Read now: the restore below puts the card back to its original.
@@ -797,14 +799,14 @@ public final class AppModel {
                 } else if !(await restore(result)) {
                     // A failed restore shows a notice and the card keeps its result as it was;
                     // encoding the optimised file again would not start from the original.
-                    card.rerunning = false
+                    card.restoring = false
                     return
                 }
             case let .restored(result):
                 source = result.source
                 shown = [result.source]
             case .working, .failed, .notice:
-                card.rerunning = false
+                card.restoring = false
                 return
             case .unchanged:
                 break
@@ -821,7 +823,7 @@ public final class AppModel {
             card.downscale = job.request.downscale ?? 1
             card.adjusted = job.request.crop != nil || job.request.downscale != nil || job.operation != plain
             let copyBack = origin == .clipboard && EsclopSettings.autoCopyToClipboard.value(in: settings)
-            card.rerunning = false
+            card.restoring = false
             await run(job, displayName: displayName, context: context, reusing: card, onResult: { result in
                 if let replaced {
                     self.forget(replaced)

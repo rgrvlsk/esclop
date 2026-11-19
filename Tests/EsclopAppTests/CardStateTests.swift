@@ -166,17 +166,20 @@ import Testing
         #expect(request.crop == nil && request.downscale == nil, "Original takes both off")
     }
 
-    /// Two quick re-runs on one card start one run: the second would restore and encode twice.
-    @Test func aSecondRerunWaitsForTheFirst() async throws {
+    /// Two quick re-runs, or Undo during a re-run, start one restore: a second would put the
+    /// original back twice and send it to the Trash as an edit.
+    @Test func aSecondRestoreWaitsForTheFirst() async throws {
         let harness = Harness()
         _ = await harness.model.run(harness.job(harness.temp.file("a.png", bytes: 100_000)))
         let card = try #require(harness.model.cards.first)
         harness.model.perform(.downscale, on: card)
         harness.model.perform(.downscale, on: card)
+        harness.model.perform(.undo, on: card)
         #expect(await eventually { harness.requests.requests.count == 2 && card.result != nil })
         try await Task.sleep(for: .milliseconds(300))
         #expect(harness.requests.requests.count == 2)
-        #expect(!card.rerunning)
+        #expect(card.result != nil, "Undo waited, the re-run's result stands")
+        #expect(!card.restoring && !card.editInTrash)
     }
 
     /// After Save to Downloads and Undo, Show in Finder shows the original, not the saved copy.
