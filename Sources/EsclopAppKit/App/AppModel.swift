@@ -24,8 +24,8 @@ public final class AppModel {
     /// three-second protection), so a result written in place is never optimised again.
     @ObservationIgnored var recentlyWritten: [String: Date] = [:]
     static let writeProtection: TimeInterval = 3
-    /// What L'Esclop last wrote to the clipboard, by bytes (`ClipboardFingerprint`).
-    @ObservationIgnored var ownWrites: [ClipboardFingerprint] = []
+    /// Every pasteboard read and write for results, and what the clipboard holds.
+    @ObservationIgnored let clipboard: ClipboardKeeper
     /// Shows the batch window when a batch starts.
     @ObservationIgnored var onBatch: ((Batch) -> Void)?
 
@@ -60,8 +60,6 @@ public final class AppModel {
     @ObservationIgnored public var downloads: () -> URL = { FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0] }
     /// Announces results to VoiceOver; tests record them instead.
     @ObservationIgnored public var announce: (String) -> Void = AppModel.postAnnouncement
-    /// The app in front when a copy happens: one of the origin signals. Tests set it.
-    @ObservationIgnored public var frontmostApp: () -> String? = { NSWorkspace.shared.frontmostApplication?.bundleIdentifier }
     /// Size estimates for the options popover, cached per file.
     @ObservationIgnored public lazy var estimator = SizeEstimator(executor: executor(for: .app))
 
@@ -72,6 +70,7 @@ public final class AppModel {
         self.settings = settings
         self.service = service
         self.pasteboard = pasteboard
+        clipboard = ClipboardKeeper(pasteboard: pasteboard)
         self.gate = gate
         self.reveal = reveal
         uploader = AppUploader(settings: settings)
@@ -706,20 +705,24 @@ public final class AppModel {
     /// choice is the one used.
     func reprocess(_ card: ResultCard, choice: OptimiseChoice? = nil, adjust: ((inout OptimisationJob) -> Void)? = nil) {
         let origin = card.origin, displayName = card.displayName
-        let wasClipboardImage = card.source.path.hasPrefix(Paths.temporary.path)
+        let wasClipboardImage = Self.isCopiedImage(card.source)
         let choice = choice ?? card.choice
         let rule = card.appliedRule?.choice == choice ? card.appliedRule : nil
         let context = CardContext(origin: card.fileOrigin ?? .unknown, inputType: card.inputType, choice: choice, rule: rule)
         Task {
             var source = card.source
+            // The files this card may have on the clipboard, which the new result replaces there.
+            var shown = [card.source]
             switch card.phase {
             case let .done(result):
                 source = result.source
+                shown = [result.output, result.source]
                 // A failed restore shows a notice and the card keeps its result as it was; encoding
                 // the optimised file again would not start from the original.
                 if result.backup != nil, !(await restore(result)) { return }
             case let .restored(result):
                 source = result.source
+                shown = [result.source]
             case .working, .failed, .notice:
                 return
             case .unchanged:
@@ -733,7 +736,7 @@ public final class AppModel {
             let copyBack = origin == .clipboard && EsclopSettings.autoCopyToClipboard.value(in: settings)
             await run(job, displayName: displayName, context: context, reusing: card, onResult: { result in
                 guard copyBack else { return }
-                self.writeClipboard(files: [result.output])
+                Task { await self.putBackOnClipboard(shown.map { ($0, result.output) }) }
             })
         }
     }
@@ -764,20 +767,13 @@ public final class AppModel {
                 loadThumbnail(card, url: result.source)
                 settle(card)
             }
-            if pasteboardHolds(result.output) {
-                // The optimised copy was on the clipboard: the original replaces it there too.
-                writeClipboard(files: [result.source])
-            }
+            // The optimised copy was on the clipboard: the original replaces it there too.
+            await putBackOnClipboard([(result.output, result.source)])
             return true
         } catch {
             notice(Strings.format("Could not restore %@", result.source.lastPathComponent), CardPresentation.message(for: error))
             return false
         }
-    }
-
-    func pasteboardHolds(_ url: URL) -> Bool {
-        guard Clipboard.isOwnWrite(pasteboard), case let .files(urls) = Clipboard.read(pasteboard) else { return false }
-        return urls.contains { $0.standardizedFileURL.path == url.standardizedFileURL.path }
     }
 
     /// The floating result for `result`, shown again when it had gone (the compare window runs

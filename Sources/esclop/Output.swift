@@ -8,6 +8,7 @@ import ArgumentParser
 import EsclopCore
 import EsclopIPC
 import EsclopMCP
+import EsclopOptimisers
 import Foundation
 
 struct Terminal {
@@ -171,15 +172,6 @@ final class InterruptHandler: @unchecked Sendable {
     }
 }
 
-enum Clipboard {
-    static func copy(_ files: [URL]) {
-        guard !files.isEmpty else { return }
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.writeObjects(files as [NSURL])
-    }
-}
-
 /// Builds the job, runs it through the service with progress and Ctrl-C, prints the outcome.
 func runFileJob(
     _ operation: JobOperation, files: FileOptions, global: GlobalOptions,
@@ -201,7 +193,8 @@ func runFileJob(
         defer { interrupt.cancel() }
         let report = try await service.perform(job) { progress.update($0) }
         progress.clear()
-        if files.copy { Clipboard.copy(report.results.map(\.output)) }
+        // Marked as L'Esclop's write, so the app's clipboard watcher does not optimise it again.
+        if files.copy, !report.results.isEmpty { Clipboard.write(files: report.results.map(\.output)) }
         return Output.report(JobSummary(operation: operation.name, report: report), global: global)
     }
 }

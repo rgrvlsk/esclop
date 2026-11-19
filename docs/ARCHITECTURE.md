@@ -113,11 +113,15 @@ holds the rest, in folders by feature:
   `esclop_recent_results` and restore see them. `AppServices` starts everything at launch.
 - `Jobs`: `RequestFactory` maps the "Optimised … go" settings to `OutputLocation` and applies
   the automatic limits (min/max size per kind, the `dev.esclop.optimised` xattr).
-- `Clipboard`: `ClipboardWatcher` polls `NSPasteboard.changeCount` every 0.5 s on a serial
-  queue (all pasteboard reads stay there); `ClipboardPolicy` decides from plain values: skip own
-  writes and nspasteboard.org transient types, ignored apps, pause, and per-kind settings.
-  Copied pixels are saved to a temporary file, optimised in place (the backup is the original)
-  and put back on the clipboard.
+- `Clipboard`: `ClipboardWatcher` polls `NSPasteboard.changeCount` every 0.5 s (2 s while
+  paused) on `ClipboardKeeper.queue`, where every pasteboard read and result write happens;
+  `ClipboardPolicy` decides from plain values (`ClipboardCopy`: change count, app in front,
+  types, read once): skip own writes and nspasteboard.org transient types, ignored apps, pause,
+  and per-kind settings. Copied pixels are saved to a temporary file, optimised in place (the
+  backup is the original); copied files are optimised as a copy in the temporary folder, the
+  original untouched. `ClipboardKeeper` puts results back only while the change count shows the
+  clipboard still holds the copy (or L'Esclop's own write of it), all copied files at once, in
+  their order, each optimised one replaced by its result.
 - `Results`: the floating result (docs/design/targets). `ResultCard` is one result's model;
   `FloatingResultMachine` is its state as a value (card or detail level, hover buttons,
   auto-hide paused while hovered, focused, dragged or open), driven by a clock

@@ -109,14 +109,13 @@ extension AppModel {
         } catch {
             return false
         }
-        let heldIt = pasteboardHolds(result.output)
         var renamed = result
         renamed.output = target
         if result.source == result.output { renamed.source = target }
         card.phase = .done(renamed)
         card.displayName = nil
         record(renamed)
-        if heldIt { writeClipboard(files: [target]) }
+        Task { await putBackOnClipboard([(result.output, target)]) }
         return true
     }
 

@@ -38,13 +38,14 @@ public struct RequestFactory: Sendable {
     }
 
     /// One job for one file. `location` overrides the settings (clipboard images work on a
-    /// temporary copy in place, so the backup is the original).
+    /// temporary copy in place, so the backup is the original). A copied file is optimised as a
+    /// copy in the temporary folder, as Clop does: copying is not a request to change the original.
     public func job(
         for source: URL, origin: RequestOrigin, aggressive: Bool = false, location: OutputLocation? = nil
     ) -> OptimisationJob {
         let request = OptimisationRequest(
             sources: [source], origin: origin, quality: aggressive ? .aggressive : .normal,
-            location: location ?? self.location(for: MediaKind.of(source))
+            location: location ?? (origin == .clipboard ? .temporary : self.location(for: MediaKind.of(source)))
         )
         return OptimisationJob(request: request, operation: .optimise)
     }

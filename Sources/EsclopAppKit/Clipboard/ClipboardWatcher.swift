@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Polls NSPasteboard's change count twice a second, as Clop does. Every pasteboard read happens
-// on one serial queue, never the main thread: the pasteboard server answers over XPC and can be
-// slow, and NSPasteboard is not safe to read from two threads. Only the decision crosses over.
+// Polls NSPasteboard's change count twice a second, as Clop does, and every 2 seconds while
+// paused. Every pasteboard read happens on `ClipboardKeeper.queue`, never the main thread: the
+// pasteboard server answers over XPC and can be slow, and NSPasteboard is not safe to read from
+// two threads. Only the decision crosses over, with the copy's change count, app and types.
 
 import AppKit
 import EsclopOptimisers
@@ -11,15 +12,20 @@ import Foundation
 public final class ClipboardWatcher: @unchecked Sendable {
     // Everything below is touched only on `queue`.
     private let pasteboard: NSPasteboard
-    private let queue = DispatchQueue(label: "dev.esclop.app.clipboard", qos: .utility)
+    private let queue = ClipboardKeeper.queue
     private var timer: DispatchSourceTimer?
+    private var interval: TimeInterval = 0.5
     private var lastChangeCount: Int
     private var lastPaused: Bool?
+    /// The app in front at the last poll.
+    private var lastApp: String?
 
     private let policy: ClipboardPolicy
     private let frontmostApp: @Sendable () -> String?
     private let onAction: @Sendable (ClipboardAction) -> Void
     private let onPauseChange: @Sendable (Bool) -> Void
+
+    static let pausedInterval: TimeInterval = 2
 
     public init(
         pasteboard: NSPasteboard = .general,
@@ -41,11 +47,12 @@ public final class ClipboardWatcher: @unchecked Sendable {
             guard timer == nil else { return }
             // What is already on the clipboard at launch is not a new copy.
             lastChangeCount = pasteboard.changeCount
+            self.interval = interval
             let timer = DispatchSource.makeTimerSource(queue: queue)
-            timer.schedule(deadline: .now() + interval, repeating: interval, leeway: .milliseconds(100))
             timer.setEventHandler { [weak self] in _ = self?.tick() }
-            timer.resume()
             self.timer = timer
+            schedule(paused: policy.isPaused)
+            timer.resume()
         }
     }
 
@@ -62,18 +69,30 @@ public final class ClipboardWatcher: @unchecked Sendable {
         queue.sync { tick() }
     }
 
+    private func schedule(paused: Bool) {
+        let every = paused ? max(interval, Self.pausedInterval) : interval
+        timer?.schedule(deadline: .now() + every, repeating: every, leeway: .milliseconds(100))
+    }
+
     private func tick() -> ClipboardAction? {
         let paused = policy.isPaused
         if paused != lastPaused {
+            if lastPaused != nil { schedule(paused: paused) }
             lastPaused = paused
             onPauseChange(paused)
         }
+        let appBefore = lastApp
+        let app = frontmostApp()
+        lastApp = app
         let count = pasteboard.changeCount
         guard count != lastChangeCount else { return nil }
         lastChangeCount = count
-        let types = Set((pasteboard.types ?? []).map(\.rawValue))
+        let copy = ClipboardCopy(changeCount: count, app: app, types: Set((pasteboard.types ?? []).map(\.rawValue)))
         let pasteboard = pasteboard
-        let action = policy.decide(types: types, content: { Clipboard.read(pasteboard) }, frontmostApp: frontmostApp())
+        let readsText = policy.readsText
+        let action = policy.decide(copy, appBefore: appBefore == app ? nil : appBefore) {
+            Clipboard.read(pasteboard, text: readsText)
+        }
         onAction(action)
         return action
     }
