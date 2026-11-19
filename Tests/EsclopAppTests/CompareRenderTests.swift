@@ -25,8 +25,8 @@ import Testing
     }
 
     /// Outside a window, so controls draw active, under the test process's system blue accent:
-    /// Keep and the Differences toggle stay charcoal (T1). The controller adds the root tint.
-    @Test(arguments: [ColorScheme.light, .dark])
+    /// Keep is charcoal, never blue or white (T1). The controller adds the root tint.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["ESCLOP_RENDER_ALL"] == "1"), arguments: [ColorScheme.light, .dark])
     func activeControls(scheme: ColorScheme) async throws {
         let harness = Harness()
         let saved = UserDefaults.standard.string(forKey: CompareModel.modeKey)

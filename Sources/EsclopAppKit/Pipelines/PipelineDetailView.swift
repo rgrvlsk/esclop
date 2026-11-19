@@ -114,6 +114,7 @@ struct PipelineDetailView: View {
                     }
                     // Plain, not `.link`: a link button is system blue whatever the tint.
                     .buttonStyle(.plain)
+                    .fontWeight(.semibold)
                     .foregroundStyle(Ink.charcoalText)
                 }
             }

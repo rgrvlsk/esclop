@@ -106,7 +106,6 @@ public struct CompareView: View {
             }
             .switchLabel(title: Strings.text("Differences"), hint: Strings.text("Mark in red where the two differ"))
             .toggleStyle(.button)
-            .tint(Ink.charcoal)
             .disabled(model.difference == nil)
             .help(Strings.text("Mark in red where the two differ"))
 
