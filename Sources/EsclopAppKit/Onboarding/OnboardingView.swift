@@ -9,6 +9,7 @@ import EsclopCore
 import EsclopIPC
 import EsclopMCP
 import KeyboardShortcuts
+import ServiceManagement
 import SwiftUI
 
 public struct OnboardingView: View {
@@ -47,6 +48,7 @@ public struct OnboardingView: View {
             footer
         }
         .frame(width: 640, height: 560)
+        .designTint()
     }
 
     var transition: AnyTransition {
@@ -79,7 +81,7 @@ public struct OnboardingView: View {
                 Button(Strings.text("Skip")) { onboarding.finish() }
                     .buttonStyle(.borderless)
                     .foregroundStyle(.secondary)
-                    .help(Strings.text("Close the tour. It stays in the menu: Welcome to L'Esclop."))
+                    .help(Strings.text("Close the tour. It stays in the menu: Welcome to L’Esclop."))
             }
             Spacer()
             StepDots(step: onboarding.step)
@@ -164,6 +166,8 @@ struct WelcomePage: View {
                 .font(.title3)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+                // Catalan runs to three lines; without this the stack cut it to one.
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: 440)
                 .padding(.top, 6)
             VStack(alignment: .leading, spacing: 16) {
@@ -210,11 +214,18 @@ struct AutomaticPage: View {
         EsclopSettings.enableDragAndDrop.key, EsclopSettings.optimisedImageBehaviour.key,
     ]
 
+    /// 0 keeps originals for ever: "kept for 0 days" read as the opposite.
+    static func summary(retentionDays days: Int) -> String {
+        days <= 0
+            ? Strings.text("L’Esclop optimises what you copy as soon as you copy it. Originals are always kept and can be restored from the menu.")
+            : Strings.format("L’Esclop optimises what you copy as soon as you copy it. Originals are kept for %@ and can be restored from the menu.", SettingPresentation.retention(days: days))
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             PageHeading(
                 title: Strings.text("What happens on its own"),
-                summary: Strings.format("L'Esclop optimises what you copy as soon as you copy it. Originals are kept for %@ and can be restored from the menu.", SettingPresentation.display(settings.value(EsclopSettings.backupRetentionDays.key), for: settings.descriptor(EsclopSettings.backupRetentionDays.key)!))
+                summary: Self.summary(retentionDays: settings.value(EsclopSettings.backupRetentionDays.key)?.intValue ?? EsclopSettings.backupRetentionDays.defaultValue)
             )
             Form {
                 Section {
@@ -239,7 +250,7 @@ struct PermissionsPage: View {
         VStack(spacing: 0) {
             PageHeading(
                 title: Strings.text("What macOS will ask"),
-                summary: Strings.text("Everything runs on this Mac: no account, no network, nothing leaves it. L'Esclop needs no Accessibility, Screen Recording or Full Disk Access.")
+                summary: Strings.text("Files are optimised on this Mac, with no account. They leave it only when you upload them or set up automatic uploads. L’Esclop needs no Accessibility, Screen Recording or Full Disk Access.")
             )
             Form {
                 Section {
@@ -251,27 +262,36 @@ struct PermissionsPage: View {
                     } label: {
                         SettingLabel(
                             title: Strings.text("Read the clipboard"),
-                            summary: Strings.text("To find images you copy. macOS may ask before L'Esclop reads it; choose Always Allow under Privacy & Security → Paste from Other Apps so it does not ask every time.")
+                            summary: Strings.text("To find images you copy. macOS may ask before L’Esclop reads it; choose Allow under Privacy & Security › Paste from Other Apps so it does not ask every time.")
                         )
                     }
-                    LabeledContent {
-                        Image(systemName: "folder").foregroundStyle(.secondary).accessibilityHidden(true)
-                    } label: {
-                        SettingLabel(
-                            title: Strings.text("Files in Desktop, Documents and Downloads"),
-                            summary: Strings.text("macOS will ask to let L’Esclop see your Desktop: that is where screenshots land, and L’Esclop watches it for new ones. It asks again the first time L’Esclop replaces a file in Documents or Downloads. If you say no, the Desktop is left alone; Settings › Images shows how to allow it later.")
-                        )
-                    }
+                    // Information only: no glyph at the end, where a control would sit.
+                    SettingLabel(
+                        title: Strings.text("Files in Desktop, Documents and Downloads"),
+                        summary: Strings.text("macOS will ask to let L’Esclop see your Desktop: that is where screenshots land, and L’Esclop watches it for new ones. It asks again the first time L’Esclop replaces a file in Documents or Downloads. If you say no, the Desktop is left alone; Settings › Images shows how to allow it later.")
+                    )
                     TitledToggle(
                         title: Strings.text("Open at login"),
-                        subtitle: Strings.text("Keep L'Esclop in the menu bar after a restart, so copies are optimised from the start."),
+                        subtitle: Strings.text("Keep L’Esclop in the menu bar after a restart, so copies are optimised from the start."),
                         isOn: Binding(get: { onboarding.opensAtLogin }, set: { onboarding.opensAtLogin = $0 })
                     )
+                    if onboarding.loginNeedsApproval {
+                        LabeledContent {
+                            Button(Strings.text("Open Login Items")) { SMAppService.openSystemSettingsLoginItems() }
+                        } label: {
+                            // Amber marks the decision; the sentence stays in text ink (amber holds 3:1).
+                            Label {
+                                Text(Strings.text("macOS waits for you to allow L’Esclop in Login Items & Extensions.")).fixedSize(horizontal: false, vertical: true)
+                            } icon: {
+                                Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Ink.warm)
+                            }
+                        }
+                    }
 
                     if let error = onboarding.loginError {
                         Label(error, systemImage: "exclamationmark.triangle.fill")
                             .font(.subheadline)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Ink.error)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -290,9 +310,9 @@ struct AccessBadge: View {
         case .allowed:
             Label(Strings.text("Allowed"), systemImage: "checkmark.circle.fill").foregroundStyle(Ink.charcoalText)
         case .asks:
-            Label(Strings.text("Asks each time"), systemImage: "questionmark.circle").foregroundStyle(Palette.warm)
+            Label(Strings.text("Asks each time"), systemImage: "questionmark.circle").foregroundStyle(Ink.warm)
         case .denied:
-            Label(Strings.text("Denied"), systemImage: "xmark.circle.fill").foregroundStyle(.red)
+            Label(Strings.text("Denied"), systemImage: "xmark.circle.fill").foregroundStyle(Ink.error)
         case .unknown:
             EmptyView()
         }
@@ -309,7 +329,7 @@ struct AgentsPage: View {
         VStack(spacing: 0) {
             PageHeading(
                 title: Strings.text("Connect an AI agent"),
-                summary: Strings.text("Agents use L'Esclop through its MCP server to optimise, convert and crop files when you ask them. You can do this later in Settings → Agents and MCP.")
+                summary: Strings.text("Agents use L’Esclop through its MCP server to optimise, convert and crop files when you ask them. You can do this later in Settings › Agents and MCP.")
             )
             if let agents {
                 Form {
@@ -339,7 +359,7 @@ struct DonePage: View {
                 .font(.system(size: 56))
                 .foregroundStyle(Ink.charcoalText)
                 .accessibilityHidden(true)
-            Text(Strings.text("L'Esclop is in the menu bar"))
+            Text(Strings.text("L’Esclop is in the menu bar"))
                 .font(.title.weight(.semibold))
                 .padding(.top, 14)
             Group {
@@ -366,7 +386,7 @@ struct DonePage: View {
                 }
             }
             .padding(.top, 28)
-            Text(Strings.text("Change the shortcuts in Settings → General."))
+            Text(Strings.text("Change the shortcuts in Settings › General."))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .padding(.top, 16)

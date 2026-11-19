@@ -147,6 +147,23 @@ enum Fixture {
         try await ProcessRunner.run(.ffmpeg, args)
     }
 
+    /// Stereo 16-bit white noise as a WAV, written here: the bundled ffmpeg has no noise
+    /// source, and noise is what lossy codecs cannot shrink to nothing.
+    static func noiseWAV(_ url: URL, seconds: Int = 3, sampleRate: Int = 44100) throws {
+        var generator = SystemRandomNumberGenerator()
+        let frames = seconds * sampleRate
+        var samples = Data(capacity: frames * 4)
+        for _ in 0 ..< frames * 2 {
+            let value = Int16.random(in: -9000 ... 9000, using: &generator)
+            withUnsafeBytes(of: value.littleEndian) { samples.append(contentsOf: $0) }
+        }
+        func le<T: FixedWidthInteger>(_ value: T) -> [UInt8] { withUnsafeBytes(of: value.littleEndian, Array.init) }
+        var wav = Data("RIFF".utf8) + le(UInt32(36 + samples.count)) + Data("WAVEfmt ".utf8)
+        wav += le(UInt32(16)) + le(UInt16(1)) + le(UInt16(2)) + le(UInt32(sampleRate)) + le(UInt32(sampleRate * 4)) + le(UInt16(4)) + le(UInt16(16))
+        wav += Data("data".utf8) + le(UInt32(samples.count)) + samples
+        try wav.write(to: url)
+    }
+
     static func wav(_ url: URL, seconds: Int = 2) async throws {
         try await ProcessRunner.run(.ffmpeg, [
             "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=f=440:d=\(seconds):sample_rate=44100",

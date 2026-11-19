@@ -139,9 +139,10 @@ on that one file. It replaces a long context menu. It is not the menu-bar menu. 
 - **Actions:** rows, each with a round symbol, what it does and what it gives, and a play button:
   the person's pipelines ("Your pipeline"), Upload ("Copies a link"; Set Up Uploads… without a
   target, with a chevron since it opens Settings), Copy Link after an upload, Share… ("AirDrop, Mail, Messages"), shelf and upload apps
-  when installed; then Run a Shortcut › and Open with ›, and a dashed "Edit Pipelines…". Copy
-  ⌘C, Save as ⌘S, Show in Finder ⌘R and Quick Look ⌘Y are keys of the popover; Compare is
-  the detail's loupe; how long results stay visible is in Settings.
+  when installed; then flat rows Copy ⌘C, Save as… ⌘S and Quick Look ⌘Y with their keys, Run a
+  Shortcut › and Open with ›, and a dashed "Edit Pipelines…". Pipelines are listed only for
+  the kinds they do something for. The keys, and Show in Finder ⌘R, work from every tab;
+  Compare is the detail's loupe; how long results stay visible is in Settings.
 - Every choice that changes size shows an estimate before it is applied. Long lists are
   drill-downs inside the popover, never inline walls. Only installed apps are listed.
 
@@ -166,7 +167,9 @@ At the bottom of Optimise a small native checkbox turns the current choice into 
 "Always apply to PNG screenshots". The rule key is origin + input format. Unticking deletes the
 rule, so the next item of that kind gets the default behaviour again; ⌘Z only restores the
 current file. When a rule was applied, the result capsule shows a small rule glyph with the
-tooltip "Rule: PNG screenshots → WebP", and the popover opens with the box ticked. Rules are
+tooltip "Rule: PNG screenshots → WebP", and the popover opens with the box ticked. The line under
+a ticked box says what the stored rule does; trying another choice leaves the rule as it is,
+and ticking the box again stores the new choice. Rules are
 listed and edited in Settings › Automation › Clipboard rules.
 
 ## Batch window
@@ -175,7 +178,7 @@ default, `batchWindowFrom`), they go to one window instead: a dropped folder, "O
 many copied files, or a list from the CLI or an agent. It comes forward without taking focus.
 
 - **Header:** "Optimising 7 of 9 files", "48 MB → 12 MB" and the saving as the one large figure
-  ("−75 %", rounded, in the accent), the bar (progress while running, then the deflate bar at
+  ("−75 %", in the figure face, in the saving colour), the bar (progress while running, then the deflate bar at
   the new proportion), the counts ("5 optimised · 1 already optimised · 1 failed") and Pause,
   Stop, Restore All, Show in Finder.
 - **Rows:** thumbnail, name, sizes or status, the file's own deflate bar and its saving. On hover
@@ -191,10 +194,10 @@ colour.
 | Token | Light | Dark | Role |
 |---|---|---|---|
 | `accent` | `#1E7F6A` | `#3DBF9F` | savings, progress, primary actions |
-| `warm` | `#B8741C` | `#E0A040` | aggressive mode, "fit under size" |
+| `warm` | `#8F5510` | `#E0A040` | aggressive mode, "fit under size"; `#B8741C` on a charcoal tile |
 | `ink` | `#1B1F1E` | `#F2F4F3` | primary text (used only where system label colors cannot) |
 | `clog` | `#8A5A33` | `#8A5A33` | app icon wood only, never in UI |
-| error | system red | system red | failures |
+| error | `#C4281C` | `#FF6961` | failures (system red is 3.4:1 on light) |
 
 Never: cream page backgrounds, terracotta, acid green on black, gradient washes. Dark glass
 stays translucent; it must not become an opaque slab.
@@ -202,8 +205,8 @@ stays translucent; it must not become an opaque slab.
 ## Type
 System font (SF Pro) everywhere, sizes from the macOS text styles, nothing below 11 pt. Byte
 figures and percentages use SF Pro with monospaced digits (`monospacedDigit()`), never a
-monospaced typeface. The saving percentage is the one large figure: `title2`, semibold,
-rounded design. Labels are sentence case, never all caps, never tracked out. Icons are SF
+monospaced typeface. The saving is the one large figure, set by `Figure`: SF Pro
+Compressed, bold, at one of its four sizes. Labels are sentence case, never all caps, never tracked out. Icons are SF
 Symbols; checkmarks are symbols, not text glyphs.
 
 ## Layout

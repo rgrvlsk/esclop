@@ -481,7 +481,13 @@ public struct CardPresentation: Equatable, Sendable {
         case let .leftAsIs(reason):
             return Strings.text(reason)
         case let .notPermitted(why):
-            return why
+            return forPeople(why)
+        case let .invalidArgument(why) where why.hasPrefix(Self.noRecentResult):
+            // "No recent result for /path. esclop_recent_results lists…": the tool name is for agents.
+            let path = why.dropFirst(Self.noRecentResult.count).components(separatedBy: ". ").first ?? ""
+            return Strings.format("There is no recent result for %@ to restore.", URL(fileURLWithPath: path).lastPathComponent)
+        case .alreadySmaller:
+            return Strings.text("The file is already as small as it gets.")
         case let .other(message):
             // A sentence the catalogue knows (BackupStore.untrashableEdit) is translated; any
             // other stays as it is.
@@ -489,5 +495,24 @@ public struct CardPresentation: Equatable, Sendable {
         case let other:
             return other.description
         }
+    }
+
+    // ponytail: matches the engine's English (Service.restoreBackup, PDFEngine, PDFPageTools); a
+    // reworded engine message shows in English again, CatalanCoverageTests names the three.
+    private static let noRecentResult = "No recent result for "
+
+    /// The engine writes these refusals for agents and logs; a card says them in the person's
+    /// language. Anything not listed is looked up as it is, then shown as it is.
+    // ponytail: still English on a card: refusals that carry a path (PipelineRunner's "… already
+    // exists and replacing files is not allowed here", "pipelines never delete folders (…)") and
+    // `.invalidArgument`, `.invalidPipeline`, `.other`. Key them when a card shows one in practice.
+    private static func forPeople(_ why: String) -> String {
+        if why.hasPrefix("agents may not overwrite originals") {
+            return Strings.text("Agents may not replace originals. Allow it in Settings › Agents and MCP, or ask for the result somewhere else.")
+        }
+        if why.hasSuffix(" is password protected") {
+            return Strings.format("%@ is password protected.", String(why.dropLast(" is password protected".count)))
+        }
+        return Strings.text(why)
     }
 }
