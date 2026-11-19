@@ -88,18 +88,17 @@ public final class PipelineEditorModel {
     @ObservationIgnored var tryRunner: @Sendable (Pipeline, URL) async -> PipelineRunReport?
     @ObservationIgnored var inspector: any MediaInspector = SystemMediaInspector()
 
-    public init(store: PipelineStore, app: AppModel? = nil, engine: (any OptimisationEngine)? = nil, settings: (any AgentPermissionReading)? = nil) {
+    public init(store: PipelineStore, app: AppModel? = nil, engine: (any OptimisationEngine)? = nil) {
         self.store = store
         self.app = app
         let engine = engine ?? app?.service.context.engine
-        let allowScripts = settings.map { AgentPolicy(origin: .app, permissions: $0).allowed(.allowRunScripts) } ?? true
         tryRunner = { pipeline, file in
             guard let engine else { return nil }
             // No clipboard, uploads, other apps, scripts or Shortcuts, and every destination moves
             // into the copy's folder: a try changes nothing outside it.
             let runner = PipelineRunner(engine: engine, host: NoopPipelineHost())
             let folder = file.deletingLastPathComponent()
-            let options = PipelineRunOptions(origin: .app, allowRunScripts: allowScripts, allowDelete: false, temporaryDirectory: folder, trialFolder: folder)
+            let options = PipelineRunOptions(origin: .app, allowDelete: false, temporaryDirectory: folder, trialFolder: folder)
             return await runner.run(pipeline, on: [file], options: options)
         }
         reload()

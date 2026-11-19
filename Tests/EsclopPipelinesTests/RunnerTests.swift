@@ -428,13 +428,18 @@ func options(_ tmp: TempDir, scripts: Bool = false) -> PipelineRunOptions {
     let trial = tmp.url.appendingPathComponent("trial", isDirectory: true)
     let png = try tmp.file("trial/a.png")
     let outside = tmp.url.appendingPathComponent("elsewhere").path
+    // A real folder named without a trailing `/` still means "into it".
+    let folder = tmp.url.appendingPathComponent("folder")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     let rec = Recorder()
     var opts = options(tmp, scripts: true)
     opts.trialFolder = trial
-    let steps = try PipelineParser.parseSteps(#"optimise(location: "\#(outside)/small/") -> copy(to: "\#(outside)/") -> move(to: "../moved.png") -> runScript(code: "echo") -> runShortcut(name: "x")"#)
+    let steps = try PipelineParser.parseSteps(#"optimise(location: "\#(outside)/small/") -> copy(to: "\#(folder.path)") -> copy(to: "\#(outside)/") -> move(to: "../moved.png") -> runScript(code: "echo") -> runShortcut(name: "x")"#)
     let report = await runner(rec).run(steps: steps, on: [png], options: opts)
     let file = report.files[0]
     #expect(file.status == .completed, "\(file.log)")
+    #expect(file.log[1].message?.hasSuffix(folder.path + "/a.png") == true, "\(file.log[1])")
+    #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path).isEmpty)
     #expect(!FileManager.default.fileExists(atPath: outside))
     #expect(!tmp.exists("moved.png"))
     #expect(file.finalFile?.path.hasPrefix(trial.path + "/") == true)

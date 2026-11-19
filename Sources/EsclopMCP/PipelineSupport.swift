@@ -187,8 +187,11 @@ public struct StorePipelineRunner: PipelineRunning {
         let log = file.log.map { entry in
             "\(entry.step): \(entry.outcome.rawValue)\(entry.message.map { " (\($0))" } ?? "")"
         }
-        // What the steps so far made of the file; the backup is the first step's that kept one.
-        let untouched = file.results.isEmpty && file.extraOutputs.isEmpty && (file.finalFile ?? source) == source
+        // Whether any step other than a filter did something (an engine step, a file operation, a
+        // script); the result's backup is the first step's that kept one.
+        let untouched = !file.log.contains { entry in
+            entry.outcome == .done && (try? PipelineParser.parseSteps(entry.step))?.first?.isFilter != true
+        }
         func result(_ prefix: [String] = []) -> OptimisationResult {
             let last = file.results.last
             return OptimisationResult(
@@ -211,7 +214,7 @@ public struct StorePipelineRunner: PipelineRunning {
             // Earlier steps may have changed the file already: report what they made, so it is in
             // the recent results and its backup can be restored.
             guard !untouched || step != nil else { throw error }
-            throw PipelineStepFailure(step: step ?? "pipeline", error: error, partial: untouched ? nil : result())
+            throw PipelineStepFailure(step: step, error: error, partial: untouched ? nil : result())
         }
     }
 
