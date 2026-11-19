@@ -218,8 +218,8 @@ Symbols; checkmarks are symbols, not text glyphs.
   reads "Optimise harder" and the hint "With the aggressive settings" in the warm colour. Over a
   preset zone the line names its pipeline ("Drop to run “to WebP”") without the ⌘ hint, which a
   pipeline does not use. ⌥ held at the drop keeps the originals, as ⌥ means copy in a Finder
-  drag: a plain optimisation writes beside the original instead of in place, a pipeline runs on
-  a copy in the temporary folder, and the hint reads "The originals stay as they are" in the
+  drag: a plain optimisation writes beside the original, a pipeline runs on a copy made beside
+  it, and the hint reads "The originals stay as they are" in the
   primary ink. It takes files, folders (the count is the media inside, which also picks the
   preset zones), files promised by Photos or Mail, and image and video addresses from a browser,
   which are fetched into the temporary folder first. A tap on ⌥ during a drag opens the zone just

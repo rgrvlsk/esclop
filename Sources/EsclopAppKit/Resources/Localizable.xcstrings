@@ -731,6 +731,16 @@
         }
       }
     },
+    "A dropped file did not arrive: the app it came from did not deliver it.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un fitxer deixat anar no ha arribat: l’app d’on venia no l’ha lliurat."
+          }
+        }
+      }
+    },
     "A folder trigger needs the folder: `folder(\"~/Downloads\")`.": {
       "localizations": {
         "ca": {

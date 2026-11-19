@@ -10,6 +10,7 @@ import UniformTypeIdentifiers
 
 public enum WebDownload {
     /// Where downloads go, one folder each so names never clash.
+    // ponytail: downloads stay until macOS clears $TMPDIR; prune them at launch if they pile up.
     public static var folder: URL { Paths.temporary.appendingPathComponent("downloads", isDirectory: true) }
 
     /// The address in `raw` when it is a web one (http or https), nil for a path or a `file:` URL.

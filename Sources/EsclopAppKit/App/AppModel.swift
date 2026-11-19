@@ -740,10 +740,13 @@ public final class AppModel {
             var source = card.source
             // The files this card may have on the clipboard, which the new result replaces there.
             var shown = [card.source]
+            // A result written beside its original (⌥ at the drop) runs again beside it, not over it.
+            var besideOriginal = false
             switch card.phase {
             case let .done(result):
                 source = result.source
                 shown = [result.output, result.source]
+                besideOriginal = result.backup == nil && result.output.standardizedFileURL != result.source.standardizedFileURL
                 // A failed restore shows a notice and the card keeps its result as it was; encoding
                 // the optimised file again would not start from the original.
                 if result.backup != nil, !(await restore(result)) { return }
@@ -758,6 +761,7 @@ public final class AppModel {
             card.adjusted = adjust != nil
             card.loupe = nil
             var job = factory.job(for: source, origin: origin, location: wasClipboardImage ? .inPlace : nil)
+            if besideOriginal, job.request.location == .inPlace { job.request.location = .sameFolder }
             choice.apply(to: &job.request)
             adjust?(&job)
             let copyBack = origin == .clipboard && EsclopSettings.autoCopyToClipboard.value(in: settings)
