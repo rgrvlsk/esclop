@@ -17,8 +17,9 @@ struct ImageEngine: Sendable {
 
     /// Formats handed to the engine as they are; anything else is decoded to PNG first.
     static let engineReadable: Set<OutputFormat> = [.png, .jpeg, .webp, .gif]
-    /// Formats written with ImageIO.
-    static let imageIOFormats: Set<OutputFormat> = [.heic, .tiff, .bmp]
+    /// Formats written with ImageIO. JPEG XL only where the system writes it (not macOS 26);
+    /// elsewhere `imageIO` says this Mac cannot.
+    static let imageIOFormats: Set<OutputFormat> = [.heic, .tiff, .bmp, .jxl]
 
     struct Geometry {
         var crop: CGRect?
@@ -48,7 +49,7 @@ struct ImageEngine: Sendable {
     private func produce(
         _ source: URL, info: ImageInfo, sourceFormat: OutputFormat, plan: Plan, work: WorkFolder, progress: ProgressSink
     ) async throws -> Produced {
-        let target = targetFormat(for: sourceFormat, info: info, plan: plan)
+        let target = targetFormat(for: sourceFormat, source: source, info: info, plan: plan)
         if target == .pdf {
             return try imageToPDF(source, info: info, work: work)
         }
@@ -83,14 +84,41 @@ struct ImageEngine: Sendable {
             return try imageIO(source, info: info, target: target, geometry: geometry, curves: curves, strip: plan.strip, work: work, steps: steps, allowLarger: allowLarger)
         }
 
-        var produced = try await viaEngine(
+        return try await viaEngine(
             source, info: info, sourceFormat: sourceFormat, target: target, geometry: geometry, curves: curves,
-            strip: plan.strip, work: work, progress: progress, steps: steps, allowLarger: allowLarger
+            strip: plan.strip, work: work, progress: progress, steps: steps, allowLarger: allowLarger,
+            alternative: adaptiveAlternative(to: target, source: source, info: info, plan: plan)
         )
-        if plan.request.adaptiveImageFormat ?? env.value(EsclopSettings.adaptiveImageSize), plan.format == nil, target == .png, !info.hasAlpha, !info.isAnimated {
-            produced = await adaptiveJPEG(instead: produced, curves: curves, strip: plan.strip, work: work)
+    }
+
+    /// With "adaptive image format" on (or a request asking for it) and no explicit format: JPEG
+    /// for a PNG without transparent pixels, PNG for a flat JPEG (entropy under 5 over more than
+    /// a megapixel, as Clop judges it). Any JPEG target counts, also one the automatic lists
+    /// chose (a flat HEIC may end as PNG), as in Clop, where the test sits in `optimiseJPEG`.
+    /// nil when the output path names another extension, so an explicit `-o shot.png` stays
+    /// PNG instead of failing after the work.
+    func adaptiveAlternative(to target: OutputFormat, source: URL, info: ImageInfo, plan: Plan) -> OutputFormat? {
+        guard plan.request.adaptiveImageFormat ?? env.value(EsclopSettings.adaptiveImageSize), plan.format == nil, !info.isAnimated else { return nil }
+        let alternative: OutputFormat
+        switch target {
+        case .png where !Self.hasTransparentPixels(source, info: info): alternative = .jpeg
+        case .jpeg where info.width * info.height > 1_000_000 && (ImageIOCodec.entropy(source) ?? 0) < 5: alternative = .png
+        default: return nil
         }
-        return produced
+        if case .path = plan.request.location {
+            let destination = plan.request.location.destination(
+                for: source, extension: alternative.fileExtension,
+                sameFolderTemplate: env.value(EsclopSettings.sameFolderNameTemplate), temporaryRoot: Paths.temporary
+            )
+            guard (try? OutputLocation.checkExtension(of: destination, matches: alternative.fileExtension)) != nil else { return nil }
+        }
+        return alternative
+    }
+
+    /// Whether the picture has a pixel that is not fully opaque: an alpha channel alone does not
+    /// count (opaque RGBA screenshots, HEIC and WebP files that carry one).
+    static func hasTransparentPixels(_ source: URL, info: ImageInfo) -> Bool {
+        info.hasAlpha && ImageIOCodec.hasTransparentPixels(source)
     }
 
     /// "Downscale Retina screenshots": an automatic optimisation of a still 2x (144 dpi) image with
@@ -104,13 +132,13 @@ struct ImageEngine: Sendable {
     /// The explicit format, else the automatic conversion lists, else the source's own format.
     /// Animations and multi-page files are never converted automatically: the lists' targets
     /// hold one picture.
-    func targetFormat(for sourceFormat: OutputFormat, info: ImageInfo, plan: Plan) -> OutputFormat {
+    func targetFormat(for sourceFormat: OutputFormat, source: URL, info: ImageInfo, plan: Plan) -> OutputFormat {
         if let format = plan.format { return format == .gifVideo ? .gif : format }
         if plan.automatic, !info.isAnimated {
             let ext = sourceFormat.rawValue
             if env.value(EsclopSettings.formatsToConvertToJPEG).map({ $0.lowercased() }).contains(ext) {
                 // JPEG has no alpha: keep transparency in PNG instead.
-                return info.hasAlpha ? .png : .jpeg
+                return Self.hasTransparentPixels(source, info: info) ? .png : .jpeg
             }
             if env.value(EsclopSettings.formatsToConvertToPNG).map({ $0.lowercased() }).contains(ext) {
                 return .png
@@ -170,7 +198,8 @@ struct ImageEngine: Sendable {
 
     private func viaEngine(
         _ source: URL, info: ImageInfo, sourceFormat: OutputFormat, target: OutputFormat, geometry: Geometry,
-        curves: Curves, strip: Bool, work: WorkFolder, progress: ProgressSink, steps: [String], allowLarger: Bool
+        curves: Curves, strip: Bool, work: WorkFolder, progress: ProgressSink, steps: [String], allowLarger: Bool,
+        alternative: OutputFormat?
     ) async throws -> Produced {
         let engine = env.images
         let caps: EngineCapabilities
@@ -234,10 +263,25 @@ struct ImageEngine: Sendable {
         if !strip, input != source, target == .jpeg || target == .png {
             ImageIOCodec.copyMetadata(from: source, to: output)
         }
-        return Produced(
+        var produced = Produced(
             url: output, width: reply?.width ?? geometry.width, height: reply?.height ?? geometry.height,
-            duration: nil, steps: steps, allowLarger: allowLarger
+            duration: nil, steps: steps, allowLarger: allowLarger, lossless: !geometry.changed && reply?.raw["lossy"] == .bool(false)
         )
+        if let alternative {
+            // From the same lossless input as `output`: encoding the quantised result again
+            // would apply the loss twice.
+            let candidate = work.file(stem: "adaptive", ext: alternative.fileExtension)
+            if (try? await encode(input, inputFormat: inputFormat, to: candidate, target: alternative, curves: curves, strip: strip, work: work, report: { _ in })) != nil,
+               fileSize(output) - fileSize(candidate) > 100_000
+            {
+                if !strip, input != source { ImageIOCodec.copyMetadata(from: source, to: candidate) }
+                let names = (alternative.rawValue.uppercased(), target.rawValue.uppercased())
+                produced.url = candidate
+                produced.allowLarger = true
+                produced.steps.append("\(names.0) was smaller than \(names.1), kept \(names.0)")
+            }
+        }
+        return produced
     }
 
     /// One encode or optimise call for `target`.
@@ -256,10 +300,12 @@ struct ImageEngine: Sendable {
                 try await engine.call("convert", input: input, output: png, params: ["format": "png", "lossy": false, "strip": stripValue])
                 input = png
             }
-            return try await engine.call("png.optimise", input: input, output: output, params: [
+            var params: [String: JSONValue] = [
                 "lossy": .bool(curves.factor > 0), "quality": [0, .int(curves.pngQualityMax)],
                 "speed": .int(curves.pngSpeed), "strip": stripValue,
-            ], progress: report)
+            ]
+            if let colors = curves.pngColors { params["colors"] = .int(colors) }
+            return try await engine.call("png.optimise", input: input, output: output, params: params, progress: report)
         case .jpeg:
             if inputFormat == .jpeg {
                 return try await engine.call("jpeg.optimise", input: input, output: output, params: [
@@ -293,20 +339,6 @@ struct ImageEngine: Sendable {
         }
     }
 
-    /// With "adaptive image format" on (or a request asking for it), a PNG without transparency
-    /// is also tried as JPEG and the JPEG wins when it is smaller by more than 100 KB.
-    private func adaptiveJPEG(instead produced: Produced, curves: Curves, strip: Bool, work: WorkFolder) async -> Produced {
-        let jpeg = work.file(stem: "adaptive", ext: "jpeg")
-        guard (try? await encode(produced.url, inputFormat: .png, to: jpeg, target: .jpeg, curves: curves, strip: strip, work: work, report: { _ in })) != nil,
-              fileSize(produced.url) - fileSize(jpeg) > 100_000
-        else { return produced }
-        var result = produced
-        result.url = jpeg
-        result.allowLarger = true
-        result.steps.append("JPEG was smaller than PNG, kept JPEG")
-        return result
-    }
-
     // MARK: GIF
 
     private func gifsicle(
@@ -326,7 +358,16 @@ struct ImageEngine: Sendable {
             steps.append("Resized to \(geometry.width)x\(geometry.height)")
         }
         if strip { args += ["--no-comments", "--no-names", "--no-extensions"] }
-        args += ["--output", output.path, source.path]
+        args += ["--output", output.path]
+        if let everyNth = curves.gifFrameDropEveryNth, info.isAnimated,
+           let selection = Curves.gifFrameDropArgs(delays: Self.gifDelays(source), everyNth: everyNth)
+        {
+            // Frame selections follow the input; unoptimised first, so no kept frame depends on a dropped one.
+            args += ["--unoptimize", source.path] + selection
+            steps.append("Dropped every \(Self.ordinal(everyNth)) frame, kept the duration")
+        } else {
+            args.append(source.path)
+        }
         try await ProcessRunner.run(.gifsicle, args, options: ProcessOptions(timeout: 600), locator: env.tools)
         // Never hand back a still in place of an animation.
         if info.isAnimated, (ImageInfo.probe(output)?.frameCount ?? 0) < 2 {
@@ -336,6 +377,18 @@ struct ImageEngine: Sendable {
         return Produced(url: output, width: geometry.width, height: geometry.height, duration: nil, steps: steps, allowLarger: allowLarger)
     }
 
+    /// Each frame's delay in centiseconds, unclamped (0.02 s stays 2, not ImageIO's 10).
+    static func gifDelays(_ url: URL) -> [Int] {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return [] }
+        return (0 ..< CGImageSourceGetCount(source)).map { index in
+            let gif = (CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any])?[kCGImagePropertyGIFDictionary] as? [CFString: Any]
+            let seconds = gif?[kCGImagePropertyGIFUnclampedDelayTime] as? Double ?? gif?[kCGImagePropertyGIFDelayTime] as? Double ?? 0
+            return Int((seconds * 100).rounded())
+        }
+    }
+
+    private static func ordinal(_ n: Int) -> String { n == 2 ? "2nd" : n == 3 ? "3rd" : "\(n)th" }
+
     // MARK: ImageIO
 
     private func imageIO(
@@ -343,7 +396,7 @@ struct ImageEngine: Sendable {
         work: WorkFolder, steps: [String], allowLarger: Bool
     ) throws -> Produced {
         guard let type = target.utType, ImageIOCodec.canWrite(type) else {
-            throw EsclopError.unsupportedFile("This Mac cannot write \(target.rawValue.uppercased())")
+            throw EsclopError.unsupportedFile("This Mac cannot write \(target == .jxl ? "JPEG XL" : target.rawValue.uppercased())")
         }
         var steps = steps
         let output = work.file(stem: "optimised", ext: target.fileExtension)
@@ -428,7 +481,7 @@ struct ImageEngine: Sendable {
         try ImageIOCodec.write(composed, to: intermediate, type: .png, quality: nil, metadataFrom: source, strip: plan.strip)
 
         var next = plan
-        next.format = plan.format ?? targetFormat(for: sourceFormat, info: info, plan: plan)
+        next.format = plan.format ?? targetFormat(for: sourceFormat, source: source, info: info, plan: plan)
         next.crop = nil
         let folder = try WorkFolder(root: work.url)
         var produced = try await process(intermediate, plan: next, work: folder, progress: progress)
@@ -473,7 +526,7 @@ struct ImageEngine: Sendable {
         guard let info = ImageInfo.probe(source), let sourceFormat = info.format else {
             throw Self.unreadableOrUnsupported(source)
         }
-        let format = targetFormat(for: sourceFormat, info: info, plan: plan)
+        let format = targetFormat(for: sourceFormat, source: source, info: info, plan: plan)
         let base = plan.factor(for: .image, format: format, env: env)
         // Fitting may scale.
         try Self.checkKeepsFrames(info, from: sourceFormat, to: format, geometryChanged: true)
@@ -535,6 +588,58 @@ struct ImageEngine: Sendable {
 }
 
 extension ImageIOCodec {
+    /// Whether any pixel of the first frame is less than fully opaque. Stops at the first one;
+    /// an image it cannot read counts as transparent, which keeps it in a format with alpha.
+    static func hasTransparentPixels(_ url: URL) -> Bool {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
+        else { return true }
+        switch image.alphaInfo {
+        case .none, .noneSkipFirst, .noneSkipLast: return false
+        default: break
+        }
+        guard let context = CGContext(
+            data: nil, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.alphaOnly.rawValue
+        ), let data = context.data else { return true }
+        context.setBlendMode(.copy)
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        let rowBytes = context.bytesPerRow
+        let alpha = data.bindMemory(to: UInt8.self, capacity: rowBytes * image.height)
+        for row in 0 ..< image.height {
+            let line = UnsafeBufferPointer(start: alpha + row * rowBytes, count: image.width)
+            if line.contains(where: { $0 < 255 }) { return true }
+        }
+        return false
+    }
+
+    /// Shannon entropy over the red, green and blue histograms side by side (768 bins, 0 to
+    /// log2(768) bits), as Clop's `calculateShannonEntropy` measures it to spot flat graphics
+    /// saved as JPEG. Sampled on at most about two megapixels, nearest neighbour, so no new
+    /// values appear. nil when the image cannot be read.
+    static func entropy(_ url: URL) -> Double? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil), image.width > 0, image.height > 0
+        else { return nil }
+        let scale = min(1, (2_000_000 / Double(image.width * image.height)).squareRoot())
+        let width = max(1, Int(Double(image.width) * scale)), height = max(1, Int(Double(image.height) * scale))
+        guard let context = CGContext(
+            data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+        ), let data = context.data else { return nil }
+        context.interpolationQuality = .none
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        let pixels = UnsafeBufferPointer(start: data.bindMemory(to: UInt8.self, capacity: width * height * 4), count: width * height * 4)
+        var histogram = [Int](repeating: 0, count: 768)
+        for (index, value) in pixels.enumerated() where index % 4 != 3 { histogram[(index % 4) * 256 + Int(value)] += 1 }
+        let total = Double(width * height * 3)
+        return histogram.reduce(0.0) { sum, count in
+            guard count > 0 else { return sum }
+            let p = Double(count) / total
+            return sum - p * log2(p)
+        }
+    }
+
     /// Copies EXIF, GPS, IPTC and XMP from `source` onto `target` without re-encoding, with the
     /// orientation reset (the pixels are upright). Best effort: failures leave `target` as is.
     static func copyMetadata(from source: URL, to target: URL) {

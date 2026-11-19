@@ -58,6 +58,7 @@ public struct OptionsPopover: View {
         .background { PopoverEdgePin(arrowAtBottom: arrowAtBottom).frame(width: 0, height: 0) }
         .task { await model.appear() }
         .onDisappear { model.disappear() }
+        .designTint()
     }
 
     @ViewBuilder private var content: some View {

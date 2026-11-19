@@ -23,13 +23,20 @@ import Testing
         let oldCopy = try Paths.ensure(clipboard.appendingPathComponent("old", isDirectory: true))
         let newCopy = try Paths.ensure(clipboard.appendingPathComponent("new", isDirectory: true))
         try fm.setAttributes([.modificationDate: Date().addingTimeInterval(-10 * 86400)], ofItemAtPath: oldCopy.path)
+        // Optimised copies of copied files, one folder per result.
+        let results = root.appendingPathComponent("results", isDirectory: true)
+        let oldResult = try Paths.ensure(results.appendingPathComponent("old", isDirectory: true))
+        let newResult = try Paths.ensure(results.appendingPathComponent("new", isDirectory: true))
+        try fm.setAttributes([.modificationDate: Date().addingTimeInterval(-10 * 86400)], ofItemAtPath: oldResult.path)
 
-        BackupPruner.pruneAtLaunch(days: 7, backups: store, clipboard: clipboard)
+        BackupPruner.pruneAtLaunch(days: 7, backups: store, clipboard: clipboard, results: results)
         #expect(store.entries().map(\.id) == [fresh.id])
         #expect(!fm.fileExists(atPath: oldCopy.path))
         #expect(fm.fileExists(atPath: newCopy.path))
+        #expect(!fm.fileExists(atPath: oldResult.path))
+        #expect(fm.fileExists(atPath: newResult.path))
 
-        BackupPruner.pruneAtLaunch(days: 0, backups: store, clipboard: clipboard, now: Date().addingTimeInterval(365 * 86400))
+        BackupPruner.pruneAtLaunch(days: 0, backups: store, clipboard: clipboard, results: results, now: Date().addingTimeInterval(365 * 86400))
         #expect(store.entries().count == 1, "0 days keeps everything")
     }
 

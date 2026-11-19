@@ -10,6 +10,9 @@
 // (0...100, higher = smaller) into each encoder's quality scale; dropped the tier enum, the x264
 // and x265 paths (L'Esclop's ffmpeg has neither) and everything outside the curves; the image
 // curves now feed esclop-engine parameters instead of pngquant/jpegoptim/cwebp arguments.
+// Modified 2026-11-19: added the PNG palette cap and the GIF frame drop of the top stops, and
+// `gifFrameDropArgs`, derived from `gifsicleFrameDropArgs` in Clop/Images.swift (same commit),
+// reduced to its keep-duration branch and fed the delays by the caller.
 
 import Foundation
 
@@ -38,6 +41,13 @@ struct Curves: Sendable {
         clamp(Int((100.0 - Double(factor - 30) * (75.0 / 70.0)).rounded()), 25, 100)
     }
 
+    /// Palette cap from 80: 224 colours, 8 fewer per step, never under 64. nil below 80.
+    /// ponytail: twin of the engine's `quality::png_colors`; sending `compression` instead would
+    /// also change the engine's deflate level. Change both together.
+    var pngColors: Int? {
+        factor >= 80 ? clamp(224 - (factor - 80) * 8, 64, 256) : nil
+    }
+
     /// Quantiser speed, 1 (slowest, best) to 10: spend more effort the harder we compress.
     var pngSpeed: Int {
         switch factor {
@@ -59,6 +69,37 @@ struct Curves: Sendable {
         if factor >= 50 {
             let colors = clamp(Int((256.0 - Double(factor - 50) * (192.0 / 50.0)).rounded()), 32, 256)
             args.append("--colors=\(colors)")
+        }
+        return args
+    }
+
+    /// From 80, every nth frame of an animated GIF is dropped: every 4th, every 3rd from 90,
+    /// every 2nd from 98. nil below 80.
+    var gifFrameDropEveryNth: Int? {
+        switch factor {
+        case ..<80: return nil
+        case 80 ..< 90: return 4
+        case 90 ..< 98: return 3
+        default: return 2
+        }
+    }
+
+    /// gifsicle frame selections that drop every `everyNth` frame and fold each dropped frame's
+    /// delay (centiseconds, one per frame) into the kept frame before it, so the animation keeps
+    /// its duration. Frame 0 always stays. nil for 8 frames or fewer.
+    static func gifFrameDropArgs(delays: [Int], everyNth: Int) -> [String]? {
+        guard everyNth >= 2, delays.count > 8 else { return nil }
+        var args: [String] = []
+        var index = 0
+        while index < delays.count {
+            var delay = delays[index]
+            var next = index + 1
+            while next < delays.count, next.isMultiple(of: everyNth) {
+                delay += delays[next]
+                next += 1
+            }
+            args += ["-d\(delay)", "#\(index)"]
+            index = next
         }
         return args
     }

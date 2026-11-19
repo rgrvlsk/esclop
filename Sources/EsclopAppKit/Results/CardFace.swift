@@ -383,7 +383,7 @@ struct PillButton: View {
                 .contentShape(Circle())
         }
         .buttonStyle(PressScale())
-        .help(action.accessibilityName)
+        .help(CardKeys.help(for: action))
         .accessibilityLabel(action.accessibilityName)
     }
 

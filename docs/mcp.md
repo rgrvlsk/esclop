@@ -90,7 +90,7 @@ to overwrite originals and `sameFolder` otherwise.
 | Tool | What it does | Example arguments |
 |---|---|---|
 | `esclop_optimise` | Compress files. Lossy settings can change image quality. Optional `aggressive`, `compression` (0-100, higher is smaller), `downscale`, `removeAudio`, `playbackSpeed`, `pdfDPI`, `stripMetadata`. | `{"paths": ["~/Desktop/shot.png"]}` |
-| `esclop_convert` | Change format: `format` is webp, avif, jpeg, png, heic, jxl, gif, tiff, bmp, mp4, mov, webm, mkv, hevc, av1, gif-video, mp3, aac, m4a, opus, flac, wav. | `{"paths": ["clip.mov"], "format": "mp4"}` |
+| `esclop_convert` | Change format: `format` is webp, avif, jpeg, png, heic, gif, tiff, bmp, mp4, mov, webm, mkv, hevc, av1, gif-video, mp3, aac, m4a, opus, flac, wav. | `{"paths": ["clip.mov"], "format": "mp4"}` |
 | `esclop_downscale` | Scale down by `factor` (0.5 is half the width and height). | `{"paths": ["~/Pictures/big"], "recursive": true, "factor": 0.5}` |
 | `esclop_crop` | Exact `width`/`height`, `longEdge`, or `aspectRatio` (16:9), `smart` to keep the subject. | `{"paths": ["card.png"], "width": 1200, "height": 630}` |
 | `esclop_fit_under_size` | Shrink until each file is under `maxSize` (2MB, 500KB, bytes). | `{"paths": ["video.mp4"], "maxSize": "25MB"}` |
@@ -125,8 +125,9 @@ to overwrite originals and `sameFolder` otherwise.
 - Prompt `shrink_for` (`platform`: email, slack, web, app-store; optional `paths`): concrete
   targets for each destination and which tools reach them.
 
-Trigger tools save configuration; automatic clipboard, drop-zone and folder triggers await
-GUI integration. App start/stop tools do not provide the planned optimisation UI yet.
+Trigger tools save configuration. While the L'Esclop app runs, a pipeline attached to the
+clipboard, the drop zone or a folder runs on what the person copies, drops or saves there, in
+place of the plain optimisation. App start/stop tools do not provide the planned optimisation UI yet.
 
 ## Permissions
 

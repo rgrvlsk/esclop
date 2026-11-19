@@ -70,5 +70,11 @@ import Testing
         let failedRestore = batch(running: false)
         failedRestore.rows[0].restoreError = CardPresentation.message(for: EsclopError.backupRemoved(file: "/tmp/Holiday/Beach 01.jpg", afterDays: 7))
         try await snapshots.snapshot(BatchView(batch: failedRestore, app: harness.model).frame(width: 560, height: 520), name: "batch-restore-failed", scheme: scheme)
+        // Automatic uploads: each row says how its upload goes, the saving stays in the figure.
+        let uploading = batch(running: false)
+        uploading.rows[0].upload = .uploaded(URL(string: "https://files.example.com/Beach%2001.jpg")!)
+        uploading.rows[1].upload = .uploading(fraction: 0.4)
+        uploading.rows[2].upload = .failed(Strings.text("The upload target did not answer."))
+        try await snapshots.snapshot(BatchView(batch: uploading, app: harness.model).frame(width: 560, height: 520), name: "batch-uploads", scheme: scheme)
     }
 }

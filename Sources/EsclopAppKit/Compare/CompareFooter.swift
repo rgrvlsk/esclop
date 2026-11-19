@@ -38,13 +38,13 @@ struct CompareFooter: View {
                     // still charcoal while the window is not the key one (else both look alike).
                     Button(Strings.text("Keep")) { model.keep() }
                         .keyboardShortcut(.defaultAction)
-                        .buttonStyle(.borderedProminent)
-                        .tint(Ink.charcoal)
+                        .primaryButton()
                         .environment(\.controlActiveState, .key)
                         .help(Strings.text("Keep the optimised file and close"))
                 } else {
                     Button(Strings.text("Close")) { model.close() }
                         .keyboardShortcut(.defaultAction)
+                        .primaryButton()
                 }
             }
             .disabled(model.isWorking)

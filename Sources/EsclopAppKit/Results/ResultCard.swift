@@ -75,6 +75,12 @@ public final class ResultCard: Identifiable {
     public var editInTrash = false
     /// The detail's name is being edited: the card's keys stand aside, and come back after.
     public var renaming = false
+    /// The "Go to the newest result" hotkey asked for this card to take the keys; the card
+    /// takes them once and clears it.
+    public var wantsFocus = false
+    /// The card has the keys the hotkey lent it: Esc, or Undo, Copy or Save, gives them back to
+    /// the app in front.
+    public var lentKeys = false
     /// The detail's picture is a loupe (Compare); nil when it is not.
     public var loupe: LoupeState?
     /// The row of the detail's "…" menu under the pointer or the arrow keys.
@@ -86,6 +92,8 @@ public final class ResultCard: Identifiable {
     var uploadTask: Task<Void, Never>?
     /// Runs the job again after an error.
     var retry: (() -> Void)?
+    /// A notice's "Optimise Them Anyway": the files it left alone go ahead after all.
+    var optimiseAnyway: (() -> Void)?
     var cancelWork: (() -> Void)?
     var timer: Task<Void, Never>?
 
@@ -181,3 +189,5 @@ public final class ResultCard: Identifiable {
         }
     }
 }
+
+extension ResultCard: ShowsUpload {}
