@@ -401,32 +401,22 @@
         }
       }
     },
+    "%d files": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d fitxers"
+          }
+        }
+      }
+    },
     "%d files optimised": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "%d fitxers optimitzats"
-          }
-        }
-      }
-    },
-    "%d files with the aggressive settings": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%d fitxers amb la configuració agressiva"
-          }
-        }
-      }
-    },
-    "%d files. Hold ⌘ for harder": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%d fitxers. Mantén ⌘ per comprimir més"
           }
         }
       }
@@ -571,32 +561,22 @@
         }
       }
     },
+    "1 file": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 fitxer"
+          }
+        }
+      }
+    },
     "1 file optimised": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "1 fitxer optimitzat"
-          }
-        }
-      }
-    },
-    "1 file with the aggressive settings": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "1 fitxer amb la configuració agressiva"
-          }
-        }
-      }
-    },
-    "1 file. Hold ⌘ for harder": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "1 fitxer. Mantén ⌘ per comprimir més"
           }
         }
       }
@@ -1117,6 +1097,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "AirDrop"
+          }
+        }
+      }
+    },
+    "AirDrop, Mail, Messages": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AirDrop, Mail, Missatges"
           }
         }
       }
@@ -2191,6 +2181,16 @@
         }
       }
     },
+    "Copies a link": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia un enllaç"
+          }
+        }
+      }
+    },
     "Copy": {
       "localizations": {
         "ca": {
@@ -2387,6 +2387,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zona de retall"
+          }
+        }
+      }
+    },
+    "Custom": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personalitzada"
           }
         }
       }
@@ -2617,16 +2627,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Arrossega fitxers"
-          }
-        }
-      }
-    },
-    "Drag files here. Hold ⌘ for harder": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Arrossega fitxers aquí. Mantén ⌘ per comprimir més"
           }
         }
       }
@@ -3431,12 +3431,32 @@
         }
       }
     },
+    "Half": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meitat"
+          }
+        }
+      }
+    },
     "Half the source": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "La meitat de l’original"
+          }
+        }
+      }
+    },
+    "Half, %@ px": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meitat, %@ px"
           }
         }
       }
@@ -3477,6 +3497,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Amaga la llista"
+          }
+        }
+      }
+    },
+    "Hold ⌘ to optimise harder": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mantén ⌘ per comprimir més"
           }
         }
       }
@@ -3557,6 +3587,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Al Finder, a Accions ràpides › Executa un pipeline de L’Esclop…"
+          }
+        }
+      }
+    },
+    "In Settings": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A la Configuració"
           }
         }
       }
@@ -3717,6 +3757,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mantén visible"
+          }
+        }
+      }
+    },
+    "Keeps the aspect ratio": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manté la proporció"
           }
         }
       }
@@ -4317,6 +4367,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Més estret que (px)"
+          }
+        }
+      }
+    },
+    "Never enlarges. Keeps the aspect ratio.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mai no s’amplia. Manté la proporció."
           }
         }
       }
@@ -5141,6 +5201,16 @@
         }
       }
     },
+    "Original %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Original %@"
+          }
+        }
+      }
+    },
     "Original restored": {
       "localizations": {
         "ca": {
@@ -5941,6 +6011,16 @@
         }
       }
     },
+    "Reset": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restableix"
+          }
+        }
+      }
+    },
     "Reset %@ to the default": {
       "localizations": {
         "ca": {
@@ -6647,6 +6727,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Comparteix…"
+          }
+        }
+      }
+    },
+    "Shelf app": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App de prestatge"
           }
         }
       }
@@ -8161,6 +8251,16 @@
         }
       }
     },
+    "Upload app": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App de pujada"
+          }
+        }
+      }
+    },
     "Upload to": {
       "localizations": {
         "ca": {
@@ -8551,12 +8651,32 @@
         }
       }
     },
+    "With the aggressive settings": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amb la configuració agressiva"
+          }
+        }
+      }
+    },
     "Working": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Treballant"
+          }
+        }
+      }
+    },
+    "Your pipeline": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El teu pipeline"
           }
         }
       }
@@ -9017,6 +9137,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "un nombre enter com a mínim de %@"
+          }
+        }
+      }
+    },
+    "about %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "uns %@"
           }
         }
       }

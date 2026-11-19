@@ -647,7 +647,7 @@ public final class AppModel {
         case .downscale:
             reprocess(card) { $0.request.downscale = 0.5 }
         case .crop:
-            card.optionsTab = .size
+            card.optionsTab = .crop
             openOptions(card)
         case .more, .convertOptions:
             card.optionsTab = .optimise
@@ -706,6 +706,10 @@ public final class AppModel {
     func reprocess(_ card: ResultCard, choice: OptimiseChoice? = nil, adjust: ((inout OptimisationJob) -> Void)? = nil) {
         let origin = card.origin, displayName = card.displayName
         let wasClipboardImage = Self.isCopiedImage(card.source)
+        // Every run starts from the original: only `downscale(_:to:)` keeps a scale. It is set
+        // here, before the run, because `downscale(_:to:)` sets its own scale right after.
+        let keptScale = card.downscale
+        card.downscale = 1
         let choice = choice ?? card.choice
         let rule = card.appliedRule?.choice == choice ? card.appliedRule : nil
         let context = CardContext(origin: card.fileOrigin ?? .unknown, inputType: card.inputType, choice: choice, rule: rule)
@@ -719,7 +723,10 @@ public final class AppModel {
                 shown = [result.output, result.source]
                 // A failed restore shows a notice and the card keeps its result as it was; encoding
                 // the optimised file again would not start from the original.
-                if result.backup != nil, !(await restore(result)) { return }
+                if result.backup != nil, !(await restore(result)) {
+                    card.downscale = keptScale
+                    return
+                }
             case let .restored(result):
                 source = result.source
                 shown = [result.source]
