@@ -84,6 +84,24 @@ import Testing
         #expect(harness.model.visibleCards.count == 3)
     }
 
+    @Test func neverMoreThanThreePlacesWhileFilesWork() {
+        let harness = Harness()
+        let working = (0..<4).map { index in
+            ResultCard(jobID: UUID(), source: harness.temp.file("\(index).mov", bytes: 10), origin: .dropZone, bytesBefore: 10)
+        }
+        working.forEach(harness.model.add)
+        #expect(harness.model.visibleCards.map(\.id) == working.suffix(3).map(\.id))
+    }
+
+    @Test func recentShowsARestoredCardInsteadOfATwin() async throws {
+        let harness = Harness()
+        let report = await harness.model.run(harness.job(harness.temp.file("a.png", bytes: 100_000)))
+        let result = try #require(report.results.first)
+        await harness.model.restore(result)
+        harness.model.show(result)
+        #expect(harness.model.cards.count == 1)
+    }
+
     @Test func dismissStopsTheUpload() async throws {
         let harness = Harness()
         _ = await harness.model.run(harness.job(harness.temp.file("a.png", bytes: 100_000)))
