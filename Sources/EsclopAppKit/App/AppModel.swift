@@ -718,6 +718,9 @@ public final class AppModel {
                 guard copyBack else { return }
                 self.writeClipboard(files: [result.output])
             })
+            // A failed card has no "…": the popover closes so the failure and its Retry show,
+            // instead of controls that can no longer run anything.
+            if case .failed = card.phase, card.machine.menuOpen { interact(card, .menu(false)) }
         }
     }
 

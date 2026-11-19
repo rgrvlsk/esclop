@@ -76,13 +76,15 @@ import Testing
     /// A video's GIF keeps the video, from the tile or from More formats.
     @Test func aVideosGIFKeepsTheVideo() async throws {
         let harness = Harness()
-        _ = await harness.model.run(harness.job(harness.temp.file("clip.mov", bytes: 100_000)))
+        let clip = harness.temp.file("clip.mov", bytes: 100_000)
+        _ = await harness.model.run(harness.job(clip))
         let card = try #require(harness.model.cards.first)
         let model = OptionsModel(card: card, app: harness.model)
         model.pick(.gifVideo, keepBoth: false)
         #expect(model.armed == nil, "not armed: it runs, beside the video")
         #expect(await eventually { harness.requests.requests.count == 2 })
-        #expect(harness.requests.requests.last?.location == .sameFolder, "a new file next to the video")
+        let beside = clip.deletingLastPathComponent().appendingPathComponent("clip-optimised.gif")
+        #expect(harness.requests.requests.last?.location == .path(beside.path), "a new file next to the video")
     }
 }
 
