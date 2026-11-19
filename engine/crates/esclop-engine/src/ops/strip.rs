@@ -18,13 +18,12 @@ pub fn strip(req: &Request, ctx: &Ctx) -> Result<OpResult> {
     let (data, (w, h)) = match fmt {
         Format::Jpeg => {
             let parts = meta::JpegParts::parse(&bytes)?;
-            let o = parts.orientation();
-            let extra = if keep.contains(&Keep::Orientation) && o != 1 {
-                vec![(meta::APP1, meta::exif_app1(&meta::minimal_exif(o)))]
-            } else {
-                vec![]
-            };
             let keep_icc = keep.contains(&Keep::Icc);
+            let o = keep.contains(&Keep::Orientation).then(|| parts.orientation());
+            let extra: Vec<_> = meta::kept_exif(parts.exif(), o, keep_icc)
+                .map(|x| (meta::APP1, meta::exif_app1(&x)))
+                .into_iter()
+                .collect();
             (meta::jpeg_rebuild(&parts, &extra, |s| !s.is_metadata() || (keep_icc && s.is_icc())), jpeg_size(&parts))
         }
         Format::Png => {
