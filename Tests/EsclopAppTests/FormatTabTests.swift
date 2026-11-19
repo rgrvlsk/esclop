@@ -128,6 +128,9 @@ import Testing
         #expect(await eventually { harness.requests.requests.count == 3 && model.card.result != nil })
         #expect(harness.requests.requests.last?.downscale == nil, "never enlarges: back to the original's size")
         #expect(model.currentScale == 1)
+        model.app.perform(.downscale, on: model.card)
+        #expect(await eventually { harness.requests.requests.count == 4 && model.card.result != nil })
+        #expect(model.isCurrent(0.5), "the hover Downscale chooses Half too")
     }
 
     /// A crop makes the file smaller, but it is not a scale: no size tile is chosen for it.
@@ -135,7 +138,8 @@ import Testing
         let (model, harness) = try await model(width: 4000, height: 2000)
         model.app.crop(model.card, to: CropSize(width: 2000, height: 2000))
         #expect(await eventually { harness.requests.requests.count == 2 && model.card.result != nil })
-        #expect(model.currentScale == 1, "Original stays the chosen tile")
+        #expect(model.currentScale == 1, "not a scale")
+        #expect(!model.isCurrent(1), "and not the original either: no tile is chosen")
     }
 
     @Test func everyKindHasTheTabsItCanUse() {

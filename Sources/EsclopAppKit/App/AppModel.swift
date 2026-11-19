@@ -692,7 +692,8 @@ public final class AppModel {
         let wasClipboardImage = card.source.path.hasPrefix(Paths.temporary.path)
         card.adjusted = adjust != nil
         card.loupe = nil
-        // Every run starts from the original: only `downscale(_:to:)` keeps a scale.
+        // Every run starts from the original: the scale resets here, and the run that starts
+        // sets it below.
         card.downscale = 1
         let choice = choice ?? card.choice
         let rule = card.appliedRule?.choice == choice ? card.appliedRule : nil
