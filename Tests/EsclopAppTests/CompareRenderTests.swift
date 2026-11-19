@@ -24,6 +24,18 @@ import Testing
         return compare
     }
 
+    /// Outside a window, so controls draw active, under the test process's system blue accent:
+    /// Keep and the Differences toggle stay charcoal (T1). The controller adds the root tint.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func activeControls(scheme: ColorScheme) async throws {
+        let harness = Harness()
+        let saved = UserDefaults.standard.string(forKey: CompareModel.modeKey)
+        defer { UserDefaults.standard.set(saved, forKey: CompareModel.modeKey) }
+        let compare = await model(harness, mode: .flip)
+        compare.showsDifference = true
+        try await OptionsRenderTests().snapshot(CompareView(model: compare).designTint().frame(width: Self.size.width, height: Self.size.height), name: "compare-active", scheme: scheme)
+    }
+
     @Test func split() async throws {
         let harness = Harness()
         let saved = UserDefaults.standard.string(forKey: CompareModel.modeKey)

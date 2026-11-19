@@ -22,6 +22,7 @@ struct ParamField: View {
             switch param.type {
             case .boolean:
                 Toggle(title, isOn: Binding(get: { effective == "true" }, set: { value = String($0) }))
+                    .tint(Ink.charcoal)
             case let .choice(options):
                 Picker(title, selection: Binding(get: { effective }, set: { value = $0 })) {
                     if param.defaultValue == nil, !param.required {
