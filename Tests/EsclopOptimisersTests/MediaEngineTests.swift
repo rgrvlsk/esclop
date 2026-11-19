@@ -478,6 +478,9 @@ import UniformTypeIdentifiers
         #expect(video?.width == 640)
         #expect(video?.height == 360)
         #expect(result.steps.contains("Not enlarged to 2560x1440; kept 640x360"))
+        // An aspect crop whose width rounds odd (640x360 at 9:16 is 203x360) is no enlargement.
+        let portrait = try await world.engine.crop(mov, to: CropSize(aspectRatio: "9:16"), request: world.request(mov, location: .temporary), progress: { _ in })
+        #expect(!portrait.steps.contains { $0.hasPrefix("Not enlarged") }, "\(portrait.steps)")
     }
 
     @Test func gifFollowsThePlaybackSpeedAndIsNeverFittedAsAnMP4() async throws {

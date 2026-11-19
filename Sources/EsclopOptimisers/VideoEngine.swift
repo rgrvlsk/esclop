@@ -106,7 +106,8 @@ struct VideoEngine: Sendable {
     }
 
     /// Text subtitles ffmpeg reads and can write again as another container's text subtitles.
-    static let textSubtitles: Set<String> = ["subrip", "ass", "ssa", "webvtt", "text", "mov_text"]
+    /// ponytail: plain `text` (MKV S_TEXT/ASCII) is left out: the bundled ffmpeg cannot decode it.
+    static let textSubtitles: Set<String> = ["subrip", "ass", "ssa", "webvtt", "mov_text"]
 
     /// The encoder for a container's own text subtitles (MP4's mov_text, WebM's WebVTT, SubRip in MKV).
     func textSubtitleEncoder(for container: OutputFormat) -> String? {
@@ -148,7 +149,9 @@ struct VideoEngine: Sendable {
                     ?? ImageIOCodec.cropRect(for: nil, width: width, height: height, aspect: aspect, smart: false)
                 filters.append("crop=\(even(rect.width)):\(even(rect.height)):\(Int(rect.minX)):\(Int(rect.minY))")
                 steps.append("Cropped to \(even(rect.width))x\(even(rect.height))")
-                available = (Double(even(rect.width)), Double(even(rect.height)))
+                // The crop rectangle, not its even size: `targetSize` may round to an odd width
+                // the even crop then trims, which is no enlargement.
+                available = (rect.width.rounded(), rect.height.rounded())
             }
             let fitted = notEnlarged(target, within: (Int(available.width), Int(available.height)))
             width = fitted.width
