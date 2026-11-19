@@ -316,6 +316,54 @@ struct Status: AsyncParsableCommand {
     }
 }
 
+// MARK: - recent, restore
+
+struct Recent: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "The most recent results, newest first, with their backups.",
+        discussion: "Results cleared from the menu bar panel (Recent › Clear) are not listed. `esclop restore <file>` puts back the original of one optimised in place."
+    )
+    @Option(help: "At most this many results.") var limit = 20
+    @OptionGroup var global: GlobalOptions
+
+    func validate() throws {
+        guard limit > 0 else { throw ValidationError("--limit is at least 1.") }
+    }
+
+    func run() async throws {
+        try await guarded(global) {
+            let results = await EsclopService(global.context()).recentResults(limit: limit).map(ResultSummary.init)
+            if global.json { Output.json(results); return 0 }
+            let t = global.terminal
+            if results.isEmpty { print("No recent results.") }
+            for result in results {
+                print(t.line(result, fullPath: true) + (result.backup == nil ? "" : t.dim("  (backup kept)")))
+            }
+            return 0
+        }
+    }
+}
+
+struct Restore: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "Put the original back from its backup, for a file optimised in place.",
+        discussion: "The file is the source or the output of a recent result (`esclop recent`). The current file is replaced by the original."
+    )
+    @Argument(help: "The file, by its original's path or its result's path.") var path: String
+    @OptionGroup var global: GlobalOptions
+
+    func run() async throws {
+        try await guarded(global) {
+            let outcome = try await EsclopService(global.context()).restoreBackup(for: try PathInput.url(path), deleteBackup: false)
+            if global.json { Output.json(outcome); return 0 }
+            let t = global.terminal
+            print("\(t.green("✓")) \(t.bold(PathInput.abbreviate(URL(fileURLWithPath: outcome.restored)))) restored")
+            if let left = outcome.leftInPlace { note("the result \(PathInput.abbreviate(URL(fileURLWithPath: left))) is still there") }
+            return 0
+        }
+    }
+}
+
 struct Logs: AsyncParsableCommand {
     static let configuration = CommandConfiguration(abstract: "L'Esclop's recent log messages and log files.")
     @Option(help: "How far back: 30s, 10m, 1h, 2d.") var last = "10m"
