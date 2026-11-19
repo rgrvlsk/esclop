@@ -84,7 +84,9 @@ public struct OptionsPopover: View {
         }
     }
 
-    /// The listed ⌘ shortcuts work from any tab.
+    /// The listed ⌘ shortcuts work from any tab. Copy, Save as…, Quick Look and Show in Finder
+    /// are also rows of the Actions tab (ShareTab), which show these keys, and Restore original's
+    /// tooltip shows ⌘Z: change both together.
     private var shortcuts: some View {
         Group {
             Button("") { model.app.perform(.copy, on: model.card) }.keyboardShortcut("c")
@@ -160,7 +162,7 @@ struct FusedTabKey: PreferenceKey {
 struct FusedPanel: View {
     var drill: Bool
     static let inset: CGFloat = 8
-    static let radius: CGFloat = 18
+    nonisolated static let radius: CGFloat = 18
 
     var body: some View {
         UnevenRoundedRectangle(

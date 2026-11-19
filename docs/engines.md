@@ -136,8 +136,9 @@ by default) and implements `docs/engine-protocol.md`:
   not answer hello within 15 seconds fails the call instead of hanging it.
 - Task cancellation resolves the call with `.cancelled` at once and sends `{"id","op":"cancel"}`.
 - If the child exits, its requests in flight fail; the next call starts a new child and each
-  failed request is retried once. Three crashes within 30 seconds stop restarts for that window
-  (`shutdown()` does not count).
+  failed request is retried once. A request that fails twice tries once more on its own; if that
+  crashes too, it fails alone and its crashes do not count. Three crashes within 30 seconds stop
+  restarts for that window (`shutdown()` does not count).
 - Error codes map to `EsclopError`: `unsupported` → `unsupportedFile`, `not_found` →
   `fileNotFound`, `already_smaller` → `alreadySmaller`, `invalid_params` → `invalidArgument`,
   `cancelled` → `cancelled`, anything else → `toolFailed(tool: "esclop-engine", ...)`.

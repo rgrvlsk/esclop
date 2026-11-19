@@ -81,7 +81,8 @@ public actor EngineClient {
     private var helloIDs: [String] = []
     private var nextID = 1
     private var cachedCapabilities: EngineCapabilities?
-    private var exits: [Date] = []
+    /// Crashes in the last 30 seconds, by child: three stop the restarts for a while.
+    private var exits: [(child: ObjectIdentifier, at: Date)] = []
     private var stopping: ObjectIdentifier?
     /// A request on its last, lone attempt is running (`alone`); others wait their turn.
     private var lonely = false
@@ -121,6 +122,7 @@ public actor EngineClient {
     struct ChildExited: Error {
         let status: Int32
         let stderr: String
+        let child: ObjectIdentifier
     }
 
     /// `executable` overrides the locator (tests point it at a fake engine); `environment` is
@@ -187,11 +189,11 @@ public actor EngineClient {
     ) async throws -> EngineReply {
         do {
             return EngineReply(try await send(op: op, input: input, output: output, params: params, timeout: timeout, progress: progress))
-        } catch is ChildExited {
+        } catch let first as ChildExited {
             // The child crashed or was restarted under us; one more go on a fresh child.
             do {
                 return EngineReply(try await send(op: op, input: input, output: output, params: params, timeout: timeout, progress: progress))
-            } catch is ChildExited {
+            } catch let second as ChildExited {
                 // It died again: one of the requests retried with this one kills it. Each tries
                 // once more on its own; only the one that crashes the engine then fails.
                 do {
@@ -199,6 +201,9 @@ public actor EngineClient {
                         try await self.send(op: op, input: input, output: output, params: params, timeout: timeout, progress: progress, lonely: true)
                     })
                 } catch let exited as ChildExited {
+                    // This file crashed the engine: the two crashes before were its own, not a
+                    // crash loop, so they do not hold back the files after it.
+                    exits.removeAll { $0.child == first.child || $0.child == second.child }
                     throw EsclopError.toolFailed(
                         tool: Tool.esclopEngine.rawValue, exitCode: exited.status,
                         stderr: "esclop-engine stopped while working on \(input?.lastPathComponent ?? op). \(exited.stderr)"
@@ -261,7 +266,7 @@ public actor EngineClient {
                     try child.send(line)
                 } catch {
                     pending[id] = nil
-                    continuation.resume(throwing: ChildExited(status: -1, stderr: child.stderrTail))
+                    continuation.resume(throwing: ChildExited(status: -1, stderr: child.stderrTail, child: ObjectIdentifier(child)))
                 }
             }
         } onCancel: {
@@ -326,7 +331,7 @@ public actor EngineClient {
     private func ensureRunning() throws -> RunningProcess {
         if let running, running.isRunning { return running }
         let now = Date()
-        exits = exits.filter { now.timeIntervalSince($0) < 30 }
+        exits = exits.filter { now.timeIntervalSince($0.at) < 30 }
         if exits.count >= 3 {
             throw EsclopError.toolFailed(
                 tool: Tool.esclopEngine.rawValue, exitCode: -1,
@@ -359,7 +364,7 @@ public actor EngineClient {
         // Count the exit before waiting, so a crash loop is throttled even while new requests
         // start fresh children. A shutdown is not a crash.
         let ranLoneAttempt = lonelyChildren.remove(ObjectIdentifier(child)) != nil
-        if stopping != ObjectIdentifier(child), !ranLoneAttempt { exits.append(Date()) }
+        if stopping != ObjectIdentifier(child), !ranLoneAttempt { exits.append((ObjectIdentifier(child), Date())) }
         // Let replies the child wrote before exiting arrive first.
         await reader?.value
         let generation = ObjectIdentifier(child)
@@ -367,7 +372,7 @@ public actor EngineClient {
         let stderr = child.stderrTail.trimmingCharacters(in: .whitespacesAndNewlines).suffix(1000)
         for (id, entry) in pending where entry.generation == generation {
             pending[id] = nil
-            entry.continuation.resume(throwing: ChildExited(status: status, stderr: String(stderr)))
+            entry.continuation.resume(throwing: ChildExited(status: status, stderr: String(stderr), child: generation))
         }
         if running === child {
             running = nil

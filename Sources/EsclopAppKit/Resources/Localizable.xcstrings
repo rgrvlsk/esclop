@@ -2511,6 +2511,16 @@
         }
       }
     },
+    "Could not save %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha pogut desar %@"
+          }
+        }
+      }
+    },
     "Could not save the rule": {
       "localizations": {
         "ca": {
@@ -7531,6 +7541,16 @@
         }
       }
     },
+    "Store this choice as the rule": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desa aquesta opció com a regla"
+          }
+        }
+      }
+    },
     "Strip metadata": {
       "localizations": {
         "ca": {
@@ -8791,6 +8811,16 @@
         }
       }
     },
+    "Use this from now on": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fes-ho així d’ara endavant"
+          }
+        }
+      }
+    },
     "VP9": {
       "localizations": {
         "ca": {
@@ -9107,6 +9137,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Treballant"
+          }
+        }
+      }
+    },
+    "Your edited version is in the Trash": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La teva versió editada és a la Paperera"
           }
         }
       }

@@ -261,12 +261,12 @@ public struct CardPresentation: Equatable, Sendable {
             actions = Self.distinct([.openDetail] + tools + [.reveal, .copy, .dismiss])
             accessibilityLabel = f("%@, already optimised, kept the original", name)
         case let .restored(result):
-            // ponytail: Undo that moved an edited file to the Trash should add "Your edited
-            // version is in the Trash". Trigger: RestoreOutcome.movedToTrash (PR #53) on main.
             fileName = card.displayName ?? result.source.lastPathComponent
             capsule = .status(symbol: "arrow.uturn.backward", text: f("Original restored · %@", Figures.bytes(result.bytesBefore, locale: locale)))
             headline = t("Original restored")
-            caption = Figures.bytes(result.bytesBefore, locale: locale)
+            // Undo never deletes: a version edited after optimising went to the Trash, and the
+            // card says where, in place of the size the detail still shows.
+            caption = card.editInTrash ? t("Your edited version is in the Trash") : Figures.bytes(result.bytesBefore, locale: locale)
             tone = .neutral
             let restoredEditing = Self.editingActions(for: result.source, kind: result.kind)
             tools = Self.tools(for: card.origin, undo: false)
@@ -276,7 +276,7 @@ public struct CardPresentation: Equatable, Sendable {
             (primary, primaryDetail, secondary, menu) = Self.detail(card, undo: false, editing: restoredEditing, t: t)
             self.editing = restoredEditing
             actions = Self.distinct([.openDetail] + tools + [.reveal, .copy, .dismiss])
-            accessibilityLabel = f("%@, original restored", fileName)
+            accessibilityLabel = f("%@, original restored", fileName) + (card.editInTrash ? ". " + t("Your edited version is in the Trash") : "")
         case let .failed(message):
             capsule = .error(title: t("Not optimised"), message: message)
             headline = t("Not optimised")

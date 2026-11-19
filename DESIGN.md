@@ -56,7 +56,9 @@ system screenshot thumbnail. The look follows [docs/design/targets](docs/design/
 Hover shows three round buttons over the picture's corner (Copy for a copied screenshot, Show
 in Finder for a file, then Undo and "…") and a close button over its outer corner, so the
 object never changes size under the pointer. The card glows in the picture's tone. The picture
-drags out as the file (the original after a restore). Errors keep the original and say so in
+drags out as the file (the original after a restore). Undo never deletes: when it moved a
+version edited after optimising to the Trash, the restored card says "Your edited version is in
+the Trash". Errors keep the original and say so in
 plain words ("This file isn't a video L'Esclop can read. It may be damaged.").
 Several results in a row: show the newest three, newest at the bottom, older ones go to the
 menu-bar history; never stack expanded details. A file at work keeps its place, with its Stop,
@@ -90,7 +92,8 @@ the app, so the app in front keeps its windows, but it takes the keys, so ⌘O w
 - **Recent:** the files being optimised, then the last twelve results, five in view: the
   picture, the name, "2.4 MB → 612 kB · 9:41" and the saving. On hover, Copy and Show in Finder;
   a click shows the result's card again; the context menu adds Compare and Restore Original.
-  The arrows move through the rows and Return shows the card; VoiceOver has every action.
+  The arrows move through the rows and on into the commands, and Return runs the row; the
+  pointer moves the same highlight, as in NSMenu, so one row is washed. VoiceOver has every action.
   Clear (privacy) forgets the names: the shared log keeps only sizes and dates, so the saving
   stays, and the CLI and MCP no longer list them. Files, backups and cards are not touched.
   Empty: "Copy a screenshot. You'll find it here, lighter."
@@ -136,12 +139,15 @@ on that one file. It replaces a long context menu. It is not the menu-bar menu. 
 - **Crop:** its own tab, opening on the picture itself with its frame (owner's request: a crop
   must be seen), the aspect chips over it and the size in pixels under it, Reset and Crop. A PDF
   crops each page's box to a ratio. Chips are cream, the chosen one charcoal.
+- A crop and a scale stay with the file, as Clop keeps its steps: every other choice runs them
+  again from the original, until Original (both) or Reset (the crop) takes them off.
 - **Actions:** rows, each with a round symbol, what it does and what it gives, and a play button:
   the person's pipelines ("Your pipeline"), Upload ("Copies a link"; Set Up Uploads… without a
   target, with a chevron since it opens Settings), Copy Link after an upload, Share… ("AirDrop, Mail, Messages"), shelf and upload apps
-  when installed; then Run a Shortcut › and Open with ›, and a dashed "Edit Pipelines…". Copy
-  ⌘C, Save as ⌘S, Show in Finder ⌘R and Quick Look ⌘Y are keys of the popover; Compare is
-  the detail's loupe; how long results stay visible is in Settings.
+  when installed; then flat rows Copy ⌘C, Save as… ⌘S, Quick Look ⌘Y and Show in Finder ⌘R
+  with their keys, Run a Shortcut › and Open with ›, and a dashed "Edit Pipelines…". Pipelines
+  are listed only for the kinds they do something for. The keys work from every tab;
+  Compare is the detail's loupe; how long results stay visible is in Settings.
 - Every choice that changes size shows an estimate before it is applied. Long lists are
   drill-downs inside the popover, never inline walls. Only installed apps are listed.
 
@@ -166,7 +172,9 @@ At the bottom of Optimise a small native checkbox turns the current choice into 
 "Always apply to PNG screenshots". The rule key is origin + input format. Unticking deletes the
 rule, so the next item of that kind gets the default behaviour again; ⌘Z only restores the
 current file. When a rule was applied, the result capsule shows a small rule glyph with the
-tooltip "Rule: PNG screenshots → WebP", and the popover opens with the box ticked. Rules are
+tooltip "Rule: PNG screenshots → WebP", and the popover opens with the box ticked. The line under
+a ticked box says what the stored rule does; trying another choice leaves the rule as it is,
+and a "Use this from now on" link under it stores the new choice. Rules are
 listed and edited in Settings › Automation › Clipboard rules.
 
 ## Batch window
