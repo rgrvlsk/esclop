@@ -39,6 +39,9 @@ func rejects(_ arguments: [String]) -> Bool {
         #expect(try parse(["optimize", "a.png"], as: Optimise.self).files.location == .inPlace)
         #expect(try parse(["optimise", "a.png", "--compression", "70"], as: Optimise.self).quality.quality == CompressionQuality(tier: .custom, factor: 70))
         #expect(try parse(["optimise", "a.png", "--behaviour", "temp"], as: Optimise.self).files.location == .temporary)
+        #expect(try parse(["optimise", "a.png"], as: Optimise.self).adaptive == nil, "the setting decides")
+        #expect(try parse(["optimise", "a.png", "--adaptive"], as: Optimise.self).adaptive == true)
+        #expect(try parse(["optimise", "a.png", "--no-adaptive"], as: Optimise.self).adaptive == false)
     }
 
     @Test func optimiseRejectsBadValues() {
@@ -273,7 +276,8 @@ func rejects(_ arguments: [String]) -> Bool {
         #expect(mixed == 1)
     }
 
-    /// `optimise` leaves files L'Esclop already optimised as they are; `--force` does them anyway.
+    /// `optimise` leaves files L'Esclop already optimised as they are; `--force`, or a level
+    /// stronger than the regular one, does them anyway.
     @Test func optimisedFilesAreLeftAloneWithoutForce() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-mark-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -300,5 +304,10 @@ func rejects(_ arguments: [String]) -> Bool {
         let (_, forced) = try run(["--force"])
         #expect(!forced.contains("already optimised"), "\(forced)")
         #expect(forced.contains("It may be damaged"), "--force reaches the optimiser: \(forced)")
+        for stronger in [["-a"], ["--compression", "70"]] {
+            let (_, output) = try run(stronger)
+            #expect(output.contains("It may be damaged"), "\(stronger) reaches the optimiser: \(output)")
+        }
+        #expect(try run(["--compression", "30"]).1.contains("already optimised"), "the regular level is no request to go again")
     }
 }

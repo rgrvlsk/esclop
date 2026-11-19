@@ -355,6 +355,8 @@ public struct ResultSummary: Codable, Sendable, Hashable {
     public var finishedAt: Date
     /// The public link of an uploaded file.
     public var link: String?
+    /// Where the job came from (`RequestOrigin`: cli, mcp, clipboard …); nil on lines from before 0.2.
+    public var origin: String?
 
     public init(_ result: OptimisationResult) {
         id = result.id
@@ -373,6 +375,7 @@ public struct ResultSummary: Codable, Sendable, Hashable {
         seconds = (result.finishedAt.timeIntervalSince(result.startedAt) * 100).rounded() / 100
         steps = result.steps
         finishedAt = result.finishedAt
+        origin = result.origin?.rawValue
     }
 
     /// The first step of a pipeline result whose filter stopped the file before any step ran.
