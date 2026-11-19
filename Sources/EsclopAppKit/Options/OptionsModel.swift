@@ -312,7 +312,6 @@ public final class OptionsModel {
         var choice = card.choice
         choice.compression = compression
         choice.quality = nil
-        quality = Double(OptimiseChoice.quality(for: compression))
         apply(choice)
     }
 

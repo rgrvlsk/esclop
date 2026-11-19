@@ -31,6 +31,8 @@ extension AppModel {
             for: beside, extension: format.fileExtension,
             sameFolderTemplate: EsclopSettings.sameFolderNameTemplate.value(in: settings)
         )
+        // ponytail: `.path` expands %f, %e and %d, so a folder or name holding one of them lands
+        // wrong; add an exact-file location case if someone hits it.
         var job = factory.job(for: original, origin: .app, location: .path(target.path))
         var choice = card.choice
         choice.format = format
@@ -41,13 +43,10 @@ extension AppModel {
     // MARK: Size
 
     /// Scales from the original; 1 is the original itself, with no adjustment left over (after
-    /// Fit or Crop too). The chosen tile changes only when the run starts.
+    /// Fit or Crop too).
     public func downscale(_ card: ResultCard, to factor: Double) {
         guard factor < 1 else { return reprocess(card) }
-        reprocess(card) { job in
-            job.request.downscale = factor
-            card.downscale = factor
-        }
+        reprocess(card) { $0.request.downscale = factor }
     }
 
     public func fit(_ card: ResultCard, under bytes: Int) {
