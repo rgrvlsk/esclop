@@ -81,6 +81,8 @@ public enum StagedFiles {
     /// Calls `write` once per name with a path in a hidden folder inside `folder`, then moves
     /// each file to its name there, or to the next free one (`name 2.png`), so nothing that
     /// exists is replaced. A throw, or a name `write` did not fill, leaves nothing behind.
+    /// ponytail: the staging folder sits in `folder` so the moves stay on one volume; a crash in
+    /// the middle leaves it there (hidden). Trigger: a report of leftovers; then sweep `.esclop-*`.
     public static func publish(_ names: [String], into folder: URL, write: (Int, URL) throws -> Void) throws -> [URL] {
         let fm = FileManager.default
         try Paths.ensure(folder)
