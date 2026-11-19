@@ -3,7 +3,8 @@
 // Client for `esclop-engine serve`, the Rust image engine (docs/engine-protocol.md). One
 // long-lived child per client; requests carry an id and may be answered out of order. If the
 // child dies (a decoder crash, for instance) the requests in flight fail, the next call starts a
-// fresh child, and a request that died with the old one is retried once.
+// fresh child, and a request that died with the old one is retried. When the retry dies too,
+// each such request has one last go on its own, so only the file that crashes the engine fails.
 
 import EsclopCore
 import Foundation
@@ -82,6 +83,11 @@ public actor EngineClient {
     private var cachedCapabilities: EngineCapabilities?
     private var exits: [Date] = []
     private var stopping: ObjectIdentifier?
+    /// A request on its last, lone attempt is running (`alone`); others wait their turn.
+    private var lonely = false
+    private var lonelyQueue: [CheckedContinuation<Void, Never>] = []
+    /// Children that ran a lone attempt: their crash names the culprit and is not a crash loop.
+    private var lonelyChildren: Set<ObjectIdentifier> = []
     /// Requests cancelled (or timed out) while running whose reply has not come back yet, by the
     /// child that runs them. One still missing after `cancelGrace` holds a worker in a step that
     /// does not check for cancellation: the child is restarted to free it. (A request still queued
@@ -185,13 +191,32 @@ public actor EngineClient {
             // The child crashed or was restarted under us; one more go on a fresh child.
             do {
                 return EngineReply(try await send(op: op, input: input, output: output, params: params, timeout: timeout, progress: progress))
-            } catch let exited as ChildExited {
-                throw EsclopError.toolFailed(
-                    tool: Tool.esclopEngine.rawValue, exitCode: exited.status,
-                    stderr: "esclop-engine stopped while working on \(input?.lastPathComponent ?? op). \(exited.stderr)"
-                )
+            } catch is ChildExited {
+                // It died again: one of the requests retried with this one kills it. Each tries
+                // once more on its own; only the one that crashes the engine then fails.
+                do {
+                    return EngineReply(try await alone {
+                        try await self.send(op: op, input: input, output: output, params: params, timeout: timeout, progress: progress, lonely: true)
+                    })
+                } catch let exited as ChildExited {
+                    throw EsclopError.toolFailed(
+                        tool: Tool.esclopEngine.rawValue, exitCode: exited.status,
+                        stderr: "esclop-engine stopped while working on \(input?.lastPathComponent ?? op). \(exited.stderr)"
+                    )
+                }
             }
         }
+    }
+
+    /// Runs `body` after every earlier lone attempt has finished. ponytail: new requests still
+    /// share the child meanwhile; the survivors hold their work slots while they wait, so few do.
+    private func alone<T: Sendable>(_ body: () async throws -> T) async throws -> T {
+        if lonely { await withCheckedContinuation { lonelyQueue.append($0) } }
+        lonely = true
+        defer {
+            if lonelyQueue.isEmpty { lonely = false } else { lonelyQueue.removeFirst().resume() }
+        }
+        return try await body()
     }
 
     /// Stops the child. The next call starts a new one.
@@ -206,10 +231,11 @@ public actor EngineClient {
 
     private func send(
         op: String, input: URL?, output: URL?, params: [String: JSONValue]?, timeout: TimeInterval? = nil,
-        progress: (@Sendable (Double) -> Void)?
+        progress: (@Sendable (Double) -> Void)?, lonely: Bool = false
     ) async throws -> [String: JSONValue] {
         if Task.isCancelled { throw EsclopError.cancelled }
         let child = try ensureRunning()
+        if lonely { lonelyChildren.insert(ObjectIdentifier(child)) }
         let id = String(nextID)
         nextID += 1
         if op == "hello" { helloIDs.append(id) }
@@ -332,7 +358,8 @@ public actor EngineClient {
     private func childExited(_ child: RunningProcess, status: Int32, reader: Task<Void, Never>?) async {
         // Count the exit before waiting, so a crash loop is throttled even while new requests
         // start fresh children. A shutdown is not a crash.
-        if stopping != ObjectIdentifier(child) { exits.append(Date()) }
+        let ranLoneAttempt = lonelyChildren.remove(ObjectIdentifier(child)) != nil
+        if stopping != ObjectIdentifier(child), !ranLoneAttempt { exits.append(Date()) }
         // Let replies the child wrote before exiting arrive first.
         await reader?.value
         let generation = ObjectIdentifier(child)
