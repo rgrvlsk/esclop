@@ -87,12 +87,17 @@ import UniformTypeIdentifiers
         let harness = Harness()
         let size = model(card(.done(renders.saved())), harness: harness) { model in
             model.tab = .size
-            model.scale = 0.5
-            model.estimates[model.scaleRequest] = 180_000
+            for (factor, bytes) in [(2000.0 / 2940, 1_100_000), (1280.0 / 2940, 520_000), (0.5, 610_000)] {
+                model.estimates[model.scaleRequest(factor)] = bytes
+            }
+        }
+        try await snapshot(size, name: "options-size", scheme: scheme)
+        let crop = model(card(.done(renders.saved())), harness: harness) { model in
+            model.tab = .crop
             model.startCrop(aspect: .ratio(16, 9))
             if let request = model.cropRequest { model.estimates[request] = 520_000 }
         }
-        try await snapshot(size, name: "options-size", scheme: scheme)
+        try await snapshot(crop, name: "options-crop", scheme: scheme)
         let share = model(card(.done(renders.saved())), harness: harness) { $0.tab = .share }
         try await snapshot(share, name: "options-share", scheme: scheme)
     }

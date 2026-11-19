@@ -281,7 +281,7 @@ import Testing
             PresetZone(name: "Screenshots for the blog post", icon: "camera.viewfinder"), PresetZone(name: "Share", icon: "square.and.arrow.up"),
         ]
         let four = try render(DropZoneView(state: DropZoneState(fileCount: 2, zones: zones, hoveredZone: "fit under 1 MB")), name: "drop-zone-presets", scheme: scheme)
-        #expect(four.width > Metrics.dropZoneWidth, "the zones sit beside the plain target")
+        #expect(four.width > DropTiles.plainWidth * 4, "the zones sit beside the plain target")
         try render(DropZoneView(state: DropZoneState(fileCount: 0, zones: Array(zones.prefix(3)), zonesLeading: false)), name: "drop-zone-presets-left", scheme: scheme)
     }
 
