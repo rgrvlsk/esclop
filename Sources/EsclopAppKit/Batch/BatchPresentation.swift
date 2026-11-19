@@ -79,6 +79,8 @@ public struct BatchPresentation: Equatable {
                 return String(format: t("Uploading… %d %%"), locale: locale, Int((min(1, max(0, fraction)) * 100).rounded()))
                     .replacingOccurrences(of: " %", with: Figures.space + "%")
             case .uploaded: return t("Uploaded · link copied")
+            // ponytail: a row has no Upload Again; its Share tab or a card has. Add one when batch
+            // uploads fail often enough to matter.
             case let .failed(message): return t("Not uploaded") + " · " + message
             case nil: break
             }

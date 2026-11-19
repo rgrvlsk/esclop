@@ -64,6 +64,8 @@ extension AppModel {
             case let .failure(error):
                 view?.upload = .failed(CardPresentation.message(for: error))
                 self.announce(Strings.format("%@ was not uploaded", file.lastPathComponent))
+                // A result shown nowhere (a quiet pipeline) has no other place to say why.
+                if view == nil { self.notice(Strings.format("%@ was not uploaded", file.lastPathComponent), CardPresentation.message(for: error)) }
             }
             finished()
         }

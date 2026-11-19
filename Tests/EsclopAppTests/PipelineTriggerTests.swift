@@ -143,7 +143,7 @@ import UniformTypeIdentifiers
         func installed(_ bundleIDs: [String]) async -> [URL] {
             bundleIDs.filter(installedIDs.contains).map { URL(fileURLWithPath: "/Applications/\($0).app") }
         }
-        func open(_ file: URL, with app: URL) async { calls.withLock { $0.opened.append((file, app)) } }
+        func open(_ file: URL, with app: URL) async throws { calls.withLock { $0.opened.append((file, app)) } }
         func presentFork(_ file: URL) async { calls.withLock { $0.forks.append(file) } }
     }
 
@@ -180,6 +180,7 @@ import UniformTypeIdentifiers
         #expect(outcome == .handled(nil))
         #expect(desktop.calls.withLock { $0.opened.map(\.1) } == [preview])
         await #expect(throws: EsclopError.self) { try await perform(.open(app: "NoSuchApp123"), on: desktop) }
+        await #expect(throws: EsclopError.self, "a path is not an app name") { try await perform(.open(app: "../Preview"), on: FakeDesktop(apps: ["../Preview": preview])) }
     }
 
     @Test func shelfAndUploadAppsGetTheFileWhenInstalled() async throws {

@@ -59,7 +59,8 @@ public struct AppPipelineHost: PipelineHost {
     ]
 
     public func perform(_ action: PipelineHostAction, file: URL, options: PipelineRunOptions) async throws -> PipelineHostOutcome {
-        if case let .uploadTo(target) = action {
+        switch (action, desktop) {
+        case let (.uploadTo(target), _):
             // Pipelines run on media files only; an upload step holds to that whatever runs it.
             guard let uploader else { return try await NoopPipelineHost().perform(action, file: file, options: options) }
             guard AgentPolicy.isUploadable(file) else {
@@ -68,11 +69,16 @@ public struct AppPipelineHost: PipelineHost {
             let link = try await uploader.upload(file, to: target) { _ in }
             await copyLink(link)
             return .handled(link.absoluteString)
-        }
-        if case .copyLinkForSending = action {
+        case (.copyLinkForSending, _):
             return .unavailable(Strings.text("Sending a link is not available in L’Esclop: there is no sharing service. Use upload(to:) with an upload target."))
+        case (_, nil):
+            return try await NoopPipelineHost().perform(action, file: file, options: options)
+        case let (_, desktop?):
+            return try await perform(action, file: file, on: desktop)
         }
-        guard let desktop else { return try await NoopPipelineHost().perform(action, file: file, options: options) }
+    }
+
+    private func perform(_ action: PipelineHostAction, file: URL, on desktop: any PipelineDesktop) async throws -> PipelineHostOutcome {
         switch action {
         case let .copyToClipboard(format, relativeTo):
             guard format == .imageData else {
@@ -86,32 +92,34 @@ public struct AppPipelineHost: PipelineHost {
             await desktop.copy(imageData: try Data(contentsOf: file), type: type)
             return .handled("copied the image")
         case let .open(app):
-            guard let url = await desktop.app(named: app, toOpen: file) else {
+            // A name, never a path: a pipeline must not reach an app outside where apps live.
+            guard !app.contains("/"), let url = await desktop.app(named: app, toOpen: file) else {
                 throw EsclopError.invalidArgument(Strings.format("There is no app called “%@” on this Mac.", app))
             }
-            await desktop.open(file, with: url)
+            try await desktop.open(file, with: url)
             return .handled(nil)
         case let .shelve(app):
-            return await handOver(file, to: app, from: Self.shelves, desktop: desktop)
+            return try await handOver(file, to: app, from: Self.shelves, desktop: desktop)
         case let .upload(app):
-            return await handOver(file, to: app, from: Self.uploadApps, desktop: desktop)
+            return try await handOver(file, to: app, from: Self.uploadApps, desktop: desktop)
         case .presentFork:
             await desktop.presentFork(file)
             return .handled(nil)
         case .uploadTo, .copyLinkForSending:
+            // Handled before a desktop is needed.
             return .handled(nil)
         }
     }
 
     /// Opens the file with the installed app `name` stands for, as the Share tab does.
-    private func handOver(_ file: URL, to name: String, from apps: [(name: String, title: String, bundleIDs: [String])], desktop: any PipelineDesktop) async -> PipelineHostOutcome {
+    private func handOver(_ file: URL, to name: String, from apps: [(name: String, title: String, bundleIDs: [String])], desktop: any PipelineDesktop) async throws -> PipelineHostOutcome {
         guard let entry = apps.first(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) else {
             return .unavailable(Strings.format("L’Esclop does not know the app “%@”.", name))
         }
         guard let app = await desktop.installed(entry.bundleIDs).first else {
             return .unavailable(Strings.format("%@ is not installed.", entry.title))
         }
-        await desktop.open(file, with: app)
+        try await desktop.open(file, with: app)
         return .handled(nil)
     }
 }
@@ -125,15 +133,16 @@ public protocol PipelineDesktop: Sendable {
     func app(named name: String, toOpen file: URL) async -> URL?
     /// The installed apps among these bundle ids, in their order.
     func installed(_ bundleIDs: [String]) async -> [URL]
-    func open(_ file: URL, with app: URL) async
+    func open(_ file: URL, with app: URL) async throws
     /// A `fork` step's file, shown as a result of its own.
     func presentFork(_ file: URL) async
 }
 
 /// The app's desktop for one run. `fork` shows a result only for a single file with a floating
-/// result: `original` is that file and its size before the run.
+/// result: `original` is that file and its size before the run. The model is held weakly: a batch
+/// row's retry keeps its executor, and with it this desktop.
 public struct AppDesktop: PipelineDesktop {
-    let model: AppModel
+    weak var model: AppModel?
     let original: (url: URL, bytes: Int)?
 
     public init(model: AppModel, original: (url: URL, bytes: Int)?) {
@@ -141,9 +150,9 @@ public struct AppDesktop: PipelineDesktop {
         self.original = original
     }
 
-    public func copy(text: String) async { await model.copyToClipboard(text: text) }
+    public func copy(text: String) async { await model?.copyToClipboard(text: text) }
 
-    public func copy(imageData: Data, type: UTType) async { await model.copyToClipboard(imageData: imageData, type: type) }
+    public func copy(imageData: Data, type: UTType) async { await model?.copyToClipboard(imageData: imageData, type: type) }
 
     public func app(named name: String, toOpen file: URL) async -> URL? {
         let workspace = NSWorkspace.shared
@@ -160,13 +169,13 @@ public struct AppDesktop: PipelineDesktop {
 
     public func installed(_ bundleIDs: [String]) async -> [URL] { await AppModel.installed(bundleIDs) }
 
-    public func open(_ file: URL, with app: URL) async {
+    public func open(_ file: URL, with app: URL) async throws {
         // The Share tab's "Open with" and shelf rows.
-        _ = try? await NSWorkspace.shared.open([file], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
+        _ = try await NSWorkspace.shared.open([file], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
     }
 
     public func presentFork(_ file: URL) async {
         guard let original else { return }
-        await model.presentFork(file, of: original.url, bytesBefore: original.bytes)
+        await model?.presentFork(file, of: original.url, bytesBefore: original.bytes)
     }
 }
