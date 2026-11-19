@@ -18,27 +18,43 @@ enum CardKeys {
     /// Backspace, as a key press and the hotkey see it.
     static let delete: Character = "\u{7F}"
 
+    /// The letters, as Clop's where L'Esclop has the action. The "…" menu shows them too.
+    static let letters: KeyValuePairs<Character, CardPresentation.Action> = [
+        "z": .undo, "c": .copy, "f": .reveal, "d": .compare, "k": .crop, "s": .save,
+    ]
+
     /// Every key, in DESIGN.md's order.
-    static let all: [Character] = [" ", "z", "c", "f", "d", "k", "s", delete, "-"] + (1...9).map { Character(String($0)) }
+    static let all: [Character] = [" "] + letters.map(\.key) + [delete, "-"] + (1...9).map { Character(String($0)) }
 
     /// What `key` does to `card` now, or nil when it does nothing there (the key then stays with
     /// the app in front).
     @MainActor
     static func command(for key: Character, on card: ResultCard) -> Command? {
-        if case .notice = card.phase { return nil }
+        command(for: key, on: card, actions: actions(of: card))
+    }
+
+    /// The keys that do something on `card` now.
+    @MainActor
+    static func keys(on card: ResultCard) -> [Character] {
+        let actions = actions(of: card)
+        return all.filter { command(for: $0, on: card, actions: actions) != nil }
+    }
+
+    /// Everything the card or its detail can do, whatever level shows; nothing for a notice.
+    @MainActor
+    private static func actions(of card: ResultCard) -> [CardPresentation.Action] {
+        if case .notice = card.phase { return [] }
         let info = card.presentation
-        // Everything the card or its detail can do, whatever level shows.
-        let actions = info.actions + FloatingResultView.actions(info, level: .detail)
+        return info.actions + FloatingResultView.actions(info, level: .detail)
+    }
+
+    @MainActor
+    private static func command(for key: Character, on card: ResultCard, actions: [CardPresentation.Action]) -> Command? {
         func offered(_ action: CardPresentation.Action) -> Command? { actions.contains(action) ? .perform(action) : nil }
-        let finished = card.machine.stage == .finished
+        let finished = card.machine.stage == .finished && !actions.isEmpty
+        if let action = letters.first(where: { $0.key == key })?.value { return offered(action) }
         switch key {
         case " ": return finished ? .quickLook : nil
-        case "z": return offered(.undo)
-        case "c": return offered(.copy)
-        case "f": return offered(.reveal)
-        case "d": return offered(.compare)
-        case "k": return offered(.crop)
-        case "s": return offered(.save)
         // Off the screen, as Clop's: the file stays (Move to Trash is in the "…" menu).
         case delete: return offered(.stop) ?? offered(.dismiss)
         case "-":
@@ -60,10 +76,7 @@ enum CardKeys {
 
     /// The key a "…" menu row shows at its end, as a system menu shows its key.
     static func label(for action: CardPresentation.Action) -> String? {
-        switch action {
-        case .compare: return "D"
-        default: return nil
-        }
+        letters.first { $0.value == action }.map { $0.key.uppercased() }
     }
 }
 

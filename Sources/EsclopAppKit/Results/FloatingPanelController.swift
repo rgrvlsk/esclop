@@ -142,6 +142,8 @@ final class FloatingPanelController {
         layout()
         if !panel.isVisible { panel.orderFrontRegardless() }
         // "Go to the newest result": the keys come here without activating the app, as a click.
+        // ponytail: like a click, the panel keeps the keys until the cards go or the person
+        // clicks elsewhere. Trigger: people asking for a key back to the app in front.
         if model.visibleCards.contains(where: \.wantsFocus) { panel.makeKey() }
     }
 
