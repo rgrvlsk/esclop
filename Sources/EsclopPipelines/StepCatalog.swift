@@ -200,7 +200,7 @@ extension PipelineLanguage {
                 ParamSpec("compression", .compression, kinds: [.image, .video, .audio],
                           "how hard to compress, 5 (best quality) to 100 (smallest file), `adaptive` to pick per file or `auto` to follow the app's setting"),
                 ParamSpec("adaptive", .boolean, default: "false", kinds: [.image],
-                          "let the format change when it makes the file smaller (PNG to JPEG and back)"),
+                          "also try a PNG without transparency as JPEG and keep the JPEG when it is much smaller"),
                 ParamSpec("dpi", .integer(min: 24, max: 1200), kinds: [.pdf],
                           "PDF only: downsample images to this resolution. 300 keeps print quality, 150 is for reading on screen, 72 is smallest"),
                 ParamSpec("location", .location, default: "inPlace", locationDoc),
@@ -376,7 +376,7 @@ extension PipelineLanguage {
         ),
         StepSpec(
             "copyLinkForSending", .action, kinds: allKinds,
-            summary: "Share the file through a link and copy the link.",
+            summary: "Clop's link sharing. L'Esclop has no sharing service, so the step is skipped; use upload(to:).",
             params: [ParamSpec("expiration", .duration, "stop sharing after this long, or `never`; left out, the app's setting decides")],
             positional: "expiration", example: "copyLinkForSending(expiration: 1d)"
         ),

@@ -24,8 +24,8 @@ public final class AppModel {
     /// three-second protection), so a result written in place is never optimised again.
     @ObservationIgnored var recentlyWritten: [String: Date] = [:]
     static let writeProtection: TimeInterval = 3
-    /// What L'Esclop last wrote to the clipboard, by bytes (`ClipboardFingerprint`).
-    @ObservationIgnored var ownWrites: [ClipboardFingerprint] = []
+    /// Every pasteboard read and write for results, and what the clipboard holds.
+    @ObservationIgnored let clipboard: ClipboardKeeper
     /// Shows the batch window when a batch starts.
     @ObservationIgnored var onBatch: ((Batch) -> Void)?
 
@@ -60,8 +60,6 @@ public final class AppModel {
     @ObservationIgnored public var downloads: () -> URL = { FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0] }
     /// Announces results to VoiceOver; tests record them instead.
     @ObservationIgnored public var announce: (String) -> Void = AppModel.postAnnouncement
-    /// The app in front when a copy happens: one of the origin signals. Tests set it.
-    @ObservationIgnored public var frontmostApp: () -> String? = { NSWorkspace.shared.frontmostApplication?.bundleIdentifier }
     /// Size estimates for the options popover, cached per file.
     @ObservationIgnored public lazy var estimator = SizeEstimator(executor: executor(for: .app))
 
@@ -72,6 +70,7 @@ public final class AppModel {
         self.settings = settings
         self.service = service
         self.pasteboard = pasteboard
+        clipboard = ClipboardKeeper(pasteboard: pasteboard)
         self.gate = gate
         self.reveal = reveal
         uploader = AppUploader(settings: settings)
@@ -197,14 +196,17 @@ public final class AppModel {
     @discardableResult
     public func run(
         _ job: OptimisationJob, displayName: String? = nil, context: CardContext? = nil, reusing existing: ResultCard? = nil,
-        batch: Batch? = nil,
+        batch: Batch? = nil, sourceApp: String? = nil,
         events: @escaping @Sendable (JobEvent) -> Void = { _ in },
         onResult: ((OptimisationResult) -> Void)? = nil
     ) async -> JobReport {
-        let executor = executor(for: job.request.origin)
         let batch = batch ?? (existing == nil && job.request.showResultUI && job.request.sources.count >= batchThreshold
             ? openBatch(origin: job.request.origin) : nil)
-        var tasks: [(URL, Task<Result<OptimisationResult, EsclopError>, Never>)] = []
+        // A fork shows as a result of its own beside a single floating result, not in a batch.
+        let single = job.request.showResultUI && batch == nil && job.request.sources.count == 1 ? job.request.sources.first : nil
+        let desktop = AppDesktop(model: self, original: single.map { ($0, Self.size(of: $0)) })
+        let executor = executor(for: job.request.origin, desktop: job.request.origin == .mcp ? nil : desktop, sourceApp: sourceApp)
+        var tasks: [(URL, Task<Result<OptimisationResult, PipelineStepFailure>, Never>)] = []
         for source in job.request.sources {
             if let batch {
                 let row = batch.row(for: source, bytes: Self.size(of: source))
@@ -226,7 +228,7 @@ public final class AppModel {
                 var again = job
                 again.request.id = UUID()
                 again.request.sources = [source]
-                Task { await self.run(again, displayName: displayName, context: context, onResult: onResult) }
+                Task { await self.run(again, displayName: displayName, context: context, sourceApp: sourceApp, onResult: onResult) }
             }
             tasks.append((source, task))
         }
@@ -236,7 +238,10 @@ public final class AppModel {
             for (source, task) in tasks {
                 switch await task.value {
                 case let .success(result): report.results.append(result)
-                case let .failure(error): report.failures.append(FileFailure(source: source, error: error))
+                case let .failure(failure):
+                    // A pipeline that failed late: what its earlier steps made, and the step, as CLI and MCP report.
+                    if let partial = failure.partial { report.results.append(partial) }
+                    report.failures.append(FileFailure(source: source, error: failure.error, step: failure.step))
                 }
             }
             return report
@@ -263,7 +268,7 @@ public final class AppModel {
     private func startRow(
         _ row: BatchRow, in batch: Batch, job: OptimisationJob, executor: JobExecutor,
         events: @escaping @Sendable (JobEvent) -> Void, onResult: ((OptimisationResult) -> Void)?
-    ) -> Task<Result<OptimisationResult, EsclopError>, Never> {
+    ) -> Task<Result<OptimisationResult, PipelineStepFailure>, Never> {
         let source = row.source
         var single = job
         single.request.sources = [source]
@@ -272,6 +277,7 @@ public final class AppModel {
         row.retry = { [weak self, weak row, weak batch] in
             guard let self, let row, let batch, row.isFinished else { return }
             row.state = .waiting
+            row.upload = nil
             var again = single
             again.request.id = UUID()
             _ = self.startRow(row, in: batch, job: again, executor: executor, events: { _ in }, onResult: onResult)
@@ -279,36 +285,57 @@ public final class AppModel {
         return task
     }
 
-    /// Puts one batch file's original back, without a floating result.
+    /// Puts one batch file's original back, without a floating result. When that fails the row
+    /// keeps its result and its saving and shows why.
     public func restore(_ row: BatchRow) async {
-        guard let result = row.result, result.backup != nil else { return }
+        guard let result = row.result, row.canRestore else { return }
+        row.restoreError = nil
         do {
-            _ = try service.restoreBackup(of: result, deleteBackup: false)
-            restoredIDs.insert(result.id)
-            noteWritten([result.source, result.output])
+            try await putBack(result)
             row.state = .restored(result)
         } catch {
-            row.state = .failed(CardPresentation.message(for: error))
+            row.restoreError = CardPresentation.message(for: error)
         }
     }
 
+    /// Stops what is still to go first, so no file is optimised after its neighbours came back.
     public func restoreAll(_ batch: Batch) async {
+        // ponytail: polls like `waitWhilePaused`; rows end within an engine's cancel time. Cancels
+        // each pass: files dropped meanwhile join this batch, and rows added ahead of their job
+        // get their cancel only when it starts.
+        while batch.isRunning {
+            batch.cancelAll()
+            try? await Task.sleep(for: .milliseconds(50))
+        }
         for row in batch.restorable { await restore(row) }
     }
 
+    /// The one restore every window uses: by the result itself, never by its path (an older
+    /// result for the same file would get the newer original), with the copying off the main actor.
+    private func putBack(_ result: OptimisationResult) async throws {
+        let service = service
+        _ = try await Task.detached { try await service.restoreBackup(of: result, deleteBackup: false) }.value
+        restoredIDs.insert(result.id)
+        forget(result)
+        noteWritten([result.source, result.output])
+    }
+
     /// The executor for a request's origin: agents get the pipeline permissions the person set.
-    func executor(for origin: RequestOrigin) -> JobExecutor {
+    /// `desktop` lets pipeline steps reach the clipboard, apps and the floating results; agents
+    /// get none.
+    /// `sourceApp` is the app a copy came from, for a pipeline's `if(copiedBy:)`.
+    func executor(for origin: RequestOrigin, desktop: (any PipelineDesktop)? = nil, sourceApp: String? = nil) -> JobExecutor {
         let context = service.context
         let policy = AgentPolicy(origin: origin, permissions: context.settings)
         // Agents upload only when the person allows it; the policy refuses before this, and an
         // executor without an uploader cannot upload anyway.
         let uploader: (any FileUploading)? = policy.allowed(.allowUploads) ? uploader : nil
-        let host = uploader.map { uploader in
-            AppPipelineHost(uploader: uploader) { [weak self] link in await self?.copyLink(link) }
-        }
+        let host: AppPipelineHost? = uploader == nil && desktop == nil ? nil
+            : AppPipelineHost(uploader: uploader, desktop: desktop) { [weak self] link in await self?.copyToClipboard(links: [link]) }
         let runner = StorePipelineRunner(
             store: context.pipelines, allowRunScripts: policy.allowed(.allowRunScripts),
-            allowDelete: policy.allowed(.allowOverwriteOriginals), temporaryDirectory: Paths.temporary, host: host
+            allowDelete: policy.allowed(.allowOverwriteOriginals), temporaryDirectory: Paths.temporary, host: host,
+            sourceApp: sourceApp
         )
         return JobExecutor(engine: context.engine, pipelineRunner: runner, uploader: uploader, backups: context.locations.backups)
     }
@@ -316,7 +343,7 @@ public final class AppModel {
     private func process(
         _ source: URL, job: OptimisationJob, executor: JobExecutor, card: ResultCard?, row: BatchRow? = nil, batch: Batch? = nil,
         events: @escaping @Sendable (JobEvent) -> Void, onResult: ((OptimisationResult) -> Void)?
-    ) async -> Result<OptimisationResult, EsclopError> {
+    ) async -> Result<OptimisationResult, PipelineStepFailure> {
         activeFiles += 1
         defer { activeFiles -= 1 }
         if let batch {
@@ -333,18 +360,32 @@ public final class AppModel {
         card?.startedAt = now()
         if let row, !Task.isCancelled { row.state = .working(0) }
         let outcome: Result<OptimisationResult, EsclopError>
+        var failedStep: String?
+        var partial: OptimisationResult?
         if Task.isCancelled {
             outcome = .failure(.cancelled)
         } else {
             let cardID = card?.id
             do {
-                let result = try await executor.process(source, job: job) { [weak self, weak row] progress in
+                var result = try await executor.process(source, job: job) { [weak self, weak row] progress in
                     Task { @MainActor in
                         if let cardID { self?.progress(progress.fraction, cardID: cardID) }
                         if let row, case let .working(current) = row.state, progress.fraction > current { row.state = .working(progress.fraction) }
                     }
                 }
+                result.origin = job.request.origin
                 outcome = .success(result)
+            } catch let failed as PipelineStepFailure {
+                // Earlier steps changed the file: keep that in Recent, where its backup restores.
+                partial = failed.partial
+                partial?.origin = job.request.origin
+                if let partial {
+                    events(.result(partial))
+                    noteWritten([partial.output, partial.source] + [partial.backup].compactMap { $0 })
+                    record(partial)
+                }
+                failedStep = failed.step
+                outcome = .failure(Task.isCancelled ? .cancelled : failed.error)
             } catch {
                 outcome = .failure(Task.isCancelled ? .cancelled : .wrap(error))
             }
@@ -365,13 +406,14 @@ public final class AppModel {
             // A batch is announced once, when it ends, not file by file.
             if row == nil { announce(CardPresentation.announcement(for: result)) }
             if let link = result.link {
-                copyLink(link)
-            } else if let card, uploadsAutomatically(job) {
-                upload(card)
+                await copyToClipboard(links: [link])
+            } else if uploadsAutomatically(job) {
+                // Every result, also a batch row's or one shown nowhere (a quiet pipeline).
+                if let card { upload(card, automatic: true) } else { upload(result.output, to: nil, on: row, batch: batch, automatic: true) }
             }
             onResult?(result)
         case let .failure(error):
-            events(.failure(FileFailure(source: source, error: error)))
+            events(.failure(FileFailure(source: source, error: error, step: failedStep)))
             if error == .alreadySmaller {
                 card?.phase = .unchanged(bytes: Self.size(of: source))
                 row?.state = .unchanged
@@ -381,8 +423,11 @@ public final class AppModel {
             }
         }
         if let card { settle(card) }
-        if let batch, !batch.isRunning { announce(BatchPresentation(batch: batch).announcement) }
-        return outcome
+        if let batch, !batch.isRunning {
+            announce(BatchPresentation(batch: batch).announcement)
+            copyLinks(of: batch)
+        }
+        return outcome.mapError { PipelineStepFailure(step: failedStep, error: $0, partial: partial) }
     }
 
     private func progress(_ fraction: Double, cardID: UUID) {
@@ -407,7 +452,25 @@ public final class AppModel {
     public func runPipeline(_ name: String, onWatched file: URL) {
         var job = factory.job(for: file, origin: .watchedFolder)
         job.operation = .pipeline(name)
+        if let pipeline = try? service.context.pipelines.resolve(name) { Self.use(pipeline, in: &job) }
         Task { await run(job) }
+    }
+
+    /// A pipeline that runs on its own: its operation, and no floating result when it says so.
+    static func use(_ pipeline: Pipeline, in job: inout OptimisationJob) {
+        job.operation = .pipeline(pipeline.name)
+        if pipeline.hideResult { job.request.showResultUI = false }
+    }
+
+    /// A `fork` step's file, shown as a result of its own beside the pipeline's, with the
+    /// original's size before the run.
+    func presentFork(_ file: URL, of original: URL, bytesBefore: Int) {
+        let time = now()
+        noteWritten([file])
+        show(OptimisationResult(
+            source: original, output: file, kind: MediaKind.of(file) ?? .image,
+            bytesBefore: bytesBefore, bytesAfter: Self.size(of: file), startedAt: time, finishedAt: time, steps: ["fork"]
+        ))
     }
 
     /// Recent's Clear (privacy): the names go from the panel and from the shared log, which the
@@ -427,8 +490,15 @@ public final class AppModel {
         recent.removeAll { $0.id == result.id }
         recent.insert(result, at: 0)
         if recent.count > Self.recentLimit { recent.removeLast(recent.count - Self.recentLimit) }
-        // The CLI and MCP server read the same log (`esclop_recent_results`, restore).
-        service.results.append([result])
+        // The CLI and MCP server read the same log (`esclop_recent_results`, restore). Written
+        // off the main actor, in order with every other read and write of the log.
+        service.results.append([result], wait: false)
+    }
+
+    /// Results that no longer stand (their original is back, or a re-run replaced them) leave
+    /// Recent here; `EsclopService.restoreBackup` withdraws a restored one from the shared log.
+    func forget(_ result: OptimisationResult) {
+        recent.removeAll { $0.id == result.id }
     }
 
     // MARK: Cards
@@ -732,34 +802,53 @@ public final class AppModel {
     /// choice is the one used.
     func reprocess(_ card: ResultCard, choice: OptimiseChoice? = nil, adjust: ((inout OptimisationJob) -> Void)? = nil) {
         let origin = card.origin, displayName = card.displayName
-        let wasClipboardImage = card.source.path.hasPrefix(Paths.temporary.path)
-        card.adjusted = adjust != nil
-        card.loupe = nil
-        // Every run starts from the original: only `downscale(_:to:)` keeps a scale.
+        let wasClipboardImage = Self.isCopiedImage(card.source)
+        // Every run starts from the original: only `downscale(_:to:)` keeps a scale. It is set
+        // here, before the run, because `downscale(_:to:)` sets its own scale right after.
+        let keptScale = card.downscale
         card.downscale = 1
         let choice = choice ?? card.choice
         let rule = card.appliedRule?.choice == choice ? card.appliedRule : nil
         let context = CardContext(origin: card.fileOrigin ?? .unknown, inputType: card.inputType, choice: choice, rule: rule)
         Task {
             var source = card.source
+            // A result kept beside its original: the re-run's result replaces it.
+            var replaced: OptimisationResult?
+            // The files this card may have on the clipboard, which the new result replaces there.
+            var shown = [card.source]
             switch card.phase {
             case let .done(result):
                 source = result.source
-                if result.backup != nil { await restore(result) }
+                shown = [result.output, result.source]
+                if result.backup == nil {
+                    replaced = result
+                } else if !(await restore(result)) {
+                    // A failed restore shows a notice and the card keeps its result as it was;
+                    // encoding the optimised file again would not start from the original.
+                    card.downscale = keptScale
+                    return
+                }
             case let .restored(result):
                 source = result.source
+                shown = [result.source]
             case .working, .failed, .notice:
                 return
             case .unchanged:
                 break
             }
+            card.adjusted = adjust != nil
+            card.loupe = nil
             var job = factory.job(for: source, origin: origin, location: wasClipboardImage ? .inPlace : nil)
             choice.apply(to: &job.request)
             adjust?(&job)
             let copyBack = origin == .clipboard && EsclopSettings.autoCopyToClipboard.value(in: settings)
             await run(job, displayName: displayName, context: context, reusing: card, onResult: { result in
+                if let replaced {
+                    self.forget(replaced)
+                    self.service.results.append([], withdrawing: [replaced], wait: false)
+                }
                 guard copyBack else { return }
-                self.writeClipboard(files: [result.output])
+                Task { await self.putBackOnClipboard(shown.map { ($0, result.output) }) }
             })
         }
     }
@@ -771,13 +860,14 @@ public final class AppModel {
         interact(card, .menu(true))
     }
 
-    /// Puts the original back, from a card or the backups menu.
-    public func restore(_ result: OptimisationResult) async {
+    /// Puts the original back, from a card, Recent or Compare. False when it failed: a notice
+    /// says why and a card keeps its result (as "Not optimised" it would offer Retry, which
+    /// compresses the optimised file again).
+    @discardableResult
+    public func restore(_ result: OptimisationResult) async -> Bool {
         let card = cards.first { $0.result?.id == result.id }
         do {
-            _ = try await service.restoreBackup(for: result.output, deleteBackup: false)
-            restoredIDs.insert(result.id)
-            noteWritten([result.source, result.output])
+            try await putBack(result)
             if let card {
                 card.phase = .restored(result)
                 card.loupe = nil
@@ -789,21 +879,13 @@ public final class AppModel {
                 loadThumbnail(card, url: result.source)
                 settle(card)
             }
-            if pasteboardHolds(result.output) {
-                // The optimised copy was on the clipboard: the original replaces it there too.
-                writeClipboard(files: [result.source])
-            }
+            // The optimised copy was on the clipboard: the original replaces it there too.
+            await putBackOnClipboard([(result.output, result.source)])
+            return true
         } catch {
-            if let card { card.phase = .failed(CardPresentation.message(for: error)) } else {
-                notice(Strings.format("Could not restore %@", result.source.lastPathComponent), CardPresentation.message(for: error))
-
-            }
+            notice(Strings.format("Could not restore %@", result.source.lastPathComponent), CardPresentation.message(for: error))
+            return false
         }
-    }
-
-    func pasteboardHolds(_ url: URL) -> Bool {
-        guard Clipboard.isOwnWrite(pasteboard), case let .files(urls) = Clipboard.read(pasteboard) else { return false }
-        return urls.contains { $0.standardizedFileURL.path == url.standardizedFileURL.path }
     }
 
     /// The floating result for `result`, shown again when it had gone (the compare window runs

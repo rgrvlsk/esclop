@@ -180,8 +180,7 @@ public final class CompareModel {
     public func restore() async {
         guard let result else { return }
         players?.stop()
-        await app.restore(result)
-        restoredHere.insert(result.id)
+        if await app.restore(result) { restoredHere.insert(result.id) }
     }
 
     /// Runs the file again from the original with `choice`; the window follows the new result.

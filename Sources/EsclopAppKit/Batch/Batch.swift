@@ -37,6 +37,10 @@ public final class BatchRow: Identifiable {
     public let source: URL
     public let bytesBefore: Int
     public var state: State = .waiting
+    /// Why the last Restore failed; the row keeps its result.
+    public var restoreError: String?
+    /// An automatic upload of the row's result (`uploadAutomatically`).
+    public var upload: ResultCard.UploadState?
     /// Runs the file again (after an error or a cancel).
     var retry: (() -> Void)?
     var cancel: (() -> Void)?
@@ -49,6 +53,14 @@ public final class BatchRow: Identifiable {
     public var result: OptimisationResult? {
         if case let .done(result) = state { return result }
         return nil
+    }
+
+    /// The row has a result whose backup is still there.
+    // ponytail: one stat per call, from the view; a batch of thousands of rows re-stats them on
+    // each header render. Store the answer when the row finishes if that ever shows in a profile.
+    public var canRestore: Bool {
+        guard let backup = result?.backup else { return false }
+        return FileManager.default.fileExists(atPath: backup.path)
     }
 
     public var isFinished: Bool {
@@ -84,6 +96,9 @@ public final class Batch: Identifiable {
     /// Waiting files hold until resumed; files already running finish.
     public private(set) var paused = false
     public let startedAt: Date
+    /// The clipboard's change count when the batch's first automatic upload started: its links go
+    /// on the clipboard only if nothing was copied after that.
+    var linksSince: Int?
 
     init(origin: RequestOrigin, startedAt: Date = Date()) {
         self.origin = origin
@@ -116,7 +131,7 @@ public final class Batch: Identifiable {
     public var unchanged: Int { rows.filter { $0.state == .unchanged }.count }
     public var failed: Int { rows.filter { if case .failed = $0.state { return true } else { return false } }.count }
     public var cancelled: Int { rows.filter { $0.state == .cancelled }.count }
-    public var restorable: [BatchRow] { rows.filter { $0.result?.backup != nil } }
+    public var restorable: [BatchRow] { rows.filter(\.canRestore) }
 
     public var restored: Int { rows.filter { if case .restored = $0.state { return true } else { return false } }.count }
 
@@ -166,3 +181,5 @@ public final class Batch: Identifiable {
         }
     }
 }
+
+extension BatchRow: ShowsUpload {}

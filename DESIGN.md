@@ -175,7 +175,7 @@ default, `batchWindowFrom`), they go to one window instead: a dropped folder, "O
 many copied files, or a list from the CLI or an agent. It comes forward without taking focus.
 
 - **Header:** "Optimising 7 of 9 files", "48 MB → 12 MB" and the saving as the one large figure
-  ("−75 %", rounded, in the accent), the bar (progress while running, then the deflate bar at
+  ("−75 %", in the figure face, in the saving colour), the bar (progress while running, then the deflate bar at
   the new proportion), the counts ("5 optimised · 1 already optimised · 1 failed") and Pause,
   Stop, Restore All, Show in Finder.
 - **Rows:** thumbnail, name, sizes or status, the file's own deflate bar and its saving. On hover
@@ -191,10 +191,10 @@ colour.
 | Token | Light | Dark | Role |
 |---|---|---|---|
 | `accent` | `#1E7F6A` | `#3DBF9F` | savings, progress, primary actions |
-| `warm` | `#B8741C` | `#E0A040` | aggressive mode, "fit under size" |
+| `warm` | `#8F5510` | `#E0A040` | aggressive mode, "fit under size"; `#B8741C` on a charcoal tile |
 | `ink` | `#1B1F1E` | `#F2F4F3` | primary text (used only where system label colors cannot) |
 | `clog` | `#8A5A33` | `#8A5A33` | app icon wood only, never in UI |
-| error | system red | system red | failures |
+| error | `#C4281C` | `#FF6961` | failures (system red is 3.4:1 on light) |
 
 Never: cream page backgrounds, terracotta, acid green on black, gradient washes. Dark glass
 stays translucent; it must not become an opaque slab.
@@ -202,8 +202,8 @@ stays translucent; it must not become an opaque slab.
 ## Type
 System font (SF Pro) everywhere, sizes from the macOS text styles, nothing below 11 pt. Byte
 figures and percentages use SF Pro with monospaced digits (`monospacedDigit()`), never a
-monospaced typeface. The saving percentage is the one large figure: `title2`, semibold,
-rounded design. Labels are sentence case, never all caps, never tracked out. Icons are SF
+monospaced typeface. The saving is the one large figure, set by `Figure`: SF Pro
+Compressed, bold, at one of its four sizes. Labels are sentence case, never all caps, never tracked out. Icons are SF
 Symbols; checkmarks are symbols, not text glyphs.
 
 ## Layout

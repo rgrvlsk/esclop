@@ -93,6 +93,7 @@ struct CompareTransport: View {
                     .keyboardShortcut(.rightArrow, modifiers: [])
             }
             Slider(value: Binding(get: { players.time }, set: { players.seek(to: $0) }), in: 0 ... max(players.duration, 0.01))
+                .tint(Ink.charcoal)
                 .accessibilityLabel(Strings.text("Position in both files"))
                 .accessibilityValue(Self.clock(players.time))
             Text("\(Self.clock(players.time)) / \(Self.clock(players.duration))")

@@ -61,19 +61,29 @@ app that wants one `EngineClient`).
   (default true). Orientation and colour profile are always kept.
 - **Automatic conversion** (`formatsToConvertToJPEG/PNG/MP4`) applies only to automatic origins:
   `.app`, `.clipboard`, `.dropZone`, `.watchedFolder`, `.hotkey`. CLI, MCP, Finder and Shortcuts
-  keep the format unless asked. Audio's `formatsToConvertToAAC/MP3` apply to every origin.
+  keep the format unless asked. Images with several frames or pages are never converted
+  automatically; asked to become a format that holds one picture, they are left as they are
+  (`EsclopError.leftAsIs`). Multi-page TIFFs keep every page, and become one PDF page each.
+  Audio's `formatsToConvertToAAC/MP3` apply to every origin. With `downscaleRetinaImages` on, an
+  automatic optimise of a still 2x (144 dpi) image with no size of its own halves it.
 - **Already smaller.** A pure optimise or downscale whose output is not smaller throws
   `EsclopError.alreadySmaller` and leaves the file alone. Conversions, crops, speed changes,
   watermarks and loudness changes accept larger output.
-- **Location.** `.inPlace` backs up the original first; with a new extension the converted file
-  replaces the original (`photo.heic` becomes `photo.jpeg`). Same-format results keep the
-  source's extension (`.jpg` stays `.jpg`). `.sameFolder` uses `sameFolderNameTemplate`
-  (`%f-optimised`) and never overwrites. `.temporary` writes under `Paths.temporary/results`.
-  `.path(template)` expands `%f` (name), `%e` (output extension), `%d` (source folder), `~`;
-  a trailing `/` or an existing folder receives `<name>.<ext>`. A template that resolves to the
-  source itself counts as in place (backup, agent permission). Any other existing file about to
-  be overwritten, whatever the location, is backed up first; if that backup fails, nothing is
-  written. Results are staged next to the destination so the final swap never crosses volumes.
+- **Location.** A request whose location came from the settings (`locationFromSettings`: the
+  app's "Optimised … go", or the CLI with neither `-o` nor `--behaviour`) sends a result in
+  another format where `convertedImage/Video/AudioBehaviour` says; an explicit location always
+  wins. `.inPlace` backs up the original first; with a new extension the converted file
+  replaces the original (`photo.heic` becomes `photo.jpeg`, or `photo 2.jpeg` when an unrelated
+  `photo.jpeg` is already there). Same-format results keep the source's extension (`.jpg` stays
+  `.jpg`). `.sameFolder` uses `sameFolderNameTemplate` (`%f-optimised`) and never overwrites.
+  `.temporary` writes under `Paths.temporary/results`. `.path(template)` expands `%f` (name), `%e`
+  (output extension), `%d` (source folder), `~`; a trailing `/` or an existing folder receives
+  `<name>.<ext>`; a relative template starts in the source's folder (the CLI anchors `-o` to the
+working directory first). A template naming an extension of another format than the result's
+  (`page.jpg` for a PDF) is refused. A template that resolves to the source itself counts as in
+  place (backup, agent permission). Any other existing file about to be overwritten, whatever the
+  location, is backed up first; if that backup fails, nothing is written. Results are staged next
+  to the destination so the final swap never crosses volumes.
 - **Agents.** A request with `origin == .mcp` that would overwrite its source (`.inPlace`, or a
   template resolving to it) throws `notPermitted` unless `allowOverwriteOriginals` is on. The other agent switches (`allowDeleteBackups`,
   `allowRunScripts`, `allowSettingsChanges`, `allowUploads`) are for the MCP server and pipelines to enforce.
