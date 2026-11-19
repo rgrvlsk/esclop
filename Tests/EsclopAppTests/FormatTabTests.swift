@@ -85,3 +85,60 @@ import Testing
         #expect(harness.requests.requests.last?.location == .sameFolder, "a new file next to the video")
     }
 }
+
+@MainActor
+@Suite struct SizeTabTests {
+    func model(width: Int, height: Int) async throws -> (OptionsModel, Harness) {
+        let harness = Harness()
+        _ = await harness.model.run(harness.job(harness.temp.file("photo.png", bytes: 100_000)))
+        let card = try #require(harness.model.cards.first)
+        let model = OptionsModel(card: card, app: harness.model)
+        model.facts = FileFacts(width: width, height: height)
+        return (model, harness)
+    }
+
+    /// Original, 2000 px, 1280 px and half, with half's real pixels; nothing that enlarges.
+    @Test func thePresetsComeFromTheRealSize() async throws {
+        let (big, _) = try await model(width: 6000, height: 4000)
+        #expect(big.sizePresets.map(\.title) == ["Original", "2000\u{00A0}px", "1280\u{00A0}px", "Half"])
+        #expect(big.sizePresets.last?.spoken == "Half, 3000 px", "the owner: compute it from the real size: \(big.sizePresets.map(\.spoken))")
+        #expect(abs((big.sizePresets[1].factor) - 2000.0 / 6000) < 0.0001)
+        let photo = try await model(width: 4032, height: 3024).0
+        #expect(photo.sizePresets.map(\.title) == ["Original", "1280\u{00A0}px", "Half"], "2000 px is nearly half: Half, the owner's tile, stays")
+        let screen = try await model(width: 2400, height: 1600).0
+        #expect(screen.sizePresets.map(\.title) == ["Original", "2000\u{00A0}px", "Half"], "1280 px is nearly half (1200 px): Half stays")
+        let small = try await model(width: 1600, height: 900).0
+        #expect(small.sizePresets.map(\.title) == ["Original", "1280\u{00A0}px", "Half"], "never a tile larger than the picture")
+        let tiny = try await model(width: 800, height: 600).0
+        #expect(tiny.sizePresets.map(\.title) == ["Original", "Half"])
+    }
+
+    @Test func aTileScalesFromTheOriginal() async throws {
+        let (model, harness) = try await model(width: 4032, height: 3024)
+        model.scale(to: 0.5)
+        #expect(await eventually { harness.requests.requests.count == 2 && model.card.result != nil })
+        #expect(harness.requests.requests.last?.downscale == 0.5)
+        #expect(model.currentScale == 0.5, "the Half tile is the chosen one")
+        model.scale(to: 0.5)
+        try await Task.sleep(for: .milliseconds(150))
+        #expect(harness.requests.requests.count == 2, "the size it already has runs nothing")
+        model.scale(to: 1.4)
+        #expect(await eventually { harness.requests.requests.count == 3 && model.card.result != nil })
+        #expect(harness.requests.requests.last?.downscale == nil, "never enlarges: back to the original's size")
+        #expect(model.currentScale == 1)
+    }
+
+    /// A crop makes the file smaller, but it is not a scale: no size tile is chosen for it.
+    @Test func aCropIsNotAScale() async throws {
+        let (model, harness) = try await model(width: 4000, height: 2000)
+        model.app.crop(model.card, to: CropSize(width: 2000, height: 2000))
+        #expect(await eventually { harness.requests.requests.count == 2 && model.card.result != nil })
+        #expect(model.currentScale == 1, "Original stays the chosen tile")
+    }
+
+    @Test func everyKindHasTheTabsItCanUse() {
+        #expect(OptionsTab.tabs(for: .image) == [.optimise, .size, .crop, .share])
+        #expect(OptionsTab.tabs(for: .audio) == [.optimise, .sound, .share])
+        #expect(OptionsTab.share.title == "Actions" && OptionsTab.optimise.title == "Format")
+    }
+}

@@ -187,24 +187,34 @@ public struct StorePipelineRunner: PipelineRunning {
         let log = file.log.map { entry in
             "\(entry.step): \(entry.outcome.rawValue)\(entry.message.map { " (\($0))" } ?? "")"
         }
-        switch file.status {
-        case .completed, .filtered:
-            let output = file.finalFile ?? source
+        // Whether any step other than a filter did something (an engine step, a file operation, a
+        // script); the result's backup is the first step's that kept one.
+        let untouched = !file.log.contains { entry in
+            entry.outcome == .done && (try? PipelineParser.parseSteps(entry.step))?.first?.isFilter != true
+        }
+        func result(_ prefix: [String] = []) -> OptimisationResult {
             let last = file.results.last
             return OptimisationResult(
-                source: source, output: output, backup: file.results.first?.backup,
+                source: source, output: file.finalFile ?? source, backup: file.results.lazy.compactMap(\.backup).first,
                 kind: file.kind ?? MediaKind.of(source) ?? .image,
                 bytesBefore: before, bytesAfter: file.finalFile.map(Self.size) ?? 0,
                 width: last?.width, height: last?.height, duration: last?.duration,
                 startedAt: started, finishedAt: Date(),
-                steps: (file.status == .filtered ? ["filtered: no step applied"] : []) + log + file.extraOutputs.map { "also wrote \($0.path)" }
+                steps: prefix + log + file.extraOutputs.map { "also wrote \($0.path)" }
             )
-        case .cancelled:
-            throw EsclopError.cancelled
+        }
+        switch file.status {
+        case .completed, .filtered:
+            return result(file.status == .filtered && untouched ? [ResultSummary.filteredStep] : [])
         case .unsupported:
             throw EsclopError.unsupportedFile(file.error ?? "\(source.lastPathComponent): the pipeline has no steps for this kind of file")
-        case .failed:
-            throw EsclopError.other(([file.error ?? "The pipeline failed"] + log).joined(separator: "\n"))
+        case .cancelled, .failed:
+            let error = file.status == .cancelled ? EsclopError.cancelled : file.cause ?? .other(file.error ?? "The pipeline failed")
+            let step = file.log.last { $0.outcome == .failed }?.step
+            // Earlier steps may have changed the file already: report what they made, so it is in
+            // the recent results and its backup can be restored.
+            guard !untouched || step != nil else { throw error }
+            throw PipelineStepFailure(step: step, error: error, partial: untouched ? nil : result())
         }
     }
 

@@ -98,6 +98,47 @@ import Testing
         #expect(harness.model.restorable.isEmpty)
     }
 
+    /// Each card restores its own original, not the newest one for the same path.
+    @Test func restoreUsesTheResultsOwnBackup() async throws {
+        let harness = Harness()
+        let file = harness.temp.file("Beach.jpg", bytes: 100_000)
+        let first = try #require(await harness.model.run(harness.job(file)).results.first)
+        let second = try #require(await harness.model.run(harness.job(file)).results.first)
+        #expect(await harness.model.restore(second))
+        #expect(AppModel.size(of: file) == 40_000)
+        #expect(await harness.model.restore(first))
+        #expect(AppModel.size(of: file) == 100_000, "the first card's original")
+    }
+
+    /// Recent › Clear redacts the shared log; a card still on screen can still be undone.
+    @Test func undoWorksAfterRecentIsCleared() async throws {
+        let harness = Harness()
+        let file = harness.temp.file("a.png", bytes: 100_000)
+        _ = await harness.model.run(harness.job(file))
+        let card = try #require(harness.model.cards.first)
+        harness.model.clearRecent()
+        harness.model.perform(.undo, on: card)
+        #expect(await eventually { if case .restored = card.phase { return true } else { return false } })
+        #expect(AppModel.size(of: file) == 100_000)
+    }
+
+    /// A restore that fails stops a re-run: it would encode the optimised file again.
+    @Test func aFailedRestoreStopsTheRerun() async throws {
+        let harness = Harness()
+        let file = harness.temp.file("a.png", bytes: 100_000)
+        _ = await harness.model.run(harness.job(file))
+        let card = try #require(harness.model.cards.first)
+        try FileManager.default.removeItem(at: try #require(card.result?.backup))
+        harness.model.perform(.keepMetadata, on: card)
+        #expect(await eventually { harness.model.cards.contains { $0.presentation.capsule == .notice(title: "Could not restore a.png", detail: "The original’s backup is no longer there.") } })
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(harness.requests.requests.count == 1, "nothing runs again")
+        #expect(card.result != nil, "the card keeps its result: no Retry that compresses it again")
+        #expect(CardPresentation.message(for: EsclopError.backupRemoved(file: file.path, afterDays: 7)) == "The original was removed after 7 days.")
+        #expect(CardPresentation.message(for: EsclopError.other(BackupStore.untrashableEdit)) == BackupStore.untrashableEdit)
+        #expect(Strings.text(BackupStore.untrashableEdit, locale: Locale(identifier: "ca")).hasPrefix("El fitxer ha canviat"), "the card can say it in Catalan")
+    }
+
     @Test func revealAndCopyUseTheResult() async throws {
         let harness = Harness()
         let file = harness.temp.file("a.png")
@@ -106,6 +147,7 @@ import Testing
         harness.model.perform(.reveal, on: card)
         #expect(harness.revealed.urls == [file])
         harness.model.perform(.copy, on: card)
+        await harness.clipboardSettles()
         #expect(Clipboard.isOwnWrite(harness.pasteboard))
         #expect(Clipboard.read(harness.pasteboard) == .files([file.standardizedFileURL]))
         harness.model.perform(.dismiss, on: card)
@@ -115,7 +157,7 @@ import Testing
     @Test func copiedImagesAreOptimisedAndPutBack() async throws {
         let harness = Harness()
         let data = pngData() + Data(count: 60_000)
-        harness.model.handleClipboard(.optimiseImage(data, .png))
+        harness.model.handleClipboard(harness.copy(image: data))
         #expect(await eventually { harness.model.cards.first?.result != nil })
         let card = try #require(harness.model.cards.first)
         #expect(card.presentation.fileName == "Copied image")

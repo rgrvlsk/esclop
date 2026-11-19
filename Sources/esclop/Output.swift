@@ -8,6 +8,7 @@ import ArgumentParser
 import EsclopCore
 import EsclopIPC
 import EsclopMCP
+import EsclopOptimisers
 import Foundation
 
 struct Terminal {
@@ -34,12 +35,13 @@ struct Terminal {
         let percent = saved ? "−\(ResultSummary.percentText(result.savedPercent))%" : "+\(ResultSummary.percentText(-result.savedPercent))%"
         var text = "\(green("✓")) \(bold(name)) \(ByteSize.format(result.bytesBefore)) \(dim("→")) \(ByteSize.format(result.bytesAfter)) \(saved ? green(percent) : yellow(percent))"
         if let link = result.link { return "\(green("✓")) \(bold(name)) \(dim("→")) \(cyan(link))" }
+        if result.skippedByFilter { return "\(dim("–")) \(bold(name)) \(dim("skipped by the filter"))" }
         if result.output != result.source { text += " \(dim("→")) \(cyan(PathInput.abbreviate(result.output)))" }
         return text
     }
 
     func line(_ failure: FailureSummary) -> String {
-        "\(red("✗")) \(bold(URL(fileURLWithPath: failure.source).lastPathComponent)) \(red(failure.error))"
+        "\(red("✗")) \(bold(URL(fileURLWithPath: failure.source).lastPathComponent)) \(red(failure.message))"
     }
 }
 
@@ -89,7 +91,7 @@ enum Output {
 
     static func exitCode(for error: EsclopError) -> Int32 {
         switch error {
-        case .fileNotFound: return 66
+        case .fileNotFound, .backupRemoved: return 66
         case .appNotRunning, .toolMissing: return 69
         case .notPermitted: return 77
         case .invalidArgument, .invalidPipeline, .unsupportedFile, .leftAsIs: return 64
@@ -171,15 +173,6 @@ final class InterruptHandler: @unchecked Sendable {
     }
 }
 
-enum Clipboard {
-    static func copy(_ files: [URL]) {
-        guard !files.isEmpty else { return }
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.writeObjects(files as [NSURL])
-    }
-}
-
 /// Builds the job, runs it through the service with progress and Ctrl-C, prints the outcome.
 func runFileJob(
     _ operation: JobOperation, files: FileOptions, global: GlobalOptions,
@@ -201,7 +194,8 @@ func runFileJob(
         defer { interrupt.cancel() }
         let report = try await service.perform(job) { progress.update($0) }
         progress.clear()
-        if files.copy { Clipboard.copy(report.results.map(\.output)) }
+        // Marked as L'Esclop's write, so the app's clipboard watcher does not optimise it again.
+        if files.copy, !report.results.isEmpty { Clipboard.write(files: report.results.map(\.output)) }
         return Output.report(JobSummary(operation: operation.name, report: report), global: global)
     }
 }
