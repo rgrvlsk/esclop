@@ -33,7 +33,7 @@ public enum OutputFormat: String, Codable, CaseIterable, Sendable {
     // video
     case mp4, mov, webm, mkv, hevc, av1, gifVideo = "gif-video"
     // audio
-    case mp3, aac, m4a, flac, wav, opus
+    case mp3, aac, m4a, flac, wav, opus, aiff
     // documents
     case pdf
 
@@ -41,7 +41,7 @@ public enum OutputFormat: String, Codable, CaseIterable, Sendable {
         switch self {
         case .jpeg, .png, .webp, .avif, .heic, .jxl, .gif, .tiff, .bmp: return .image
         case .mp4, .mov, .webm, .mkv, .hevc, .av1, .gifVideo: return .video
-        case .mp3, .aac, .m4a, .flac, .wav, .opus: return .audio
+        case .mp3, .aac, .m4a, .flac, .wav, .opus, .aiff: return .audio
         case .pdf: return .pdf
         }
     }
@@ -75,6 +75,7 @@ public enum OutputFormat: String, Codable, CaseIterable, Sendable {
         case "qt": self = .mov
         case "ogg", "oga": self = .opus
         case "wave": self = .wav
+        case "aif", "aifc": self = .aiff
         case "gifvideo": self = .gifVideo
         default: return nil
         }
