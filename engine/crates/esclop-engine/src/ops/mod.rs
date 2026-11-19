@@ -248,9 +248,21 @@ pub fn encode_content(content: &Content, fmt: Format, p: &EncodeParams, carry: &
             e.bytes = match content {
                 Content::Anim(a) => {
                     e.frames = a.frames.len() as u32;
-                    codec::webp::encode_animation(a, &o, carry.icc.as_deref(), carry.exif.as_deref(), carry.xmp.as_deref())?
+                    codec::webp::encode_animation(
+                        a,
+                        &o,
+                        carry.icc.as_deref(),
+                        carry.exif.as_deref(),
+                        carry.xmp.as_deref(),
+                    )?
                 }
-                Content::Still(img) => codec::webp::encode_still(img, &o, carry.icc.as_deref(), carry.exif.as_deref(), carry.xmp.as_deref())?,
+                Content::Still(img) => codec::webp::encode_still(
+                    img,
+                    &o,
+                    carry.icc.as_deref(),
+                    carry.exif.as_deref(),
+                    carry.xmp.as_deref(),
+                )?,
             };
             e.quality = (!lossless).then_some(quality);
             e.lossy = !lossless;
@@ -261,7 +273,13 @@ pub fn encode_content(content: &Content, fmt: Format, p: &EncodeParams, carry: &
             })?;
             let quality = q.unwrap_or_else(|| quality::avif_quality(f));
             let o = AvifOptions { quality, alpha_quality: quality, speed: p.speed.unwrap_or(6).clamp(1, 10) };
-            e.bytes = codec.encode(&content.first_frame(), &o, carry.icc.as_deref(), carry.exif.as_deref(), carry.xmp.as_deref())?;
+            e.bytes = codec.encode(
+                &content.first_frame(),
+                &o,
+                carry.icc.as_deref(),
+                carry.exif.as_deref(),
+                carry.xmp.as_deref(),
+            )?;
             e.quality = Some(quality);
             e.lossy = true;
         }
