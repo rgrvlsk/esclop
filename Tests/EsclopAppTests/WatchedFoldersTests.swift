@@ -107,7 +107,7 @@ import Testing
         try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: locked.path)
         defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: locked.path) }
         #expect(FolderStatus.check(locked) == .unreadable)
-        #expect(FolderRow.problem(.unreadable)?.contains("Files and Folders") == true)
+        #expect(FolderRow.problem(.unreadable)?.contains("Files & Folders") == true)
         #expect(FolderRow.problem(.missing) != nil)
         #expect(FolderRow.problem(.watching) == nil)
     }

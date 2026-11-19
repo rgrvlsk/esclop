@@ -28,6 +28,8 @@ public struct BatchPresentation: Equatable {
     public init(batch: Batch, locale: Locale = Strings.locale) {
         func t(_ key: String) -> String { Strings.text(key, locale: locale) }
         func f(_ key: String, _ arguments: any CVarArg...) -> String { String(format: t(key), locale: locale, arguments: arguments) }
+        /// "1 restored" or "3 restored": Catalan, like English, has one form for one and one for the rest.
+        func count(_ number: Int, one: String, other: String) -> String { number == 1 ? t(one) : f(other, number) }
         let before = batch.bytesBefore, after = batch.bytesAfter
         if batch.isRunning {
             title = batch.paused
@@ -53,16 +55,16 @@ public struct BatchPresentation: Equatable {
         percent = before > 0 && !Figures.isNoSaving(before: before, after: after) ? Figures.percent(before: before, after: after, locale: locale) : nil
         barEnd = before > 0 ? min(1, max(0, Double(after) / Double(before))) : 1
         var parts: [String] = []
-        if batch.optimised > 0 { parts.append(f("%d optimised", batch.optimised)) }
-        if batch.unchanged > 0 { parts.append(f("%d already optimised", batch.unchanged)) }
-        if batch.failed > 0 { parts.append(f("%d failed", batch.failed)) }
-        if batch.cancelled > 0 { parts.append(f("%d stopped", batch.cancelled)) }
-        if batch.restored > 0 { parts.append(f("%d restored", batch.restored)) }
+        if batch.optimised > 0 { parts.append(count(batch.optimised, one: "1 optimised", other: "%d optimised")) }
+        if batch.unchanged > 0 { parts.append(count(batch.unchanged, one: "1 already optimised", other: "%d already optimised")) }
+        if batch.failed > 0 { parts.append(count(batch.failed, one: "1 failed", other: "%d failed")) }
+        if batch.cancelled > 0 { parts.append(count(batch.cancelled, one: "1 stopped", other: "%d stopped")) }
+        if batch.restored > 0 { parts.append(count(batch.restored, one: "1 restored", other: "%d restored")) }
         let waiting = batch.total - batch.finished
-        if waiting > 0 { parts.append(f("%d to go", waiting)) }
+        if waiting > 0 { parts.append(count(waiting, one: "1 to go", other: "%d to go")) }
         counts = parts.joined(separator: " · ")
         let savedBytes = Figures.bytes(max(0, before - after), locale: locale)
-        announcement = f("Batch finished: %d files, %@ saved", batch.total, savedBytes)
+        announcement = batch.total == 1 ? f("Batch finished: 1 file, %@ saved", savedBytes) : f("Batch finished: %d files, %@ saved", batch.total, savedBytes)
     }
 
     /// A row's status line: "2.4 MB → 612 kB", "Waiting", "Optimising 40 %", the error.

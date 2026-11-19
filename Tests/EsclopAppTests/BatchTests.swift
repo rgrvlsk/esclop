@@ -11,6 +11,19 @@ import Testing
 
 @MainActor
 @Suite struct BatchTests {
+    /// "1 ja optimitzats" read wrong: one file takes the singular, in English and in Catalan.
+    @Test func aCountOfOneIsSingular() {
+        let batch = Batch(origin: .dropZone)
+        batch.add(URL(fileURLWithPath: "/tmp/a.png"), bytes: 100).state = .unchanged
+        batch.add(URL(fileURLWithPath: "/tmp/b.png"), bytes: 100).state = .failed("x")
+        batch.add(URL(fileURLWithPath: "/tmp/c.png"), bytes: 100).state = .cancelled
+        batch.add(URL(fileURLWithPath: "/tmp/d.png"), bytes: 100)
+        #expect(BatchPresentation(batch: batch, locale: Locale(identifier: "en")).counts == "1 already optimised · 1 failed · 1 stopped · 1 to go")
+        #expect(BatchPresentation(batch: batch, locale: Locale(identifier: "ca")).counts == "1 ja optimitzat · 1 amb error · 1 aturat · en falta 1")
+        batch.add(URL(fileURLWithPath: "/tmp/e.png"), bytes: 100).state = .unchanged
+        #expect(BatchPresentation(batch: batch, locale: Locale(identifier: "ca")).counts.hasPrefix("2 ja optimitzats"))
+    }
+
     func files(_ harness: Harness, _ count: Int, bytes: Int = 100_000) -> [URL] {
         (1 ... count).map { harness.temp.file("file \($0).png", bytes: bytes) }
     }

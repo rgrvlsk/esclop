@@ -37,7 +37,7 @@ struct PresetZoneList: View {
                         .frame(width: 18)
                         .accessibilityHidden(true)
                     TitledToggle(
-                        title: zone.name,
+                        title: zone.title,
                         subtitle: zone.builtIn ? Strings.text("Built-in template") : Strings.text("Saved pipeline"),
                         isOn: Binding(get: { zone.isOn }, set: { turn(zone, on: $0, in: zones) })
                     )
@@ -71,7 +71,7 @@ struct PresetZoneList: View {
         .buttonStyle(.borderless)
         .disabled(!enabled)
         .help(offset < 0 ? Strings.text("Move up") : Strings.text("Move down"))
-        .accessibilityLabel(Strings.format(offset < 0 ? "Move “%@” up" : "Move “%@” down", zone.name))
+        .accessibilityLabel(Strings.format(offset < 0 ? "Move “%@” up" : "Move “%@” down", zone.title))
     }
 
     private func turn(_ zone: PresetZone, on: Bool, in zones: [PresetZone]) {

@@ -81,6 +81,7 @@ struct UploadTargetList: View {
         }
         .sheet(item: $editing) { draft in
             UploadTargetEditor(draft: draft, others: targets.filter { $0.name != draft.original }, model: model) { editing = nil }
+                .designTint()
         }
         .confirmationDialog(
             Strings.format("Remove the upload target “%@”?", removing?.name ?? ""),
@@ -235,14 +236,14 @@ struct UploadTargetEditor: View {
     @ViewBuilder
     private func status(problem: String?) -> some View {
         if let saveError {
-            Label(saveError, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
+            Label(saveError, systemImage: "exclamationmark.triangle").foregroundStyle(Ink.error)
         } else if testing {
             HStack { ProgressView().controlSize(.small); Text(Strings.text("Uploading a test file…")) }
         } else if case let .success(link) = outcome {
-            Label(Strings.format("Uploaded: %@", link.absoluteString), systemImage: "checkmark.circle").foregroundStyle(.green)
+            Label(Strings.format("Uploaded: %@", link.absoluteString), systemImage: "checkmark.circle").foregroundStyle(Ink.charcoalText)
                 .textSelection(.enabled)
         } else if case let .failure(error) = outcome {
-            Label(CardPresentation.message(for: error), systemImage: "exclamationmark.triangle").foregroundStyle(.red)
+            Label(CardPresentation.message(for: error), systemImage: "exclamationmark.triangle").foregroundStyle(Ink.error)
         } else if let problem {
             Text(problem).font(.callout).foregroundStyle(.secondary)
         }
