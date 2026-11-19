@@ -24,8 +24,8 @@ public final class AppModel {
     /// three-second protection), so a result written in place is never optimised again.
     @ObservationIgnored var recentlyWritten: [String: Date] = [:]
     static let writeProtection: TimeInterval = 3
-    /// What L'Esclop last wrote to the clipboard, by bytes (`ClipboardFingerprint`).
-    @ObservationIgnored var ownWrites: [ClipboardFingerprint] = []
+    /// Every pasteboard read and write for results, and what the clipboard holds.
+    @ObservationIgnored let clipboard: ClipboardKeeper
     /// Shows the batch window when a batch starts.
     @ObservationIgnored var onBatch: ((Batch) -> Void)?
 
@@ -60,8 +60,6 @@ public final class AppModel {
     @ObservationIgnored public var downloads: () -> URL = { FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0] }
     /// Announces results to VoiceOver; tests record them instead.
     @ObservationIgnored public var announce: (String) -> Void = AppModel.postAnnouncement
-    /// The app in front when a copy happens: one of the origin signals. Tests set it.
-    @ObservationIgnored public var frontmostApp: () -> String? = { NSWorkspace.shared.frontmostApplication?.bundleIdentifier }
     /// Size estimates for the options popover, cached per file.
     @ObservationIgnored public lazy var estimator = SizeEstimator(executor: executor(for: .app))
 
@@ -72,6 +70,7 @@ public final class AppModel {
         self.settings = settings
         self.service = service
         self.pasteboard = pasteboard
+        clipboard = ClipboardKeeper(pasteboard: pasteboard)
         self.gate = gate
         self.reveal = reveal
         uploader = AppUploader(settings: settings)
@@ -262,22 +261,39 @@ public final class AppModel {
         return task
     }
 
-    /// Puts one batch file's original back, without a floating result.
+    /// Puts one batch file's original back, without a floating result. When that fails the row
+    /// keeps its result and its saving and shows why.
     public func restore(_ row: BatchRow) async {
-        guard let result = row.result, result.backup != nil else { return }
+        guard let result = row.result, row.canRestore else { return }
+        row.restoreError = nil
         do {
-            _ = try await service.restoreBackup(of: result, deleteBackup: false)
-            restoredIDs.insert(result.id)
-            forget(result)
-            noteWritten([result.source, result.output])
+            try await putBack(result)
             row.state = .restored(result)
         } catch {
-            row.state = .failed(CardPresentation.message(for: error))
+            row.restoreError = CardPresentation.message(for: error)
         }
     }
 
+    /// Stops what is still to go first, so no file is optimised after its neighbours came back.
     public func restoreAll(_ batch: Batch) async {
+        // ponytail: polls like `waitWhilePaused`; rows end within an engine's cancel time. Cancels
+        // each pass: files dropped meanwhile join this batch, and rows added ahead of their job
+        // get their cancel only when it starts.
+        while batch.isRunning {
+            batch.cancelAll()
+            try? await Task.sleep(for: .milliseconds(50))
+        }
         for row in batch.restorable { await restore(row) }
+    }
+
+    /// The one restore every window uses: by the result itself, never by its path (an older
+    /// result for the same file would get the newer original), with the copying off the main actor.
+    private func putBack(_ result: OptimisationResult) async throws {
+        let service = service
+        _ = try await Task.detached { try await service.restoreBackup(of: result, deleteBackup: false) }.value
+        restoredIDs.insert(result.id)
+        forget(result)
+        noteWritten([result.source, result.output])
     }
 
     /// The executor for a request's origin: agents get the pipeline permissions the person set.
@@ -651,7 +667,7 @@ public final class AppModel {
         case .downscale:
             reprocess(card) { $0.request.downscale = 0.5 }
         case .crop:
-            card.optionsTab = .size
+            card.optionsTab = .crop
             openOptions(card)
         case .more, .convertOptions:
             card.optionsTab = .optimise
@@ -709,9 +725,11 @@ public final class AppModel {
     /// choice is the one used.
     func reprocess(_ card: ResultCard, choice: OptimiseChoice? = nil, adjust: ((inout OptimisationJob) -> Void)? = nil) {
         let origin = card.origin, displayName = card.displayName
-        let wasClipboardImage = card.source.path.hasPrefix(Paths.temporary.path)
-        card.adjusted = adjust != nil
-        card.loupe = nil
+        let wasClipboardImage = Self.isCopiedImage(card.source)
+        // Every run starts from the original: only `downscale(_:to:)` keeps a scale. It is set
+        // here, before the run, because `downscale(_:to:)` sets its own scale right after.
+        let keptScale = card.downscale
+        card.downscale = 1
         let choice = choice ?? card.choice
         let rule = card.appliedRule?.choice == choice ? card.appliedRule : nil
         let context = CardContext(origin: card.fileOrigin ?? .unknown, inputType: card.inputType, choice: choice, rule: rule)
@@ -719,17 +737,30 @@ public final class AppModel {
             var source = card.source
             // A result kept beside its original: the re-run's result replaces it.
             var replaced: OptimisationResult?
+            // The files this card may have on the clipboard, which the new result replaces there.
+            var shown = [card.source]
             switch card.phase {
             case let .done(result):
                 source = result.source
-                if result.backup != nil { await restore(result) } else { replaced = result }
+                shown = [result.output, result.source]
+                if result.backup == nil {
+                    replaced = result
+                } else if !(await restore(result)) {
+                    // A failed restore shows a notice and the card keeps its result as it was;
+                    // encoding the optimised file again would not start from the original.
+                    card.downscale = keptScale
+                    return
+                }
             case let .restored(result):
                 source = result.source
+                shown = [result.source]
             case .working, .failed, .notice:
                 return
             case .unchanged:
                 break
             }
+            card.adjusted = adjust != nil
+            card.loupe = nil
             var job = factory.job(for: source, origin: origin, location: wasClipboardImage ? .inPlace : nil)
             choice.apply(to: &job.request)
             adjust?(&job)
@@ -740,7 +771,7 @@ public final class AppModel {
                     self.service.results.append([], withdrawing: [replaced], wait: false)
                 }
                 guard copyBack else { return }
-                self.writeClipboard(files: [result.output])
+                Task { await self.putBackOnClipboard(shown.map { ($0, result.output) }) }
             })
         }
     }
@@ -752,14 +783,14 @@ public final class AppModel {
         interact(card, .menu(true))
     }
 
-    /// Puts the original back, from a card or the backups menu.
-    public func restore(_ result: OptimisationResult) async {
+    /// Puts the original back, from a card, Recent or Compare. False when it failed: a notice
+    /// says why and a card keeps its result (as "Not optimised" it would offer Retry, which
+    /// compresses the optimised file again).
+    @discardableResult
+    public func restore(_ result: OptimisationResult) async -> Bool {
         let card = cards.first { $0.result?.id == result.id }
         do {
-            _ = try await service.restoreBackup(of: result, deleteBackup: false)
-            restoredIDs.insert(result.id)
-            forget(result)
-            noteWritten([result.source, result.output])
+            try await putBack(result)
             if let card {
                 card.phase = .restored(result)
                 card.loupe = nil
@@ -771,21 +802,13 @@ public final class AppModel {
                 loadThumbnail(card, url: result.source)
                 settle(card)
             }
-            if pasteboardHolds(result.output) {
-                // The optimised copy was on the clipboard: the original replaces it there too.
-                writeClipboard(files: [result.source])
-            }
+            // The optimised copy was on the clipboard: the original replaces it there too.
+            await putBackOnClipboard([(result.output, result.source)])
+            return true
         } catch {
-            if let card { card.phase = .failed(CardPresentation.message(for: error)) } else {
-                notice(Strings.format("Could not restore %@", result.source.lastPathComponent), CardPresentation.message(for: error))
-
-            }
+            notice(Strings.format("Could not restore %@", result.source.lastPathComponent), CardPresentation.message(for: error))
+            return false
         }
-    }
-
-    func pasteboardHolds(_ url: URL) -> Bool {
-        guard Clipboard.isOwnWrite(pasteboard), case let .files(urls) = Clipboard.read(pasteboard) else { return false }
-        return urls.contains { $0.standardizedFileURL.path == url.standardizedFileURL.path }
     }
 
     /// The floating result for `result`, shown again when it had gone (the compare window runs

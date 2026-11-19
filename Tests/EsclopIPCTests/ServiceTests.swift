@@ -76,6 +76,22 @@ final class EventLog: @unchecked Sendable {
     var kinds: [String] { lock.lock(); defer { lock.unlock() }; return events }
 }
 
+/// IPC and MCP place files by the engines' rule (one owner): in place never replaces an
+/// unrelated sibling, and the agent gate checks the file the engine will write.
+@Suite struct OutputPlanning {
+    @Test func plansLikeTheEngines() throws {
+        let temp = TempDir()
+        let png = temp.file("IMG.png")
+        try Data("unrelated".utf8).write(to: temp.url.appendingPathComponent("IMG.jpg"))
+        let inPlace = try OutputPlanner.destination(for: png, location: .inPlace, suffix: "x", extension: "jpg")
+        #expect(inPlace.lastPathComponent == "IMG 2.jpg")
+        #expect(try OutputPlanner.destination(for: png, location: .inPlace, suffix: "x") == png)
+        let planned = OutputPlanner.plannedFile(for: png, location: .path("out/"), operation: .convert(.webp))
+        #expect(planned == OutputLocation.path("out/").destination(for: png, extension: "webp"))
+        #expect(planned?.deletingLastPathComponent().deletingLastPathComponent().standardizedFileURL == png.deletingLastPathComponent().standardizedFileURL)
+    }
+}
+
 @Suite struct PDFTools {
     @Test func cropSetsTheCropBoxAndUncropRestoresIt() async throws {
         let temp = TempDir()
@@ -99,6 +115,7 @@ final class EventLog: @unchecked Sendable {
         let restored = await executor.run(OptimisationJob(request: request, operation: .uncropPDF))
         #expect(restored.results.first?.output == output)
         #expect(restored.results.first?.backup != nil, "in place keeps a backup")
+        #expect(BackupStore(root: temp.url.appendingPathComponent("backups")).entries().count == 1, "with its manifest, so retention prunes it")
         let back = try #require(PDFDocument(url: output))
         #expect(back.page(at: 0)!.bounds(for: .cropBox) == CGRect(x: 0, y: 0, width: 600, height: 600))
     }
