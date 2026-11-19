@@ -86,8 +86,8 @@ Where results go: `location` is `inPlace` (replace the original, keeping a backu
 (a new file next to it) or `temporary`; `output` takes a folder ending in `/` or a path template
 (`%f` name, `%e` extension, `%d` folder). Left out, it is `inPlace` when the person allows agents
 to overwrite originals and `sameFolder` otherwise; a result in another format then goes where the
-person's "Converted … go" setting says, except that an agent without that permission never
-converts in place.
+person's "Converted … go" setting says, except that an agent without that permission keeps its own
+default when the setting says in place or names a specific folder.
 
 | Tool | What it does | Example arguments |
 |---|---|---|

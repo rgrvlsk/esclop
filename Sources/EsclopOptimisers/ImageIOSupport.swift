@@ -25,6 +25,8 @@ struct ImageInfo: Sendable {
     /// Pixels per inch; 72 when the file does not say. 144 is a 2x (Retina) screenshot.
     var dpi: Double = 72
     /// The EXIF `UserComment` "Screenshot" that macOS writes into screenshots, saved or copied.
+    // ponytail: screenshots from tools that do not write it are not halved.
+    // If people ask for those, also count an image in the watched screenshot folder.
     var isScreenshot = false
 
     var isAnimated: Bool { frameCount > 1 }

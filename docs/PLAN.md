@@ -17,7 +17,7 @@ in a floating card and restore the original. CLI and MCP workflows already run w
 - Agents and MCP pane: agent detection, connect and disconnect with a preview of the config
   change, the permission switches, snippets and a live server test.
 - First-run onboarding, skippable and reopened from the menu.
-- The options popover (Format, Size, Crop, Actions) with size estimates, origin suggestions,
+- The options popover (Format, Size, Crop and Actions; Sound for audio) with size estimates, origin suggestions,
   clipboard rules and the Catalan localisation.
 - The batch window for many files at once: progress, aggregate saving, pause, stop and restore all.
 - Watched folders (screenshots and recordings by default) and pipeline folder triggers in the

@@ -378,6 +378,9 @@ public struct ResultSummary: Codable, Sendable, Hashable {
     /// The first step of a pipeline result whose filter stopped the file before any step ran.
     public static let filteredStep = "filtered: no step applied"
 
+    /// The step of a pipeline result that lists one of its other outputs (a fork, extracted pages).
+    public static func alsoWroteStep(_ file: URL) -> String { "also wrote \(file.path)" }
+
     /// A pipeline's filter stopped the file: nothing was done to it.
     public var skippedByFilter: Bool { steps.first == Self.filteredStep }
 
