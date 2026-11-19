@@ -54,6 +54,8 @@ public final class BatchRow: Identifiable {
     }
 
     /// The row has a result whose backup is still there.
+    // ponytail: one stat per call, from the view; a batch of thousands of rows re-stats them on
+    // each header render. Store the answer when the row finishes if that ever shows in a profile.
     public var canRestore: Bool {
         guard let backup = result?.backup else { return false }
         return FileManager.default.fileExists(atPath: backup.path)

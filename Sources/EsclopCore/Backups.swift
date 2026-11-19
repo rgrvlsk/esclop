@@ -142,7 +142,7 @@ public struct BackupStore: Sendable {
                     do {
                         report.trashed.append(try trash(original))
                     } catch {
-                        throw EsclopError.other("\(original.lastPathComponent) changed after it was optimised and could not go to the Trash, so it was left as it is")
+                        throw EsclopError.other(Self.untrashableEdit)
                     }
                     try fm.moveItem(at: staging, to: original)
                 }
@@ -163,6 +163,9 @@ public struct BackupStore: Sendable {
         Log.backups.info("Restored \(original.lastPathComponent, privacy: .private)")
         return report
     }
+
+    /// One sentence for people, translated by the app (no file name: the card names it).
+    public static let untrashableEdit = "The file changed after it was optimised and could not go to the Trash, so it was left as it is."
 
     /// Whether the file at the source path is still the output `result` wrote: same path, same
     /// size, and not modified after the result finished.

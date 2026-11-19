@@ -277,9 +277,13 @@ public final class AppModel {
 
     /// Stops what is still to go first, so no file is optimised after its neighbours came back.
     public func restoreAll(_ batch: Batch) async {
-        batch.cancelAll()
-        // ponytail: polls like `waitWhilePaused`; rows end within an engine's cancel time.
-        while batch.isRunning { try? await Task.sleep(for: .milliseconds(50)) }
+        // ponytail: polls like `waitWhilePaused`; rows end within an engine's cancel time. Cancels
+        // each pass: files dropped meanwhile join this batch, and rows added ahead of their job
+        // get their cancel only when it starts.
+        while batch.isRunning {
+            batch.cancelAll()
+            try? await Task.sleep(for: .milliseconds(50))
+        }
         for row in batch.restorable { await restore(row) }
     }
 
@@ -741,8 +745,9 @@ public final class AppModel {
         interact(card, .menu(true))
     }
 
-    /// Puts the original back, from a card, Recent or Compare. False when it failed; the card or
-    /// a notice says why.
+    /// Puts the original back, from a card, Recent or Compare. False when it failed: a notice
+    /// says why and a card keeps its result (as "Not optimised" it would offer Retry, which
+    /// compresses the optimised file again).
     @discardableResult
     public func restore(_ result: OptimisationResult) async -> Bool {
         let card = cards.first { $0.result?.id == result.id }
@@ -765,9 +770,7 @@ public final class AppModel {
             }
             return true
         } catch {
-            if let card { card.phase = .failed(CardPresentation.message(for: error)) } else {
-                notice(Strings.format("Could not restore %@", result.source.lastPathComponent), CardPresentation.message(for: error))
-            }
+            notice(Strings.format("Could not restore %@", result.source.lastPathComponent), CardPresentation.message(for: error))
             return false
         }
     }

@@ -130,11 +130,13 @@ import Testing
         let card = try #require(harness.model.cards.first)
         try FileManager.default.removeItem(at: try #require(card.result?.backup))
         harness.model.perform(.keepMetadata, on: card)
-        #expect(await eventually { if case .failed = card.phase { return true } else { return false } })
+        #expect(await eventually { harness.model.cards.contains { $0.presentation.capsule == .notice(title: "Could not restore a.png", detail: "The original’s backup is no longer there.") } })
         try await Task.sleep(for: .milliseconds(200))
         #expect(harness.requests.requests.count == 1, "nothing runs again")
-        #expect(card.presentation.capsule == .error(title: "Not optimised", message: "The original’s backup is no longer there."))
+        #expect(card.result != nil, "the card keeps its result: no Retry that compresses it again")
         #expect(CardPresentation.message(for: EsclopError.backupRemoved(file: file.path, afterDays: 7)) == "The original was removed after 7 days.")
+        #expect(CardPresentation.message(for: EsclopError.other(BackupStore.untrashableEdit)) == BackupStore.untrashableEdit)
+        #expect(Strings.text(BackupStore.untrashableEdit, locale: Locale(identifier: "ca")).hasPrefix("El fitxer ha canviat"), "the card can say it in Catalan")
     }
 
     @Test func revealAndCopyUseTheResult() async throws {

@@ -326,6 +326,8 @@ public struct EsclopService: Sendable {
         }
         let fm = FileManager.default
         guard fm.fileExists(atPath: backup.path) else {
+            // ponytail: inferred from the result's age and today's setting, not recorded by prune; a
+            // backup deleted by hand after the retention period also reads "removed after N days".
             let retention = EsclopSettings.backupRetentionDays
             let days = (try? context.settings.value(forKey: retention.key))?.intValue ?? retention.defaultValue
             let expired = days > 0 && result.finishedAt < Date().addingTimeInterval(-Double(days) * 86400)
