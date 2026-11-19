@@ -258,9 +258,8 @@ import UniformTypeIdentifiers
     /// After another choice the ticked box still describes the stored rule, not the new choice.
     @Test func theRuleLineSaysWhatTheStoredRuleDoes() async throws {
         let harness = Harness()
-        harness.model.frontmostApp = { "com.example.editor" }
         try EsclopSettings.autoCopyToClipboard.set(false, in: harness.settings.store)
-        harness.model.handleClipboard(.optimiseImage(screenshotPNG(), .png))
+        harness.model.handleClipboard(harness.copy(image: screenshotPNG(), app: "com.example.editor"))
         #expect(await eventually { harness.model.cards.first?.result != nil })
         let card = try #require(harness.model.cards.first)
         harness.model.apply(OptimiseChoice(format: .webp), to: card)
