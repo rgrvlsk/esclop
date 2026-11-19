@@ -375,6 +375,8 @@ struct FileRun {
             return (.done, "renamed to \(name)")
 
         case let .delete(path):
+            // A trial deletes nothing, as it runs no scripts: the step is shown as skipped.
+            if options.trialFolder != nil { return (.skipped, "files are not deleted in a trial") }
             guard options.allowDelete else { throw EsclopError.notPermitted("deleting files is not allowed here") }
             let target: URL = switch path {
             case "sourceFile": source

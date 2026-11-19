@@ -22,6 +22,8 @@ final class ClipboardKeeper: @unchecked Sendable {
     private var held: (count: Int, files: [URL])?
     /// What L'Esclop wrote, by bytes (`ClipboardFingerprint`), the last 32 files.
     private var ownWrites: [ClipboardFingerprint] = []
+    /// The change count of L'Esclop's own last write.
+    private var ownCount: Int?
 
     init(pasteboard: NSPasteboard) {
         self.pasteboard = pasteboard
@@ -52,23 +54,35 @@ final class ClipboardKeeper: @unchecked Sendable {
         if ownWrites.count > 32 { ownWrites.removeFirst(ownWrites.count - 32) }
         Clipboard.write(files: files, to: pasteboard)
         held = (pasteboard.changeCount, files)
+        ownCount = pasteboard.changeCount
     }
 
-    /// A pipeline's `copyToClipboard`: text or image bytes, marked as L'Esclop's own. Nothing is
-    /// held, so no result goes back over it.
-    func write(text: String) {
+    /// Text (a pipeline's `copyToClipboard`, a link, a path from Settings), marked as L'Esclop's
+    /// own; a single `link` also as a URL. Nothing is held, so no result goes back over it. With
+    /// `since` (an automatic upload's link) it is written only while the clipboard still holds
+    /// what it held at that change count, or L'Esclop's own last write: a copy made meanwhile
+    /// stays. False when nothing was written.
+    @discardableResult
+    func write(text: String, link: Bool = false, since count: Int? = nil) -> Bool {
+        if let count, pasteboard.changeCount != count, pasteboard.changeCount != ownCount { return false }
         pasteboard.clearContents()
-        pasteboard.declareTypes([.string, Clipboard.optimisedType], owner: nil)
+        pasteboard.declareTypes(link ? [.string, .URL, Clipboard.optimisedType] : [.string, Clipboard.optimisedType], owner: nil)
         pasteboard.setString(text, forType: .string)
+        if link { pasteboard.setString(text, forType: .URL) }
         pasteboard.setString("1", forType: Clipboard.optimisedType)
         held = nil
+        ownCount = pasteboard.changeCount
+        return true
     }
+
+    func changeCount() -> Int { pasteboard.changeCount }
 
     func write(imageData data: Data, type: UTType) {
         ownWrites.append(ClipboardFingerprint(data: data))
         if ownWrites.count > 32 { ownWrites.removeFirst(ownWrites.count - 32) }
         Clipboard.write(image: data, type: type, to: pasteboard)
         held = nil
+        ownCount = pasteboard.changeCount
     }
 
     /// Puts each new file in the place of the old one, the other files kept in order, while the
@@ -108,9 +122,17 @@ extension AppModel {
         ClipboardKeeper.queue.async { keeper.write(files) }
     }
 
-    /// A pipeline step's copy, as L'Esclop's own.
+    /// A pipeline step's or Settings' copy, as L'Esclop's own.
     func copyToClipboard(text: String) async {
         await clipboard.run { $0.write(text: text) }
+    }
+
+    /// Links on the clipboard, one per line; with `since`, only if nothing was copied after it
+    /// (`ClipboardKeeper.write(text:link:since:)`). False when the clipboard kept what was copied.
+    @discardableResult
+    func copyToClipboard(links: [URL], since: Int? = nil) async -> Bool {
+        let text = links.map(\.absoluteString).joined(separator: "\n")
+        return await clipboard.run { $0.write(text: text, link: links.count == 1, since: since) }
     }
 
     func copyToClipboard(imageData: Data, type: UTType) async {

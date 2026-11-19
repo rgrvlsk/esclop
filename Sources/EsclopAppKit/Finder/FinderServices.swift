@@ -87,11 +87,17 @@ final class FinderServices: NSObject {
                     Strings.text("Turn on “Finder’s right-click menu” for a pipeline in the pipeline editor.")
                 )
             case 1:
-                model.runPipeline(offered[0].name, on: media)
+                run(offered[0], on: media)
             default:
-                choosePipeline(offered) { [weak self] pipeline in self?.model.runPipeline(pipeline.name, on: media) }
+                choosePipeline(offered) { [weak self] pipeline in self?.run(pipeline, on: media) }
             }
         }
+    }
+
+    /// Like a plain Finder optimisation: floating results, or the batch window from
+    /// `batchWindowFrom` files, and automatic uploads for Finder.
+    func run(_ pipeline: Pipeline, on files: [URL]) {
+        model.optimise(files, origin: .finder, copy: nil, pipeline: { _ in pipeline })
     }
 
     /// A menu at the pointer, the way a context menu shows: no window opens.

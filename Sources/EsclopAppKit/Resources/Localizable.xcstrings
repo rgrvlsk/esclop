@@ -231,6 +231,16 @@
         }
       }
     },
+    "%@ uploaded": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ s’ha pujat"
+          }
+        }
+      }
+    },
     "%@ uploaded, the link is on the clipboard": {
       "localizations": {
         "ca": {
@@ -7747,6 +7757,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Les mateixes opcions al Terminal"
+          }
+        }
+      }
+    },
+    "The step %@ failed: %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El pas %@ ha fallat: %@"
+          }
+        }
+      }
+    },
+    "The steps before it already changed the file (%@); Recent Results can put the original back.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els passos d’abans ja havien canviat el fitxer (%@); des de Resultats recents pots recuperar l’original."
           }
         }
       }

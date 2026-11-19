@@ -65,22 +65,35 @@ extension AppModel {
         let copyBack = origin == .clipboard && EsclopSettings.autoCopyToClipboard.value(in: settings)
         if copyBack, let copy { holdOnClipboard(copied ?? urls, at: copy.changeCount) }
         let putBack = PutBack()
-        let pipelines = urls.map(pipeline)
+        // Copied files the pipeline runs on a copy of, by the copy's path.
+        var originals: [String: URL] = [:]
+        let jobs = zip(urls, urls.map(pipeline)).map { url, triggered -> (url: URL, triggered: Pipeline?, job: OptimisationJob) in
+            var job = factory.job(for: url, origin: origin, aggressive: aggressive)
+            guard let triggered else { return (url, nil, job) }
+            if origin == .clipboard {
+                // Copying is not a request to change the original: the pipeline runs on a copy, which
+                // goes back on the clipboard. Without one, the plain optimisation (a copy too) runs.
+                guard let copy = try? Self.workingCopy(of: url) else { return (url, nil, job) }
+                job.request.sources = [copy]
+                originals[copy.path] = url
+            }
+            Self.use(triggered, in: &job)
+            return (url, triggered, job)
+        }
         // A pipeline that hides its result keeps its files out of the batch window too.
-        let shown = zip(urls, pipelines).filter { !($0.1?.hideResult ?? false) }.map(\.0)
+        let shown = jobs.filter(\.job.request.showResultUI)
         // Too many for floating results: one batch window for all of them.
         let batch = shown.count >= batchThreshold ? openBatch(origin: origin) : nil
         // Every file shows in the window at once, waiting, before its job starts.
-        for url in shown { batch?.add(url, bytes: Self.size(of: url)) }
+        for item in shown { batch?.add(item.job.request.sources[0], bytes: Self.size(of: item.url)) }
         // Every result, a retried file's too; one retried after the rest went back goes on its own.
-        let onResult: ((OptimisationResult) -> Void)? = copyBack ? { result in
-            putBack.results.append((result.source, result.output))
-            if putBack.done { Task { await self.putBackOnClipboard([(result.source, result.output)]) } }
+        let onResult: ((OptimisationResult) -> Void)? = copyBack ? { [originals] result in
+            let replacement = (originals[result.source.path] ?? result.source, result.output)
+            putBack.results.append(replacement)
+            if putBack.done { Task { await self.putBackOnClipboard([replacement]) } }
         } : nil
         var runs: [Task<Void, Never>] = []
-        for (url, triggered) in zip(urls, pipelines) {
-            var base = factory.job(for: url, origin: origin, aggressive: aggressive)
-            if let triggered { Self.use(triggered, in: &base) }
+        for (url, triggered, base) in jobs {
             runs.append(Task {
                 var job = base
                 adjust(&job)
@@ -89,7 +102,7 @@ extension AppModel {
                     context = await clipboardContext(for: url, copy: copy ?? ClipboardCopy(changeCount: 0), aggressive: aggressive, pipeline: triggered)
                     if let context, context.rule != nil { context.choice.apply(to: &job.request) }
                 }
-                await run(job, context: context, batch: job.request.showResultUI ? batch : nil, onResult: onResult)
+                await run(job, context: context, batch: job.request.showResultUI ? batch : nil, sourceApp: copy?.app, onResult: onResult)
             })
         }
         guard copyBack else { return }
@@ -98,6 +111,18 @@ extension AppModel {
             putBack.done = true
             await putBackOnClipboard(putBack.results)
         }
+    }
+
+    /// A copied file's copy for its clipboard pipeline, where the plain optimisation puts its
+    /// results (`OutputLocation.temporary`), swept at launch with them.
+    // ponytail: copied on the main actor; APFS clones it at once on the same volume. Copy off the
+    // main actor if a large file copied from another volume shows as a hang.
+    nonisolated static func workingCopy(of file: URL) throws -> URL {
+        let folder = Paths.temporary.appendingPathComponent("results/\(UUID().uuidString.prefix(8))", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let copy = folder.appendingPathComponent(file.lastPathComponent)
+        try FileManager.default.copyItem(at: file, to: copy)
+        return copy
     }
 
     /// The results of one copy, gathered until its last file is done (a retry's result arrives
@@ -128,7 +153,7 @@ extension AppModel {
             var job = base
             let context = await clipboardContext(for: file, copy: copy, aggressive: aggressive, pipeline: triggered)
             if context.rule != nil { context.choice.apply(to: &job.request) }
-            await run(job, displayName: Strings.text("Copied image"), context: context, onResult: { result in
+            await run(job, displayName: Strings.text("Copied image"), context: context, sourceApp: copy.app, onResult: { result in
                 guard copyBack else { return }
                 Task { await self.putBackOnClipboard([(result.source, result.output)]) }
             })

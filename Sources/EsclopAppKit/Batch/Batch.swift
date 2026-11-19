@@ -96,6 +96,9 @@ public final class Batch: Identifiable {
     /// Waiting files hold until resumed; files already running finish.
     public private(set) var paused = false
     public let startedAt: Date
+    /// The clipboard's change count when the batch's first automatic upload started: its links go
+    /// on the clipboard only if nothing was copied after that.
+    var linksSince: Int?
 
     init(origin: RequestOrigin, startedAt: Date = Date()) {
         self.origin = origin
