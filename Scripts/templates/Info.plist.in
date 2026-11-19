@@ -64,7 +64,8 @@
 	<true/>
 	<key>SUVerifyUpdateBeforeExtraction</key>
 	<true/>
-	<!-- Finder's Quick Actions (Services): titles in Resources/<lang>.lproj/ServicesMenu.strings. -->
+	<!-- Finder's Quick Actions (Services): titles in Resources/<lang>.lproj/ServicesMenu.strings.
+	     Folders too: the app takes the media files inside them. -->
 	<key>NSServices</key>
 	<array>
 		<dict>
@@ -72,6 +73,12 @@
 			<dict>
 				<key>default</key>
 				<string>Optimise with L’Esclop</string>
+			</dict>
+			<!-- Clop's key for its Optimise service, so the habit carries over. -->
+			<key>NSKeyEquivalent</key>
+			<dict>
+				<key>default</key>
+				<string>^O</string>
 			</dict>
 			<key>NSMessage</key>
 			<string>optimiseFiles</string>
@@ -85,6 +92,7 @@
 				<string>public.movie</string>
 				<string>public.audio</string>
 				<string>com.adobe.pdf</string>
+				<string>public.folder</string>
 			</array>
 		</dict>
 		<dict>
@@ -105,6 +113,7 @@
 				<string>public.movie</string>
 				<string>public.audio</string>
 				<string>com.adobe.pdf</string>
+				<string>public.folder</string>
 			</array>
 		</dict>
 		<dict>
@@ -122,6 +131,7 @@
 			<key>NSSendFileTypes</key>
 			<array>
 				<string>public.image</string>
+				<string>public.folder</string>
 			</array>
 		</dict>
 		<dict>
@@ -142,6 +152,7 @@
 				<string>public.movie</string>
 				<string>public.audio</string>
 				<string>com.adobe.pdf</string>
+				<string>public.folder</string>
 			</array>
 		</dict>
 	</array>
