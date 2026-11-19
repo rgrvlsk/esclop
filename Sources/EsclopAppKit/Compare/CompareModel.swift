@@ -193,8 +193,16 @@ public final class CompareModel {
         app.apply(choice, to: card)
     }
 
-    /// The choice the result was made with, to start "try another" from.
-    public var choice: OptimiseChoice { card?.choice ?? .standard }
+    /// The choice the result was made with, to start "try another" from. With its floating
+    /// result gone, the output says what it can: a converted file keeps its new format.
+    public var choice: OptimiseChoice {
+        if let card { return card.choice }
+        guard let result else { return .standard }
+        var choice = OptimiseChoice.standard
+        let output = OutputFormat.of(result.output)
+        if output != OutputFormat.of(result.backup ?? result.source) { choice.format = output }
+        return choice
+    }
 
     public func copy() {
         guard let after = sides.after else { return }

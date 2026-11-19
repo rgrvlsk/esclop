@@ -61,6 +61,8 @@ public final class SettingsViewModel {
     @ObservationIgnored public var pipelines: PipelineStore?
     /// The Keychain and the test upload, for Settings › Uploads.
     @ObservationIgnored public var uploads: UploadSettingsSupport?
+    /// The folder watcher, so a folder row shows what the watcher sees now.
+    @ObservationIgnored public weak var watchedFolders: WatchedFolders?
 
     /// The upload targets in the setting.
     public var uploadTargets: [UploadTarget] {

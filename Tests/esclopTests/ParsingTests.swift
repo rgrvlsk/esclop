@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import ArgumentParser
+import CoreGraphics
 import EsclopCore
 import EsclopIPC
 @testable import esclop
@@ -189,6 +190,36 @@ func rejects(_ arguments: [String]) -> Bool {
         #expect(Output.exitCode(for: .cancelled) == 130)
         #expect(Output.exitCode(for: .other("x")) == 1)
         #expect(Output.exitCode(for: .unreadable(kind: .video)) == 65)
+    }
+
+    /// `pdf pages` reports the size of every page it wrote, not of the first.
+    @Test func pageExportReportsAllPages() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-pages-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let pdf = folder.appendingPathComponent("doc.pdf")
+        var box = CGRect(x: 0, y: 0, width: 200, height: 300)
+        let context = try #require(CGContext(pdf as CFURL, mediaBox: &box, nil))
+        for shade in [0.2, 0.6] {
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(red: shade, green: 0.4, blue: 0.8, alpha: 1))
+            context.fill(CGRect(x: 20, y: 20, width: 160, height: 260))
+            context.endPDFPage()
+        }
+        context.closePDF()
+        let process = Process()
+        process.executableURL = try esclopBinary()
+        process.arguments = ["pdf", "pages", pdf.path, "--dpi", "72", "--json", "-o", folder.appendingPathComponent("pages").path]
+        process.environment = ProcessInfo.processInfo.environment.merging(["ESCLOP_NO_APP": "1"]) { $1 }
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        try process.run()
+        let output = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        let export = try JSONDecoder().decode(PageExport.self, from: output)
+        #expect(export.pages.count == 2)
+        #expect(export.bytes == export.pages.reduce(0) { $0 + PageExport.size(of: URL(fileURLWithPath: $1)) })
+        #expect(export.bytes > PageExport.size(of: URL(fileURLWithPath: export.pages[0])))
     }
 
     /// A file already as small as it gets is unchanged, not failed: `set -e` scripts that

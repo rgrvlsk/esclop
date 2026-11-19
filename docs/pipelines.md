@@ -2,9 +2,8 @@
 
 A pipeline is a list of steps esclop runs on a file: optimise it, resize it, convert it, move
 it somewhere or copy a path. Pipelines run through `esclop pipeline run` and MCP.
-The app runs a pipeline with a `folder(...)` trigger on new files in that folder (see
-[Triggers](#triggers)). Clipboard and drop-zone triggers are planned; their configuration can
-already be saved.
+While the app runs, a pipeline's triggers run it on their own: on new files in a folder, on what
+you copy, on what you drop on the drop zone, and with its hotkey (see [Triggers](#triggers)).
 
 The language follows Clop's step names and syntax. Supported operations depend on the
 engine and host; see [Coming from Clop](#coming-from-clop) for differences.
@@ -24,7 +23,7 @@ crop(longEdge: 1600) -> convert(to: webp) -> copyToClipboard(format: markdown)
 ```
 
 Each image is resized so its longest side is 1600 px, converted to WebP next to the original,
-and the CLI copies a Markdown link to it. MCP runs skip clipboard steps.
+and the app or the CLI copies a Markdown link to it. MCP runs skip clipboard steps.
 
 ## Syntax
 
@@ -77,18 +76,16 @@ crop(width: 1280) -> changeSpeed(factor: 1.5, frames: drop) -> targetSize(size: 
 
 ### Front matter
 
-UI metadata and automatic triggers are stored for the planned app; they are not active yet.
-
 Optional, between two `---` lines at the very top. Every key is optional.
 
 | Key | Meaning |
 |---|---|
 | `description` | One line saying what the pipeline is for. Shown in menus and to agents. |
-| `hotkey` | A global shortcut, for example `ctrl+alt+cmd+w`. |
+| `hotkey` | A global shortcut, for example `ctrl+alt+cmd+w`: modifiers (`ctrl`, `alt`, `cmd`, `shift`) and one key (a letter, a digit, `f1`–`f20`, `space`, `return`, `tab`, `escape`, `delete`). In the app it runs the pipeline on what is on the clipboard. |
 | `icon` | An SF Symbol name for preset zones and menus. |
 | `triggers` | What runs the pipeline on its own, comma separated (see below). |
 | `optimiseFirst` | `true` optimises each file before the steps (after any leading `if`). Skipped when the first step already re-encodes (`convert`, `crop`, `downscale`). Default `false`. |
-| `hideResult` | `true` runs without showing the floating result. Default `false`. |
+| `hideResult` | `true` runs without a floating result or a batch window row when the clipboard, the drop zone, a preset zone, a watched folder, Finder's right-click menu or the hotkey runs it. Run on Files… and the Share tab still show it. Default `false`. |
 
 ### Sections
 
@@ -102,8 +99,8 @@ A plain Clop pipeline is just an `[any]` section, so Clop text is a valid `.pipe
 
 | Trigger | Runs the pipeline |
 |---|---|
-| `clipboard` | on files and images you copy |
-| `dropZone` | on files dropped on the drop zone |
+| `clipboard` | on files and images you copy, instead of the plain optimisation, for the kinds it has steps for; the clipboard settings still decide which copies L'Esclop handles. It runs on a copy of a copied file, never on the original, and the copy goes back on the clipboard; `if(copiedBy:)` sees the app the copy was made in |
+| `dropZone` | on files dropped on the drop zone (not on its harder drop), instead of the plain optimisation, for the kinds it has steps for |
 | `presetZone` | from a preset zone beside the drop zone while you drag (order and built-in templates: Settings › Floating results › Preset zones) |
 | `folder("~/path")` | on new files directly in that folder, instead of the plain optimisation, for the kinds it has steps for; the folder is watched even when no Settings list names it |
 | `rightClick` | from Finder's right-click menu: Quick Actions › Run a Pipeline with L’Esclop… lists every pipeline with this trigger (one runs straight away) |
@@ -114,7 +111,7 @@ A `folder(...)` pipeline sees the same new files as the Settings folder lists: h
 temporary and already optimised files are skipped, a file still being written waits, and more
 files of one kind at once than its count (`maxImageFileCount` and the like) are left alone. The
 size limits do not apply; the pipeline can filter with `if(...)`. When two pipelines name the
-same folder, the first by name runs.
+same folder, the first by name runs; the same holds for `clipboard` and `dropZone`.
 
 ## Steps
 
@@ -253,10 +250,12 @@ of the same kind, the pipeline continues with it.
 `markdown` (an image or link). `relativeTo` makes the path or link relative to a folder, such as
 `"~/Projects/blog"`.
 
-`copyLinkForSending(expiration?)` shares the file through a link and copies the link. `expiration`
-stops sharing after `15m`, `1h`, `1d`, `3d`... or `never`; left out, the app's setting decides.
+`copyLinkForSending(expiration?)` comes from Clop, which shares the file through its own service.
+L'Esclop has no such service: the step is skipped with that reason, and `expiration` is read but
+unused. Use `upload(to:)` with one of your upload targets instead.
 
-`fork(location?)` saves the result so far as a second result, then continues with the same
+`fork(location?)` saves the result so far as a second result (in the app, a floating result of
+its own beside the pipeline's), then continues with the same
 file: `optimise -> fork -> convert(to: webp)` gives the optimised original and a WebP. Without a
 `location` the forked file stays where it is, or goes to a temporary folder when a later step
 would overwrite it. With a `location` a copy is saved there.
@@ -270,11 +269,12 @@ storage) and copies its link; without `to`, the default target. It needs the app
 the keys: from the command line without the app it is skipped with a note. For agents it needs
 `allowUploads`. `optimise -> upload(to: "R2")`.
 
-`openWith(app)`. open the file in the app named by `app`: `openWith(app: Preview)`.
+`openWith(app)` opens the file in the app named by `app`: `openWith(app: Preview)`.
 
-The CLI supports opening files and copying paths or Markdown with `pbcopy`. Image-data
-clipboard, sharing, shelf and upload actions require the planned app integration and are
-currently skipped with a run-log message. MCP uses a host that skips these host actions.
+The app performs every step above except `copyLinkForSending`; a shelf or upload app that is not
+installed skips its step with that reason. The CLI without the app opens files and copies paths
+or Markdown with `pbcopy`, and skips image data, shelf and upload apps and forks with a run-log
+message. MCP runs skip these steps; an agent's `upload` needs `allowUploads`.
 
 ## Where results go
 
@@ -387,8 +387,9 @@ The module is `EsclopPipelines`.
 - `PipelineRunner(engine:host:inspector:commands:)` and `run(_:on:options:progress:)`, which
   returns a `PipelineRunReport` (Codable). `PipelineRunOptions` carries the origin and the
   permissions (`allowRunScripts`, `allowDelete`).
-- `PipelineHost` is how the app performs clipboard, sharing, shelf, upload and fork steps.
-  `NoopPipelineHost` skips them; `CommandLinePipelineHost` opens files and copies paths.
+- `PipelineHost` is how the app performs clipboard, shelf, upload and fork steps
+  (`AppPipelineHost`). `NoopPipelineHost` skips them; `CommandLinePipelineHost` opens files and
+  copies paths.
 - Engines adopt `PipelineMediaOperations` for `lowerBitrate`, `capFps`, `normalize`,
   `watermark`, `extractPagesAsImages` and `changeSpeed(frames:)`. Without it, `removeAudio` and
   `changeSpeed` fall back to `optimise` with the matching request fields, and the others fail

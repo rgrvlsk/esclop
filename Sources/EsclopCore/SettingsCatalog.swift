@@ -114,6 +114,11 @@ public enum EsclopSettings {
         "enableDragAndDrop", default: true, title: "Show the drop zone",
         description: "Show a drop zone while dragging files, to optimise whatever is dropped on it.", section: .interface
     )
+    /// Clop's "only with ⌥": the zone stays hidden during a drag until ⌥ is tapped.
+    public static let dropZoneOnlyWithOption = Setting<Bool>(
+        "dropZoneOnlyWithOption", default: false, title: "Show the drop zone only after tapping ⌥",
+        description: "While dragging, the drop zone stays hidden until you tap Option; it then opens under the pointer. Tap Option again to hide it.", section: .interface
+    )
 
     // MARK: Images
 
@@ -318,31 +323,31 @@ public enum EsclopSettings {
 
     public static let optimisedImageBehaviour = Setting<FileBehaviour>(
         "optimisedImageBehaviour", default: .inPlace, title: "Optimised images go",
-        description: "Where optimised images are written.", section: .output
+        description: "Replacing the original keeps it as a backup; the other places leave it untouched.", section: .output
     )
     public static let optimisedVideoBehaviour = Setting<FileBehaviour>(
         "optimisedVideoBehaviour", default: .inPlace, title: "Optimised videos go",
-        description: "Where optimised videos are written.", section: .output
+        description: "Replacing the original keeps it as a backup; the other places leave it untouched.", section: .output
     )
     public static let optimisedPDFBehaviour = Setting<FileBehaviour>(
         "optimisedPDFBehaviour", default: .inPlace, title: "Optimised PDFs go",
-        description: "Where optimised PDFs are written.", section: .output
+        description: "Replacing the original keeps it as a backup; the other places leave it untouched.", section: .output
     )
     public static let optimisedAudioBehaviour = Setting<FileBehaviour>(
         "optimisedAudioBehaviour", default: .inPlace, title: "Optimised audio goes",
-        description: "Where optimised audio files are written.", section: .output
+        description: "Replacing the original keeps it as a backup; the other places leave it untouched.", section: .output
     )
     public static let convertedImageBehaviour = Setting<FileBehaviour>(
         "convertedImageBehaviour", default: .sameFolder, title: "Converted images go",
-        description: "Where images converted to another format are written.", section: .output
+        description: "Replacing the original keeps it as a backup; the other places leave it untouched.", section: .output
     )
     public static let convertedVideoBehaviour = Setting<FileBehaviour>(
         "convertedVideoBehaviour", default: .inPlace, title: "Converted videos go",
-        description: "Where videos converted to another format are written.", section: .output
+        description: "Replacing the original keeps it as a backup; the other places leave it untouched.", section: .output
     )
     public static let convertedAudioBehaviour = Setting<FileBehaviour>(
         "convertedAudioBehaviour", default: .inPlace, title: "Converted audio goes",
-        description: "Where audio files converted to another format are written.", section: .output
+        description: "Replacing the original keeps it as a backup; the other places leave it untouched.", section: .output
     )
     /// "Optimised … go" for `kind`.
     public static func optimisedBehaviour(for kind: MediaKind?) -> Setting<FileBehaviour> {
@@ -486,7 +491,7 @@ public enum EsclopSettings {
 
     public static let allowOverwriteOriginals = Setting<Bool>(
         "allowOverwriteOriginals", default: false, title: "Agents may overwrite originals",
-        description: "Let AI agents (MCP) write results over the original file. A backup is kept either way.",
+        description: "Let AI agents (MCP) write results over the original file. The original is kept as a backup.",
         section: .agents
     )
     public static let allowDeleteBackups = Setting<Bool>(
@@ -534,7 +539,7 @@ public enum EsclopSettings {
     public static let all: [AnySetting] = [
         stripMetadata.erased, preserveDates.erased, keepHDR.erased,
         floatingResultsCorner.erased, followCursorScreen.erased, autoHideFloatingResults.erased,
-        autoHideFloatingResultsAfter.erased, autoHideClipboardResultAfter.erased, batchWindowFrom.erased, enableDragAndDrop.erased, presetZones.erased,
+        autoHideFloatingResultsAfter.erased, autoHideClipboardResultAfter.erased, batchWindowFrom.erased, enableDragAndDrop.erased, dropZoneOnlyWithOption.erased, presetZones.erased,
         imageCompression.erased, imageAggressiveCompression.erased,
         useAggressiveOptimisationJPEG.erased, useAggressiveOptimisationPNG.erased, useAggressiveOptimisationGIF.erased,
         adaptiveImageSize.erased, formatsToConvertToJPEG.erased, formatsToConvertToPNG.erased,

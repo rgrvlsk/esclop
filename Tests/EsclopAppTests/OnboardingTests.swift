@@ -27,6 +27,37 @@ import Testing
         #expect(!OnboardingModel(defaults: settings.store.defaults).shouldShowAtLaunch, "remembered across launches")
     }
 
+    /// Closing the window with its button or ⌘W ends the tour, or it opens at every launch.
+    @Test func closingTheWindowFinishes() {
+        let viewModel = SettingsViewModel(provider: RegistrySettingsProvider(store: settings.store), extraRows: SettingsPaneView.extraRows)
+        let model = OnboardingModel(defaults: settings.store.defaults)
+        let controller = OnboardingWindowController(model: model, settings: SettingsWindowController(model: viewModel, actions: SettingsActions()))
+        controller.makeWindow().close()
+        #expect(model.isFinished)
+    }
+
+    /// Back from System Settings, the badge and the switch show what the person chose there, and a
+    /// login item waiting for approval counts as on.
+    @Test func permissionsRefreshWhenTheAppComesBack() {
+        let model = OnboardingModel(defaults: settings.store.defaults)
+        model.readClipboardAccess = { .denied }
+        model.readLoginStatus = { .requiresApproval }
+        NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: nil)
+        #expect(model.clipboardAccess == .denied)
+        #expect(model.opensAtLogin && model.loginNeedsApproval)
+    }
+
+    /// 0 keeps backups for ever: "kept for 0 days" said the opposite, and 1 read "1 days".
+    @Test func retentionIsForeverOneDayOrDays() {
+        let en = Locale(identifier: "en")
+        #expect(SettingPresentation.retention(days: 1) == Strings.text("1 day"))
+        #expect(Strings.text("1 day", locale: en) == "1 day" && Strings.format("%d days", 7, locale: en) == "7 days")
+        #expect(SettingPresentation.unit("days", key: EsclopSettings.backupRetentionDays.key, value: .int(0)) == Strings.text("days, kept for ever"))
+        #expect(SettingPresentation.unit("days", key: EsclopSettings.backupRetentionDays.key, value: .int(1)) == Strings.text("day"))
+        #expect(AutomaticPage.summary(retentionDays: 0) == Strings.text("L’Esclop optimises what you copy as soon as you copy it. Originals are always kept and can be restored from the menu."))
+        #expect(!AutomaticPage.summary(retentionDays: 1).contains("1 days"))
+    }
+
     @Test func stepsGoForwardAndBack() {
         let model = OnboardingModel(defaults: settings.store.defaults)
         #expect(model.step == .welcome && model.isFirst)

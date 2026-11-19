@@ -232,7 +232,7 @@ func runJob(
 ) async throws {
     guard !inputs.items.isEmpty else { throw ValidationError("Give at least one file or folder.") }
     try await guarded(printing) {
-        var sources = try inputs.sources()
+        var sources = try await inputs.sources()
         let optimised = skipOptimised ? sources.filter(OptimisedMark.isMarked) : []
         sources.removeAll { optimised.contains($0) }
         let skipped = optimised.map { source in

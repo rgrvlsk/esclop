@@ -22,7 +22,7 @@ struct AgentsConnectSection: View {
                 ProgressView().controlSize(.small).frame(maxWidth: .infinity)
             } else if agents.command == nil {
                 Label(AgentsModel.noCommand, systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Ink.error)
             }
             if agents.loaded, agents.found.isEmpty {
                 Text(Strings.text("No agents found on this Mac. Pick one below to set it up anyway, or copy a snippet at the end of this pane."))
@@ -59,7 +59,7 @@ struct AgentsConnectSection: View {
         } header: {
             Text(Strings.text("Connect an agent"))
         } footer: {
-            Text(Strings.text("Connecting adds an esclop entry to the agent's own config file and nothing else. You see the change before it is written, and the previous version is kept in L'Esclop's folder."))
+            Text(Strings.text("Connecting adds an esclop entry to the agent's own config file and nothing else. You see the change before it is written, and the previous version is kept in L’Esclop’s folder."))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 // Grouped forms put footers on the trailing side; these read with the rows above.
@@ -71,6 +71,7 @@ struct AgentsConnectSection: View {
             ConfigChangeSheet(change: pending.change, onCancel: agents.cancel) {
                 Task { await agents.confirm() }
             }
+            .designTint()
         }
         .onChange(of: model.highlighted) {
             // A link to an agent that is not on this Mac opens the folded group.
@@ -119,7 +120,7 @@ struct AgentRow: View {
             case let .failed(text)?:
                 Label(text, systemImage: "exclamationmark.triangle.fill")
                     .font(.subheadline)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Ink.error)
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
             case nil:
@@ -138,10 +139,10 @@ struct AgentRow: View {
             Image(systemName: "checkmark.circle.fill").foregroundStyle(Ink.charcoalText)
                 .accessibilityLabel(Strings.text("Connected"))
         case .different:
-            Image(systemName: "arrow.triangle.2.circlepath.circle.fill").foregroundStyle(Palette.warm)
+            Image(systemName: "arrow.triangle.2.circlepath.circle.fill").foregroundStyle(Ink.warm)
                 .accessibilityLabel(Strings.text("Runs another esclop"))
         case .unreadable:
-            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Ink.error)
                 .accessibilityLabel(Strings.text("Config unreadable"))
         case .absent, .manual:
             Image(systemName: "circle.dashed").foregroundStyle(.secondary)
@@ -207,7 +208,7 @@ struct ConfigChangeSheet: View {
                 Button(verb, action: onConfirm)
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)
-                    .tint(change.action == .install ? nil : .red)
+                    .tint(change.action == .install ? Ink.charcoal : Ink.error)
             }
         }
         .padding(20)
@@ -216,10 +217,10 @@ struct ConfigChangeSheet: View {
 
     var explanation: String {
         var text = change.removesFile
-            ? Strings.format("L'Esclop created %@ when it connected, and the file holds nothing else, so it will be removed.", change.shownPath)
+            ? Strings.format("L’Esclop created %@ when it connected, and the file holds nothing else, so it will be removed.", change.shownPath)
             : change.fileExists
-            ? Strings.format("L'Esclop will edit %@. Only the esclop entry changes: other servers, comments and formatting stay as they are.", change.shownPath)
-            : Strings.format("%@ does not exist yet. L'Esclop will create it with only the esclop entry.", change.shownPath)
+            ? Strings.format("L’Esclop will edit %@. Only the esclop entry changes: other servers, comments and formatting stay as they are.", change.shownPath)
+            : Strings.format("%@ does not exist yet. L’Esclop will create it with only the esclop entry.", change.shownPath)
         if let backup = change.shownBackup {
             text += " " + Strings.format("The current version is kept as %@.", backup)
         }
@@ -299,7 +300,7 @@ struct DiffView: View {
     func tint(_ kind: DiffLine.Kind) -> Color? {
         switch kind {
         case .added: return Ink.charcoalText
-        case .removed: return .red
+        case .removed: return Ink.error
         default: return nil
         }
     }
@@ -332,7 +333,7 @@ struct AgentsTestSection: View {
                     .monospacedDigit()
             case let .failed(why):
                 Label(why, systemImage: "xmark.octagon.fill")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Ink.error)
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
             }

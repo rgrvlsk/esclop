@@ -23,7 +23,7 @@ struct SettingRow: View {
             if let error = model.errors[key] {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .font(.subheadline)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Ink.error)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -65,6 +65,7 @@ struct SettingRow: View {
         case .toggle:
             Toggle(isOn: Binding(get: { descriptor.value?.boolValue ?? false }, set: { model.set(key, to: .bool($0)) })) { label }
                 .switchLabel(title: descriptor.title, hint: descriptor.summary)
+                .tint(Ink.charcoal)
 
         case let .picker(choices):
             Picker(selection: Binding(
@@ -139,6 +140,7 @@ struct SliderField: View {
                 if !editing, draft != value { commit(draft) }
             }
             .labelsHidden()
+            .tint(Ink.charcoal)
             .accessibilityLabel(title)
             .accessibilityValue(figure)
             .frame(width: 180)
@@ -187,14 +189,14 @@ struct NumberField: View {
                 .onSubmit(commit)
                 .overlay {
                     if problem != nil {
-                        RoundedRectangle(cornerRadius: 5).strokeBorder(.red, lineWidth: 1).allowsHitTesting(false)
+                        RoundedRectangle(cornerRadius: 5).strokeBorder(Ink.error, lineWidth: 1).allowsHitTesting(false)
                     }
                 }
                 .help(problem ?? range)
             Stepper(descriptor.title, onIncrement: { nudge(+step) }, onDecrement: { nudge(-step) })
                 .labelsHidden()
             if let unit {
-                Text(unit).foregroundStyle(.secondary)
+                Text(SettingPresentation.unit(unit, key: descriptor.key, value: descriptor.value)).foregroundStyle(.secondary)
             }
         }
         .onAppear { draft = current }

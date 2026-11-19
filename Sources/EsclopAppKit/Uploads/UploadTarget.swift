@@ -55,10 +55,20 @@ public struct UploadTarget: Codable, Hashable, Identifiable, Sendable {
         if bucket.trimmingCharacters(in: .whitespaces).isEmpty { return Strings.text("A target needs a bucket.") }
         if region.trimmingCharacters(in: .whitespaces).isEmpty { return Strings.text("A target needs a region (auto for Cloudflare R2).") }
         if path.trimmingCharacters(in: .whitespaces).isEmpty { return Strings.text("A target needs a path, such as %f.%e.") }
-        if !publicURL.isEmpty, URL(string: publicURL.replacingOccurrences(of: "{path}", with: "x"))?.scheme == nil {
+        // Without {path} every upload would copy the same address.
+        if !publicURL.isEmpty, !publicURL.contains("{path}") || URL(string: publicURL.replacingOccurrences(of: "{path}", with: "x"))?.scheme == nil {
             return Strings.text("The public link is an address with {path} where the file's path goes.")
         }
         return nil
+    }
+
+    /// Why the copied link will not open for the people it is sent to, or nil: with no public
+    /// link it is the endpoint's address, which Cloudflare R2 never serves without the keys.
+    // ponytail: R2 only, the one endpoint known to be private; the test upload's link check
+    // catches a private bucket anywhere else.
+    public var linkWarning: String? {
+        guard publicURL.isEmpty, let host = URL(string: endpoint)?.host()?.lowercased(), host.hasSuffix(".r2.cloudflarestorage.com") else { return nil }
+        return Strings.text("Links to this endpoint do not open without the keys. Set the public link to the bucket’s public address (its r2.dev address or your own domain), with {path}.")
     }
 
     static func isLocal(_ host: String) -> Bool {

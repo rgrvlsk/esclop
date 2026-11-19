@@ -154,6 +154,11 @@ import Testing
         draft.accessKeyID = ""
         let editor = UploadTargetEditor(draft: draft, others: [targets[1]], model: model) {}
         try await Self.renderWindow(editor, size: CGSize(width: 520, height: 720), name: "settings-upload-editor", scheme: scheme)
+        // R2 without a public link: its links do not open for the people they are sent to.
+        var privateLink = targets[0]
+        privateLink.publicURL = ""
+        let warned = UploadTargetEditor(draft: UploadTargetDraft(privateLink, keysSaved: true), others: [targets[1]], model: model) {}
+        try await Self.renderWindow(warned, size: CGSize(width: 520, height: 760), name: "settings-upload-editor-private-link", scheme: scheme)
     }
 
     @Test(arguments: [ColorScheme.light, .dark])
@@ -194,6 +199,18 @@ import Testing
             route: "app", appRunning: true, elapsed: .milliseconds(184)
         ))
         try await SettingsRenderTests.renderWindow(SettingsView(model: model, agents: agents), size: CGSize(width: 800, height: 900), name: "settings-agents-connect", scheme: scheme)
+    }
+
+    /// The note under the permission switches, which states who they bind.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func permissionsNote(scheme: ColorScheme) async throws {
+        let fixture = AgentsFixture()
+        let settings = TestSettings()
+        let model = SettingsViewModel(provider: RegistrySettingsProvider(store: settings.store), extraRows: SettingsPaneView.extraRows)
+        model.pane = .agents
+        let agents = AgentsModel(installer: fixture.installer, command: AgentsFixture.command)
+        await agents.refresh()
+        try await SettingsRenderTests.renderWindow(SettingsView(model: model, agents: agents), size: CGSize(width: 800, height: 1500), name: "settings-agents-permissions", scheme: scheme)
     }
 
     @Test(arguments: [ColorScheme.light, .dark])
