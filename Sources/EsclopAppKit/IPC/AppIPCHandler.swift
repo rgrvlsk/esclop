@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The app's side of the CLI and MCP protocol. Jobs go into the same queue as the clipboard and
-// the drop zone and show the same cards. Every request passes AgentPolicy here again, since the
-// app is the place an agent cannot route around.
+// the drop zone and show the same cards. Every request passes AgentPolicy here again, on the
+// origin the client declares: same-user programs are trusted (docs/mcp.md › Permissions).
 
 import AppKit
 import EsclopCore
