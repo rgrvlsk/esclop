@@ -104,9 +104,10 @@ import Testing
         for location in [OutputLocation.inPlace, .sameFolder] {
             let harness = Harness()
             let file = harness.temp.file("a.png", bytes: 100_000)
-            _ = await harness.model.run(harness.job(file, origin: .clipboard, location: location))
+            // A drop: a copied file is optimised as a temporary copy and has no Undo.
+            _ = await harness.model.run(harness.job(file, origin: .dropZone, location: location))
             let card = try #require(harness.model.cards.first)
-            #expect(harness.model.recent.first?.origin == .clipboard, "the log says where it came from")
+            #expect(harness.model.recent.first?.origin == .dropZone, "the log says where it came from")
             let first = try #require(card.result)
             harness.model.perform(.downscale, on: card)
             #expect(await eventually { harness.requests.requests.count == 2 && card.result != nil && card.result?.id != first.id })
