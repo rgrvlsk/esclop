@@ -64,7 +64,7 @@ public final class AppServices {
             openPipelines: { [weak model] in model?.onOpenPipelines?(nil) }
         ))
         let pipelinesWindow = PipelineEditorWindowController(model: PipelineEditorModel(
-            store: model.service.context.pipelines, app: model, settings: model.service.context.settings
+            store: model.service.context.pipelines, app: model
         ))
         self.pipelinesWindow = pipelinesWindow
         model.onOpenPipelines = { [weak pipelinesWindow] name in pipelinesWindow?.show(name) }

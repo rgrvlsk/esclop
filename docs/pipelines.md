@@ -129,7 +129,7 @@ format and the pixel size.
   (hardware), `slowHighQuality` (software, smaller) or `visuallyLossless` for video.
 - `compression`: 5 (best quality) to 100 (smallest file), `adaptive` to pick per file, or `auto`
   to follow the app's setting. Overrides `encoder` for how hard to compress.
-- `adaptive`: `true` lets the format change when that is smaller (PNG to JPEG and back). Images only.
+- `adaptive`: `true` also tries a PNG without transparency as JPEG and keeps the JPEG when it is much smaller. Images only.
 - `dpi`: PDFs only. Downsample images inside the PDF: 300 keeps print quality, 150 is for screens, 72 is smallest.
 
 `downscale(factor, location?)` applies to images, video and audio. Scale down keeping the proportions.
