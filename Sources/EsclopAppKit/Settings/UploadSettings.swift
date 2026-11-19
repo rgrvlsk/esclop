@@ -226,6 +226,7 @@ struct UploadTargetEditor: View {
                     }
                 }
                 .keyboardShortcut(.defaultAction)
+                .primaryButton()
                 .disabled(problem != nil)
             }
         }
