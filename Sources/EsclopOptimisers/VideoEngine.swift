@@ -44,6 +44,12 @@ struct VideoEngine: Sendable {
         var height: Int
         var loudness: Double?
         var watermark: Watermark?
+        /// Video tracks besides the first (picture-in-picture, other angles): re-encoded with
+        /// the same codec, with only `trackFilters` (speed, even size).
+        var extraVideoTracks = 0
+        var trackFilters: [String] = []
+        /// Subtitle streams (their index among the source's subtitles) the container can carry.
+        var subtitles: [Int] = []
     }
 
     // MARK: Optimise, convert, downscale, crop
@@ -63,11 +69,10 @@ struct VideoEngine: Sendable {
         }
 
         var steps: [String] = []
-        let formatChanged = container.fileExtension != source.pathExtension.lowercased()
-            && !(container == .mp4 && ["mp4", "m4v"].contains(source.pathExtension.lowercased()))
+        let formatChanged = changesFormat(source, to: container)
         if formatChanged { steps.append("Converted to \(container.fileExtension.uppercased())") }
 
-        var settings = try await videoSettings(for: video, info: info, container: container, plan: plan, steps: &steps)
+        var settings = try await videoSettings(for: video, source: source, info: info, container: container, plan: plan, steps: &steps)
         let produced = try await encode(source, info: info, settings: &settings, work: work, progress: progress, steps: steps)
         var result = produced
         let speedChanged = (plan.request.playbackSpeed ?? 1) != 1
@@ -91,8 +96,27 @@ struct VideoEngine: Sendable {
         }
     }
 
+    /// Shown as the message (and translated); see Localizable.xcstrings.
+    static let subtitlesReason = "Videos with subtitles this format cannot keep are left as they are."
+
+    func changesFormat(_ source: URL, to container: OutputFormat) -> Bool {
+        let ext = source.pathExtension.lowercased()
+        return container.fileExtension != ext && !(container == .mp4 && ["mp4", "m4v"].contains(ext))
+    }
+
+    /// Subtitle codecs a container takes as a stream copy. The bundled ffmpeg has no subtitle
+    /// encoders, so text subtitles cannot be converted between containers.
+    func subtitleFits(_ codec: String, in container: OutputFormat) -> Bool {
+        switch container {
+        case .mp4, .mov, .hevc, .av1: return codec == "mov_text"
+        case .webm: return codec == "webvtt"
+        case .mkv: return ["subrip", "ass", "ssa", "webvtt", "text", "hdmv_pgs_subtitle", "dvd_subtitle", "dvb_subtitle"].contains(codec)
+        default: return false
+        }
+    }
+
     private func videoSettings(
-        for video: MediaInfo.Video, info: MediaInfo, container: OutputFormat, plan: Plan, steps: inout [String]
+        for video: MediaInfo.Video, source: URL, info: MediaInfo, container: OutputFormat, plan: Plan, steps: inout [String]
     ) async throws -> EncodeSettings {
         let request = plan.request
         let factor = plan.factor(for: .video, format: container, env: env)
@@ -103,15 +127,19 @@ struct VideoEngine: Sendable {
         var height = video.height
         if let crop = plan.crop {
             let target = crop.targetSize(fromWidth: width, height: height)
+            var available = (width: Double(width), height: Double(height))
             if crop.cropsAspect(fromWidth: width, height: height) {
                 let aspect = Double(target.width) / Double(target.height)
                 let rect = crop.region(inWidth: width, height: height)
                     ?? ImageIOCodec.cropRect(for: nil, width: width, height: height, aspect: aspect, smart: false)
                 filters.append("crop=\(even(rect.width)):\(even(rect.height)):\(Int(rect.minX)):\(Int(rect.minY))")
                 steps.append("Cropped to \(even(rect.width))x\(even(rect.height))")
+                available = (Double(even(rect.width)), Double(even(rect.height)))
             }
-            width = target.width
-            height = target.height
+            // Never upscale: a size larger than the picture shrinks to fit it, keeping its shape.
+            let shrink = min(1, available.width / Double(target.width), available.height / Double(target.height))
+            width = Int(Double(target.width) * shrink)
+            height = Int(Double(target.height) * shrink)
         }
         if let factor = plan.downscale {
             width = Int(Double(width) * factor)
@@ -139,17 +167,30 @@ struct VideoEngine: Sendable {
         }
         if let cap = fpsCap, let fps = video.fps, cap >= fps - 0.01 { fpsCap = nil }
 
-        var speed = request.playbackSpeed.flatMap { $0 > 0 && abs($0 - 1) > 0.001 ? $0 : nil }
+        var trackFilters = ["scale=trunc(iw/2)*2:trunc(ih/2)*2"]
+        let speed = request.playbackSpeed.flatMap { $0 > 0 && abs($0 - 1) > 0.001 ? $0 : nil }
         if let factor = speed {
-            filters.append("setpts=PTS/\(String(format: "%.4f", factor))")
+            var speedFilters = ["setpts=PTS/\(String(format: "%.4f", factor))"]
             let keepFrames = plan.keepFrames ?? (env.value(EsclopSettings.playbackSpeedFrames) == .keepFrames)
             if !keepFrames, let fps = video.fps {
-                filters.append("fps=\(String(format: "%.3f", fps))")
+                speedFilters.append("fps=\(String(format: "%.3f", fps))")
             }
+            filters += speedFilters
+            trackFilters += speedFilters
             steps.append("Changed speed to \(String(format: "%g", factor))x")
-        } else {
-            speed = nil
         }
+        // Subtitles go along when the container can carry them; a copy cannot follow a speed
+        // change. Rewriting the original in its own format never loses one silently.
+        let subtitleCodecs = info.streams("subtitle").map(\.codec)
+        let subtitles = speed != nil ? [] : subtitleCodecs.indices.filter { subtitleFits(subtitleCodecs[$0], in: container) }
+        if subtitles.count < subtitleCodecs.count {
+            let dropped = subtitleCodecs.count - subtitles.count
+            if speed == nil, request.location == .inPlace, !changesFormat(source, to: container) {
+                throw EsclopError.leftAsIs(Self.subtitlesReason)
+            }
+            steps.append("Left out \(dropped) subtitle track\(dropped == 1 ? "" : "s")")
+        }
+
         if let cap = fpsCap { steps.append("Capped frame rate at \(String(format: "%g", cap)) fps") }
 
         let removeAudio = request.removeAudio || env.value(EsclopSettings.removeAudioFromVideos) || info.audio == nil
@@ -159,8 +200,9 @@ struct VideoEngine: Sendable {
         let loudness = removeAudio ? nil : request.loudnessLUFS
         if let loudness { steps.append("Normalised loudness to \(String(format: "%g", loudness)) LUFS") }
         if let mark = plan.watermark { steps.append("Added a watermark (\(mark.position.rawValue))") }
+        // Every audio track is kept: copied when all of them fit the container, else all re-encoded.
         let reencodeAudio = !removeAudio && (speed != nil || loudness != nil || container == .webm || request.audioBitrateKbps != nil
-            || env.value(EsclopSettings.convertAudioToAAC) || !audioFits(info.audio?.codec, in: container))
+            || env.value(EsclopSettings.convertAudioToAAC) || !info.streams("audio").allSatisfy { audioFits($0.codec, in: container) })
         if let kbps = request.videoBitrateKbps { steps.append("Video bitrate \(kbps) kbit/s") }
 
         return EncodeSettings(
@@ -168,7 +210,8 @@ struct VideoEngine: Sendable {
             filters: filters, fpsCap: fpsCap, speed: speed, removeAudio: removeAudio,
             audioBitrate: request.audioBitrateKbps, reencodeAudio: reencodeAudio, strip: plan.strip,
             hdr: plan.keepHDR && video.isHDR ? video : nil, width: width, height: height,
-            loudness: loudness, watermark: plan.watermark
+            loudness: loudness, watermark: plan.watermark,
+            extraVideoTracks: max(0, info.streams("video").count - 1), trackFilters: trackFilters, subtitles: subtitles
         )
     }
 
@@ -313,14 +356,20 @@ struct VideoEngine: Sendable {
             case .center: position = "(W-w)/2:(H-h)/2"
             case .bottomRight: position = "W-w-20:H-h-20"
             }
-            let base = settings.filters.isEmpty ? "[0:v:0]null[base]" : "[0:v:0]\(settings.filters.joined(separator: ","))[base]"
+            let base = settings.filters.isEmpty ? "[0:V:0]null[base]" : "[0:V:0]\(settings.filters.joined(separator: ","))[base]"
             let graph = "\(base);[1:v]scale=\(markWidth):-1,format=rgba,colorchannelmixer=aa=\(String(format: "%.3f", min(1, max(0, mark.opacity))))[mark];[base][mark]overlay=\(position):format=auto:shortest=1[video]"
             args += ["-loop", "1", "-i", mark.image.path, "-filter_complex", graph, "-map", "[video]", "-shortest"]
         } else {
-            args += ["-map", "0:v:0"]
-            if !settings.filters.isEmpty { args += ["-vf", settings.filters.joined(separator: ",")] }
+            args += ["-map", "0:V:0"]
+            if !settings.filters.isEmpty { args += ["-filter:v:0", settings.filters.joined(separator: ",")] }
+        }
+        // `0:V` skips cover art. Data tracks (iPhone mebx, timecode) do not survive a re-encode.
+        for track in stride(from: 1, through: settings.extraVideoTracks, by: 1) {
+            args += ["-map", "0:V:\(track)", "-filter:v:\(track)", settings.trackFilters.joined(separator: ",")]
         }
         if !settings.removeAudio { args += ["-map", "0:a?"] }
+        for index in settings.subtitles { args += ["-map", "0:s:\(index)"] }
+        if !settings.subtitles.isEmpty { args += ["-c:s", "copy"] }
         if let cap = settings.fpsCap {
             args += ["-fpsmax", String(format: "%.3f", cap)]
         } else if settings.speed == nil {
@@ -330,8 +379,14 @@ struct VideoEngine: Sendable {
         }
         args += encoderArgs(settings, softwareFallback: softwareFallback)
         args += audioArgs(settings, appleAAC: appleAAC)
-        args += ["-map_metadata", settings.strip ? "-1" : "0", "-map_chapters", settings.strip ? "-1" : "0"]
-        if [.mp4, .mov, .hevc, .av1].contains(settings.container) { args += ["-movflags", "+faststart"] }
+        // Stripping removes what describes the person (location, device, dates); track languages
+        // and chapters describe the content and stay.
+        args += settings.strip ? ["-map_metadata:g", "-1", "-metadata:s", "creation_time="] : ["-map_metadata", "0"]
+        args += ["-map_chapters", "0"]
+        if [.mp4, .mov, .hevc, .av1].contains(settings.container) {
+            // QuickTime keys (com.apple.quicktime.location.ISO6709, make, model) need use_metadata_tags.
+            args += ["-movflags", settings.strip ? "+faststart" : "+faststart+use_metadata_tags"]
+        }
         args += ["-progress", "pipe:1", "-nostats", output.path]
         return args
     }
@@ -344,8 +399,7 @@ struct VideoEngine: Sendable {
         var steps = steps
         let output = work.file(stem: "encoded", ext: settings.container.fileExtension)
         let duration = info.duration.map { $0 / (settings.speed ?? 1) }
-        let parser = FFmpegProgress(duration: duration, sink: progress)
-        let options = ProcessOptions(onStdoutLine: parser.lineHandler)
+        let options = FFmpegProgress(duration: duration, sink: progress).options
         let videoToolbox = settings.codec == .h264VT || settings.codec == .hevcVT
         let attempts: [(software: Bool, appleAAC: Bool)] = videoToolbox
             ? [(false, true), (true, true), (true, false)]
@@ -387,37 +441,41 @@ struct VideoEngine: Sendable {
                 let rect = crop.region(inWidth: video.width, height: video.height)
                     ?? ImageIOCodec.cropRect(for: nil, width: video.width, height: video.height, aspect: Double(target.width) / Double(target.height), smart: false)
                 cropFilter = "crop=\(even(rect.width)):\(even(rect.height)):\(Int(rect.minX)):\(Int(rect.minY)),"
+                width = min(width, even(rect.width))
             }
             width = min(width, target.width)
         }
+        // Speed first, so the frame rate samples the sped-up clip.
+        let speed = plan.request.playbackSpeed.flatMap { $0 > 0 && abs($0 - 1) > 0.001 ? $0 : nil }
+        let speedFilter = speed.map { "setpts=PTS/\(String(format: "%.4f", $0))," } ?? ""
+        let duration = info.duration.map { $0 / (speed ?? 1) }
         if let factor = plan.downscale { width = max(16, Int(Double(width) * factor)) }
         let factor = plan.factor(for: .image, format: .gif, env: env)
         let quality = factor >= 50 ? 60 : 90
         let output = work.file(stem: "animation", ext: "gif")
         let fpsText = String(format: "%g", fps)
         var steps = ["Made a GIF at \(fpsText) fps, \(width) px wide"]
+        if let speed { steps.append("Changed speed to \(String(format: "%g", speed))x") }
 
         if let caps = await env.images.capabilitiesIfAvailable(), caps.supports("gif.from_frames") {
             let frames = work.url.appendingPathComponent("frames", isDirectory: true)
             try Paths.ensure(frames)
-            let parser = FFmpegProgress(duration: info.duration, sink: progress.scaled(0 ... 0.5))
             try await ProcessRunner.run(.ffmpeg, [
                 "-hide_banner", "-nostdin", "-y", "-i", source.path,
-                "-vf", "\(cropFilter)fps=\(fpsText),scale=\(width):-2:flags=lanczos",
+                "-vf", "\(cropFilter)\(speedFilter)fps=\(fpsText),scale=\(width):-2:flags=lanczos",
                 "-progress", "pipe:1", "-nostats", frames.appendingPathComponent("frame%05d.png").path,
-            ], options: ProcessOptions(onStdoutLine: parser.lineHandler), locator: env.tools)
+            ], options: FFmpegProgress(duration: duration, sink: progress.scaled(0 ... 0.5)).options, locator: env.tools)
             let later = progress.scaled(0.5 ... 1)
             try await env.images.call("gif.from_frames", output: output, params: [
                 "fps": .double(fps), "quality": .int(quality), "width": .int(width), "frames_dir": .string(frames.path),
             ], progress: { later($0) })
             steps.append("Encoded with gifski at quality \(quality)")
         } else {
-            let parser = FFmpegProgress(duration: info.duration, sink: progress)
             try await ProcessRunner.run(.ffmpeg, [
                 "-hide_banner", "-nostdin", "-y", "-i", source.path,
-                "-vf", "\(cropFilter)fps=\(fpsText),scale=\(width):-2:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4",
+                "-vf", "\(cropFilter)\(speedFilter)fps=\(fpsText),scale=\(width):-2:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4",
                 "-loop", "0", "-progress", "pipe:1", "-nostats", output.path,
-            ], options: ProcessOptions(onStdoutLine: parser.lineHandler), locator: env.tools)
+            ], options: FFmpegProgress(duration: duration, sink: progress).options, locator: env.tools)
             steps.append("Encoded with ffmpeg's palette filters")
             if env.tools.locate(.gifsicle) != nil {
                 let optimised = work.file(stem: "animation-optimised", ext: "gif")
@@ -444,8 +502,8 @@ struct VideoEngine: Sendable {
         var args = ["-hide_banner", "-nostdin", "-y", "-i", source.path, "-map", "0:v", "-c", "copy"]
         args += ["-map_metadata", plan.strip ? "-1" : "0"]
         if ["mp4", "mov", "m4v"].contains(source.pathExtension.lowercased()) { args += ["-movflags", "+faststart"] }
-        args.append(output.path)
-        try await ProcessRunner.run(.ffmpeg, args, locator: env.tools)
+        args += ["-progress", "pipe:1", "-nostats", output.path]
+        try await ProcessRunner.run(.ffmpeg, args, options: FFmpegProgress(duration: info.duration, sink: progress).options, locator: env.tools)
         return Produced(
             url: output, width: info.video?.width, height: info.video?.height, duration: info.duration,
             steps: ["Removed audio"], allowLarger: false
@@ -461,10 +519,12 @@ struct VideoEngine: Sendable {
         guard let video = info.video, let rawDuration = info.duration, rawDuration > 0 else {
             throw EsclopError.unsupportedFile("Cannot read the duration of \(source.lastPathComponent)")
         }
-        var container = targetContainer(for: source, sourceFormat: OutputFormat.of(url: source), plan: plan)
-        if container == .gif || container == .gifVideo || container == .webm { container = container == .webm ? .webm : .mp4 }
+        let container = targetContainer(for: source, sourceFormat: OutputFormat.of(url: source), plan: plan)
+        if container == .gif || container == .gifVideo {
+            throw EsclopError.invalidArgument("A GIF cannot be fitted to a size; fit the video, then make the GIF")
+        }
         var steps: [String] = []
-        var settings = try await videoSettings(for: video, info: info, container: container, plan: plan, steps: &steps)
+        var settings = try await videoSettings(for: video, source: source, info: info, container: container, plan: plan, steps: &steps)
         let duration = rawDuration / (settings.speed ?? 1)
 
         // Container overhead takes a few percent; audio takes its share unless it is tiny.
@@ -525,8 +585,8 @@ struct VideoEngine: Sendable {
         let output = work.file(stem: "stripped", ext: source.pathExtension.isEmpty ? "mp4" : source.pathExtension)
         var args = ["-hide_banner", "-nostdin", "-y", "-i", source.path, "-map", "0:v", "-map", "0:a?", "-c", "copy", "-map_metadata", "-1", "-map_chapters", "-1"]
         if ["mp4", "mov", "m4v"].contains(source.pathExtension.lowercased()) { args += ["-movflags", "+faststart"] }
-        args.append(output.path)
-        try await ProcessRunner.run(.ffmpeg, args, locator: env.tools)
+        args += ["-progress", "pipe:1", "-nostats", output.path]
+        try await ProcessRunner.run(.ffmpeg, args, options: FFmpegProgress(duration: nil, sink: .none).options, locator: env.tools)
         return Produced(url: output, width: nil, height: nil, duration: nil, steps: ["Removed metadata"], allowLarger: true)
     }
 }

@@ -49,6 +49,26 @@ func scratchFolder(_ name: String = #function) throws -> URL {
 }
 
 @Suite struct ProcessRunnerTests {
+    /// A stuck ffmpeg keeps printing its progress block with the same time in it.
+    @Test(.timeLimit(.minutes(1))) func aChildThatStopsProgressingIsStopped() async throws {
+        let started = Date()
+        let progress = LockedArray()
+        await #expect(throws: EsclopError.self) {
+            try await ProcessRunner.run(
+                executable: URL(fileURLWithPath: "/bin/sh"),
+                arguments: ["-c", "i=0; while [ $i -lt 5 ]; do echo out_time_us=$i; i=$((i+1)); sleep 0.1; done; while :; do echo out_time_us=5; sleep 0.1; done"],
+                options: ProcessOptions(stallTimeout: 1, madeProgress: { line in
+                    guard line != progress.values.last else { return false }
+                    progress.append(line)
+                    return true
+                })
+            )
+        }
+        let elapsed = Date().timeIntervalSince(started)
+        #expect(elapsed > 1.3 && elapsed < 10)
+        #expect(progress.values.count == 6)
+    }
+
     @Test func capturesOutputAndLines() async throws {
         let lines = LockedArray()
         let result = try await ProcessRunner.run(
