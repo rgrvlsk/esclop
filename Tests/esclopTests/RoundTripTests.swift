@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // optimise -> recent -> restore through the real binary, with ESCLOP_SUPPORT_DIR set: the backup
-// lands in that folder, not in the person's Application Support. A HEIC goes through ImageIO,
-// so no bundled tool is needed.
+// lands in that folder, not in the person's Application Support. Two files in one job are two
+// results: each lists, and restoring one leaves the other. A HEIC goes through ImageIO, so no
+// bundled tool is needed.
 
 import CoreGraphics
 import Foundation
@@ -16,8 +17,9 @@ import UniformTypeIdentifiers
         let support = folder.appendingPathComponent("support", isDirectory: true)
         try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
-        let photo = folder.appendingPathComponent("photo.heic")
+        let photo = folder.appendingPathComponent("photo.heic"), other = folder.appendingPathComponent("other.heic")
         try Self.heic(photo)
+        try Self.heic(other)
         let original = try Data(contentsOf: photo)
 
         func run(_ arguments: [String]) throws -> (status: Int32, output: String) {
@@ -34,21 +36,26 @@ import UniformTypeIdentifiers
             return (process.terminationStatus, String(decoding: data, as: UTF8.self))
         }
 
-        let optimised = try run(["optimise", "--no-color", "-n", photo.path])
+        let optimised = try run(["optimise", "--no-color", "-n", photo.path, other.path])
         #expect(optimised.status == 0, "\(optimised.output)")
         #expect(try Data(contentsOf: photo) != original)
 
-        let recent = try run(["recent", "--json", "--limit", "5"])
-        #expect(recent.status == 0, "\(recent.output)")
-        struct Row: Decodable { var source: String; var backup: String? }
-        let rows = try JSONDecoder().decode([Row].self, from: Data(recent.output.utf8))
-        let backup = try #require(rows.first?.backup)
-        #expect(rows.first?.source.hasSuffix("/photo.heic") == true)
+        struct Row: Decodable { var id: String; var source: String; var backup: String? }
+        func recent() throws -> [Row] {
+            let recent = try run(["recent", "--json", "--limit", "5"])
+            #expect(recent.status == 0, "\(recent.output)")
+            return try JSONDecoder().decode([Row].self, from: Data(recent.output.utf8))
+        }
+        let rows = try recent()
+        #expect(Set(rows.map { URL(fileURLWithPath: $0.source).lastPathComponent }) == ["photo.heic", "other.heic"])
+        #expect(Set(rows.map(\.id)).count == 2)
+        let backup = try #require(rows.first { $0.source.hasSuffix("/photo.heic") }?.backup)
         #expect(URL(fileURLWithPath: backup).resolvingSymlinksInPath().path.hasPrefix(support.resolvingSymlinksInPath().path + "/"))
 
         let restored = try run(["restore", "--no-color", photo.path])
         #expect(restored.status == 0, "\(restored.output)")
         #expect(try Data(contentsOf: photo) == original)
+        #expect(try recent().map { URL(fileURLWithPath: $0.source).lastPathComponent } == ["other.heic"], "the other file's result stays")
     }
 
     static func heic(_ url: URL) throws {

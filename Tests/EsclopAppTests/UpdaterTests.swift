@@ -28,7 +28,12 @@ final class UpdaterHost: @unchecked Sendable {
         bundle = Bundle(url: contents.deletingLastPathComponent())!
     }
 
-    deinit { UserDefaults.standard.removePersistentDomain(forName: identifier) }
+    deinit {
+        UserDefaults.standard.removePersistentDomain(forName: identifier)
+        // Sparkle keeps it under the host's identifier in ~/Library/Preferences; the file stays.
+        let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
+        try? FileManager.default.removeItem(at: library.appendingPathComponent("Preferences/\(identifier).plist"))
+    }
 }
 
 @MainActor

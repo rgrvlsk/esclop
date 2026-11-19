@@ -159,7 +159,7 @@ struct FusedTabKey: PreferenceKey {
 struct FusedPanel: View {
     var drill: Bool
     static let inset: CGFloat = 8
-    static let radius: CGFloat = 18
+    nonisolated static let radius: CGFloat = 18
 
     var body: some View {
         UnevenRoundedRectangle(

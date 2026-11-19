@@ -254,10 +254,10 @@ enum ResultWriter {
         let finished = Date()
         Log.engine.info("\(source.lastPathComponent, privacy: .private): \(bytesBefore) -> \(bytesAfter) bytes in \(String(format: "%.2f", finished.timeIntervalSince(started))) s")
         return OptimisationResult(
-            id: request.id, source: source, output: destination, backup: backup?.backup,
+            source: source, output: destination, backup: backup?.backup,
             kind: MediaKind.of(destination) ?? kind, bytesBefore: bytesBefore, bytesAfter: bytesAfter,
             width: produced.width, height: produced.height, duration: produced.duration,
-            startedAt: started, finishedAt: finished, steps: produced.steps
+            startedAt: started, finishedAt: finished, steps: produced.steps, requestID: request.id
         )
     }
 

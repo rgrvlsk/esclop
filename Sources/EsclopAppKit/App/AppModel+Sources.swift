@@ -140,7 +140,11 @@ extension AppModel {
             holdOnClipboard(urls, at: now.count)
             // In place, the original comes back first; a copy elsewhere left it untouched.
             if result.backup != nil { guard await restore(result) else { return } }
-            if let card = cards.first(where: { $0.result?.id == result.id || $0.jobID == result.id }) { dismiss(card) }
+            // Its own card, done or restored: a sibling from the same job keeps its card.
+            if let card = cards.first(where: { card in
+                if case let .restored(restored) = card.phase { return restored.id == result.id }
+                return card.result?.id == result.id
+            }) { dismiss(card) }
             optimiseAgain(result)
             return
         }

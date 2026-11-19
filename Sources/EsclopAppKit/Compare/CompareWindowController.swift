@@ -30,10 +30,12 @@ public final class CompareWindowController {
     @discardableResult
     public func open(_ url: URL) -> Bool {
         guard let id = Self.route(url) else { return false }
-        if model.open(id: id) || isVisible {
-            present()
-        } else {
-            model.app.notice(Strings.text("Nothing to compare"), Strings.text("That result is no longer in the recent results."))
+        Task {
+            if await model.open(id: id) || isVisible {
+                present()
+            } else {
+                model.app.notice(Strings.text("Nothing to compare"), Strings.text("That result is no longer in the recent results."))
+            }
         }
         return true
     }
