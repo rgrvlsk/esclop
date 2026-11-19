@@ -200,6 +200,7 @@ enum ResultWriter {
             sameFolderTemplate: env.value(EsclopSettings.sameFolderNameTemplate),
             temporaryRoot: Paths.temporary
         )
+        if case .path = request.location { try OutputLocation.checkExtension(of: destination, matches: ext) }
         let sourcePath = source.standardizedFileURL.path
         let replacesSource = destination.standardizedFileURL.path == sourcePath
         // A template can resolve to the source itself; that is an in-place write too.
@@ -213,8 +214,8 @@ enum ResultWriter {
             backup = try env.backups.backUp(source, requestID: request.id)
         }
         if !replacesSource, fm.fileExists(atPath: destination.path) {
-            // Whatever is about to be overwritten (a sibling with the new extension, a file a
-            // template names) is kept too. No backup, no overwrite.
+            // A file a template names is about to be overwritten: it is kept too. No backup, no
+            // overwrite. (In place, a sibling with the new extension is never replaced.)
             try env.backups.backUp(destination, requestID: request.id)
         }
 
