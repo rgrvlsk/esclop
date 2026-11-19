@@ -448,7 +448,7 @@ struct VideoEngine: Sendable {
         try await ProcessRunner.run(.ffmpeg, args, locator: env.tools)
         return Produced(
             url: output, width: info.video?.width, height: info.video?.height, duration: info.duration,
-            steps: ["Removed audio"], allowLarger: false
+            steps: ["Removed audio"], allowLarger: false, lossless: true
         )
     }
 

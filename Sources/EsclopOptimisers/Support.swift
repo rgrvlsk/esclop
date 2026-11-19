@@ -115,6 +115,8 @@ struct Produced: Sendable {
     var steps: [String]
     /// Format or geometry changed, so a larger file is still a valid answer.
     var allowLarger: Bool
+    /// No pixel or sample changed (a lossless recompression), so any saving is worth keeping.
+    var lossless = false
 }
 
 /// A scratch folder for one operation, removed when done.
@@ -172,6 +174,16 @@ struct ProgressSink: Sendable {
 // MARK: - Placing results
 
 enum ResultWriter {
+    /// A lossy re-encode in the same format and size replaces the original only when it saves
+    /// at least this share: a smaller gain is not worth another generation of loss.
+    /// ponytail: one share for every kind and size; per-format thresholds if a format needs one.
+    static let minimumLossyGain = 0.03
+
+    /// Bytes a result has to save to replace its source: one byte when lossless.
+    static func minimumSaving(of bytes: Int, lossless: Bool) -> Int {
+        lossless ? 1 : max(1, Int((Double(bytes) * minimumLossyGain).rounded(.up)))
+    }
+
     /// Moves `produced` where the request says and returns the result. Backs up the original
     /// before anything overwrites it, marks the output, copies the original's dates.
     static func place(
@@ -184,7 +196,7 @@ enum ResultWriter {
         guard bytesAfter > 0 else {
             throw EsclopError.other("The optimiser produced an empty file for \(source.lastPathComponent)")
         }
-        if !produced.allowLarger, bytesAfter >= bytesBefore {
+        if !produced.allowLarger, bytesBefore - bytesAfter < minimumSaving(of: bytesBefore, lossless: produced.lossless) {
             throw EsclopError.alreadySmaller
         }
 

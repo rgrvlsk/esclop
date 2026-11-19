@@ -193,4 +193,32 @@ func rejects(_ arguments: [String]) -> Bool {
         let (mixed, _) = try run([broken, folder.appendingPathComponent("missing.png")])
         #expect(mixed == 1)
     }
+
+    /// `optimise` leaves files L'Esclop already optimised as they are; `--force` does them anyway.
+    @Test func optimisedFilesAreLeftAloneWithoutForce() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-mark-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let file = folder.appendingPathComponent("done.png")
+        try Data("not a picture".utf8).write(to: file)
+        try OptimisedMark.set(file)
+        func run(_ extra: [String]) throws -> (Int32, String) {
+            let process = Process()
+            process.executableURL = try esclopBinary()
+            process.arguments = ["optimise", "--in-process", "--no-color"] + extra + [file.path]
+            process.environment = ProcessInfo.processInfo.environment.merging(["ESCLOP_NO_APP": "1"]) { $1 }
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = pipe
+            try process.run()
+            process.waitUntilExit()
+            return (process.terminationStatus, String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self))
+        }
+        let (status, output) = try run([])
+        #expect(status == 1)
+        #expect(output.contains("Already optimised by L'Esclop; pass --force to optimise it again"), "\(output)")
+        let (_, forced) = try run(["--force"])
+        #expect(!forced.contains("Already optimised"), "\(forced)")
+        #expect(forced.contains("It may be damaged"), "--force reaches the optimiser: \(forced)")
+    }
 }

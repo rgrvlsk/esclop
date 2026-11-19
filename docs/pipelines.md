@@ -143,7 +143,8 @@ format and the pixel size.
 `convert(to, location?)` applies to images, video and audio. Change the format and compress in the same pass.
 `location` defaults to `sameFolder`, so the original stays. Converting to the format the file
 already has does nothing.
-- `to`: images `webp`, `avif`, `heic`, `jxl`, `jpeg` (or `jpg`), `png`, `gif`, `tiff`, `bmp`;
+- `to`: images `webp`, `avif`, `heic`, `jpeg` (or `jpg`), `png`, `gif`, `tiff`, `bmp` (`jxl` only on a Mac
+  that writes JPEG XL; macOS 26 reads it only);
   video `mp4`, `hevc` (hardware H.265), `x265` (software H.265, smaller), `av1`, `webm`, `mov`,
   `mkv`, `gif` (animated); audio `m4a`, `aac`, `mp3`, `ogg`, `opus`, `flac`, `wav`, `aiff`.
   `avif` is the image format; the AV1 video codec is `av1`.

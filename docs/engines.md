@@ -140,7 +140,7 @@ Ops and parameters the Swift side sends:
 |---|---|---|
 | `png.optimise` | `lossy`, `quality` [0, max], `speed`, `strip` | PNG output |
 | `jpeg.optimise` | `quality`, `progressive: true`, `strip` | JPEG to JPEG |
-| `convert` | `format` (png, jpeg, gif, jxl), `quality`, `progressive`, `strip` | other inputs to PNG/JPEG/GIF/JXL |
+| `convert` | `format` (png, jpeg, gif), `quality`, `progressive`, `strip` | other inputs to PNG/JPEG/GIF |
 | `webp.encode` | `quality`, `lossless: false`, `strip` | WebP output |
 | `avif.encode` | `quality`, `speed` (6, or 4 at factor >= 60), `strip` | AVIF output |
 | `crop` | `x`, `y`, `width`, `height` (displayed pixels, orientation applied), `format: "png"` | crops, before encoding |

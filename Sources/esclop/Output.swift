@@ -182,14 +182,22 @@ enum Clipboard {
 }
 
 /// Builds the job, runs it through the service with progress and Ctrl-C, prints the outcome.
+/// `skipOptimised` leaves files with L'Esclop's optimised mark as they are, each reported as a
+/// failure that names `--force`.
 func runFileJob(
-    _ operation: JobOperation, files: FileOptions, global: GlobalOptions,
+    _ operation: JobOperation, files: FileOptions, global: GlobalOptions, skipOptimised: Bool = false,
     configure: (inout OptimisationRequest) -> Void = { _ in }
 ) async throws {
     guard !files.items.isEmpty else { throw ValidationError("Give at least one file or folder.") }
     try await guarded(global) {
-        let sources = try files.sources()
+        var sources = try files.sources()
+        let optimised = skipOptimised ? sources.filter(OptimisedMark.isMarked) : []
+        sources.removeAll { optimised.contains($0) }
+        let skipped = optimised.map {
+            FileFailure(source: $0, error: .leftAsIs("Already optimised by L'Esclop; pass --force to optimise it again"))
+        }
         guard !sources.isEmpty else {
+            if !skipped.isEmpty { return Output.report(JobSummary(operation: operation.name, report: JobReport(failures: skipped)), global: global) }
             if global.json { Output.json(JobSummary(operation: operation.name, report: JobReport())) } else { print("No files to process.") }
             return 0
         }
@@ -200,7 +208,8 @@ func runFileJob(
         let progress = ProgressLine(enabled: !files.noProgress && !global.json)
         let interrupt = InterruptHandler { service.stop([job.id]) }
         defer { interrupt.cancel() }
-        let report = try await service.perform(job) { progress.update($0) }
+        var report = try await service.perform(job) { progress.update($0) }
+        report.failures += skipped
         progress.clear()
         if files.copy { Clipboard.copy(report.results.map(\.output)) }
         return Output.report(JobSummary(operation: operation.name, report: report), global: global)
