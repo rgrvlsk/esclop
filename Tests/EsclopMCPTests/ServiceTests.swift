@@ -75,6 +75,25 @@ import Testing
         #expect(report.results.first?.steps.contains { $0.hasPrefix("downscale") } == true)
     }
 
+    @Test func aLateFailureKeepsWhatEarlierStepsMade() async throws {
+        let temp = TempDir()
+        let file = temp.file("a.png", bytes: 4000)
+        let service = makeService(temp, origin: .cli, engine: BackingUpEngine(backups: temp.url.appendingPathComponent("backups")))
+        // This engine cannot watermark: the second step fails after the first shrank the file in place.
+        let report = try await service.perform(OptimisationJob(
+            request: OptimisationRequest(sources: [file], origin: .cli), operation: .pipeline(#"optimise -> watermark(image: "mark.png")"#)
+        ))
+        let result = try #require(report.results.first)
+        #expect(result.bytesAfter == 2000)
+        let failure = try #require(report.failures.first)
+        #expect(failure.error.code == "toolMissing")
+        #expect(failure.step?.hasPrefix("watermark") == true)
+        #expect(JobSummary(operation: "pipeline", report: report).failures.first?.step == failure.step)
+        #expect(await service.recentResults(limit: 10).map(\.id) == [result.id])
+        _ = try await service.restoreBackup(for: file, deleteBackup: false)
+        #expect(try Data(contentsOf: file).count == 4000, "the original is back")
+    }
+
     @Test func badInlinePipelinesNameTheProblem() async {
         let temp = TempDir()
         do {
@@ -203,4 +222,25 @@ import Testing
         #expect(throws: EsclopError.self) { try PipelineTriggers.parse("/no/such/folder") }
         #expect(throws: EsclopError.self) { try PipelineTriggers.parse("sometimes") }
     }
+}
+
+/// Optimises in place the way the real engine does: a backup first, then half the bytes.
+struct BackingUpEngine: OptimisationEngine {
+    let backups: URL
+
+    func optimise(_ source: URL, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult {
+        let data = try Data(contentsOf: source)
+        let backup = backups.appendingPathComponent(UUID().uuidString).appendingPathComponent(source.lastPathComponent)
+        try FileManager.default.createDirectory(at: backup.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try data.write(to: backup)
+        try data.prefix(data.count / 2).write(to: source)
+        return OptimisationResult(source: source, output: source, backup: backup, kind: .image, bytesBefore: data.count, bytesAfter: data.count / 2, startedAt: Date(), finishedAt: Date())
+    }
+
+    func convert(_ source: URL, to format: OutputFormat, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { try await optimise(source, request: request, progress: progress) }
+    func downscale(_ source: URL, factor: Double, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { try await optimise(source, request: request, progress: progress) }
+    func crop(_ source: URL, to size: CropSize, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { try await optimise(source, request: request, progress: progress) }
+    func fit(_ source: URL, underBytes: Int, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { try await optimise(source, request: request, progress: progress) }
+    func stripMetadata(_ source: URL, request: OptimisationRequest) async throws -> OptimisationResult { try await optimise(source, request: request) { _ in } }
+    func supports(_ url: URL) -> Bool { true }
 }
