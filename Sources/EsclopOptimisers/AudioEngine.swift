@@ -101,7 +101,8 @@ struct AudioEngine: Sendable {
             }
             if !filters.isEmpty { args += ["-filter:a", filters.joined(separator: ",")] }
             // Music keeps its title, artist and album unless stripping is asked for: the
-            // strip-metadata setting describes photos and videos, not songs.
+            // strip-metadata setting describes photos and videos, not songs. The cover follows
+            // the cover-art setting either way; only `strip` (`stripMetadata(_:work:)`) drops it.
             args += ["-map_metadata", plan.request.stripMetadata == true ? "-1" : "0"]
             args += ["-progress", "pipe:1", "-nostats", output.path]
             return args
@@ -115,6 +116,7 @@ struct AudioEngine: Sendable {
         }
         if let speed { steps.append("Changed speed to \(String(format: "%g", speed))x") }
         if let loudness { steps.append("Normalised loudness to \(String(format: "%g", loudness)) LUFS") }
+        if plan.request.stripMetadata == true { steps.append("Removed metadata") }
         // A new codec under the same name (Apple Lossless to AAC in an .m4a) still has to shrink.
         let changesContent = !sameExtension || speed != nil || loudness != nil
         let sameContent = sameFormat && speed == nil && loudness == nil

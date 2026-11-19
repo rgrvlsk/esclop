@@ -413,6 +413,33 @@ fn without_downsampling_a_jpeg_keeps_its_pixels() {
 }
 
 #[test]
+fn a_lower_dpi_never_codes_an_image_it_keeps_larger() {
+    // A noisy 72 ppi photo: 72 dpi downsamples nothing, so it must not come out larger than at
+    // 250 dpi (it did when the 72 dpi quality cap sent the SSIM gate up its retries).
+    let mut seed = 7u32;
+    let img = image::RgbImage::from_fn(612, 612, |x, y| {
+        let (fx, fy) = (x as f32 / 612.0, y as f32 / 612.0);
+        let base = [fx * 200.0 + 20.0, fy * 200.0 + 20.0, (fx * fy * 6.0).sin() * 90.0 + 120.0];
+        image::Rgb(base.map(|v| {
+            seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            (v + ((seed >> 24) as f32 - 128.0) * 0.25).clamp(0.0, 255.0) as u8
+        }))
+    });
+    let mut jpg = Vec::new();
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpg, 95).encode_image(&img).unwrap();
+    let pdf = build(&image_page(jpeg_image(&jpg, 612, 612, "")));
+    for factor in [40, 64] {
+        let size = |dpi| {
+            let (r, _) =
+                rewrite_with(pdf.clone(), Settings::new(factor, Some(dpi), false), limit(20)).expect("over 20 s");
+            r.unwrap().0.len()
+        };
+        let (at72, at250) = (size(72.0), size(250.0));
+        assert!(at72 <= at250, "compression {factor}: 72 dpi {at72} bytes, 250 dpi {at250} bytes");
+    }
+}
+
+#[test]
 fn a_small_image_keeps_the_floor() {
     // An image drawn over 4 % of the page may lose 25 times the page's share, but not below the
     // floor (0.5 before there was one).
