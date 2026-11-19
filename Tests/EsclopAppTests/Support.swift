@@ -56,7 +56,7 @@ struct ShrinkingEngine: OptimisationEngine {
     var failure: EsclopError?
     var delay: Duration = .zero
     var log: RequestLog?
-    /// Where `.temporary` results go; elsewhere the file is written in place.
+    /// Where `.temporary` results go; `.sameFolder` ones go beside the source, the rest in place.
     var temporaryRoot: URL?
 
     func optimise(_ source: URL, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult {
@@ -69,6 +69,14 @@ struct ShrinkingEngine: OptimisationEngine {
         if request.location == .temporary, let temporaryRoot {
             let output = request.location.destination(for: source, extension: source.pathExtension, temporaryRoot: temporaryRoot)
             try Paths.ensure(output.deletingLastPathComponent())
+            try Data(repeating: 0x42, count: Int(Double(before) * factor)).write(to: output)
+            return OptimisationResult(
+                id: request.id, source: source, output: output, kind: MediaKind.of(source) ?? .image,
+                bytesBefore: before, bytesAfter: AppModel.size(of: output), startedAt: started, finishedAt: Date()
+            )
+        }
+        if request.location == .sameFolder {
+            let output = try OutputPlanner.destination(for: source, location: .sameFolder, suffix: "optimised")
             try Data(repeating: 0x42, count: Int(Double(before) * factor)).write(to: output)
             return OptimisationResult(
                 id: request.id, source: source, output: output, kind: MediaKind.of(source) ?? .image,

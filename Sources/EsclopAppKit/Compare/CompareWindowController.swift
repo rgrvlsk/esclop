@@ -55,7 +55,7 @@ public final class CompareWindowController {
     }
 
     private func makeWindow() -> NSWindow {
-        let window = NSWindow(contentViewController: NSHostingController(rootView: CompareView(model: model)))
+        let window = NSWindow(contentViewController: NSHostingController(rootView: CompareView(model: model).designTint()))
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.isReleasedWhenClosed = false
         window.setContentSize(NSSize(width: 1040, height: 760))

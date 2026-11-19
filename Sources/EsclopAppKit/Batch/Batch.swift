@@ -39,6 +39,8 @@ public final class BatchRow: Identifiable {
     public var state: State = .waiting
     /// Why the last Restore failed; the row keeps its result.
     public var restoreError: String?
+    /// An automatic upload of the row's result (`uploadAutomatically`).
+    public var upload: ResultCard.UploadState?
     /// Runs the file again (after an error or a cancel).
     var retry: (() -> Void)?
     var cancel: (() -> Void)?
@@ -94,6 +96,9 @@ public final class Batch: Identifiable {
     /// Waiting files hold until resumed; files already running finish.
     public private(set) var paused = false
     public let startedAt: Date
+    /// The clipboard's change count when the batch's first automatic upload started: its links go
+    /// on the clipboard only if nothing was copied after that.
+    var linksSince: Int?
 
     init(origin: RequestOrigin, startedAt: Date = Date()) {
         self.origin = origin
@@ -176,3 +181,5 @@ public final class Batch: Identifiable {
         }
     }
 }
+
+extension BatchRow: ShowsUpload {}

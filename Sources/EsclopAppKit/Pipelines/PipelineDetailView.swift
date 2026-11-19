@@ -112,7 +112,9 @@ struct PipelineDetailView: View {
                     Button(Strings.text("Open Agents and MCP Settings")) {
                         if let url = URL(string: "esclop://settings/agents/allowRunScripts") { NSWorkspace.shared.open(url) }
                     }
-                    .buttonStyle(.link)
+                    // Plain, not `.link`: a link button is system blue whatever the tint.
+                    .buttonStyle(.plain)
+                    .fontWeight(.semibold)
                     .foregroundStyle(Ink.charcoalText)
                 }
             }

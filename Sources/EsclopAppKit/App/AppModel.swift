@@ -172,6 +172,8 @@ public final class AppModel {
     @ObservationIgnored var onPauseChange: (() -> Void)?
     /// Opens the compare window on a result.
     @ObservationIgnored public var onCompare: ((OptimisationResult) -> Void)?
+    /// Gives the floating panel's keys back to the app in front (`returnKeys(from:)`).
+    @ObservationIgnored var onReturnKeys: (() -> Void)?
     /// Opens the pipeline editor, on a pipeline when one is named.
 
     @ObservationIgnored public var onOpenPipelines: ((String?) -> Void)?
@@ -194,14 +196,17 @@ public final class AppModel {
     @discardableResult
     public func run(
         _ job: OptimisationJob, displayName: String? = nil, context: CardContext? = nil, reusing existing: ResultCard? = nil,
-        batch: Batch? = nil,
+        batch: Batch? = nil, sourceApp: String? = nil,
         events: @escaping @Sendable (JobEvent) -> Void = { _ in },
         onResult: ((OptimisationResult) -> Void)? = nil
     ) async -> JobReport {
-        let executor = executor(for: job.request.origin)
         let batch = batch ?? (existing == nil && job.request.showResultUI && job.request.sources.count >= batchThreshold
             ? openBatch(origin: job.request.origin) : nil)
-        var tasks: [(URL, Task<Result<OptimisationResult, EsclopError>, Never>)] = []
+        // A fork shows as a result of its own beside a single floating result, not in a batch.
+        let single = job.request.showResultUI && batch == nil && job.request.sources.count == 1 ? job.request.sources.first : nil
+        let desktop = AppDesktop(model: self, original: single.map { ($0, Self.size(of: $0)) })
+        let executor = executor(for: job.request.origin, desktop: job.request.origin == .mcp ? nil : desktop, sourceApp: sourceApp)
+        var tasks: [(URL, Task<Result<OptimisationResult, PipelineStepFailure>, Never>)] = []
         for source in job.request.sources {
             if let batch {
                 let row = batch.row(for: source, bytes: Self.size(of: source))
@@ -223,7 +228,7 @@ public final class AppModel {
                 var again = job
                 again.request.id = UUID()
                 again.request.sources = [source]
-                Task { await self.run(again, displayName: displayName, context: context, onResult: onResult) }
+                Task { await self.run(again, displayName: displayName, context: context, sourceApp: sourceApp, onResult: onResult) }
             }
             tasks.append((source, task))
         }
@@ -233,7 +238,10 @@ public final class AppModel {
             for (source, task) in tasks {
                 switch await task.value {
                 case let .success(result): report.results.append(result)
-                case let .failure(error): report.failures.append(FileFailure(source: source, error: error))
+                case let .failure(failure):
+                    // A pipeline that failed late: what its earlier steps made, and the step, as CLI and MCP report.
+                    if let partial = failure.partial { report.results.append(partial) }
+                    report.failures.append(FileFailure(source: source, error: failure.error, step: failure.step))
                 }
             }
             return report
@@ -260,7 +268,7 @@ public final class AppModel {
     private func startRow(
         _ row: BatchRow, in batch: Batch, job: OptimisationJob, executor: JobExecutor,
         events: @escaping @Sendable (JobEvent) -> Void, onResult: ((OptimisationResult) -> Void)?
-    ) -> Task<Result<OptimisationResult, EsclopError>, Never> {
+    ) -> Task<Result<OptimisationResult, PipelineStepFailure>, Never> {
         let source = row.source
         var single = job
         single.request.sources = [source]
@@ -269,6 +277,7 @@ public final class AppModel {
         row.retry = { [weak self, weak row, weak batch] in
             guard let self, let row, let batch, row.isFinished else { return }
             row.state = .waiting
+            row.upload = nil
             var again = single
             again.request.id = UUID()
             _ = self.startRow(row, in: batch, job: again, executor: executor, events: { _ in }, onResult: onResult)
@@ -312,18 +321,21 @@ public final class AppModel {
     }
 
     /// The executor for a request's origin: agents get the pipeline permissions the person set.
-    func executor(for origin: RequestOrigin) -> JobExecutor {
+    /// `desktop` lets pipeline steps reach the clipboard, apps and the floating results; agents
+    /// get none.
+    /// `sourceApp` is the app a copy came from, for a pipeline's `if(copiedBy:)`.
+    func executor(for origin: RequestOrigin, desktop: (any PipelineDesktop)? = nil, sourceApp: String? = nil) -> JobExecutor {
         let context = service.context
         let policy = AgentPolicy(origin: origin, permissions: context.settings)
         // Agents upload only when the person allows it; the policy refuses before this, and an
         // executor without an uploader cannot upload anyway.
         let uploader: (any FileUploading)? = policy.allowed(.allowUploads) ? uploader : nil
-        let host = uploader.map { uploader in
-            AppPipelineHost(uploader: uploader) { [weak self] link in await self?.copyLink(link) }
-        }
+        let host: AppPipelineHost? = uploader == nil && desktop == nil ? nil
+            : AppPipelineHost(uploader: uploader, desktop: desktop) { [weak self] link in await self?.copyToClipboard(links: [link]) }
         let runner = StorePipelineRunner(
             store: context.pipelines, allowRunScripts: policy.allowed(.allowRunScripts),
-            allowDelete: policy.allowed(.allowOverwriteOriginals), temporaryDirectory: Paths.temporary, host: host
+            allowDelete: policy.allowed(.allowOverwriteOriginals), temporaryDirectory: Paths.temporary, host: host,
+            sourceApp: sourceApp
         )
         return JobExecutor(engine: context.engine, pipelineRunner: runner, uploader: uploader, backups: context.locations.backups)
     }
@@ -331,7 +343,7 @@ public final class AppModel {
     private func process(
         _ source: URL, job: OptimisationJob, executor: JobExecutor, card: ResultCard?, row: BatchRow? = nil, batch: Batch? = nil,
         events: @escaping @Sendable (JobEvent) -> Void, onResult: ((OptimisationResult) -> Void)?
-    ) async -> Result<OptimisationResult, EsclopError> {
+    ) async -> Result<OptimisationResult, PipelineStepFailure> {
         activeFiles += 1
         defer { activeFiles -= 1 }
         if let batch {
@@ -349,6 +361,7 @@ public final class AppModel {
         if let row, !Task.isCancelled { row.state = .working(0) }
         let outcome: Result<OptimisationResult, EsclopError>
         var failedStep: String?
+        var partial: OptimisationResult?
         if Task.isCancelled {
             outcome = .failure(.cancelled)
         } else {
@@ -364,8 +377,9 @@ public final class AppModel {
                 outcome = .success(result)
             } catch let failed as PipelineStepFailure {
                 // Earlier steps changed the file: keep that in Recent, where its backup restores.
-                if var partial = failed.partial {
-                    partial.origin = job.request.origin
+                partial = failed.partial
+                partial?.origin = job.request.origin
+                if let partial {
                     events(.result(partial))
                     noteWritten([partial.output, partial.source] + [partial.backup].compactMap { $0 })
                     record(partial)
@@ -392,9 +406,10 @@ public final class AppModel {
             // A batch is announced once, when it ends, not file by file.
             if row == nil { announce(CardPresentation.announcement(for: result)) }
             if let link = result.link {
-                copyLink(link)
-            } else if let card, uploadsAutomatically(job) {
-                upload(card)
+                await copyToClipboard(links: [link])
+            } else if uploadsAutomatically(job) {
+                // Every result, also a batch row's or one shown nowhere (a quiet pipeline).
+                if let card { upload(card, automatic: true) } else { upload(result.output, to: nil, on: row, batch: batch, automatic: true) }
             }
             onResult?(result)
         case let .failure(error):
@@ -408,8 +423,11 @@ public final class AppModel {
             }
         }
         if let card { settle(card) }
-        if let batch, !batch.isRunning { announce(BatchPresentation(batch: batch).announcement) }
-        return outcome
+        if let batch, !batch.isRunning {
+            announce(BatchPresentation(batch: batch).announcement)
+            copyLinks(of: batch)
+        }
+        return outcome.mapError { PipelineStepFailure(step: failedStep, error: $0, partial: partial) }
     }
 
     private func progress(_ fraction: Double, cardID: UUID) {
@@ -431,10 +449,28 @@ public final class AppModel {
     }
 
     /// A new file in a folder a pipeline watches: the pipeline runs on it.
-    public func runPipeline(_ name: String, onWatched file: URL) {
+    public func runPipeline(_ name: String, onWatched file: URL) async {
         var job = factory.job(for: file, origin: .watchedFolder)
         job.operation = .pipeline(name)
-        Task { await run(job) }
+        if let pipeline = try? service.context.pipelines.resolve(name) { Self.use(pipeline, in: &job) }
+        await run(job)
+    }
+
+    /// A pipeline that runs on its own: its operation, and no floating result when it says so.
+    static func use(_ pipeline: Pipeline, in job: inout OptimisationJob) {
+        job.operation = .pipeline(pipeline.name)
+        if pipeline.hideResult { job.request.showResultUI = false }
+    }
+
+    /// A `fork` step's file, shown as a result of its own beside the pipeline's, with the
+    /// original's size before the run.
+    func presentFork(_ file: URL, of original: URL, bytesBefore: Int) {
+        let time = now()
+        noteWritten([file])
+        show(OptimisationResult(
+            source: original, output: file, kind: MediaKind.of(file) ?? .image,
+            bytesBefore: bytesBefore, bytesAfter: Self.size(of: file), startedAt: time, finishedAt: time, steps: ["fork"]
+        ))
     }
 
     /// Recent's Clear (privacy): the names go from the panel and from the shared log, which the
@@ -518,10 +554,13 @@ public final class AppModel {
         for card in cards where ids.contains(card.jobID) { dismiss(card) }
     }
 
-    public func notice(_ title: String, _ detail: String) {
-        cards.filter { if case .notice = $0.phase { return true } else { return false } }.forEach(dismiss)
+    /// A short message with no file. It replaces the last plain one. With `optimiseAnyway` it
+    /// offers that action, stays long enough to reach it, and no later notice takes its place.
+    public func notice(_ title: String, _ detail: String, optimiseAnyway: (() -> Void)? = nil) {
+        cards.filter { if case .notice = $0.phase { return $0.optimiseAnyway == nil } else { return false } }.forEach(dismiss)
         let card = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/"), origin: .app, bytesBefore: 0, phase: .notice(title: title, detail: detail))
-        card.machine.notice(at: now(), hideAfter: hideDelayOverride.map(Self.seconds) ?? 3)
+        card.optimiseAnyway = optimiseAnyway
+        card.machine.notice(at: now(), hideAfter: hideDelayOverride.map(Self.seconds) ?? (optimiseAnyway == nil ? 3 : 8))
         add(card)
     }
 
@@ -532,6 +571,8 @@ public final class AppModel {
         case pointerEntered, pointerExited
         case openDetail, closeDetail
         case focus(Bool), dragging(Bool), menu(Bool)
+        /// Gives the keys the "Go to the newest result" hotkey lent back to the app in front.
+        case returnKeys
         /// The detail's name, edited in place: the file takes the new name.
         case rename(String)
     }
@@ -560,6 +601,8 @@ public final class AppModel {
             card.machine.setMenuOpen(value, at: time)
         case let .rename(name):
             rename(card, to: name)
+        case .returnKeys:
+            returnKeys(from: card)
         }
         afterChange(card)
     }
@@ -681,6 +724,9 @@ public final class AppModel {
     // MARK: Card actions
 
     public func perform(_ action: CardPresentation.Action, on card: ResultCard) {
+        // Undo, Copy or Save on a card the "Go to the newest result" hotkey reached gives the keys
+        // back to the app in front, by key or by click.
+        defer { if card.lentKeys, CardKeys.givesKeysBack(action) { returnKeys(from: card) } }
         switch action {
         case .undo:
             // One restore at a time: a second click while it runs would leave a stray copy.
@@ -740,6 +786,9 @@ public final class AppModel {
             openOptions(card)
         case .trash:
             trash(card)
+        case .optimiseAnyway:
+            card.optimiseAnyway?()
+            dismiss(card)
         case .save:
             save(card)
         case .saveAs:
@@ -760,8 +809,8 @@ public final class AppModel {
     func reprocess(_ card: ResultCard, choice: OptimiseChoice? = nil, adjust: ((inout OptimisationJob) -> Void)? = nil) {
         let origin = card.origin, displayName = card.displayName
         let wasClipboardImage = Self.isCopiedImage(card.source)
-        // Every run starts from the original: only `downscale(_:to:)` keeps a scale. It is set
-        // here, before the run, because `downscale(_:to:)` sets its own scale right after.
+        // Every run starts from the original: the scale resets here, and the run that starts
+        // sets it below. A failed restore puts the old scale back, as the card keeps its result.
         let keptScale = card.downscale
         card.downscale = 1
         let choice = choice ?? card.choice
@@ -773,10 +822,13 @@ public final class AppModel {
             var replaced: OptimisationResult?
             // The files this card may have on the clipboard, which the new result replaces there.
             var shown = [card.source]
+            // A result written beside its original (⌥ at the drop) runs again beside it, not over it.
+            var besideOriginal = false
             switch card.phase {
             case let .done(result):
                 source = result.source
                 shown = [result.output, result.source]
+                besideOriginal = result.backup == nil && result.output.standardizedFileURL != result.source.standardizedFileURL
                 if result.backup == nil {
                     replaced = result
                 } else if !(await restore(result)) {
@@ -788,6 +840,7 @@ public final class AppModel {
             case let .restored(result):
                 source = result.source
                 shown = [result.source]
+                besideOriginal = result.backup == nil && result.output.standardizedFileURL != result.source.standardizedFileURL
             case .working, .failed, .notice:
                 return
             case .unchanged:
@@ -796,8 +849,11 @@ public final class AppModel {
             card.adjusted = adjust != nil
             card.loupe = nil
             var job = factory.job(for: source, origin: origin, location: wasClipboardImage ? .inPlace : nil)
+            if besideOriginal, job.request.location == .inPlace { job.request.location = .sameFolder }
             choice.apply(to: &job.request)
             adjust?(&job)
+            // The Size tab's chosen tile follows the run that starts, from a tile or the hover button.
+            card.downscale = job.request.downscale ?? 1
             let copyBack = origin == .clipboard && EsclopSettings.autoCopyToClipboard.value(in: settings)
             await run(job, displayName: displayName, context: context, reusing: card, onResult: { result in
                 if let replaced {
@@ -807,6 +863,9 @@ public final class AppModel {
                 guard copyBack else { return }
                 Task { await self.putBackOnClipboard(shown.map { ($0, result.output) }) }
             })
+            // A failed card has no "…": the popover closes so the failure and its Retry show,
+            // instead of controls that can no longer run anything.
+            if case .failed = card.phase, card.machine.menuOpen { interact(card, .menu(false)) }
         }
     }
 

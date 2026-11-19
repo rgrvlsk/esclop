@@ -163,7 +163,7 @@ public let convertTargets: [(name: String, kinds: Set<MediaKind>, doc: String)] 
     ("webp", [.image], "WebP image"),
     ("avif", [.image], "AVIF image (the AV1 video codec is `av1`)"),
     ("heic", [.image], "HEIC image"),
-    ("jxl", [.image], "JPEG XL image"),
+    ("jxl", [.image], "JPEG XL image, only on a Mac that writes it (macOS 26 reads it only)"),
     ("jpeg", [.image], "JPEG image"),
     ("jpg", [.image], "JPEG image (same as `jpeg`)"),
     ("png", [.image], "PNG image"),
@@ -231,7 +231,7 @@ extension PipelineLanguage {
             summary: "Change the format and compress in the same pass. Converting to the format the file already has does nothing.",
             params: [
                 ParamSpec("to", .choice(convertTargets.map(\.name)), required: true,
-                          "images: webp, avif, heic, jxl, jpeg, png, gif; video: mp4, hevc, x265, av1, webm, gif; audio: m4a, mp3, ogg, flac, wav, aiff"),
+                          "images: webp, avif, heic, jpeg, png, gif; video: mp4, hevc, x265, av1, webm, gif; audio: m4a, mp3, ogg, flac, wav, aiff"),
                 ParamSpec("location", .location, default: "sameFolder", locationDoc + ". Defaults to `sameFolder`, so the original stays"),
             ],
             positional: "to", example: "convert(to: webp)"
@@ -376,7 +376,7 @@ extension PipelineLanguage {
         ),
         StepSpec(
             "copyLinkForSending", .action, kinds: allKinds,
-            summary: "Share the file through a link and copy the link.",
+            summary: "Clop's link sharing. L'Esclop has no sharing service, so the step is skipped; use upload(to:).",
             params: [ParamSpec("expiration", .duration, "stop sharing after this long, or `never`; left out, the app's setting decides")],
             positional: "expiration", example: "copyLinkForSending(expiration: 1d)"
         ),

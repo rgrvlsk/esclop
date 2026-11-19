@@ -2,7 +2,7 @@
 //
 // What one floating result is doing, as a value (DESIGN.md › Floating result): its level, whether
 // the hover buttons show and when it hides. Nothing opens because the pointer rested: the detail
-// opens on a click, Return or Space, or VoiceOver's action. Time comes in from outside as
+// opens on a click, Return, or VoiceOver's action. Time comes in from outside as
 // `now`, so tests drive it with a fixed clock and the app with the real one; the app model sleeps
 // until `nextDeadline` and calls `advance(to:)`.
 

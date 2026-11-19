@@ -22,6 +22,10 @@ public struct PresetZone: Identifiable, Hashable, Sendable {
 
     public var id: String { name }
 
+    /// The name as the person reads it: a built-in template's in their language. `name` stays
+    /// what runs, as the CLI and agents know it.
+    public var title: String { builtIn ? Strings.text(name) : name }
+
     public init(name: String, icon: String = PresetZone.defaultIcon, builtIn: Bool = false, kinds: Set<MediaKind> = Set(MediaKind.allCases), isOn: Bool = true) {
         self.name = name
         self.icon = icon

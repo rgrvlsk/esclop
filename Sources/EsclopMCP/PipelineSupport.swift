@@ -145,13 +145,19 @@ public struct StorePipelineRunner: PipelineRunning {
     /// What steps that need the app reach (the app's own host, with uploads); nil: the default for
     /// the origin, which cannot upload.
     public let host: (any PipelineHost)?
+    /// The app a copy came from, for `if(copiedBy:)`; nil outside a clipboard run.
+    public let sourceApp: String?
 
-    public init(store: PipelineStore, allowRunScripts: Bool, allowDelete: Bool, temporaryDirectory: URL = Paths.temporary, host: (any PipelineHost)? = nil) {
+    public init(
+        store: PipelineStore, allowRunScripts: Bool, allowDelete: Bool, temporaryDirectory: URL = Paths.temporary,
+        host: (any PipelineHost)? = nil, sourceApp: String? = nil
+    ) {
         self.store = store
         self.allowRunScripts = allowRunScripts
         self.allowDelete = allowDelete
         self.temporaryDirectory = temporaryDirectory
         self.host = host
+        self.sourceApp = sourceApp
     }
 
     /// A saved name, a built-in preset, or inline steps.
@@ -176,7 +182,7 @@ public struct StorePipelineRunner: PipelineRunning {
         let before = Self.size(source)
         let host: any PipelineHost = self.host ?? (request.origin == .cli ? CommandLinePipelineHost() : NoopPipelineHost())
         let options = PipelineRunOptions(
-            origin: request.origin, allowRunScripts: allowRunScripts, allowDelete: allowDelete,
+            origin: request.origin, allowRunScripts: allowRunScripts, allowDelete: allowDelete, sourceApp: sourceApp,
             quality: request.quality, temporaryDirectory: temporaryDirectory
         )
         let requestID = request.id

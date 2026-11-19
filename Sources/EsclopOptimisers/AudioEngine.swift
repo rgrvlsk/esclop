@@ -90,7 +90,7 @@ struct AudioEngine: Sendable {
         if let loudness { steps.append("Normalised loudness to \(String(format: "%g", loudness)) LUFS") }
         // A new codec under the same name (Apple Lossless to AAC in an .m4a) still has to shrink.
         let changesContent = !sameExtension || speed != nil || loudness != nil
-        return Produced(url: output, width: nil, height: nil, duration: duration, steps: steps, allowLarger: changesContent)
+        return Produced(url: output, width: nil, height: nil, duration: duration, steps: steps, allowLarger: changesContent, lossless: codec.isLossless && !changesContent)
     }
 
     /// Album artwork: kept, recompressed to at most 600 px JPEG, or dropped.

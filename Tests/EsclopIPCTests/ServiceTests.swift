@@ -138,6 +138,31 @@ final class EventLog: @unchecked Sendable {
         #expect(throws: EsclopError.self) { try PDFPageTools().exportPages(pdf, pages: [9], format: .png, dpi: 72, into: temp.url) }
     }
 
+    @Test func signedPDFsAreNotCroppedOrUncropped() async throws {
+        let temp = TempDir()
+        let pdf = temp.url.appendingPathComponent("contract.pdf")
+        try signedPDF(at: pdf)
+        let before = try Data(contentsOf: pdf)
+        let executor = JobExecutor(engine: FakeEngine(), backups: temp.url.appendingPathComponent("backups"))
+        for operation in [JobOperation.cropPDF(PDFCropSpec(aspectRatio: 0.75)), .uncropPDF] {
+            let report = await executor.run(OptimisationJob(request: OptimisationRequest(sources: [pdf], origin: .cli, location: .inPlace), operation: operation))
+            #expect(report.failures.first?.error.description == PDFSignature.reason, "\(operation)")
+        }
+        #expect(try Data(contentsOf: pdf) == before)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: temp.url.path).filter { $0 != "backups" } == ["contract.pdf"])
+    }
+
+    @Test func exportKeepsFilesThatAreThere() throws {
+        let temp = TempDir()
+        let pdf = temp.pdf("doc.pdf", pages: [CGSize(width: 100, height: 200), CGSize(width: 100, height: 200)])
+        let folder = temp.url.appendingPathComponent("pages")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try Data("keep".utf8).write(to: folder.appendingPathComponent("doc-1.png"))
+        let written = try PDFPageTools().exportPages(pdf, pages: nil, format: .png, dpi: 72, into: folder)
+        #expect(written.map(\.lastPathComponent) == ["doc-1 2.png", "doc-2.png"])
+        #expect(try Data(contentsOf: folder.appendingPathComponent("doc-1.png")) == Data("keep".utf8))
+    }
+
     @Test func notAPDF() async {
         let temp = TempDir()
         let report = await JobExecutor(engine: FakeEngine()).run(

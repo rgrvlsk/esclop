@@ -307,14 +307,15 @@ public struct MenuPanel: View {
                         }
                     }
                     // The list is one stop for the keys, as a menu is: the arrows move, Return
-                    // shows the result's card. No focus ring; the row's wash shows where it is.
+                    // shows the result's card, Space is Quick Look (as on a card and in Finder).
+                    // No focus ring; the row's wash shows where it is.
                     .focusable()
                     .focused($listFocused)
                     .focusEffectDisabled()
                     .onKeyPress(.downArrow) { move(1, in: results, proxy) }
                     .onKeyPress(.upArrow) { move(-1, in: results, proxy) }
                     .onKeyPress(.return) { open(results) }
-                    .onKeyPress(.space) { open(results) }
+                    .onKeyPress(.space) { quickLook(results) }
                 }
             }
         }
@@ -335,6 +336,14 @@ public struct MenuPanel: View {
         guard let result = results.first(where: { $0.id == highlighted }) else { return .ignored }
         actions.close()
         model.show(result)
+        return .handled
+    }
+
+    private func quickLook(_ results: [OptimisationResult]) -> KeyPress.Result {
+        guard let result = results.first(where: { $0.id == highlighted }),
+              FileManager.default.fileExists(atPath: result.output.path) else { return .ignored }
+        // Quick Look takes the keys, so the panel closes as it does for any other window.
+        QuickLookPresenter.shared.toggle(result.output)
         return .handled
     }
 
