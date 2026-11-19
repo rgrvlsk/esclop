@@ -57,6 +57,12 @@ import UniformTypeIdentifiers
         let beside = try await world.engine.convert(png, to: .jpeg, request: request, progress: { _ in })
         #expect(beside.output == world.file("photo.jpg"))
         #expect(FileManager.default.fileExists(atPath: png.path))
+
+        // A folder template could land on a file that exists, which agents may not replace.
+        try FileManager.default.removeItem(at: beside.output)
+        try EsclopSettings.convertedImageBehaviour.set(.specificFolder, in: world.settings)
+        let besideToo = try await world.engine.convert(png, to: .jpeg, request: request, progress: { _ in })
+        #expect(besideToo.output == world.file("photo.jpg"))
     }
 
     @Test func retinaScreenshotsAreHalvedWhenAsked() async throws {

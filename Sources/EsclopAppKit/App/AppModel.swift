@@ -381,6 +381,8 @@ public final class AppModel {
             outcome = .failure(.cancelled)
         } else {
             let cardID = card?.id
+            // Taken for every outcome: a stale entry must never settle a later file at that path.
+            let dropOriginal = dropCopies.removeValue(forKey: source.standardizedFileURL.path)
             do {
                 var result = try await executor.process(source, job: job) { [weak self, weak row] progress in
                     Task { @MainActor in
@@ -389,9 +391,7 @@ public final class AppModel {
                     }
                 }
                 result.origin = job.request.origin
-                if let original = dropCopies.removeValue(forKey: source.standardizedFileURL.path) {
-                    result = Self.settle(result, workingCopy: source, of: original)
-                }
+                if let dropOriginal { result = Self.dropCopySettled(result, workingCopy: source, of: dropOriginal) }
                 outcome = .success(result)
             } catch let failed as PipelineStepFailure {
                 // Earlier steps changed the file: keep that in Recent, where its backup restores.

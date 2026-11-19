@@ -70,8 +70,9 @@ into the body of its GitHub release.
 - Audio keeps its title, artist and album when optimised; only "Remove metadata" strips them.
 - Apple Lossless files stay lossless unless you convert them or add `alac` to "Convert to AAC".
   Lossless output keeps its bit depth and sample rate.
-- Video optimisation and Strip keep every video and audio track, track languages, chapters and
-  the subtitles the format can carry. MKV to MP4 keeps text subtitles.
+- Video optimisation and Strip keep every video and audio track, track languages, chapters
+  (except after a speed change) and the subtitles the format can carry. MKV to MP4 keeps text
+  subtitles.
 - Crops, resizes and conversions keep the picture's density (Retina screenshots, print photos).
   Titles and keywords (XMP) reach WebP, AVIF and PNG when metadata is kept.
 - A crop larger than the picture or video never enlarges it, and says so. GIFs follow the
