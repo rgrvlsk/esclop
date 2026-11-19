@@ -18,6 +18,11 @@ struct FloatingStackView: View {
         model.visibleCards.contains { $0.machine.detailMenuOpen }
     }
 
+    /// Some card's menu, options, name, loupe or drag has the keys (`FloatingResultView.keysTaken`).
+    private var keysTaken: Bool {
+        model.visibleCards.contains { $0.machine.menuOpen || $0.renaming || $0.loupe != nil || $0.machine.dragging }
+    }
+
     var body: some View {
         let corner = model.corner
         VStack(alignment: corner.isRight ? .trailing : .leading, spacing: Metrics.stackGap) {
@@ -27,7 +32,8 @@ struct FloatingStackView: View {
                     perform: { model.perform($0, on: card) },
                     interact: { model.interact(card, $0) },
                     options: { OptionsModel(card: card, app: model) },
-                    press: { model.press($0, on: card) }
+                    press: { model.press($0, on: card) },
+                    keysTaken: keysTaken
                 )
                 .zIndex(card.machine.hovering || card.machine.showsHoverButtons || card.machine.level == .detail ? 1 : 0)
                 .transition(

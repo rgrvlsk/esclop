@@ -18,6 +18,9 @@ public struct FloatingResultView: View {
     let options: (() -> OptionsModel)?
     /// Runs a plain key (`CardKeys`); false when it does nothing on this card.
     let press: (Character) -> Bool
+    /// A menu, the options, a name, the loupe or a drag on any card has the keys: the plain
+    /// keys stand aside on every card.
+    let keysTaken: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.controlActiveState) private var activeState
@@ -28,7 +31,7 @@ public struct FloatingResultView: View {
     public init(
         card: ResultCard, corner: ScreenCorner = .bottomRight,
         perform: @escaping (CardPresentation.Action) -> Void, interact: @escaping (AppModel.Interaction) -> Void = { _ in },
-        options: (() -> OptionsModel)? = nil, press: @escaping (Character) -> Bool = { _ in false }
+        options: (() -> OptionsModel)? = nil, press: @escaping (Character) -> Bool = { _ in false }, keysTaken: Bool = false
     ) {
         self.card = card
         self.options = options
@@ -36,6 +39,7 @@ public struct FloatingResultView: View {
         self.perform = perform
         self.interact = interact
         self.press = press
+        self.keysTaken = keysTaken
     }
 
     public var body: some View {
@@ -59,10 +63,12 @@ public struct FloatingResultView: View {
         // The resting pointer's keys: held after a short rest, given back when it leaves, and
         // while a menu, the name, the loupe or a drag has the keys.
         .task(id: hoverKeys) {
+            HoverKeys.shared.release(from: card.id)
             let keys = hoverKeys
-            guard !keys.isEmpty else { return HoverKeys.shared.release(from: card.id) }
+            guard !keys.isEmpty else { return }
             try? await Task.sleep(for: HoverKeys.rest)
-            guard !Task.isCancelled else { return }
+            // A field of this app's being typed in (Settings) keeps its letters.
+            guard !Task.isCancelled, !Self.editingText else { return }
             HoverKeys.shared.hold(keys, for: card.id) { _ = press($0) }
         }
         .onDisappear { HoverKeys.shared.release(from: card.id) }
@@ -99,7 +105,7 @@ public struct FloatingResultView: View {
         }
         .onKeyPress(.return) { Self.editingText ? .ignored : enter(info) }
         .onKeyPress(phases: .down) { key in
-            if Self.editingText || card.machine.menuOpen { return .ignored }
+            if Self.editingText || keysTaken { return .ignored }
             let modifiers = key.modifiers.subtracting([.capsLock, .numericPad])
             if modifiers == .command {
                 switch key.characters {
@@ -150,8 +156,8 @@ public struct FloatingResultView: View {
     /// The keys the resting pointer holds for this card now: none while the pointer is away, or
     /// while the options, the "…" menu, the name, the loupe or a drag take keys of their own.
     private var hoverKeys: [Character] {
-        guard pointerOver, !card.machine.menuOpen, !card.renaming, card.loupe == nil, !card.machine.dragging else { return [] }
-        return CardKeys.all.filter { CardKeys.command(for: $0, on: card) != nil }
+        guard pointerOver, !keysTaken else { return [] }
+        return CardKeys.keys(on: card)
     }
 
     /// Return opens the detail, and there runs its charcoal button. With the options popover

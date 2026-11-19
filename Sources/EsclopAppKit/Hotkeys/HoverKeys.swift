@@ -83,7 +83,7 @@ final class HoverKeys {
                 var chars = [UniChar](repeating: 0, count: 4)
                 let status = UCKeyTranslate(
                     layout, code, UInt16(kUCKeyActionDown), 0, UInt32(LMGetKbdType()),
-                    OptionBits(kUCKeyTranslateNoDeadKeysBit), &dead, chars.count, &length, &chars
+                    OptionBits(kUCKeyTranslateNoDeadKeysMask), &dead, chars.count, &length, &chars
                 )
                 guard status == noErr, length == 1, let character = String(utf16CodeUnits: chars, count: 1).first,
                       CardKeys.all.contains(character), codes[character] == nil
