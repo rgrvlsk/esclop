@@ -181,14 +181,34 @@ public struct ResultsLog: Sendable {
     }
 
     /// Each result's sizes and when it finished, newest first, cleared ones included, withdrawn
-    /// ones left out.
+    /// ones left out. Decoded once per version of the file (its size and date), so opening the
+    /// menu again reads nothing new.
     public func savings() -> [Saving] {
-        guard let lines = Self.queue.sync(execute: { try? lines() }) else { return [] }
-        let decoder = JSONCoding.wireDecoder()
-        let all = lines.reversed().compactMap { try? decoder.decode(Saving.self, from: Data($0)) }
-        var seen = Set(all.filter { $0.withdrawn == true }.map(\.id))
-        return all.filter { seen.insert($0.id).inserted }
+        Self.queue.sync {
+            let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
+            let version = SavingsCache.Version(size: (attributes?[.size] as? NSNumber)?.intValue ?? 0, modified: attributes?[.modificationDate] as? Date)
+            if let cached = Self.savingsCache.entries[url.path], cached.version == version { return cached.savings }
+            guard let lines = try? lines() else { return [] }
+            let decoder = JSONCoding.wireDecoder()
+            let all = lines.reversed().compactMap { try? decoder.decode(Saving.self, from: Data($0)) }
+            var seen = Set(all.filter { $0.withdrawn == true }.map(\.id))
+            let savings = all.filter { seen.insert($0.id).inserted }
+            Self.savingsCache.entries[url.path] = (version, savings)
+            return savings
+        }
     }
+
+    /// The last `savings()` per log file. Only touched on `queue`.
+    private final class SavingsCache: @unchecked Sendable {
+        struct Version: Equatable {
+            var size: Int
+            var modified: Date?
+        }
+
+        var entries: [String: (version: Version, savings: [Saving])] = [:]
+    }
+
+    private static let savingsCache = SavingsCache()
 
     /// Clears the names: every line keeps only its sizes, kind and date (`Saving`), written in
     /// one atomic step. The saving stays; no file name or path is left in the log. Backups are
