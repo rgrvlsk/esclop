@@ -107,6 +107,9 @@ struct S3TestServer {
         let link = try await S3Uploader().upload(file, to: target, key: target.key(for: file), credentials: server.keys)
         // The bucket is private: its own address does not open for the people the link goes to.
         await #expect(throws: EsclopError.self) { try await S3Uploader().checkLink(link) }
+        // The test upload removes its file afterwards.
+        try await S3Uploader().delete(target.key(for: file), from: target, credentials: server.keys)
+        await #expect(throws: EsclopError.self) { try await server.read(target.key(for: file)) }
     }
 
     @Test func aWrongSecretIsRefusedAndTheFileStays() async throws {
@@ -211,6 +214,9 @@ struct S3TestServer {
         #expect(await eventually(.seconds(30)) { batch.rows.count == 4 && batch.rows.allSatisfy(uploaded) })
         #expect(harness.model.cards.isEmpty)
         #expect(BatchPresentation.status(of: batch.rows[0]) == Strings.text("Uploaded · link copied"))
+        // Every link at once, one per line in row order, not only the last one.
+        let links = batch.rows.compactMap { row -> String? in if case let .uploaded(link) = row.upload { link.absoluteString } else { nil } }
+        #expect(await eventually { harness.pasteboard.string(forType: .string) == links.joined(separator: "\n") })
     }
 
     @Test func aJobFromTheCommandLineUploadsThroughTheApp() async throws {
@@ -316,6 +322,24 @@ struct S3TestServer {
         let host = AppPipelineHost(uploader: AppUploader(settings: settings.store, credentials: MemoryCredentialStore())) { _ in }
         let outcome = try await host.perform(.uploadTo(target: nil), file: key, options: PipelineRunOptions())
         guard case .unavailable = outcome else { Issue.record("the step uploaded a key: \(outcome)"); return }
+    }
+
+    @Test func anAutomaticLinkNeverReplacesWhatWasCopiedMeanwhile() async {
+        let harness = Harness()
+        let link = URL(string: "https://files.example.com/a.png")!
+        let since = await harness.model.clipboard.run { $0.changeCount() }
+        // L'Esclop's own write in between (a result put back) does not count as a copy.
+        await harness.model.copyToClipboard(text: "own")
+        #expect(await harness.model.copyToClipboard(links: [link], since: since))
+        #expect(harness.pasteboard.string(forType: .string) == link.absoluteString)
+        // The person copies something: the next automatic link stays off the clipboard.
+        let before = await harness.model.clipboard.run { $0.changeCount() }
+        harness.pasteboard.clearContents()
+        harness.pasteboard.setString("mine", forType: .string)
+        #expect(await harness.model.copyToClipboard(links: [link], since: before) == false)
+        #expect(harness.pasteboard.string(forType: .string) == "mine")
+        // Copy Link, which the person asks for, always writes.
+        #expect(await harness.model.copyToClipboard(links: [link]))
     }
 
     @Test func aPublicLinkNeedsItsPathAndR2NeedsAPublicLink() {

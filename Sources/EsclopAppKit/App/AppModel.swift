@@ -179,16 +179,23 @@ public final class AppModel {
     @discardableResult
     public func run(
         _ job: OptimisationJob, displayName: String? = nil, context: CardContext? = nil, reusing existing: ResultCard? = nil,
-        batch: Batch? = nil,
+        batch: Batch? = nil, sourceApp: String? = nil,
         events: @escaping @Sendable (JobEvent) -> Void = { _ in },
         onResult: ((OptimisationResult) -> Void)? = nil
     ) async -> JobReport {
+        // A pipeline that failed late reports what its earlier steps made and the failing step
+        // (`PipelineStepFailure`) through the events: the report keeps both, as CLI and MCP do.
+        let late = LateFailures()
+        let events: @Sendable (JobEvent) -> Void = { [events] event in
+            late.note(event)
+            events(event)
+        }
         let batch = batch ?? (existing == nil && job.request.showResultUI && job.request.sources.count >= batchThreshold
             ? openBatch(origin: job.request.origin) : nil)
         // A fork shows as a result of its own beside a single floating result, not in a batch.
         let single = job.request.showResultUI && batch == nil && job.request.sources.count == 1 ? job.request.sources.first : nil
         let desktop = AppDesktop(model: self, original: single.map { ($0, Self.size(of: $0)) })
-        let executor = executor(for: job.request.origin, desktop: job.request.origin == .mcp ? nil : desktop)
+        let executor = executor(for: job.request.origin, desktop: job.request.origin == .mcp ? nil : desktop, sourceApp: sourceApp)
         var tasks: [(URL, Task<Result<OptimisationResult, EsclopError>, Never>)] = []
         for source in job.request.sources {
             if let batch {
@@ -211,7 +218,7 @@ public final class AppModel {
                 var again = job
                 again.request.id = UUID()
                 again.request.sources = [source]
-                Task { await self.run(again, displayName: displayName, context: context, onResult: onResult) }
+                Task { await self.run(again, displayName: displayName, context: context, sourceApp: sourceApp, onResult: onResult) }
             }
             tasks.append((source, task))
         }
@@ -221,7 +228,10 @@ public final class AppModel {
             for (source, task) in tasks {
                 switch await task.value {
                 case let .success(result): report.results.append(result)
-                case let .failure(error): report.failures.append(FileFailure(source: source, error: error))
+                case let .failure(error):
+                    let (partial, step) = late.found(for: source)
+                    if let partial { report.results.append(partial) }
+                    report.failures.append(FileFailure(source: source, error: error, step: step))
                 }
             }
             return report
@@ -302,17 +312,19 @@ public final class AppModel {
     /// The executor for a request's origin: agents get the pipeline permissions the person set.
     /// `desktop` lets pipeline steps reach the clipboard, apps and the floating results; agents
     /// get none.
-    func executor(for origin: RequestOrigin, desktop: (any PipelineDesktop)? = nil) -> JobExecutor {
+    /// `sourceApp` is the app a copy came from, for a pipeline's `if(copiedBy:)`.
+    func executor(for origin: RequestOrigin, desktop: (any PipelineDesktop)? = nil, sourceApp: String? = nil) -> JobExecutor {
         let context = service.context
         let policy = AgentPolicy(origin: origin, permissions: context.settings)
         // Agents upload only when the person allows it; the policy refuses before this, and an
         // executor without an uploader cannot upload anyway.
         let uploader: (any FileUploading)? = policy.allowed(.allowUploads) ? uploader : nil
         let host: AppPipelineHost? = uploader == nil && desktop == nil ? nil
-            : AppPipelineHost(uploader: uploader, desktop: desktop) { [weak self] link in await self?.copyLink(link) }
+            : AppPipelineHost(uploader: uploader, desktop: desktop) { [weak self] link in await self?.copyToClipboard(links: [link]) }
         let runner = StorePipelineRunner(
             store: context.pipelines, allowRunScripts: policy.allowed(.allowRunScripts),
-            allowDelete: policy.allowed(.allowOverwriteOriginals), temporaryDirectory: Paths.temporary, host: host
+            allowDelete: policy.allowed(.allowOverwriteOriginals), temporaryDirectory: Paths.temporary, host: host,
+            sourceApp: sourceApp
         )
         return JobExecutor(engine: context.engine, pipelineRunner: runner, uploader: uploader, backups: context.locations.backups)
     }
@@ -379,10 +391,10 @@ public final class AppModel {
             // A batch is announced once, when it ends, not file by file.
             if row == nil { announce(CardPresentation.announcement(for: result)) }
             if let link = result.link {
-                copyLink(link)
+                await copyToClipboard(links: [link])
             } else if uploadsAutomatically(job) {
                 // Every result, also a batch row's or one shown nowhere (a quiet pipeline).
-                if let card { upload(card) } else { upload(result.output, to: nil, on: row) }
+                if let card { upload(card, automatic: true) } else { upload(result.output, to: nil, on: row, batch: batch, automatic: true) }
             }
             onResult?(result)
         case let .failure(error):
@@ -396,7 +408,10 @@ public final class AppModel {
             }
         }
         if let card { settle(card) }
-        if let batch, !batch.isRunning { announce(BatchPresentation(batch: batch).announcement) }
+        if let batch, !batch.isRunning {
+            announce(BatchPresentation(batch: batch).announcement)
+            copyLinks(of: batch)
+        }
         return outcome
     }
 
@@ -838,5 +853,27 @@ public final class AppModel {
 
     nonisolated static func size(of url: URL) -> Int {
         ((try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? NSNumber)?.intValue ?? 0
+    }
+}
+
+/// The last result and failing step each file's events reported, for a report built from task
+/// outcomes: a failed file's result event is the partial result its earlier steps made.
+private final class LateFailures: @unchecked Sendable {
+    private let lock = NSLock()
+    private var results: [String: OptimisationResult] = [:]
+    private var steps: [String: String] = [:]
+
+    func note(_ event: JobEvent) {
+        lock.withLock {
+            switch event {
+            case let .result(result): results[result.source.path] = result
+            case let .failure(failure): steps[failure.source.path] = failure.step
+            case .progress: break
+            }
+        }
+    }
+
+    func found(for source: URL) -> (partial: OptimisationResult?, step: String?) {
+        lock.withLock { (results[source.path], steps[source.path]) }
     }
 }

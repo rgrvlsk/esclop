@@ -51,15 +51,8 @@ public final class AppServices {
         settingsModel.uploads = .live()
         settingsWindow = SettingsWindowController(model: settingsModel, agents: AgentsModel(), actions: SettingsActions(
             reveal: { [weak model] in model?.reveal([$0]) },
-            copy: { text in
-                // ponytail: on the main thread, like `copyLink`; see there.
-                let pasteboard = NSPasteboard.general
-                pasteboard.clearContents()
-                // Marked as L'Esclop's own write, so the clipboard watcher leaves it alone.
-                pasteboard.declareTypes([.string, Clipboard.optimisedType], owner: nil)
-                pasteboard.setString(text, forType: .string)
-                pasteboard.setData(Data(), forType: Clipboard.optimisedType)
-            },
+            // On the clipboard queue, marked as L'Esclop's own write, so the watcher leaves it alone.
+            copy: { [weak model] text in Task { await model?.copyToClipboard(text: text) } },
             supportFolder: model.service.context.locations.support,
             openPipelines: { [weak model] in model?.onOpenPipelines?(nil) }
         ))
