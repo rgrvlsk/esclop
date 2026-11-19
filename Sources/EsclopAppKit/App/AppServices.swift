@@ -52,6 +52,7 @@ public final class AppServices {
         settingsWindow = SettingsWindowController(model: settingsModel, agents: AgentsModel(), actions: SettingsActions(
             reveal: { [weak model] in model?.reveal([$0]) },
             copy: { text in
+                // ponytail: on the main thread, like `copyLink`; see there.
                 let pasteboard = NSPasteboard.general
                 pasteboard.clearContents()
                 // Marked as L'Esclop's own write, so the clipboard watcher leaves it alone.
@@ -63,7 +64,7 @@ public final class AppServices {
             openPipelines: { [weak model] in model?.onOpenPipelines?(nil) }
         ))
         let pipelinesWindow = PipelineEditorWindowController(model: PipelineEditorModel(
-            store: model.service.context.pipelines, app: model, settings: model.service.context.settings
+            store: model.service.context.pipelines, app: model
         ))
         self.pipelinesWindow = pipelinesWindow
         model.onOpenPipelines = { [weak pipelinesWindow] name in pipelinesWindow?.show(name) }
@@ -133,6 +134,9 @@ public final class AppServices {
         dropZone.start()
         folders.refresh()
         PipelineEditorModel.removeLeftovers()
+        let retention = EsclopSettings.backupRetentionDays.value(in: model.settings)
+        let backups = BackupStore(root: model.service.context.locations.backups)
+        Task.detached(priority: .utility) { BackupPruner.pruneAtLaunch(days: retention, backups: backups) }
         try? FileManager.default.createDirectory(at: model.service.context.pipelines.directory, withIntermediateDirectories: true)
         pipelineFiles?.start([model.service.context.pipelines.directory])
         let workspace = NSWorkspace.shared.notificationCenter
