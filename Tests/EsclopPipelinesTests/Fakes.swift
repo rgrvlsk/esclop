@@ -135,7 +135,7 @@ struct FakeEngine: OptimisationEngine, PipelineMediaOperations {
     func extractPages(_ source: URL, format: PageImageFormat, scale: Double, into directory: URL, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> [URL] {
         recorder.record("pages(\(source.lastPathComponent), \(format.rawValue), \(scale)x)")
         let stem = source.deletingPathExtension().lastPathComponent
-        return try (1 ... pages).map { n in
+        return try (0 ..< pages).map { $0 + 1 }.map { n in
             let url = directory.appendingPathComponent("\(stem)-page\(n)").appendingPathExtension(format == .png ? "png" : "jpg")
             try Data([1, 2, 3]).write(to: url)
             return url
