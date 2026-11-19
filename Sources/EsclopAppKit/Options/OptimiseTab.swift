@@ -69,8 +69,7 @@ struct SuggestionCard: View {
                     .environment(\.colorScheme, .light)
                     .padding(.horizontal, 14)
                     .frame(height: 30)
-                    .background(Capsule().fill(Color.white.opacity(0.92)))
-                    .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
+                    .raised(Capsule(), fill: .white)
                     .contentShape(Capsule())
             }
             .buttonStyle(PressScale())
@@ -184,12 +183,13 @@ struct FormatOptions: View {
                     Button(Strings.text("Restore original")) { model.app.perform(.undo, on: model.card) }
                         .help("⌘Z")
                 }
+                // Charcoal like every text button: amber means a decision is needed.
                 Button(Strings.text("Optimise harder")) { model.optimiseHarder() }
-                    .foregroundStyle(PopoverInk.warm.color)
                     .help(Strings.text("Run it again with aggressive compression"))
             }
             .buttonStyle(.plain)
             .font(OptionsType.label.weight(.semibold))
+            .foregroundStyle(Ink.charcoalText)
             .disabled(model.card.isWorking)
         }
     }
@@ -242,7 +242,8 @@ struct FormatOptions: View {
     }
 }
 
-/// A row in a tile of its own, as in the target: "Remove metadata" with its switch.
+/// A row that holds a control ("Remove metadata" and its switch): flat, since only what is
+/// pressed is raised.
 struct OptionsRow<Content: View>: View {
     @ViewBuilder var content: Content
 
@@ -250,6 +251,8 @@ struct OptionsRow<Content: View>: View {
         content
             .padding(.horizontal, 12)
             .padding(.vertical, 4)
+            // One height for every flat row.
+            .frame(minHeight: OptionsType.rowHeight)
             .background(RoundedRectangle(cornerRadius: OptionsType.radius, style: .continuous).fill(Surface.cream))
     }
 }
@@ -321,7 +324,7 @@ struct RuleCheckbox: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: OptionsType.rowHeight, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: OptionsType.radius, style: .continuous).fill(Surface.cream))
     }
 }
