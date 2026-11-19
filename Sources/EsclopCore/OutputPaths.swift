@@ -146,7 +146,8 @@ public extension StagedFiles {
     /// (dates are preserved), but on APFS and HFS+ a move or a copy sets that one to now.
     // ponytail: a day old, so a swap still copying to a slow disk is never taken; lists the
     // folder on every write. Keep a list of swept folders if a huge folder makes that show.
-    // exFAT keeps no separate status change date: there a staged old file can go in the instant
+    // A file system without a separate status change date (exFAT, FAT32, some network volumes)
+    // reports the preserved date instead: there a staged old file can go in the instant
     // between its staging and its swap, if another job writes into the same folder then. Stage
     // without the preserved dates, and set them after the swap, if that is ever seen.
     static func removeLeftovers(in folder: URL, now: Date = Date()) {
