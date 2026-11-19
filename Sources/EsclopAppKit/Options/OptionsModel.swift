@@ -243,23 +243,31 @@ public final class OptionsModel {
     /// The scale the result was made at, 1 when it was not scaled (a crop is not a scale).
     public var currentScale: Double { card.downscale }
 
+    /// Whether the file is at this tile's size: Original only while no Fit or Crop changed it.
+    public func isCurrent(_ factor: Double) -> Bool {
+        abs(factor - currentScale) < 0.001 && !(factor == 1 && card.adjusted)
+    }
+
     public func scaleRequest(_ factor: Double) -> EstimateRequest {
         EstimateRequest(choice: card.choice, downscale: factor < 1 ? factor : nil)
     }
 
     /// A Size tile or Custom: scale to `factor` of the original (never above it). The size it
-    /// already has runs nothing.
+    /// already has runs nothing; Original after Fit or Crop runs the original again.
     public func scale(to factor: Double) {
         let factor = min(1, max(0.01, factor))
-        guard abs(factor - currentScale) > 0.001 else { return }
+        guard !isCurrent(factor) else { return }
         scale = factor
         factor < 1 ? commitScale() : restoreFullSize()
     }
 
     // MARK: Actions
 
+    /// Runs `choice`; the quality slider follows it (a format or the suggestion clears the
+    /// quality, so the slider goes back to what the choice will use).
     public func apply(_ choice: OptimiseChoice) {
         armed = nil
+        quality = Double(choice.effectiveQuality)
         app.apply(choice, to: card)
     }
 
@@ -304,7 +312,6 @@ public final class OptionsModel {
         var choice = card.choice
         choice.compression = compression
         choice.quality = nil
-        quality = Double(OptimiseChoice.quality(for: compression))
         apply(choice)
     }
 
@@ -362,8 +369,12 @@ public final class OptionsModel {
         app.crop(card, to: size)
     }
 
+    /// The rule the checkbox stands for: the stored one, else the one that made this result.
+    /// Another choice in the popover does not change it; ticking the box again does.
+    public var rule: ClipboardRule? { app.storedRule(for: card) ?? card.appliedRule }
+
     public var ruleOn: Bool {
-        get { card.appliedRule != nil || app.ruleExists(for: card) }
+        get { rule != nil }
         set { app.setRule(newValue, for: card) }
     }
 
