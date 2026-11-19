@@ -153,10 +153,9 @@ import UniformTypeIdentifiers
 
     @Test func aRuleAppliesToTheNextScreenshotUntilUnticked() async throws {
         let harness = Harness()
-        harness.model.frontmostApp = { "com.example.editor" }
         try EsclopSettings.autoCopyToClipboard.set(false, in: harness.settings.store)
 
-        harness.model.handleClipboard(.optimiseImage(screenshotPNG(), .png))
+        harness.model.handleClipboard(harness.copy(image: screenshotPNG(), app: "com.example.editor"))
         #expect(await eventually { harness.model.cards.first?.result != nil })
         let first = try #require(harness.model.cards.first)
         #expect(first.fileOrigin == .screenshot)
@@ -170,7 +169,7 @@ import UniformTypeIdentifiers
         harness.model.setRule(true, for: first)
         #expect(first.appliedRule?.choice.format == .webp)
 
-        harness.model.handleClipboard(.optimiseImage(screenshotPNG(), .png))
+        harness.model.handleClipboard(harness.copy(image: screenshotPNG(), app: "com.example.editor"))
         #expect(await eventually { harness.model.cards.count == 2 && harness.model.cards.last?.result != nil })
         let second = try #require(harness.model.cards.last)
         #expect(harness.requests.requests.last?.format == .webp, "the rule chose WebP")
@@ -179,7 +178,7 @@ import UniformTypeIdentifiers
         // Unticking deletes the rule; the next copy gets the default again.
         harness.model.setRule(false, for: second)
         #expect(harness.model.rules.all.isEmpty)
-        harness.model.handleClipboard(.optimiseImage(screenshotPNG(), .png))
+        harness.model.handleClipboard(harness.copy(image: screenshotPNG(), app: "com.example.editor"))
         #expect(await eventually { harness.model.cards.count == 3 && harness.model.cards.last?.result != nil })
         #expect(harness.requests.requests.last?.format == nil)
         #expect(harness.model.cards.last?.appliedRule == nil)

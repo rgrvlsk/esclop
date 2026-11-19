@@ -675,7 +675,7 @@ public enum ToolCatalog {
             tool: MCP.Tool(
                 name: "esclop_restore_backup",
                 title: "Restore a backup",
-                description: "Put the original back from L'Esclop's backup for a file that was optimised in place. path is the file's current path (the source or the output of a recent result). Overwrites the current file, so it needs the person's permission to overwrite originals; deleteBackup also needs permission to delete backups. Fails with fileNotFound when no backup was kept (the file was not changed in place).",
+                description: "Put the original back from L'Esclop's backup for a file that was optimised in place. path is the file's current path (the source or the output of a recent result). Replaces the current file, so it needs the person's permission to overwrite originals; a file changed since it was optimised and a converted copy go to the Trash (movedToTrash); deleteBackup also needs permission to delete backups. Fails with fileNotFound when no backup was kept (the file was not changed in place).",
                 inputSchema: Schema.object([
                     "path": Schema.string("The optimised file, absolute or ~/..."),
                     "deleteBackup": Schema.bool("Delete the backup after restoring."),
@@ -689,6 +689,7 @@ public enum ToolCatalog {
                 )
                 var text = "Restored \(PathInput.abbreviate(outcome.restored)) from its backup"
                 if let left = outcome.leftInPlace { text += "; the converted copy \(PathInput.abbreviate(left)) is still there" }
+                if let trashed = outcome.movedToTrash { text += "; moved to the Trash: \(trashed.map { PathInput.abbreviate($0) }.joined(separator: ", "))" }
                 return ToolOutput(text, encoding: outcome)
             }
         ),

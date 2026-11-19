@@ -63,6 +63,8 @@ extension AppModel {
     }
 
     /// The link on the clipboard, marked as L'Esclop's own so the clipboard watcher leaves it.
+    // ponytail: written on the main thread, not on `ClipboardKeeper.queue` where the watcher
+    // reads; move it there (the upload tests read the clipboard right after) if it ever races.
     public func copyLink(_ link: URL) {
         pasteboard.clearContents()
         pasteboard.declareTypes([.string, .URL, Clipboard.optimisedType], owner: nil)
