@@ -576,6 +576,8 @@ struct FileRun {
 
     /// In a "Try it" run, a path outside the trial folder moves inside it, under its full path,
     /// so nothing lands outside the copy's folder and the log still shows where it would go.
+    /// ponytail: callers test "is it a folder?" on the real disk, so a folder an earlier trial
+    /// step made is not seen; the file still stays inside. Test the contained path too if needed.
     func contained(_ path: String) -> String {
         guard let trial = options.trialFolder else { return path }
         let target = URL(fileURLWithPath: path).standardizedFileURL
