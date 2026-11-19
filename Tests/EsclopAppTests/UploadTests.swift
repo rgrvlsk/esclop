@@ -119,8 +119,14 @@ struct S3TestServer {
         defer { server.stop() }
         let temp = TempDir()
         let file = temp.file("big.mov", bytes: 60_000_000)
-        let task = Task { try await S3Uploader().upload(file, to: server.target(), key: "tests/big.mov", credentials: server.keys) }
-        try await Task.sleep(for: .milliseconds(30))
+        let (sending, sent) = AsyncStream<Void>.makeStream()
+        let task = Task {
+            defer { sent.finish() }
+            return try await S3Uploader().upload(file, to: server.target(), key: "tests/big.mov", credentials: server.keys) { _ in sent.yield() }
+        }
+        // Stop it on the first bytes sent, not after a guessed delay: a fast runner sent all
+        // 60 MB within 30 ms and the upload finished before the stop.
+        for await _ in sending { break }
         task.cancel()
         await #expect(throws: EsclopError.cancelled) { try await task.value }
     }

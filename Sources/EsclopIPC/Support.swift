@@ -384,7 +384,7 @@ extension EsclopError {
     public var code: String {
         switch self {
         case .unsupportedFile, .leftAsIs: return "unsupportedFile"
-        case .fileNotFound: return "fileNotFound"
+        case .fileNotFound, .backupRemoved: return "fileNotFound"
         case .toolMissing: return "toolMissing"
         case .toolFailed: return "toolFailed"
         case .alreadySmaller: return "alreadySmaller"

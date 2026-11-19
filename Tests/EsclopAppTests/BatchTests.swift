@@ -100,6 +100,42 @@ import Testing
         #expect(BatchPresentation.status(of: stopped, locale: Locale(identifier: "en")) == "100\u{00A0}kB → 40\u{00A0}kB")
     }
 
+    /// A Restore that fails keeps the row's result and saving, and Try again stays away.
+    @Test func aFailedRestoreKeepsTheResult() async throws {
+        let harness = Harness()
+        harness.model.optimise(files(harness, 4), origin: .dropZone)
+        let batch = try #require(harness.model.batch)
+        #expect(await eventually { !batch.isRunning })
+        let saved = batch.bytesAfter
+        try FileManager.default.removeItem(at: try #require(batch.rows[1].result?.backup))
+        #expect(!batch.rows[1].canRestore, "no Restore once the backup is gone")
+        #expect(batch.restorable.count == 3)
+
+        let row = batch.rows[0]
+        let folder = row.source.deletingLastPathComponent()
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: folder.path)
+        await harness.model.restore(row)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: folder.path)
+        #expect(row.result != nil)
+        #expect(row.restoreError != nil)
+        #expect(batch.optimised == 4 && batch.failed == 0)
+        #expect(batch.bytesAfter == saved, "the saving still counts")
+        #expect(AppModel.size(of: row.source) == 40_000)
+    }
+
+    /// Restore All during a run stops what is still to go first.
+    @Test func restoreAllStopsTheRunFirst() async throws {
+        let harness = Harness(delay: .milliseconds(200), gate: WorkGate(limit: 1))
+        let sources = files(harness, 6, bytes: 50_000)
+        harness.model.optimise(sources, origin: .dropZone)
+        let batch = try #require(harness.model.batch)
+        #expect(await eventually { batch.optimised >= 1 })
+        await harness.model.restoreAll(batch)
+        #expect(!batch.isRunning)
+        #expect(batch.optimised == 0, "nothing optimised after its neighbours came back")
+        #expect(sources.allSatisfy { AppModel.size(of: $0) == 50_000 })
+    }
+
     @Test func restoreAllPutsEveryOriginalBack() async throws {
         let harness = Harness()
         let sources = files(harness, 4, bytes: 50_000)

@@ -47,26 +47,30 @@ import UniformTypeIdentifiers
     let png = pngData(width: 400, height: 400)
     var bigImage: ClipboardContent { .image(Data(count: 80_000), .png) }
 
+    func copy(_ types: Set<String> = [], app: String? = nil) -> ClipboardCopy { ClipboardCopy(changeCount: 7, app: app, types: types) }
+
     @Test func copiedPixelsAreOptimised() {
-        #expect(policy.decide(types: ["public.png"], content: { bigImage }, frontmostApp: nil) == .optimiseImage(Data(count: 80_000), .png))
+        #expect(policy.decide(copy(["public.png"]), content: { bigImage }) == .optimiseImage(Data(count: 80_000), .png, copy(["public.png"])))
     }
 
     @Test func ownWritesTransientCopiesAndIgnoredAppsAreLeftAlone() throws {
         var read = false
         let content: () -> ClipboardContent = { read = true; return bigImage }
-        #expect(policy.decide(types: ["public.png", Clipboard.optimisedType.rawValue], content: content, frontmostApp: nil) == .ignore(.ownWrite))
-        #expect(policy.decide(types: ["public.png", "org.nspasteboard.ConcealedType"], content: content, frontmostApp: nil) == .ignore(.transient))
+        #expect(policy.decide(copy(["public.png", Clipboard.optimisedType.rawValue]), content: content) == .ignore(.ownWrite))
+        #expect(policy.decide(copy(["public.png", "org.nspasteboard.ConcealedType"]), content: content) == .ignore(.transient))
         try EsclopSettings.clipboardIgnoredAppBundleIds.set(["com.example.vault"], in: settings.store)
-        #expect(policy.decide(types: ["public.png"], content: content, frontmostApp: "com.example.vault") == .ignore(.ignoredApp))
+        #expect(policy.decide(copy(["public.png"], app: "com.example.vault"), content: content) == .ignore(.ignoredApp))
+        // Copied in the vault, then straight to the browser before the next poll: still the vault's.
+        #expect(policy.decide(copy(["public.png"], app: "com.example.browser"), appBefore: "com.example.vault", content: content) == .ignore(.ignoredApp))
         try EsclopSettings.pauseAutomaticOptimisations.set(true, in: settings.store)
-        #expect(policy.decide(types: ["public.png"], content: content, frontmostApp: nil) == .ignore(.paused))
+        #expect(policy.decide(copy(["public.png"]), content: content) == .ignore(.paused))
         #expect(!read, "the pasteboard contents are only read once the cheap checks pass")
     }
 
     @Test func settingsAndLimitsApply() throws {
-        #expect(policy.decide(types: [], content: { .image(Data(count: 100), .png) }, frontmostApp: nil) == .ignore(.skipped(.tooSmall)))
+        #expect(policy.decide(copy(), content: { .image(Data(count: 100), .png) }) == .ignore(.skipped(.tooSmall)))
         try EsclopSettings.enableClipboardOptimiser.set(false, in: settings.store)
-        #expect(policy.decide(types: [], content: { bigImage }, frontmostApp: nil) == .ignore(.skipped(.disabled)))
+        #expect(policy.decide(copy(), content: { bigImage }) == .ignore(.skipped(.disabled)))
     }
 
     @Test func copiedFilesFollowTheirKindsSetting() throws {
@@ -74,14 +78,16 @@ import UniformTypeIdentifiers
         let image = temp.file("a.png")
         let video = temp.file("b.mov", bytes: 300_000)
         let pdf = temp.file("c.pdf")
-        #expect(policy.decide(types: [], content: { .files([image, video, pdf]) }, frontmostApp: nil) == .optimiseFiles([image]))
+        #expect(policy.decide(copy(), content: { .files([image, video, pdf]) }) == .optimiseFiles([image], copied: [image, video, pdf], copy()))
         try EsclopSettings.optimisePDFClipboard.set(true, in: settings.store)
-        #expect(policy.decide(types: [], content: { .files([video, pdf]) }, frontmostApp: nil) == .optimiseFiles([pdf]))
-        #expect(policy.decide(types: [], content: { .files([video]) }, frontmostApp: nil) == .ignore(.skipped(.disabled)))
-        #expect(policy.decide(types: [], content: { .path(image) }, frontmostApp: nil) == .ignore(.unsupported), "paths need their setting")
+        #expect(policy.decide(copy(), content: { .files([video, pdf]) }) == .optimiseFiles([pdf], copied: [video, pdf], copy()))
+        #expect(policy.decide(copy(), content: { .files([video]) }) == .ignore(.skipped(.disabled)))
+        #expect(policy.decide(copy(), content: { .path(image) }) == .ignore(.unsupported), "paths need their setting")
+        #expect(!policy.readsText, "copied text is not read while paths are off")
         try EsclopSettings.optimiseImagePathClipboard.set(true, in: settings.store)
-        #expect(policy.decide(types: [], content: { .path(image) }, frontmostApp: nil) == .optimiseFiles([image]))
-        #expect(policy.decide(types: [], content: { .base64Image(png, .png) }, frontmostApp: nil) == .ignore(.unsupported))
+        #expect(policy.readsText)
+        #expect(policy.decide(copy(), content: { .path(image) }) == .optimiseFiles([image], copied: [image], copy()))
+        #expect(policy.decide(copy(), content: { .base64Image(png, .png) }) == .ignore(.unsupported))
     }
 }
 
@@ -109,7 +115,11 @@ import UniformTypeIdentifiers
         let data = pngData(width: 300, height: 300) + Data(count: 60_000)
         pasteboard.clearContents()
         pasteboard.setData(data, forType: .png)
-        #expect(watcher.poll() == .optimiseImage(data, .png))
+        guard case .optimiseImage(data, .png, let copy) = watcher.poll() else {
+            Issue.record("expected the copied image")
+            return
+        }
+        #expect(copy.changeCount == pasteboard.changeCount)
         #expect(watcher.poll() == nil, "the same change is handled once")
 
         Clipboard.write(image: data, type: .png, to: pasteboard)
@@ -121,6 +131,35 @@ import UniformTypeIdentifiers
         #expect(watcher.poll() == .ignore(.paused))
         #expect(seen.paused == [false, true])
         #expect(seen.actions.count == 3)
+    }
+
+    @Test func aCopyBelongsToTheAppInFrontWhenItWasMade() throws {
+        let settings = TestSettings()
+        try EsclopSettings.clipboardIgnoredAppBundleIds.set(["com.example.vault"], in: settings.store)
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        final class Front: @unchecked Sendable { var app = "com.example.vault" }
+        let front = Front()
+        let watcher = ClipboardWatcher(
+            pasteboard: pasteboard, policy: ClipboardPolicy(factory: RequestFactory(settings: settings.store)),
+            frontmostApp: { front.app }, onAction: { _ in }
+        )
+        #expect(watcher.poll() == nil)
+        let data = pngData(width: 300, height: 300) + Data(count: 60_000)
+        // Copied in the vault, which hides at once: the browser is in front at the next poll.
+        pasteboard.clearContents()
+        pasteboard.setData(data, forType: .png)
+        front.app = "com.example.browser"
+        #expect(watcher.poll() == .ignore(.ignoredApp))
+        // Copied in the browser: optimised, attributed to the browser.
+        pasteboard.clearContents()
+        pasteboard.setData(data, forType: .png)
+        guard case let .optimiseImage(_, _, copy) = watcher.poll() else {
+            Issue.record("expected the copy to be optimised")
+            return
+        }
+        #expect(copy.app == "com.example.browser")
+        #expect(copy.changeCount == pasteboard.changeCount)
     }
 
     @Test func timerPollsInTheBackground() async throws {
