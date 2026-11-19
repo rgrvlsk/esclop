@@ -416,10 +416,10 @@ final class Flag: @unchecked Sendable {
         let other = TempDir()
         let rig = try Rig(alsoWatching: [other.url.path])
         rig.harness.model.hideDelayOverride = .seconds(600)
-        for index in 1 ... 5 {
-            _ = rig.land("a \(index).png")
-            _ = rig.land("b \(index).png", in: other.url)
-        }
+        let landed = (1 ... 5).flatMap { [rig.land("a \($0).png"), rig.land("b \($0).png", in: other.url)] }
+        // In one go: under load FSEvents reported part of a burst after the window closed, so
+        // neither part was too large.
+        rig.folders.received(landed)
         func actions() -> [ResultCard] { rig.harness.model.cards.filter { $0.optimiseAnyway != nil } }
         #expect(await eventually { actions().count == 2 })
         rig.harness.model.notice("Paused", "Press again to resume.")
