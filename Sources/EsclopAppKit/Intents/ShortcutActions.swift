@@ -143,6 +143,9 @@ public enum ShortcutActions {
         if case .folder = options.place {
             // One folder holds one file of each name: two sources named alike (or converted to
             // the same name) would write over each other. The files run at the same time.
+            // ponytail: only Convert's new extension is foreseen; "Adaptive image format" can turn
+            // a PNG into a JPEG beside a JPEG of the same name (the first is kept as a backup).
+            // Plan the real destinations if a person hits it.
             var seen = Set<String>()
             for file in files {
                 var name = file.lastPathComponent
