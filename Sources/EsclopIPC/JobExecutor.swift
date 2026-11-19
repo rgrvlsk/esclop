@@ -22,6 +22,21 @@ public protocol PipelineRunning: Sendable {
     ) async throws -> OptimisationResult
 }
 
+/// A pipeline step failed (or the run was cancelled) after earlier steps had already changed the
+/// file. `partial` is what they made, with its backup, so it is reported and can be restored.
+public struct PipelineStepFailure: Error, Sendable {
+    /// The step as pipeline text; nil when the run stopped between steps (a cancel).
+    public var step: String?
+    public var error: EsclopError
+    public var partial: OptimisationResult?
+
+    public init(step: String?, error: EsclopError, partial: OptimisationResult?) {
+        self.step = step
+        self.error = error
+        self.partial = partial
+    }
+}
+
 extension PipelineRunning {
     /// Whether the pipeline has `upload` steps, which agents need `allowUploads` for.
     public func usesUploads(_ pipeline: String) throws -> Bool { false }
@@ -62,6 +77,14 @@ public struct JobExecutor: Sendable {
                 let result = try await process(source, job: job) { events(.progress($0)) }
                 report.results.append(result)
                 events(.result(result))
+            } catch let failed as PipelineStepFailure {
+                if let partial = failed.partial {
+                    report.results.append(partial)
+                    events(.result(partial))
+                }
+                let failure = FileFailure(source: source, error: failed.error, step: failed.step)
+                report.failures.append(failure)
+                events(.failure(failure))
             } catch {
                 let failure = FileFailure(source: source, error: .wrap(error))
                 report.failures.append(failure)
