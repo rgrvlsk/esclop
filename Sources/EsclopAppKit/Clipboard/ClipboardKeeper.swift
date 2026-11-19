@@ -71,7 +71,7 @@ final class ClipboardKeeper: @unchecked Sendable {
     /// own; a single `link` also as a URL. Nothing is held, so no result goes back over it. With
     /// `since` (an automatic upload's link) it is written only while the clipboard still holds
     /// what it held at that change count, or L'Esclop's own automatic writes that followed it: a
-    /// copy made meanwhile stays. False when nothing was written.
+    /// copy made meanwhile stays. False when nothing was written. `since` implies `automatic`.
     @discardableResult
     func write(text: String, link: Bool = false, since count: Int? = nil, automatic: Bool = false) -> Bool {
         let before = pasteboard.changeCount
