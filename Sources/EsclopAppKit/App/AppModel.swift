@@ -533,8 +533,9 @@ public final class AppModel {
         let time = now()
         // A result that lands behind newer ones (a file at work keeps its place while others
         // finish) comes to the front, so it never arrives unseen.
-        // Grouped failures keep their order in the list (oldest first).
-        if card.failure == nil, !visibleCards.contains(where: { $0.id == card.id }), let index = cards.firstIndex(where: { $0.id == card.id }) {
+        // Grouped failures stay in the pill's list, in their order (oldest first).
+        let grouped = groupsFailures && failedCards.contains { $0.id == card.id }
+        if !grouped, !visibleCards.contains(where: { $0.id == card.id }), let index = cards.firstIndex(where: { $0.id == card.id }) {
             cards.append(cards.remove(at: index))
         }
         let delay = hideDelay(for: card).map(Self.seconds)
@@ -799,13 +800,12 @@ public final class AppModel {
     /// The floating result for `result`, shown again when it had gone (the compare window runs
     /// "try another" through it, as the popover does).
     func cardShowing(_ result: OptimisationResult) -> ResultCard {
-        if let card = cards.first(where: { $0.result?.id == result.id }) { return card }
-        show(result)
-        return cards.first { $0.result?.id == result.id }!
+        cards.first { $0.result?.id == result.id } ?? show(result)
     }
 
-    /// Shows a recent result's card again.
-    public func show(_ result: OptimisationResult) {
+    /// Shows a recent result's card again, and returns it.
+    @discardableResult
+    public func show(_ result: OptimisationResult) -> ResultCard {
         // Its card, done or restored, never a twin that offers Undo again.
         if let index = cards.firstIndex(where: { card in
             if case let .restored(restored) = card.phase { return restored.id == result.id }
@@ -815,7 +815,7 @@ public final class AppModel {
             let card = cards.remove(at: index)
             cards.append(card)
             settle(card)
-            return
+            return card
         }
         // A copied image lives in L'Esclop's temporary folder: it comes back as one, with Copy.
         // ponytail: the results log keeps no origin, so a copied file comes back with Show in
@@ -827,6 +827,7 @@ public final class AppModel {
         loadThumbnail(card, url: result.output)
         if let backup = result.backup { loadThumbnail(card, url: backup, original: true) }
         settle(card)
+        return card
     }
 
     nonisolated static func size(of url: URL) -> Int {

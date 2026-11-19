@@ -84,6 +84,18 @@ import Testing
         #expect(harness.model.visibleCards.count == 3)
     }
 
+    @Test func aLoneFailureBehindNewerResultsComesToTheFront() async throws {
+        let harness = Harness()
+        let working = ResultCard(jobID: UUID(), source: harness.temp.file("big.mov", bytes: 10), origin: .dropZone, bytesBefore: 10)
+        harness.model.add(working)
+        for name in ["a", "b", "c"] {
+            _ = await harness.model.run(harness.job(harness.temp.file("\(name).png", bytes: 100_000)))
+        }
+        working.phase = .failed("x")
+        harness.model.settle(working)
+        #expect(harness.model.visibleCards.last?.id == working.id, "a failure never arrives unseen")
+    }
+
     @Test func neverMoreThanThreePlacesWhileFilesWork() {
         let harness = Harness()
         let working = (0..<4).map { index in
