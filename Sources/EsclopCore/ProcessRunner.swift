@@ -217,8 +217,9 @@ private final class Execution: @unchecked Sendable {
     private var err = Data()
     private var outLines = LineSplitter()
     private var errLines = LineSplitter()
-    /// When the child last made progress (under `lock`).
-    private var lastOutput = Date()
+    /// When the child last made progress (under `lock`). Uptime, as `asyncAfter` counts: it
+    /// stops while the Mac sleeps, and so does the child, so a sleep is never a stall.
+    private var lastOutput = DispatchTime.now()
 
     // Owned by `queue`.
     private var continuation: CheckedContinuation<ProcessResult, Error>?
@@ -243,14 +244,14 @@ private final class Execution: @unchecked Sendable {
     func appendStdout(_ data: Data) {
         let lines: [String]
         lock.lock()
-        if options.madeProgress == nil { lastOutput = Date() }
+        if options.madeProgress == nil { lastOutput = .now() }
         out.append(data)
         lines = options.onStdoutLine == nil && options.madeProgress == nil ? [] : outLines.push(data)
         lock.unlock()
         lines.forEach { options.onStdoutLine?($0) }
         if let madeProgress = options.madeProgress, lines.contains(where: madeProgress) {
             lock.lock()
-            lastOutput = Date()
+            lastOutput = .now()
             lock.unlock()
         }
     }
@@ -258,7 +259,7 @@ private final class Execution: @unchecked Sendable {
     func appendStderr(_ data: Data) {
         let lines: [String]
         lock.lock()
-        if options.madeProgress == nil { lastOutput = Date() }
+        if options.madeProgress == nil { lastOutput = .now() }
         err.append(data)
         if err.count > options.stderrLimit * 2 {
             err = err.suffix(options.stderrLimit)
@@ -290,7 +291,7 @@ private final class Execution: @unchecked Sendable {
             self.handles = handles
             self.started = Date()
             self.lock.lock()
-            self.lastOutput = self.started
+            self.lastOutput = .now()
             self.lock.unlock()
             if self.cancelled {
                 self.finish(.failure(EsclopError.cancelled))
@@ -375,7 +376,7 @@ private final class Execution: @unchecked Sendable {
     private func checkStall(_ limit: TimeInterval) {
         guard continuation != nil, exitStatus == nil, !cancelled, !timedOut else { return }
         lock.lock()
-        let quiet = Date().timeIntervalSince(lastOutput)
+        let quiet = Double(DispatchTime.now().uptimeNanoseconds - lastOutput.uptimeNanoseconds) / 1e9
         lock.unlock()
         guard quiet >= limit else {
             queue.asyncAfter(deadline: .now() + (limit - quiet)) { self.checkStall(limit) }

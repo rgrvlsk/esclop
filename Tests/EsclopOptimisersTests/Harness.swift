@@ -37,7 +37,8 @@ struct TestWorld {
 
     init(name: String = #function, realEngine: Bool = false) async throws {
         folder = try Harness.folder(name)
-        settings = SettingsStore(suiteName: "dev.esclop.tests.\(UUID().uuidString)")
+        // A plist in the test's folder, not in ~/Library/Preferences.
+        settings = SettingsStore(suiteName: folder.appendingPathComponent("settings").path)
         backups = BackupStore(root: folder.appendingPathComponent("backups", isDirectory: true))
         client = realEngine ? EngineClient() : EngineClient(executable: try await FakeEngine.shared.executable())
         engine = EsclopEngine(

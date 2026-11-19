@@ -313,9 +313,9 @@ final class EventLog: @unchecked Sendable {
     }
 
     @Test func registryProviderUsesTheRegistry() throws {
-        let suite = "dev.esclop.tests.\(UUID().uuidString)"
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
-        let provider = RegistrySettingsProvider(store: SettingsStore(suiteName: suite))
+        let store = SettingsStore(suiteName: FileManager.default.temporaryDirectory.appendingPathComponent("esclop-settings-\(UUID().uuidString)").path)
+        defer { store.removeAll() }
+        let provider = RegistrySettingsProvider(store: store)
         #expect(!provider.isAllowed(.allowSettingsChanges))
         #expect(try provider.setValue("true", forKey: "allowSettingsChanges") == .bool(true))
         #expect(provider.isAllowed(.allowSettingsChanges))
@@ -402,6 +402,18 @@ final class EventLog: @unchecked Sendable {
         #expect(log.savings().count == 3, "the next ones only append")
         log.append([old("c.png")])
         #expect(log.savings().count == 1, "the third one trims again")
+    }
+
+    /// A log too small to need a trim is not read for one: each CLI run appends once, and would
+    /// otherwise read the whole log every time.
+    @Test func aSmallLogIsNotReadForATrim() throws {
+        let temp = TempDir()
+        let url = temp.url.appendingPathComponent("r.jsonl")
+        // Thirty lines shorter than any real one: under the bound, though more than `keep * 2`.
+        let tiny = Data(String(repeating: "{}\n", count: 30).utf8)
+        try tiny.write(to: url)
+        ResultsLog(url: url, keep: 10, trimEvery: 1).append([sampleResult()])
+        #expect(try Data(contentsOf: url).prefix(tiny.count) == tiny, "left as it was")
     }
 
     /// A restored result, or one a re-run replaced, stops counting and leaves `recent`; it stays
