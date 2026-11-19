@@ -34,6 +34,7 @@ extension AppModel {
 
     public func downscale(_ card: ResultCard, to factor: Double) {
         reprocess(card) { $0.request.downscale = factor < 1 ? factor : nil }
+        card.downscale = min(1, factor)
     }
 
     public func fit(_ card: ResultCard, under bytes: Int) {
@@ -109,14 +110,13 @@ extension AppModel {
         } catch {
             return false
         }
-        let heldIt = pasteboardHolds(result.output)
         var renamed = result
         renamed.output = target
         if result.source == result.output { renamed.source = target }
         card.phase = .done(renamed)
         card.displayName = nil
         record(renamed)
-        if heldIt { writeClipboard(files: [target]) }
+        Task { await putBackOnClipboard([(result.output, target)]) }
         return true
     }
 
@@ -183,10 +183,6 @@ extension AppModel {
         }
     }
 
-    public func airDrop(_ card: ResultCard) {
-        NSSharingService(named: .sendViaAirDrop)?.perform(withItems: [card.shownFile])
-    }
-
     public func quickLook(_ card: ResultCard) {
         QuickLookPresenter.shared.show(card.shownFile)
     }
@@ -207,8 +203,8 @@ extension AppModel {
     }
 
     /// Shelf and upload apps L'Esclop hands files to, when installed.
-    public static let shelfApps = ["at.EternalStorms.Yoink", "at.EternalStorms.Yoink-setapp", "me.damir.dropover-mac", "com.hachipoo.Dockside"]
-    public static let uploadApps = ["net.mkswap.Dropshare5", "net.mkswap.Dropshare5-setapp"]
+    public static let shelfApps = AppPipelineHost.shelves.flatMap(\.bundleIDs)
+    public static let uploadApps = AppPipelineHost.uploadApps.flatMap(\.bundleIDs)
 
     public static func installed(_ bundleIDs: [String]) -> [URL] {
         bundleIDs.compactMap { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) }
@@ -244,26 +240,6 @@ extension AppModel {
         var job = factory.job(for: card.shownFile, origin: .app)
         job.operation = .pipeline(name)
         Task { await run(job) }
-    }
-
-    // MARK: Popover footer
-
-    /// "Keep visible": how long results from this card's origin stay on screen.
-    public func keepVisibleSeconds(for card: ResultCard) -> Int? {
-        guard EsclopSettings.autoHideFloatingResults.value(in: settings) else { return nil }
-        return card.origin == .clipboard
-            ? EsclopSettings.autoHideClipboardResultAfter.value(in: settings)
-            : EsclopSettings.autoHideFloatingResultsAfter.value(in: settings)
-    }
-
-    public func setKeepVisible(_ seconds: Int?, for card: ResultCard) {
-        try? EsclopSettings.autoHideFloatingResults.set(seconds != nil, in: settings)
-        guard let seconds else { return }
-        if card.origin == .clipboard {
-            try? EsclopSettings.autoHideClipboardResultAfter.set(seconds, in: settings)
-        } else {
-            try? EsclopSettings.autoHideFloatingResultsAfter.set(seconds, in: settings)
-        }
     }
 }
 

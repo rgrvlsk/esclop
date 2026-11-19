@@ -163,10 +163,13 @@ public struct StopRequest: Codable, Sendable, Hashable {
 public struct FileFailure: Codable, Sendable, Equatable {
     public var source: URL
     public var error: EsclopError
+    /// The pipeline step that failed, as pipeline text.
+    public var step: String?
 
-    public init(source: URL, error: EsclopError) {
+    public init(source: URL, error: EsclopError, step: String? = nil) {
         self.source = source
         self.error = error
+        self.step = step
     }
 }
 

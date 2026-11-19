@@ -257,6 +257,8 @@ public struct CardPresentation: Equatable, Sendable {
             actions = Self.distinct([.openDetail] + tools + [.reveal, .copy, .dismiss])
             accessibilityLabel = f("%@, already optimised, kept the original", name)
         case let .restored(result):
+            // ponytail: Undo that moved an edited file to the Trash should add "Your edited
+            // version is in the Trash". Trigger: RestoreOutcome.movedToTrash (PR #53) on main.
             fileName = card.displayName ?? result.source.lastPathComponent
             capsule = .status(symbol: "arrow.uturn.backward", text: f("Original restored · %@", Figures.bytes(result.bytesBefore, locale: locale)))
             headline = t("Original restored")
@@ -464,6 +466,10 @@ public struct CardPresentation: Equatable, Sendable {
             return Strings.format("L’Esclop cannot optimise this kind of file (%@).", URL(fileURLWithPath: file).lastPathComponent)
         case let .fileNotFound(path):
             return Strings.format("%@ is no longer there.", URL(fileURLWithPath: path).lastPathComponent)
+        case let .backupRemoved(_, days?):
+            return days == 1 ? Strings.text("The original was removed after 1 day.") : Strings.format("The original was removed after %d days.", days)
+        case .backupRemoved(_, nil):
+            return Strings.text("The original’s backup is no longer there.")
         case let .toolFailed(tool, code, stderr):
             let line = readable(stderr.split(separator: "\n").last.map(String.init) ?? "")
             return line.isEmpty ? Strings.format("%@ stopped with code %d", tool, Int(code)) : Strings.format("%@ stopped with code %d: %@", tool, Int(code), line)
@@ -476,6 +482,10 @@ public struct CardPresentation: Equatable, Sendable {
             return Strings.text(reason)
         case let .notPermitted(why):
             return why
+        case let .other(message):
+            // A sentence the catalogue knows (BackupStore.untrashableEdit) is translated; any
+            // other stays as it is.
+            return Strings.text(message)
         case let other:
             return other.description
         }

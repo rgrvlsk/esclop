@@ -201,7 +201,27 @@ import Testing
         tall.thumbnail = Self.framed(NSSize(width: 300, height: 600))
         let wide = open(card(.done(saved(beach)), source: beach, origin: .dropZone))
         wide.thumbnail = Self.framed(NSSize(width: 900, height: 200))
+        // Compare as a loupe: the hint, Done and the way to the Compare window; and the loupe
+        // that could not read a file, which says so instead of showing one picture twice.
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-loupe-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let (before, after) = (folder.appendingPathComponent("Beach.jpg"), folder.appendingPathComponent("Beach.webp"))
+        try Data([0]).write(to: before)
+        try Data([0]).write(to: after)
+        var compared = saved(before)
+        compared.output = after
+        func loupe(_ state: LoupeState) -> ResultCard {
+            let card = open(card(.done(compared), source: before, origin: .dropZone))
+            card.thumbnail = Self.cove
+            card.loupe = state
+            return card
+        }
+        var unreadable = LoupeState()
+        unreadable.unreadable = true
         let details: [(String, ResultCard)] = [
+            ("detail-loupe", loupe(LoupeState())),
+            ("detail-loupe-unreadable", loupe(unreadable)),
             ("detail-dropped", photo),
             ("detail-clipboard", open(card(.done(saved())))),
             ("detail-grew", open(card(.done(saved(after: 2_470_000)), origin: .dropZone))),
@@ -281,7 +301,7 @@ import Testing
             PresetZone(name: "Screenshots for the blog post", icon: "camera.viewfinder"), PresetZone(name: "Share", icon: "square.and.arrow.up"),
         ]
         let four = try render(DropZoneView(state: DropZoneState(fileCount: 2, zones: zones, hoveredZone: "fit under 1 MB")), name: "drop-zone-presets", scheme: scheme)
-        #expect(four.width > Metrics.dropZoneWidth, "the zones sit beside the plain target")
+        #expect(four.width > DropTiles.plainWidth * 4, "the zones sit beside the plain target")
         try render(DropZoneView(state: DropZoneState(fileCount: 0, zones: Array(zones.prefix(3)), zonesLeading: false)), name: "drop-zone-presets-left", scheme: scheme)
     }
 
