@@ -197,6 +197,10 @@ public struct OptimisationRequest: Codable, Identifiable, Sendable {
     public var loudnessLUFS: Double?
     /// Keep HDR (gain maps, PQ/HLG video) when the output format can carry it. nil follows the settings.
     public var keepHDR: Bool?
+    /// true when `location` is the default where the job came from, not one chosen for this job:
+    /// a result in another format then goes where the "Converted … go" setting for its kind says.
+    /// nil or false keeps `location`.
+    public var locationFromSettings: Bool?
     /// Also try a PNG without transparency as JPEG and keep the JPEG when it is much smaller.
     /// nil follows the "adaptive image format" setting.
     public var adaptiveImageFormat: Bool?

@@ -22,32 +22,23 @@ public struct RequestFactory: Sendable {
 
     /// Where optimised files of `kind` go, from the "Optimised … go" settings.
     public func location(for kind: MediaKind?) -> OutputLocation {
-        let behaviour: FileBehaviour
-        switch kind {
-        case .video: behaviour = EsclopSettings.optimisedVideoBehaviour.value(in: settings)
-        case .pdf: behaviour = EsclopSettings.optimisedPDFBehaviour.value(in: settings)
-        case .audio: behaviour = EsclopSettings.optimisedAudioBehaviour.value(in: settings)
-        case .image, nil: behaviour = EsclopSettings.optimisedImageBehaviour.value(in: settings)
-        }
-        switch behaviour {
-        case .inPlace: return .inPlace
-        case .sameFolder: return .sameFolder
-        case .temporary: return .temporary
-        case .specificFolder: return .path(EsclopSettings.specificFolderTemplate.value(in: settings))
-        }
+        EsclopSettings.optimisedBehaviour(for: kind).value(in: settings)
+            .location(specificFolder: EsclopSettings.specificFolderTemplate.value(in: settings))
     }
 
     /// One job for one file. `location` overrides the settings (clipboard images work on a
     /// temporary copy in place, so the backup is the original). A copied file is optimised as a
     /// copy in the temporary folder, as Clop does: copying is not a request to change the original.
+    /// Otherwise, without `location`, a result in another format follows "Converted … go".
     // Those copies go at launch with the backups' age rule (`BackupPruner.pruneAtLaunch`).
     public func job(
         for source: URL, origin: RequestOrigin, aggressive: Bool = false, location: OutputLocation? = nil
     ) -> OptimisationJob {
-        let request = OptimisationRequest(
+        var request = OptimisationRequest(
             sources: [source], origin: origin, quality: aggressive ? .aggressive : .normal,
             location: location ?? (origin == .clipboard ? .temporary : self.location(for: MediaKind.of(source)))
         )
+        if location == nil, origin != .clipboard { request.locationFromSettings = true }
         return OptimisationJob(request: request, operation: .optimise)
     }
 
