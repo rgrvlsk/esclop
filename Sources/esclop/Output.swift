@@ -179,7 +179,7 @@ func runFileJob(
 ) async throws {
     guard !files.items.isEmpty else { throw ValidationError("Give at least one file or folder.") }
     try await guarded(global) {
-        let sources = try files.sources()
+        let sources = try await files.sources()
         guard !sources.isEmpty else {
             if global.json { Output.json(JobSummary(operation: operation.name, report: JobReport())) } else { print("No files to process.") }
             return 0
