@@ -416,6 +416,9 @@ final class LockedArray: @unchecked Sendable {
         // "%f" with a new extension is just the new extension.
         #expect(OutputLocation.sameFolder.destination(for: file, extension: "webp", sameFolderTemplate: "%f").lastPathComponent == "shot.webp")
         #expect(OutputLocation.sameFolder.destination(for: file, extension: "png", sameFolderTemplate: "%f").lastPathComponent == "shot-optimised 2.png")
+        // The default template names only same-format results; a conversion keeps the plain name.
+        #expect(OutputLocation.sameFolder.destination(for: file, extension: "webp").lastPathComponent == "shot.webp")
+        #expect(OutputLocation.sameFolder.destination(for: file, extension: "webp", sameFolderTemplate: "%f-small").lastPathComponent == "shot-small.webp")
     }
 
     @Test func templates() {

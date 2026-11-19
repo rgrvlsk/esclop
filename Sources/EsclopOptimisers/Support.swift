@@ -200,12 +200,15 @@ enum ResultWriter {
             throw EsclopError.alreadySmaller
         }
 
-        // Same format, same extension: photo.jpg stays photo.jpg, not photo.jpeg.
+        // Same format, same extension: photo.jpg stays photo.jpg, not photo.jpeg. A new JPEG
+        // takes the usual .jpg.
         var ext = produced.url.pathExtension.isEmpty ? source.pathExtension : produced.url.pathExtension
         if let producedType = UTType(filenameExtension: ext.lowercased()),
            producedType == UTType(filenameExtension: source.pathExtension.lowercased())
         {
             ext = source.pathExtension
+        } else if ext.lowercased() == "jpeg" {
+            ext = "jpg"
         }
         let location = Self.location(for: request, source: source, kind: kind, extension: ext, env: env)
         let destination = location.destination(

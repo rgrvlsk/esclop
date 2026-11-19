@@ -48,8 +48,9 @@ struct VideoEngine: Sendable {
         /// the same codec, with only `trackFilters` (speed, even size).
         var extraVideoTracks = 0
         var trackFilters: [String] = []
-        /// Subtitle streams (their index among the source's subtitles) the container can carry.
-        var subtitles: [Int] = []
+        /// Subtitle streams the container can carry: their index among the source's subtitles,
+        /// and `copy` or the encoder that rewrites them as the container's text subtitles.
+        var subtitles: [(index: Int, codec: String)] = []
     }
 
     // MARK: Optimise, convert, downscale, crop
@@ -104,8 +105,21 @@ struct VideoEngine: Sendable {
         return container.fileExtension != ext && !(container == .mp4 && ["mp4", "m4v"].contains(ext))
     }
 
-    /// Subtitle codecs a container takes as a stream copy. The bundled ffmpeg has no subtitle
-    /// encoders, so text subtitles cannot be converted between containers.
+    /// Text subtitles ffmpeg reads and can write again as another container's text subtitles.
+    static let textSubtitles: Set<String> = ["subrip", "ass", "ssa", "webvtt", "text", "mov_text"]
+
+    /// The encoder for a container's own text subtitles (MP4's mov_text, WebM's WebVTT, SubRip in MKV).
+    func textSubtitleEncoder(for container: OutputFormat) -> String? {
+        switch container {
+        case .mp4, .mov, .hevc, .av1: return "mov_text"
+        case .webm: return "webvtt"
+        case .mkv: return "srt"
+        default: return nil
+        }
+    }
+
+    /// Subtitle codecs a container takes as a stream copy. Text subtitles in other codecs are
+    /// rewritten with `textSubtitleEncoder` when this ffmpeg has it; picture subtitles are not.
     func subtitleFits(_ codec: String, in container: OutputFormat) -> Bool {
         switch container {
         case .mp4, .mov, .hevc, .av1: return codec == "mov_text"
@@ -136,10 +150,10 @@ struct VideoEngine: Sendable {
                 steps.append("Cropped to \(even(rect.width))x\(even(rect.height))")
                 available = (Double(even(rect.width)), Double(even(rect.height)))
             }
-            // Never upscale: a size larger than the picture shrinks to fit it, keeping its shape.
-            let shrink = min(1, available.width / Double(target.width), available.height / Double(target.height))
-            width = Int(Double(target.width) * shrink)
-            height = Int(Double(target.height) * shrink)
+            let fitted = notEnlarged(target, within: (Int(available.width), Int(available.height)))
+            width = fitted.width
+            height = fitted.height
+            if fitted.note { steps.append(notEnlargedStep(target, kept: (even(Double(width)), even(Double(height))))) }
         }
         if let factor = plan.downscale {
             width = Int(Double(width) * factor)
@@ -178,11 +192,25 @@ struct VideoEngine: Sendable {
             filters += speedFilters
             trackFilters += speedFilters
             steps.append("Changed speed to \(String(format: "%g", factor))x")
+            // ponytail: rescaling them needs ffmpeg's ffmetadata reader, which the bundled build
+            // lacks; add it if people speed up chaptered videos.
+            if info.chapterCount > 0 {
+                steps.append("Left out \(info.chapterCount) chapter\(info.chapterCount == 1 ? "" : "s"): their times do not follow a speed change")
+            }
         }
         // Subtitles go along when the container can carry them; a copy cannot follow a speed
         // change. Rewriting the original in its own format never loses one silently.
         let subtitleCodecs = info.streams("subtitle").map(\.codec)
-        let subtitles = speed != nil ? [] : subtitleCodecs.indices.filter { subtitleFits(subtitleCodecs[$0], in: container) }
+        var textEncoder = textSubtitleEncoder(for: container)
+        if let name = textEncoder, !subtitleCodecs.isEmpty, await !FFmpegCapabilities.shared.encoders(tools: env.tools).contains(name) {
+            textEncoder = nil
+        }
+        let subtitles: [(index: Int, codec: String)] = speed != nil ? [] : subtitleCodecs.indices.compactMap { index in
+            let codec = subtitleCodecs[index]
+            if subtitleFits(codec, in: container) { return (index, "copy") }
+            if let textEncoder, Self.textSubtitles.contains(codec) { return (index, textEncoder) }
+            return nil
+        }
         if subtitles.count < subtitleCodecs.count {
             let dropped = subtitleCodecs.count - subtitles.count
             if speed == nil, request.location == .inPlace, !changesFormat(source, to: container) {
@@ -368,8 +396,9 @@ struct VideoEngine: Sendable {
             args += ["-map", "0:V:\(track)", "-filter:v:\(track)", settings.trackFilters.joined(separator: ",")]
         }
         if !settings.removeAudio { args += ["-map", "0:a?"] }
-        for index in settings.subtitles { args += ["-map", "0:s:\(index)"] }
-        if !settings.subtitles.isEmpty { args += ["-c:s", "copy"] }
+        for (output, subtitle) in settings.subtitles.enumerated() {
+            args += ["-map", "0:s:\(subtitle.index)", "-c:s:\(output)", subtitle.codec]
+        }
         if let cap = settings.fpsCap {
             args += ["-fpsmax", String(format: "%.3f", cap)]
         } else if settings.speed == nil {
@@ -383,7 +412,7 @@ struct VideoEngine: Sendable {
         // and chapters describe the content and stay. ponytail: other per-stream tags (an MKV
         // track title, mkvmerge's statistics date) stay too; list them here if one proves personal.
         args += settings.strip ? ["-map_metadata:g", "-1", "-metadata:s", "creation_time="] : ["-map_metadata", "0"]
-        args += ["-map_chapters", "0"]
+        args += ["-map_chapters", settings.speed == nil ? "0" : "-1"]
         // Not stripping still loses QuickTime keys (com.apple.quicktime.location.ISO6709, make,
         // model): ffmpeg's `use_metadata_tags` writes them in a form AVFoundation cannot read and
         // hides the ordinary tags (title, artist) from it too. Keeping them needs a copy outside ffmpeg.
@@ -585,7 +614,13 @@ struct VideoEngine: Sendable {
 
     func stripMetadata(_ source: URL, work: WorkFolder) async throws -> Produced {
         let output = work.file(stem: "stripped", ext: source.pathExtension.isEmpty ? "mp4" : source.pathExtension)
-        var args = ["-hide_banner", "-nostdin", "-y", "-i", source.path, "-map", "0:v", "-map", "0:a?", "-c", "copy", "-map_metadata", "-1", "-map_chapters", "-1"]
+        // Every track goes along as it is (subtitles, attachments, languages and chapters, as an
+        // optimise keeps them); only what describes the person goes. Data tracks (iPhone mebx,
+        // timecode) go too: they can carry the location frame by frame.
+        var args = [
+            "-hide_banner", "-nostdin", "-y", "-i", source.path, "-map", "0", "-map", "-0:d?", "-c", "copy",
+            "-map_metadata:g", "-1", "-metadata:s", "creation_time=", "-map_chapters", "0",
+        ]
         if ["mp4", "mov", "m4v"].contains(source.pathExtension.lowercased()) { args += ["-movflags", "+faststart"] }
         args += ["-progress", "pipe:1", "-nostats", output.path]
         try await ProcessRunner.run(.ffmpeg, args, options: FFmpegProgress(duration: nil, sink: .none).options, locator: env.tools)

@@ -263,10 +263,11 @@ func rejects(_ arguments: [String]) -> Bool {
             return (process.terminationStatus, String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self))
         }
         let (status, output) = try run([])
-        #expect(status == 1)
-        #expect(output.contains("Already optimised by L'Esclop; pass --force to optimise it again"), "\(output)")
+        // Left as it is, like a file already as small as it gets: not a failure.
+        #expect(status == 0)
+        #expect(output.contains("unchanged: already optimised by L'Esclop (--force optimises it again)"), "\(output)")
         let (_, forced) = try run(["--force"])
-        #expect(!forced.contains("Already optimised"), "\(forced)")
+        #expect(!forced.contains("already optimised"), "\(forced)")
         #expect(forced.contains("It may be damaged"), "--force reaches the optimiser: \(forced)")
     }
 }

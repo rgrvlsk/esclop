@@ -58,7 +58,8 @@ app that wants one `EngineClient`).
   `imageAggressiveCompression`, `videoCompression`, ...); the `useAggressiveOptimisation*`
   switches turn normal into aggressive per format.
 - **Metadata** is stripped when `request.stripMetadata` or the `stripMetadata` setting is true
-  (default true). Orientation and colour profile are always kept.
+  (default true). Orientation and colour profile are always kept. Audio keeps its tags (title,
+  artist, album) unless `request.stripMetadata` is true: the setting does not apply to music.
 - **Automatic conversion** (`formatsToConvertToJPEG/PNG/MP4`) applies only to automatic origins:
   `.app`, `.clipboard`, `.dropZone`, `.watchedFolder`, `.hotkey`. CLI, MCP, Finder and Shortcuts
   keep the format unless asked. Images with several frames or pages are never converted
@@ -223,7 +224,7 @@ Swift code reads typed values: `EsclopSettings.stripMetadata.value` (or `.value(
 | `maxPDFSizeMB` | Int | `100` | pdf | Largest PDF to optimise automatically |
 | `audioCompression` | Int | `35` | audio | Audio compression |
 | `audioAggressiveCompression` | Int | `65` | audio | Aggressive audio compression |
-| `formatsToConvertToAAC` | [String] | `[aiff, aif, flac]` | audio | Convert to AAC |
+| `formatsToConvertToAAC` | [String] | `[aiff, aif, flac]` | audio | Convert to AAC (`alac` converts Apple Lossless) |
 | `formatsToConvertToMP3` | [String] | `[wav]` | audio | Convert to MP3 |
 | `audioCoverArt` | AudioCoverArt | `.optimise` | audio | Cover art |
 | `normalizeLoudness` | Bool | `false` | audio | Normalise loudness |

@@ -24,7 +24,8 @@ import UniformTypeIdentifiers
         var request = world.request(png)
         request.locationFromSettings = true
         let converted = try await world.engine.convert(png, to: .jpeg, request: request, progress: { _ in })
-        #expect(converted.output == world.file("photo-optimised.jpeg"))
+        // The default template leaves a conversion its plain name, with the usual .jpg.
+        #expect(converted.output == world.file("photo.jpg"))
         #expect(FileManager.default.fileExists(atPath: png.path))
         #expect(converted.backup == nil)
 
@@ -32,8 +33,9 @@ import UniformTypeIdentifiers
         let optimised = try await world.engine.optimise(png, request: request, progress: { _ in })
         #expect(optimised.output == png)
 
+        try FileManager.default.removeItem(at: converted.output)
         let explicit = try await world.engine.convert(png, to: .jpeg, request: world.request(png), progress: { _ in })
-        #expect(explicit.output == world.file("photo.jpeg"))
+        #expect(explicit.output == world.file("photo.jpg"))
         #expect(!FileManager.default.fileExists(atPath: png.path))
     }
 
@@ -77,7 +79,7 @@ import UniformTypeIdentifiers
             try Fixture.write(image, to: url, type: type, properties: [kCGImagePropertyDPIWidth: 144, kCGImagePropertyDPIHeight: 144])
             #expect(ImageInfo.probe(url)?.dpi == 144)
             let before = try Data(contentsOf: url).count
-            ImageIOCodec.setOneX(url)
+            ImageIOCodec.setDensity(url, dpi: 72)
             #expect(ImageInfo.probe(url)?.dpi == 72, "\(name)")
             #expect(Inspect.size(url)! == (64, 48))
             #expect(abs(try Data(contentsOf: url).count - before) < 4096, "\(name) was not re-encoded")

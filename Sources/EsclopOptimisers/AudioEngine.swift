@@ -2,8 +2,9 @@
 //
 // Audio through ffmpeg: AAC with AudioToolbox (ffmpeg's own AAC as fallback), MP3 with LAME
 // VBR, Opus, FLAC, WAV/AIFF at the source's rate and depth. Lossless sources convert by the
-// format lists in the settings (WAV to MP3, AIFF/FLAC to AAC); everything else is re-encoded in its own format at the bitrate
-// the compression factor maps to, never above the source's.
+// format lists in the settings (WAV to MP3, AIFF/FLAC to AAC; Apple Lossless only when the AAC
+// list names `alac`); everything else is re-encoded in its own format at the bitrate the
+// compression factor maps to, never above the source's. Tags stay unless strip is asked for.
 
 import EsclopCore
 import Foundation
@@ -19,15 +20,29 @@ struct AudioEngine: Sendable {
             return codec
         }
         let ext = source.pathExtension.lowercased()
-        if env.value(EsclopSettings.formatsToConvertToAAC).map({ $0.lowercased() }).contains(ext) { return .aac }
+        if convertsToAAC(ext) { return .aac }
         if env.value(EsclopSettings.formatsToConvertToMP3).map({ $0.lowercased() }).contains(ext) { return .mp3 }
         return AudioCodec(fileExtension: ext) ?? .aac
+    }
+
+    /// Whether the Convert to AAC list names `entry`: an extension, or `alac` for Apple Lossless.
+    func convertsToAAC(_ entry: String) -> Bool {
+        env.value(EsclopSettings.formatsToConvertToAAC).map { $0.lowercased() }.contains(entry)
     }
 
     func process(_ source: URL, plan: Plan, work: WorkFolder, progress: ProgressSink) async throws -> Produced {
         let info = try await MediaInfo.probe(source, tools: env.tools)
         guard let audio = info.audio else {
             throw EsclopError.unsupportedFile("\(source.lastPathComponent) has no audio")
+        }
+        let speed = plan.request.playbackSpeed.flatMap { $0 > 0 && abs($0 - 1) > 0.001 ? $0 : nil }
+        let loudness = plan.request.loudnessLUFS ?? (env.value(EsclopSettings.normalizeLoudness) ? env.value(EsclopSettings.loudnessTarget) : nil)
+        // Apple Lossless stays as it is unless something asks for a change: a format, a
+        // bitrate, a size, a speed or loudness, or `alac` in the Convert to AAC list.
+        if audio.codec == "alac", plan.format == nil, plan.downscale == nil, plan.request.audioBitrateKbps == nil,
+           speed == nil, loudness == nil, !convertsToAAC("alac")
+        {
+            throw EsclopError.alreadySmaller
         }
         let codec = try targetCodec(for: source, plan: plan)
         let sameExtension = AudioCodec(fileExtension: source.pathExtension) == codec
@@ -40,14 +55,25 @@ struct AudioEngine: Sendable {
         if plan.isAggressive, !codec.allowedBitrates.isEmpty, sameFormat {
             bitrate = min(bitrate, codec.stepBelow(audio.bitrate))
         }
+        // Downscale scales the source's bitrate, never above what optimising alone gives and
+        // never under the codec's lowest step.
+        if let scale = plan.downscale, plan.request.audioBitrateKbps == nil, let floor = codec.allowedBitrates.first, let input = audio.bitrate {
+            bitrate = codec.resolveBitrate(max(floor, min(bitrate, Int(Double(input) * scale))), inputBitrate: nil)
+        }
         var steps: [String] = []
         if sameExtension, !sameFormat {
             steps.append("Converted \(AudioCodec.label(probed: audio.codec)) to \(codec.label)")
         } else if !sameFormat {
             steps.append("Converted to \(codec.fileExtension.uppercased())")
         }
-        if !codec.isLossless { steps.append("Encoded at \(bitrate) kbit/s") }
-        if codec == .wav, plan.isAggressive { steps.append("Encoded as IMA ADPCM, which is lossy") }
+        if codec == .mp3 {
+            // LAME VBR aims at a quality, not a rate: the file's rate depends on the sound.
+            steps.append("Encoded VBR, about \(AudioCodec.lameVBRAverage(quality: AudioCodec.lameVBRQuality(forBitrate: bitrate))) kbit/s")
+        } else if !codec.isLossless {
+            steps.append("Encoded at \(bitrate) kbit/s")
+        }
+        let adpcm = codec == .wav && plan.isAggressive
+        if adpcm { steps.append("Encoded as IMA ADPCM, which is lossy") }
         let deep = (audio.bitsPerSample ?? 16) > 16
         var aiff24Bit = false
         if codec == .aiff, deep { aiff24Bit = await FFmpegCapabilities.shared.encoders(tools: env.tools).contains("pcm_s24be") }
@@ -58,8 +84,6 @@ struct AudioEngine: Sendable {
         }
 
         let output = work.file(stem: "encoded", ext: codec.fileExtension)
-        let speed = plan.request.playbackSpeed.flatMap { $0 > 0 && abs($0 - 1) > 0.001 ? $0 : nil }
-        let loudness = plan.request.loudnessLUFS ?? (env.value(EsclopSettings.normalizeLoudness) ? env.value(EsclopSettings.loudnessTarget) : nil)
         let duration = info.duration.map { $0 / (speed ?? 1) }
         let options = FFmpegProgress(duration: duration, sink: progress).options
 
@@ -75,7 +99,9 @@ struct AudioEngine: Sendable {
                 filters.append("loudnorm=I=\(loudness):TP=-1.5:LRA=11,aresample=\(rate)")
             }
             if !filters.isEmpty { args += ["-filter:a", filters.joined(separator: ",")] }
-            args += ["-map_metadata", plan.strip ? "-1" : "0"]
+            // Music keeps its title, artist and album unless stripping is asked for: the
+            // strip-metadata setting describes photos and videos, not songs.
+            args += ["-map_metadata", plan.request.stripMetadata == true ? "-1" : "0"]
             args += ["-progress", "pipe:1", "-nostats", output.path]
             return args
         }
@@ -91,7 +117,7 @@ struct AudioEngine: Sendable {
         // A new codec under the same name (Apple Lossless to AAC in an .m4a) still has to shrink.
         let changesContent = !sameExtension || speed != nil || loudness != nil
         let sameContent = sameFormat && speed == nil && loudness == nil
-        return Produced(url: output, width: nil, height: nil, duration: duration, steps: steps, allowLarger: changesContent, lossless: codec.isLossless && sameContent)
+        return Produced(url: output, width: nil, height: nil, duration: duration, steps: steps, allowLarger: changesContent, lossless: codec.isLossless && !adpcm && sameContent)
     }
 
     /// Album artwork: kept, recompressed to at most 600 px JPEG, or dropped.

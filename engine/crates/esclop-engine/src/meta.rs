@@ -198,7 +198,9 @@ pub const APP14: u8 = 0xEE;
 pub const COM: u8 = 0xFE;
 
 const EXIF_ID: &[u8] = b"Exif\0\0";
-const XMP_ID: &[u8] = b"http://ns.adobe.com/xap/1.0/\0";
+pub const XMP_ID: &[u8] = b"http://ns.adobe.com/xap/1.0/\0";
+/// The keyword and empty flags, language and translated keyword of a PNG `iTXt` XMP chunk.
+pub const PNG_XMP_PREFIX: &[u8] = b"XML:com.adobe.xmp\0\0\0\0\0";
 const XMP_EXT_ID: &[u8] = b"http://ns.adobe.com/xmp/extension/\0";
 const ICC_ID: &[u8] = b"ICC_PROFILE\0";
 const MPF_ID: &[u8] = b"MPF\0";
@@ -303,6 +305,11 @@ impl<'a> JpegParts<'a> {
 
     pub fn has_xmp(&self) -> bool {
         self.segments.iter().any(|s| s.is_xmp())
+    }
+
+    /// The main XMP packet (not its extensions).
+    pub fn xmp(&self) -> Option<&'a [u8]> {
+        self.segments.iter().find_map(|s| (s.marker == APP1).then(|| s.data.strip_prefix(XMP_ID)).flatten())
     }
 
     pub fn has_mpf(&self) -> bool {
@@ -602,6 +609,11 @@ pub fn png_chunks_to_carry(
         }
     }
     out
+}
+
+/// The XMP packet of an uncompressed PNG `iTXt` chunk.
+pub fn png_xmp<'a>(chunks: &[Chunk<'a>]) -> Option<&'a [u8]> {
+    chunks.iter().find_map(|c| (&c.name == b"iTXt").then(|| c.data.strip_prefix(PNG_XMP_PREFIX)).flatten())
 }
 
 /// `metadata.strip` for PNG: drop metadata chunks (and Apple's iDOT, whose IDAT offsets would

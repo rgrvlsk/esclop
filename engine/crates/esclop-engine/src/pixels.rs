@@ -77,6 +77,8 @@ pub struct SourceMeta {
     pub icc: Option<Vec<u8>>,
     /// TIFF payload, without the `Exif\0\0` prefix.
     pub exif: Option<Vec<u8>>,
+    /// The XMP packet (title, keywords, ratings), as stored.
+    pub xmp: Option<Vec<u8>>,
     pub orientation: u8,
 }
 
@@ -182,12 +184,14 @@ pub fn source_meta(bytes: &[u8], fmt: Format) -> SourceMeta {
             if let Ok(p) = meta::JpegParts::parse(bytes) {
                 m.icc = p.icc();
                 m.exif = p.exif().map(<[u8]>::to_vec);
+                m.xmp = p.xmp().map(<[u8]>::to_vec);
             }
         }
         Format::Webp => {
             if let Ok(w) = meta::WebpChunks::parse(bytes) {
                 m.icc = w.get(b"ICCP").map(<[u8]>::to_vec);
                 m.exif = w.get(b"EXIF").map(|e| meta::tiff_payload(e).to_vec());
+                m.xmp = w.get(b"XMP ").map(<[u8]>::to_vec);
             }
         }
         Format::Png | Format::Tiff => {
@@ -196,6 +200,9 @@ pub fn source_meta(bytes: &[u8], fmt: Format) -> SourceMeta {
             {
                 m.icc = d.icc_profile().ok().flatten();
                 m.exif = d.exif_metadata().ok().flatten().map(|e| meta::tiff_payload(&e).to_vec());
+            }
+            if fmt == Format::Png {
+                m.xmp = meta::png_chunks(bytes).ok().and_then(|c| meta::png_xmp(&c).map(<[u8]>::to_vec));
             }
         }
         _ => {}

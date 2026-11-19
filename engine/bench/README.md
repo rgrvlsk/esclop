@@ -54,7 +54,7 @@ not Clop's bundled binaries (`CLOP_BIN` unset). It is not a benchmark of the Clo
 | kind | n | size engine / ref | SSIMULACRA2 engine | SSIMULACRA2 ref | time engine / ref | ≤ 1.02 at ≥ quality |
 |---|--:|--:|--:|--:|--:|---|
 | PNG | 7 | 0.932 | 91.5 | 91.2 | 0.75 | pass |
-| JPEG | 5 | 0.881 | 79.3 | 76.3 | 4.25 | pass |
+| JPEG | 5 | 0.887 | 79.3 | 76.3 | 3.32 | pass |
 | GIF | 2 | 1.000 | – | – | 1.25 | same backend; quality not measured |
 | WebP | 12 | 1.000 | 64.2 | 64.2 | 1.08 | pass |
 | AVIF | 12 | 1.000 | 73.8 | 73.9 | 0.95 | below quality target by 0.1 |
@@ -64,7 +64,7 @@ not Clop's bundled binaries (`CLOP_BIN` unset). It is not a benchmark of the Clo
 | kind | n | size engine / ref | SSIMULACRA2 engine | SSIMULACRA2 ref | time engine / ref | ≤ 1.02 at ≥ quality |
 |---|--:|--:|--:|--:|--:|---|
 | PNG | 7 | 0.934 | 66.8 | 67.3 | 1.00 | borderline: 0.5 below |
-| JPEG | 5 | 0.774 | 57.0 | 54.9 | 2.50 | pass |
+| JPEG | 5 | 0.780 | 57.0 | 54.9 | 2.50 | pass |
 | GIF | 2 | 1.000 | – | – | 1.15 | same backend; quality not measured |
 | WebP | 12 | 1.000 | 59.6 | 59.6 | 1.06 | pass |
 | AVIF | 12 | 1.000 | 63.5 | 63.9 | 0.90 | below quality target by 0.4 |
@@ -133,8 +133,9 @@ about 6 MP above 12 MP.
 - JPEG produces smaller files and higher median scores on this corpus because the protocol's quality stays on jpegoptim's scale
   and the codec picks the mozjpeg quality that matches it (`calibrate_jpeg.py`); without that
   translation mozjpeg at "85" was half the size but 6 SSIMULACRA2 points worse. It is slower:
-  trellis quantisation and scan optimisation cost 2-4x jpegoptim's time (0.1-0.5 s for a 2-6 MP
-  photo).
+  trellis quantisation costs 2.5-3.3x jpegoptim's time (0.1-0.4 s for a 2-6 MP photo; 1.27 s
+  for a 24 MP one). The JPEG rows are from the run after `jpeg.optimise` moved to the standard
+  progressive scan script (about a third faster than mozjpeg's scan search, under 1 % larger).
 - PNG produces smaller median files here because oxipng recompresses imagequant's palette, which pngquant does not
   do; at aggressive the SSIMULACRA2 median is 0.5 below pngquant's (66.8 vs 67.3), below
   the "equal or better" target.
