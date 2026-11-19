@@ -159,7 +159,7 @@ struct Picture: View {
             if let picture {
                 Image(nsImage: picture).resizable().aspectRatio(contentMode: fits ? .fit : .fill)
             } else {
-                Image(systemName: symbol)
+                Image(systemName: Self.symbol(for: card.result?.kind ?? MediaKind.of(card.source)))
                     .font(.title2)
                     .foregroundStyle(Ink.secondary)
             }
@@ -172,8 +172,9 @@ struct Picture: View {
         .accessibilityHidden(true)
     }
 
-    private var symbol: String {
-        switch card.result?.kind ?? MediaKind.of(card.source) {
+    /// The stand-in until the thumbnail loads, by kind (the menu panel's rows use it too).
+    static func symbol(for kind: MediaKind?) -> String {
+        switch kind {
         case .video: return "film"
         case .pdf: return "doc.richtext"
         case .audio: return "waveform"
