@@ -26,6 +26,8 @@ final class ClipboardKeeper: @unchecked Sendable {
     /// in between (results put back, a pipeline's copy, an automatic link). Anything the person
     /// copies or asks L'Esclop to copy ends it.
     private var ownRun: (from: Int, to: Int)?
+    /// The last copy the clipboard watcher saw, with the app it came from.
+    private var lastCopy: ClipboardCopy?
 
     /// An automatic write just made, which went over change `before`.
     private func continued(from before: Int) {
@@ -120,12 +122,19 @@ final class ClipboardKeeper: @unchecked Sendable {
         }
     }
 
+    /// The clipboard watcher saw `copy` (every copy, also one it left alone).
+    func noteCopy(_ copy: ClipboardCopy) {
+        lastCopy = copy
+    }
+
     /// What the clipboard holds now, for "Optimise Clipboard": the content, its change count,
-    /// whether it carries L'Esclop's marker, and whether it is L'Esclop's (marker or bytes).
-    func snapshot() -> (content: ClipboardContent, count: Int, marked: Bool, own: Bool) {
+    /// whether it carries L'Esclop's marker, whether it is L'Esclop's (marker or bytes), and the
+    /// app it was copied from when the watcher saw that copy.
+    func snapshot() -> (content: ClipboardContent, count: Int, marked: Bool, own: Bool, app: String?) {
         let content = Clipboard.read(pasteboard)
         let marked = Clipboard.isOwnWrite(pasteboard)
-        return (content, pasteboard.changeCount, marked, marked || isOwnBytes(content))
+        let count = pasteboard.changeCount
+        return (content, count, marked, marked || isOwnBytes(content), lastCopy?.changeCount == count ? lastCopy?.app : nil)
     }
 }
 

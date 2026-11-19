@@ -72,6 +72,27 @@ import UniformTypeIdentifiers
         #expect(!copied())
     }
 
+    /// A pipeline's hotkey runs on what is on the clipboard now: `if(copiedBy:)` matches the
+    /// app the clipboard watcher saw the copy come from, also when it left the copy alone.
+    @Test func aHotkeyRunKnowsTheAppTheCopyCameFrom() async throws {
+        let harness = Harness()
+        try save("if(copiedBy: Preview) -> copyToClipboard", name: "Keys", in: harness)
+        let pipeline = try harness.model.service.context.pipelines.load("Keys")
+        let keeper = harness.model.clipboard
+        let watcher = ClipboardWatcher(
+            pasteboard: harness.pasteboard, policy: ClipboardPolicy(factory: harness.model.factory),
+            frontmostApp: { "com.apple.Preview" }, onCopy: { keeper.noteCopy($0) }, onAction: { _ in }
+        )
+        _ = watcher.poll()
+        harness.pasteboard.clearContents()
+        harness.pasteboard.setData(pngData(), forType: .png)
+        _ = watcher.poll()
+        harness.model.runOnClipboard(pipeline)
+        #expect(await eventually { harness.model.cards.count == 1 && harness.model.cards[0].result != nil })
+        let steps = harness.model.cards[0].result?.steps ?? []
+        #expect(steps.contains { $0.hasPrefix("copyToClipboard") && $0.contains("done") }, "\(steps)")
+    }
+
     @Test func aLateFailureKeepsItsResultAndStepInTheAppsReport() async throws {
         let harness = Harness()
         try save("optimise -> openWith(app: NoSuchApp123)", name: "Late", in: harness)

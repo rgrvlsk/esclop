@@ -102,7 +102,7 @@ extension AppModel {
                     context = await clipboardContext(for: url, copy: copy ?? ClipboardCopy(changeCount: 0), aggressive: aggressive, pipeline: triggered)
                     if let context, context.rule != nil { context.choice.apply(to: &job.request) }
                 }
-                await run(job, context: context, batch: job.request.showResultUI ? batch : nil, sourceApp: copy?.app, onResult: onResult)
+                await run(job, context: context, batch: job.request.showResultUI ? batch : nil, copy: copy, onResult: onResult)
             })
         }
         guard copyBack else { return }
@@ -152,7 +152,7 @@ extension AppModel {
             var job = base
             let context = await clipboardContext(for: file, copy: copy, aggressive: aggressive, pipeline: triggered)
             if context.rule != nil { context.choice.apply(to: &job.request) }
-            await run(job, displayName: Strings.text("Copied image"), context: context, sourceApp: copy.app, onResult: { result in
+            await run(job, displayName: Strings.text("Copied image"), context: context, copy: copy, onResult: { result in
                 guard copyBack else { return }
                 Task { await self.putBackOnClipboard([(result.source, result.output)]) }
             })
@@ -196,7 +196,8 @@ extension AppModel {
             ownResult(on: content)
             return
         }
-        let copy = ClipboardCopy(changeCount: now.count)
+        // The app it came from, for a pipeline's `if(copiedBy:)`, when the watcher saw the copy.
+        let copy = ClipboardCopy(changeCount: now.count, app: now.app)
         switch content {
         case let .files(urls):
             let media = urls.filter { MediaKind.of($0) != nil }

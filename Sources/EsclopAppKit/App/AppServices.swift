@@ -73,6 +73,8 @@ public final class AppServices {
             onPauseChange: { [weak model] paused in
                 Task { @MainActor in if model?.paused != paused { model?.pauseChanged(paused) } }
             },
+            // On the clipboard queue, where the keeper's state lives.
+            onCopy: { [keeper = model.clipboard] copy in keeper.noteCopy(copy) },
             onAction: { [weak model] action in
                 Task { @MainActor in model?.handleClipboard(action) }
             }

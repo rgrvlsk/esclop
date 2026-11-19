@@ -50,6 +50,10 @@ public final class AppModel {
     /// Uploads to the person's targets, with the keys from the Keychain (tests use memory).
     @ObservationIgnored public var uploader: any FileUploading
     @ObservationIgnored var restoredIDs = Set<UUID>()
+    /// Results whose original is being put back now (`putBack`).
+    @ObservationIgnored var restoringIDs = Set<UUID>()
+    /// Reads Recent from the log at launch; Clear stops it, so cleared names never come back.
+    @ObservationIgnored private var loadingRecent: Task<Void, Never>?
     /// An ⌥-drop's copies a pipeline runs on, by path, with the original each stands for.
     @ObservationIgnored var dropCopies: [String: URL] = [:]
     @ObservationIgnored var onCardsChange: (() -> Void)?
@@ -78,7 +82,22 @@ public final class AppModel {
         uploader = AppUploader(settings: settings)
         factory = RequestFactory(settings: settings)
         paused = EsclopSettings.pauseAutomaticOptimisations.value(in: settings)
-        recent = service.results.recent(limit: Self.recentLimit)
+        // The log can hold tens of thousands of lines (every result of the last eight days): read
+        // off the main actor, so the launch does not wait for it.
+        let log = service.results, limit = Self.recentLimit
+        loadingRecent = Task { [weak self] in
+            let loaded = await Task.detached(priority: .userInitiated) { log.recent(limit: limit) }.value
+            guard !Task.isCancelled else { return }
+            self?.loaded(recent: loaded)
+        }
+    }
+
+    /// The log's results joined to those recorded since launch. ponytail: a result a re-run
+    /// replaced before the log was read may come back here until the next launch (restored
+    /// ones never do); remember `forget`'s ids too if that is ever seen.
+    private func loaded(recent loaded: [OptimisationResult]) {
+        let known = Set(recent.map(\.id)).union(restoredIDs)
+        recent = Array((recent + loaded.filter { !known.contains($0.id) }).sorted { $0.finishedAt > $1.finishedAt }.prefix(Self.recentLimit))
     }
 
     static let recentLimit = 30
@@ -194,11 +213,13 @@ public final class AppModel {
 
     /// Runs a job, one card per file when it asks for result UI, or one row per file in the batch
     /// window when it brings `batchWindowFrom` files or more. `events` reports each file as it
-    /// finishes (the IPC reply stream). Cancelling the calling task stops every file.
+    /// finishes (the IPC reply stream). Cancelling the calling task stops every file. `copy` is
+    /// the clipboard copy the files came from: its app for a pipeline's `if(copiedBy:)`, its change
+    /// count for the links the job makes later.
     @discardableResult
     public func run(
         _ job: OptimisationJob, displayName: String? = nil, context: CardContext? = nil, reusing existing: ResultCard? = nil,
-        batch: Batch? = nil, sourceApp: String? = nil,
+        batch: Batch? = nil, copy: ClipboardCopy? = nil,
         events: @escaping @Sendable (JobEvent) -> Void = { _ in },
         onResult: ((OptimisationResult) -> Void)? = nil
     ) async -> JobReport {
@@ -207,12 +228,17 @@ public final class AppModel {
         // A fork shows as a result of its own beside a single floating result, not in a batch.
         let single = job.request.showResultUI && batch == nil && job.request.sources.count == 1 ? job.request.sources.first : nil
         let desktop = AppDesktop(model: self, original: single.map { ($0, Self.size(of: $0)) })
-        let executor = executor(for: job.request.origin, desktop: job.request.origin == .mcp ? nil : desktop, sourceApp: sourceApp)
+        // The clipboard as the job starts: a link it makes later goes on it only if nothing was
+        // copied after (an automatic upload's, a pipeline's upload step's).
+        let linksSince = linkBaseline(for: job, copy: copy)
+        let executor = executor(
+            for: job.request.origin, desktop: job.request.origin == .mcp ? nil : desktop, sourceApp: copy?.app
+        ) { [weak self] link in await self?.pipelineLink(link, since: await linksSince?.value, batch: batch) }
         var tasks: [(URL, Task<Result<OptimisationResult, PipelineStepFailure>, Never>)] = []
         for source in job.request.sources {
             if let batch {
                 let row = batch.row(for: source, bytes: Self.size(of: source))
-                tasks.append((source, startRow(row, in: batch, job: job, executor: executor, events: events, onResult: onResult)))
+                tasks.append((source, startRow(row, in: batch, job: job, executor: executor, linksSince: linksSince, events: events, onResult: onResult)))
                 continue
             }
             let card: ResultCard?
@@ -222,7 +248,7 @@ public final class AppModel {
             } else {
                 card = job.request.showResultUI ? addCard(for: source, job: job, displayName: displayName, context: context) : nil
             }
-            let task = Task { await self.process(source, job: job, executor: executor, card: card, events: events, onResult: onResult) }
+            let task = Task { await self.process(source, job: job, executor: executor, card: card, linksSince: linksSince, events: events, onResult: onResult) }
             card?.cancelWork = { task.cancel() }
             card?.retry = { [weak self, weak card] in
                 guard let self else { return }
@@ -230,7 +256,7 @@ public final class AppModel {
                 var again = job
                 again.request.id = UUID()
                 again.request.sources = [source]
-                Task { await self.run(again, displayName: displayName, context: context, sourceApp: sourceApp, onResult: onResult) }
+                Task { await self.run(again, displayName: displayName, context: context, copy: copy, onResult: onResult) }
             }
             tasks.append((source, task))
         }
@@ -268,13 +294,15 @@ public final class AppModel {
 
     /// Runs one file of a batch; its row can stop it and run it again.
     private func startRow(
-        _ row: BatchRow, in batch: Batch, job: OptimisationJob, executor: JobExecutor,
+        _ row: BatchRow, in batch: Batch, job: OptimisationJob, executor: JobExecutor, linksSince: Task<Int, Never>?,
         events: @escaping @Sendable (JobEvent) -> Void, onResult: ((OptimisationResult) -> Void)?
     ) -> Task<Result<OptimisationResult, PipelineStepFailure>, Never> {
         let source = row.source
         var single = job
         single.request.sources = [source]
-        let task = Task { await self.process(source, job: single, executor: executor, card: nil, row: row, batch: batch, events: events, onResult: onResult) }
+        let task = Task {
+            await self.process(source, job: single, executor: executor, card: nil, row: row, batch: batch, linksSince: linksSince, events: events, onResult: onResult)
+        }
         row.cancel = { task.cancel() }
         row.retry = { [weak self, weak row, weak batch] in
             guard let self, let row, let batch, row.isFinished else { return }
@@ -282,7 +310,7 @@ public final class AppModel {
             row.upload = nil
             var again = single
             again.request.id = UUID()
-            _ = self.startRow(row, in: batch, job: again, executor: executor, events: { _ in }, onResult: onResult)
+            _ = self.startRow(row, in: batch, job: again, executor: executor, linksSince: linksSince, events: { _ in }, onResult: onResult)
         }
         return task
     }
@@ -295,6 +323,8 @@ public final class AppModel {
         do {
             try await putBack(result)
             row.state = .restored(result)
+        } catch is RestoreUnderWay {
+            return
         } catch {
             row.restoreError = CardPresentation.message(for: error)
         }
@@ -314,9 +344,14 @@ public final class AppModel {
 
     /// The one restore every window uses: by the result itself, never by its path (an older
     /// result for the same file would get the newer original), with the copying off the main actor.
-    /// True when a version edited after optimising went to the Trash on the way.
+    /// One at a time per result, whichever window asks (a double click in Recent, the card's Undo,
+    /// Compare's Restore Original): a second would put the original back twice and send it to the
+    /// Trash as an edit, so it throws `RestoreUnderWay`. True when a version edited after
+    /// optimising went to the Trash on the way.
     @discardableResult
     private func putBack(_ result: OptimisationResult) async throws -> Bool {
+        guard restoringIDs.insert(result.id).inserted else { throw RestoreUnderWay() }
+        defer { restoringIDs.remove(result.id) }
         let service = service
         let outcome = try await Task.detached { try await service.restoreBackup(of: result, deleteBackup: false) }.value
         restoredIDs.insert(result.id)
@@ -324,6 +359,9 @@ public final class AppModel {
         noteWritten([result.source, result.output])
         return Self.editWentToTrash(trashed: outcome.movedToTrash?.count ?? 0, restoring: result)
     }
+
+    /// The result's original is being put back already.
+    struct RestoreUnderWay: Error {}
 
     /// Whether a restore that moved `trashed` files to the Trash took an edited version with them.
     /// ponytail: the Trash also takes a converted output, so an edit counts only beyond it. A
@@ -338,15 +376,20 @@ public final class AppModel {
     /// The executor for a request's origin: agents get the pipeline permissions the person set.
     /// `desktop` lets pipeline steps reach the clipboard, apps and the floating results; agents
     /// get none.
-    /// `sourceApp` is the app a copy came from, for a pipeline's `if(copiedBy:)`.
-    func executor(for origin: RequestOrigin, desktop: (any PipelineDesktop)? = nil, sourceApp: String? = nil) -> JobExecutor {
+    /// `sourceApp` is the app a copy came from, for a pipeline's `if(copiedBy:)`. `copyLink` takes
+    /// an upload step's link (`run` respects a newer copy); without it the link goes on the
+    /// clipboard whatever it holds.
+    func executor(
+        for origin: RequestOrigin, desktop: (any PipelineDesktop)? = nil, sourceApp: String? = nil,
+        copyLink: (@Sendable (URL) async -> Void)? = nil
+    ) -> JobExecutor {
         let context = service.context
         let policy = AgentPolicy(origin: origin, permissions: context.settings)
         // Agents upload only when the person allows it; the policy refuses before this, and an
         // executor without an uploader cannot upload anyway.
         let uploader: (any FileUploading)? = policy.allowed(.allowUploads) ? uploader : nil
         let host: AppPipelineHost? = uploader == nil && desktop == nil ? nil
-            : AppPipelineHost(uploader: uploader, desktop: desktop) { [weak self] link in await self?.copyToClipboard(links: [link]) }
+            : AppPipelineHost(uploader: uploader, desktop: desktop, copyLink: copyLink ?? { [weak self] link in await self?.copyToClipboard(links: [link]) })
         let runner = StorePipelineRunner(
             store: context.pipelines, allowRunScripts: policy.allowed(.allowRunScripts),
             allowDelete: policy.allowed(.allowOverwriteOriginals), temporaryDirectory: Paths.temporary, host: host,
@@ -357,10 +400,12 @@ public final class AppModel {
 
     private func process(
         _ source: URL, job: OptimisationJob, executor: JobExecutor, card: ResultCard?, row: BatchRow? = nil, batch: Batch? = nil,
-        events: @escaping @Sendable (JobEvent) -> Void, onResult: ((OptimisationResult) -> Void)?
+        linksSince: Task<Int, Never>? = nil, events: @escaping @Sendable (JobEvent) -> Void, onResult: ((OptimisationResult) -> Void)?
     ) async -> Result<OptimisationResult, PipelineStepFailure> {
         activeFiles += 1
         defer { activeFiles -= 1 }
+        // A batch's links go on the clipboard against the clipboard as its first job started.
+        if let batch, let linksSince, batch.linksSince == nil { batch.linksSince = await linksSince.value }
         if let batch {
             // A file queued at the gate when the batch is paused gives its turn back and waits.
             while true {
@@ -426,8 +471,11 @@ public final class AppModel {
             if let link = result.link {
                 await copyToClipboard(links: [link])
             } else if uploadsAutomatically(job) {
-                // Every result, also a batch row's or one shown nowhere (a quiet pipeline).
-                if let card { upload(card, automatic: true) } else { upload(result.output, to: nil, on: row, batch: batch, automatic: true) }
+                // Every result, also a batch row's or one shown nowhere (a quiet pipeline). The
+                // setting turned on during the job: the clipboard as it is now.
+                var since = await linksSince?.value
+                if since == nil { since = await clipboard.run { $0.changeCount() } }
+                if let card { upload(card, since: since) } else { upload(result.output, to: nil, on: row, batch: batch, since: since) }
             }
             onResult?(result)
         case let .failure(error):
@@ -466,12 +514,13 @@ public final class AppModel {
         return now().timeIntervalSince(at) < Self.writeProtection
     }
 
-    /// A new file in a folder a pipeline watches: the pipeline runs on it.
-    public func runPipeline(_ name: String, onWatched file: URL) async {
+    /// A new file in a folder a pipeline watches: the pipeline runs on it. `batch` gives the
+    /// batch a burst of new files shares, asked for only when the result shows.
+    public func runPipeline(_ name: String, onWatched file: URL, batch: () -> Batch? = { nil }) async {
         var job = factory.job(for: file, origin: .watchedFolder)
         job.operation = .pipeline(name)
         if let pipeline = try? service.context.pipelines.resolve(name) { Self.use(pipeline, in: &job) }
-        await run(job)
+        await run(job, batch: job.request.showResultUI ? batch() : nil)
     }
 
     /// A pipeline that runs on its own: its operation, and no floating result when it says so.
@@ -497,6 +546,7 @@ public final class AppModel {
     public func clearRecent() {
         do {
             try service.results.redactAll()
+            loadingRecent?.cancel()
             recent = []
         } catch {
             // The names are still on disk: the list stays, so the panel does not claim otherwise.
@@ -826,11 +876,8 @@ public final class AppModel {
     /// (`adjust` clears them). The card stays and shows the new result, so an open options
     /// popover keeps its anchor; a rule stays shown only while its choice is the one used.
     func reprocess(_ card: ResultCard, choice: OptimiseChoice? = nil, adjust: ((inout OptimisationJob) -> Void)? = nil) {
-        // One restore at a time on a card, Undo's or a re-run's: a second one would put the
-        // original back twice and send it to the Trash as an edit. Once the run starts the card
-        // is working, which refuses another re-run.
-        // ponytail: Recent's Restore and Compare's Restore Original skip this flag. Trigger: a
-        // double restore from them; then guard `restore(_:)` by the result's id.
+        // One re-run at a time on a card, until its run starts (the card is then working, which
+        // refuses another). A restore from another window meanwhile is refused by `putBack`.
         guard !card.restoring else { return }
         card.restoring = true
         let origin = card.origin, displayName = card.displayName
@@ -930,6 +977,9 @@ public final class AppModel {
             // The optimised copy was on the clipboard: the original replaces it there too.
             await putBackOnClipboard([(result.output, result.source)])
             return true
+        } catch is RestoreUnderWay {
+            // Another window's restore of it is under way and says how it went.
+            return false
         } catch {
             notice(Strings.format("Could not restore %@", result.source.lastPathComponent), CardPresentation.message(for: error))
             return false

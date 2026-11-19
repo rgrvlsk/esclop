@@ -429,9 +429,9 @@ final class Flag: @unchecked Sendable {
         rig.folders.stop()
     }
 
-    /// A batch-sized burst opens the batch window only for files it optimises, and bursts that
-    /// close together share it.
-    @Test func burstsShareOneBatchAndPipelinesOpenNone() async throws {
+    /// A batch-sized burst shares one batch window, also in a pipeline's folder (as a drop on a
+    /// preset zone does), and bursts that close together share it.
+    @Test func burstsShareOneBatchAlsoInAPipelinesFolder() async throws {
         let piped = TempDir()
         let other = TempDir()
         let out = TempDir()
@@ -444,7 +444,9 @@ final class Flag: @unchecked Sendable {
         let rig = try Rig(pipelines: [pipeline], delay: .seconds(3600), alsoWatching: [other.url.path])
         for index in 1 ... 4 { try pngData().write(to: piped.url.appendingPathComponent("p \(index).png"), options: .atomic) }
         #expect(await eventually { (try? FileManager.default.contentsOfDirectory(atPath: out.url.path).count) == 4 })
-        #expect(rig.harness.model.batch == nil, "a pipeline burst opens no batch window")
+        #expect(rig.harness.model.batch?.rows.count == 4, "a pipeline burst shares one batch")
+        #expect(rig.harness.model.cards.isEmpty)
+        #expect(await eventually { rig.harness.model.batch?.isRunning == false })
         let landed = (1 ... 4).flatMap { [rig.land("a \($0).png"), rig.land("b \($0).png", in: other.url)] }
         // Handed over in one go, before the stream reports them: FSEvents can report part of a
         // burst 0.3 s later, as late as the test's burst window.
