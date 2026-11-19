@@ -118,9 +118,8 @@ extension AppModel {
     // ponytail: copied on the main actor; APFS clones it at once on the same volume. Copy off the
     // main actor if a large file copied from another volume shows as a hang.
     nonisolated static func workingCopy(of file: URL) throws -> URL {
-        let folder = Paths.temporary.appendingPathComponent("results/\(UUID().uuidString.prefix(8))", isDirectory: true)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let copy = folder.appendingPathComponent(file.lastPathComponent)
+        let copy = OutputLocation.temporary.destination(for: file, extension: file.pathExtension)
+        try FileManager.default.createDirectory(at: copy.deletingLastPathComponent(), withIntermediateDirectories: true)
         try FileManager.default.copyItem(at: file, to: copy)
         return copy
     }

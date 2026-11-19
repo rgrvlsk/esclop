@@ -68,9 +68,8 @@ public struct S3Uploader: Sendable {
         guard let url = target.objectURL(key: key) else { return }
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
-        let emptyBody = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         let signed = S3Signer.sign(
-            method: "DELETE", url: url, headers: ["host": S3Signer.hostHeader(url)], payloadHash: emptyBody,
+            method: "DELETE", url: url, headers: ["host": S3Signer.hostHeader(url)],
             accessKey: credentials.accessKeyID, secret: credentials.secret, region: target.region, date: now()
         )
         for (name, value) in signed { request.setValue(value, forHTTPHeaderField: name) }

@@ -71,7 +71,7 @@ public enum ShortcutActions {
                 // A pipeline that failed late names its step and what its earlier steps changed.
                 var message = CardPresentation.message(for: failure.error)
                 if let step = failure.step { message = Strings.format("The step %@ failed: %@", step, message) }
-                if let partial = report.results.first {
+                if let partial = report.results.first, partial.backup != nil {
                     message += " " + Strings.format("The steps before it already changed the file (%@); Recent Results can put the original back.", partial.output.path)
                 }
                 throw Failure(message: message)

@@ -69,9 +69,8 @@ extension AppModel {
             guard let self else { return }
             switch outcome {
             case let .success(link):
-                if let batch {
+                if batch != nil {
                     view?.upload = .uploaded(link)
-                    self.copyLinks(of: batch)
                     self.announce(Strings.format("%@ uploaded", file.lastPathComponent))
                 } else {
                     // On the clipboard before the card says so.
@@ -89,6 +88,8 @@ extension AppModel {
                 // A result shown nowhere (a quiet pipeline) has no other place to say why.
                 if view == nil { self.notice(Strings.format("%@ was not uploaded", file.lastPathComponent), CardPresentation.message(for: error)) }
             }
+            // Whichever upload ends last, whatever its outcome, puts the batch's links on the clipboard.
+            if let batch { self.copyLinks(of: batch) }
             finished()
         }
     }

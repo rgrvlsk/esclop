@@ -301,8 +301,9 @@ public enum BackupPruner {
     /// At launch, so old originals go even when no new in-place job runs: backups older than
     /// `days`, and copied images in `clipboard` and optimised copies of copied files in `results`
     /// not touched for as long. Blocks; call it off the main actor. 0 days keeps everything.
-    // ponytail: "keep backups forever" keeps the copied images forever too, since a restore needs
-    // them; give the clipboard folder its own limit if someone keeps backups forever and it grows.
+    // ponytail: "keep backups forever" keeps the copied images and the results folder (a copy of
+    // each file a clipboard pipeline ran on) forever too, since a restore needs them; give those
+    // folders their own limit if someone keeps backups forever and they grow.
     public static func pruneAtLaunch(
         days: Int, backups: BackupStore, clipboard: URL = Clipboard.folder,
         results: URL = Paths.temporary.appendingPathComponent("results", isDirectory: true), now: Date = Date()

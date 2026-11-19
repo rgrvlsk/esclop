@@ -328,8 +328,8 @@ struct S3TestServer {
         let harness = Harness()
         let link = URL(string: "https://files.example.com/a.png")!
         let since = await harness.model.clipboard.run { $0.changeCount() }
-        // L'Esclop's own write in between (a result put back) does not count as a copy.
-        await harness.model.copyToClipboard(text: "own")
+        // L'Esclop's own automatic write in between (a pipeline's copy) does not count as a copy.
+        await harness.model.copyToClipboard(text: "own", automatic: true)
         #expect(await harness.model.copyToClipboard(links: [link], since: since))
         #expect(harness.pasteboard.string(forType: .string) == link.absoluteString)
         // The person copies something: the next automatic link stays off the clipboard.
@@ -338,8 +338,43 @@ struct S3TestServer {
         harness.pasteboard.setString("mine", forType: .string)
         #expect(await harness.model.copyToClipboard(links: [link], since: before) == false)
         #expect(harness.pasteboard.string(forType: .string) == "mine")
+        // Nor when L'Esclop then puts that newer copy's result back over it.
+        let result = harness.temp.png("newer.png")
+        harness.model.holdOnClipboard([result], at: harness.pasteboard.changeCount)
+        harness.pasteboard.clearContents()
+        harness.pasteboard.writeObjects([result] as [NSURL])
+        harness.model.holdOnClipboard([result], at: harness.pasteboard.changeCount)
+        await harness.model.putBackOnClipboard([(result, result)])
+        #expect(await harness.model.copyToClipboard(links: [link], since: before) == false)
+        // Nor over a Copy the person asked for.
+        let start = await harness.model.clipboard.run { $0.changeCount() }
+        harness.model.writeClipboard(files: [result])
+        #expect(await harness.model.copyToClipboard(links: [link], since: start) == false)
         // Copy Link, which the person asks for, always writes.
         #expect(await harness.model.copyToClipboard(links: [link]))
+    }
+
+    @Test func aBatchCopiesItsLinksWhenTheLastUploadFails() async throws {
+        let harness = Harness()
+        try EsclopSettings.uploadTargets.set(UploadTarget.encode([UploadTarget(name: "Fake", endpoint: "https://s3.example.invalid", bucket: "b")]), in: harness.settings.store)
+        try EsclopSettings.uploadAutomatically.set(["dropZone"], in: harness.settings.store)
+        try EsclopSettings.batchWindowFrom.set(2, in: harness.settings.store)
+        harness.model.uploader = SlowLastUploader()
+        harness.model.optimiseDropped(["a.png", "b.png", "last.png"].map(harness.temp.png), harder: false)
+        let batch = try #require(harness.model.batch)
+        #expect(await eventually { batch.rows.count == 3 && batch.rows.allSatisfy { if case .uploading = $0.upload { false } else { $0.upload != nil } } })
+        #expect(await eventually { harness.pasteboard.string(forType: .string) == "https://files.example.com/a.png\nhttps://files.example.com/b.png" })
+    }
+
+    /// Uploads at once, except `last.png`, which fails after the others are done.
+    struct SlowLastUploader: FileUploading {
+        func upload(_ file: URL, to target: String?, progress: @escaping @Sendable (Double) -> Void) async throws -> URL {
+            guard file.lastPathComponent != "last.png" else {
+                try await Task.sleep(for: .milliseconds(300))
+                throw EsclopError.other("The upload target did not answer.")
+            }
+            return URL(string: "https://files.example.com/\(file.lastPathComponent)")!
+        }
     }
 
     @Test func aPublicLinkNeedsItsPathAndR2NeedsAPublicLink() {
