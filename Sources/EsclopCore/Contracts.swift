@@ -198,6 +198,10 @@ public struct OptimisationRequest: Codable, Identifiable, Sendable {
     public var loudnessLUFS: Double?
     /// Keep HDR (gain maps, PQ/HLG video) when the output format can carry it. nil follows the settings.
     public var keepHDR: Bool?
+    /// true when `location` is the default where the job came from, not one chosen for this job:
+    /// a result in another format then goes where the "Converted … go" setting for its kind says.
+    /// nil or false keeps `location`.
+    public var locationFromSettings: Bool?
     /// Also try a PNG without transparency as JPEG and keep the JPEG when it is much smaller.
     /// nil follows the "adaptive image format" setting.
     public var adaptiveImageFormat: Bool?
@@ -298,6 +302,9 @@ public enum EsclopError: Error, Codable, Equatable, Sendable, CustomStringConver
     /// ("Signed PDFs are left as they are, so their signatures stay valid."), shown as it is or
     /// translated.
     case leftAsIs(String)
+    /// The result had a backup, but it is gone: removed by retention after `afterDays` days, or
+    /// some other way when that is nil. `file` is the source path the backup was of.
+    case backupRemoved(file: String, afterDays: Int?)
     case other(String)
 
     /// "This file isn’t a video L'Esclop can read. It may be damaged."
@@ -324,6 +331,8 @@ public enum EsclopError: Error, Codable, Equatable, Sendable, CustomStringConver
         case .appNotRunning: return "The esclop app is not running"
         case let .unreadable(kind): return Self.unreadableMessage(kind)
         case let .leftAsIs(reason): return reason
+        case let .backupRemoved(file, days?): return "The backup of \(file) was removed after \(days) \(days == 1 ? "day" : "days") (Settings → Backups)"
+        case let .backupRemoved(file, nil): return "The backup of \(file) is no longer there"
         case let .other(msg): return msg
         }
     }

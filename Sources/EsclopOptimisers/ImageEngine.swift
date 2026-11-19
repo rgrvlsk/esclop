@@ -34,6 +34,21 @@ struct ImageEngine: Sendable {
         guard let info = ImageInfo.probe(source), let sourceFormat = info.format else {
             throw Self.unreadableOrUnsupported(source)
         }
+        guard halvesRetina(info, plan: plan) else {
+            return try await produce(source, info: info, sourceFormat: sourceFormat, plan: plan, work: work, progress: progress)
+        }
+        var halved = plan
+        halved.downscale = 0.5
+        var produced = try await produce(source, info: info, sourceFormat: sourceFormat, plan: halved, work: work, progress: progress)
+        // Half the pixels at 72 dpi: the screenshot shows at the size it had.
+        ImageIOCodec.setOneX(produced.url)
+        produced.steps.insert("Downscaled the 2x screenshot to 1x", at: 0)
+        return produced
+    }
+
+    private func produce(
+        _ source: URL, info: ImageInfo, sourceFormat: OutputFormat, plan: Plan, work: WorkFolder, progress: ProgressSink
+    ) async throws -> Produced {
         let target = targetFormat(for: sourceFormat, source: source, info: info, plan: plan)
         if target == .pdf {
             return try imageToPDF(source, info: info, work: work)
@@ -104,6 +119,14 @@ struct ImageEngine: Sendable {
     /// count (opaque RGBA screenshots, HEIC and WebP files that carry one).
     static func hasTransparentPixels(_ source: URL, info: ImageInfo) -> Bool {
         info.hasAlpha && ImageIOCodec.hasTransparentPixels(source)
+    }
+
+    /// "Downscale Retina screenshots": an automatic optimisation of a still 2x (144 dpi) image with
+    /// no size of its own halves its width and height, as a 1x screenshot of the same screen.
+    func halvesRetina(_ info: ImageInfo, plan: Plan) -> Bool {
+        plan.automatic && plan.operation == .optimise && plan.downscale == nil && plan.crop == nil
+            && !info.isAnimated && abs(info.dpi - 144) < 1
+            && env.value(EsclopSettings.downscaleRetinaImages)
     }
 
     /// The explicit format, else the automatic conversion lists, else the source's own format.

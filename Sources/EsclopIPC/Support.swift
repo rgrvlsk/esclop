@@ -25,12 +25,7 @@ public struct EsclopLocations: Sendable, Hashable {
     }
 
     public static func current(environment: [String: String] = ProcessInfo.processInfo.environment) -> EsclopLocations {
-        var locations: EsclopLocations
-        if let support = environment["ESCLOP_SUPPORT_DIR"], !support.isEmpty {
-            locations = EsclopLocations(support: URL(fileURLWithPath: (support as NSString).expandingTildeInPath, isDirectory: true))
-        } else {
-            locations = EsclopLocations(support: Paths.applicationSupport, pipelines: Paths.pipelines, backups: Paths.backups, logs: Paths.logs)
-        }
+        var locations = EsclopLocations(support: Paths.applicationSupport(environment: environment))
         if let pipelines = environment["ESCLOP_PIPELINES_DIR"], !pipelines.isEmpty {
             locations.pipelines = URL(fileURLWithPath: (pipelines as NSString).expandingTildeInPath, isDirectory: true)
         }
@@ -397,7 +392,7 @@ extension EsclopError {
     public var code: String {
         switch self {
         case .unsupportedFile, .leftAsIs: return "unsupportedFile"
-        case .fileNotFound: return "fileNotFound"
+        case .fileNotFound, .backupRemoved: return "fileNotFound"
         case .toolMissing: return "toolMissing"
         case .toolFailed: return "toolFailed"
         case .alreadySmaller: return "alreadySmaller"
