@@ -203,8 +203,8 @@ extension AppModel {
     }
 
     /// Shelf and upload apps L'Esclop hands files to, when installed.
-    public static let shelfApps = ["at.EternalStorms.Yoink", "at.EternalStorms.Yoink-setapp", "me.damir.dropover-mac", "com.hachipoo.Dockside"]
-    public static let uploadApps = ["net.mkswap.Dropshare5", "net.mkswap.Dropshare5-setapp"]
+    public static let shelfApps = AppPipelineHost.shelves.flatMap(\.bundleIDs)
+    public static let uploadApps = AppPipelineHost.uploadApps.flatMap(\.bundleIDs)
 
     public static func installed(_ bundleIDs: [String]) -> [URL] {
         bundleIDs.compactMap { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) }

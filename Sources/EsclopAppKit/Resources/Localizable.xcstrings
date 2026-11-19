@@ -121,6 +121,16 @@
         }
       }
     },
+    "%@ is larger than 5 GB, the most L’Esclop can upload in one go.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ passa de 5 GB, el màxim que L’Esclop pot pujar d’un sol cop."
+          }
+        }
+      }
+    },
     "%@ is missing. Reinstall L’Esclop or run Scripts/build-tools.sh.": {
       "localizations": {
         "ca": {
@@ -137,6 +147,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ ja no hi és."
+          }
+        }
+      }
+    },
+    "%@ is not installed.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ no està instal·lada."
           }
         }
       }
@@ -207,6 +227,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ s’ha aturat amb el codi %d: %@"
+          }
+        }
+      }
+    },
+    "%@ uploaded": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ s’ha pujat"
           }
         }
       }
@@ -3991,6 +4021,16 @@
         }
       }
     },
+    "Links to this endpoint do not open without the keys. Set the public link to the bucket’s public address (its r2.dev address or your own domain), with {path}.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els enllaços a aquest punt d’accés no s’obren sense les claus. Posa a l’enllaç públic l’adreça pública del bucket (la de r2.dev o el teu domini), amb {path}."
+          }
+        }
+      }
+    },
     "Long edge": {
       "localizations": {
         "ca": {
@@ -4087,6 +4127,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "L’Esclop no ha acabat d’arrencar. Torna a provar l’acció."
+          }
+        }
+      }
+    },
+    "L’Esclop does not know the app “%@”.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’Esclop no coneix l’app «%@»."
           }
         }
       }
@@ -4907,6 +4957,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Només si"
+          }
+        }
+      }
+    },
+    "Only images can be copied as image data.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Només es poden copiar com a dades d’imatge les imatges."
           }
         }
       }
@@ -6701,6 +6761,16 @@
         }
       }
     },
+    "Sending a link is not available in L’Esclop: there is no sharing service. Use upload(to:) with an upload target.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’Esclop no envia enllaços perquè no té cap servei per compartir. Fes servir upload(to:) amb un destí de pujada."
+          }
+        }
+      }
+    },
     "Set ${setting} to ${value}": {
       "localizations": {
         "ca": {
@@ -7751,6 +7821,36 @@
         }
       }
     },
+    "The step %@ failed: %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El pas %@ ha fallat: %@"
+          }
+        }
+      }
+    },
+    "The steps before it already changed the file (%@); Recent Results can put the original back.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els passos d’abans ja havien canviat el fitxer (%@); des de Resultats recents pots recuperar l’original."
+          }
+        }
+      }
+    },
+    "The test file went up, but its link answers %d: people you send it to cannot open it. Set the public link to an address that serves the bucket, with {path}.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El fitxer de prova s’ha pujat, però el seu enllaç respon %d: qui el rebi no el podrà obrir. Posa a l’enllaç públic una adreça que serveixi el bucket, amb {path}."
+          }
+        }
+      }
+    },
     "The upload target did not answer.": {
       "localizations": {
         "ca": {
@@ -7787,6 +7887,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ja hi ha un pipeline que es diu «%@»."
+          }
+        }
+      }
+    },
+    "There is no app called “%@” on this Mac.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En aquest Mac no hi ha cap app que es digui «%@»."
           }
         }
       }

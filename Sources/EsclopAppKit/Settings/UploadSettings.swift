@@ -9,7 +9,8 @@ import EsclopCore
 import EsclopIPC
 import SwiftUI
 
-/// What the Uploads pane needs besides the settings: the Keychain and a test upload.
+/// What the Uploads pane needs besides the settings: the Keychain and a test upload, whose link
+/// must also open without the keys.
 @MainActor
 public struct UploadSettingsSupport {
     public var credentials: any UploadCredentialStore
@@ -27,7 +28,15 @@ public struct UploadSettingsSupport {
             let file = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-upload-test.txt")
             try Data("L'Esclop upload test\n".utf8).write(to: file)
             defer { try? FileManager.default.removeItem(at: file) }
-            return try await S3Uploader().upload(file, to: target, key: target.key(for: file), credentials: keys)
+            let uploader = S3Uploader()
+            let key = target.key(for: file)
+            let link = try await uploader.upload(file, to: target, key: key, credentials: keys)
+            // The link the person will send must open without the keys. The test file goes after.
+            var unreachable: Error?
+            do { try await uploader.checkLink(link) } catch { unreachable = error }
+            try? await uploader.delete(key, from: target, credentials: keys)
+            if let unreachable { throw unreachable }
+            return link
         }
     }
 }
@@ -209,6 +218,12 @@ struct UploadTargetEditor: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            if problem == nil, let warning = draft.target.linkWarning {
+                Label(warning, systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(Palette.caution)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             status(problem: problem)
             HStack {
                 Button(Strings.text("Test Upload")) { test() }

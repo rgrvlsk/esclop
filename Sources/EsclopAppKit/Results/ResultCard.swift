@@ -173,3 +173,5 @@ public final class ResultCard: Identifiable {
         }
     }
 }
+
+extension ResultCard: ShowsUpload {}
