@@ -9,7 +9,7 @@ import SwiftUI
 
 /// A panel that floats without taking focus from the frontmost app, but can become key when
 /// the person clicks into it or presses "Go to the newest result", so its buttons work from the
-/// keyboard. The pointer resting on a card gives it its plain keys without that (`HoverKeys`).
+/// keyboard. The pointer resting on a card gives it its card keys without that (`HoverKeys`).
 final class FloatingPanel: NSPanel {
     init(content: NSView) {
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)

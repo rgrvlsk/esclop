@@ -70,7 +70,9 @@ final class HoverKeys {
     }
 
     /// The key that types each character in the current layout without Shift or Option (on
-    /// AZERTY the digits need Shift, so they are not held there). Space and Backspace are the same key everywhere.
+    /// AZERTY the digits need Shift, so they are not held there). ponytail: read without ⌘, so
+    /// a layout that changes with ⌘ (Dvorak – QWERTY ⌘) holds the Dvorak key. Trigger: someone
+    /// on such a layout; then translate with ⌘ for the keys that take it. Space and Backspace are the same key everywhere.
     static func keyCodes() -> [Character: UInt32] {
         var codes: [Character: UInt32] = [" ": UInt32(kVK_Space), CardKeys.delete: UInt32(kVK_Delete)]
         guard let source = TISCopyCurrentASCIICapableKeyboardLayoutInputSource()?.takeRetainedValue(),
