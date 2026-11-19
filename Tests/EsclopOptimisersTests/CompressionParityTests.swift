@@ -35,11 +35,11 @@ extension Fixture {
             space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
         ) else { throw EsclopError.other("context") }
         let colours = [(1.0, 1.0, 1.0), (0.1, 0.1, 0.1), (0.9, 0.2, 0.1), (0.1, 0.4, 0.9), (0.2, 0.7, 0.3), (1.0, 0.8, 0.1)]
-        for x in stride(from: 0, to: width, by: 5) {
-            for y in stride(from: 0, to: height, by: 3) {
-                let c = colours[(x / 5 * 7 + y / 3 * 3) % colours.count]
+        for x in stride(from: 0, to: width, by: 21) {
+            for y in stride(from: 0, to: height, by: 11) {
+                let c = colours[(x / 21 * 7 + y / 11 * 3) % colours.count]
                 context.setFillColor(CGColor(red: c.0, green: c.1, blue: c.2, alpha: 1))
-                context.fill(CGRect(x: x, y: y, width: 5, height: 3))
+                context.fill(CGRect(x: x, y: y, width: 21, height: 11))
             }
         }
         try write(context.makeImage()!, to: url, type: .jpeg, properties: [kCGImageDestinationLossyCompressionQuality: 1.0])
@@ -92,6 +92,25 @@ extension Inspect {
         let jpeg = folder.appendingPathComponent("photo.jpg")
         try Fixture.jpeg(jpeg)
         #expect(!ImageEngine.hasTransparentPixels(jpeg, info: try #require(ImageInfo.probe(jpeg))))
+    }
+
+    /// Clop's measure: the three channel histograms side by side, not one pooled histogram.
+    /// Grey with 24 evenly used values is log2(72) = 6.17 bits there, a photo, not flat (pooled
+    /// it would be log2(24) = 4.58, under the threshold of 5).
+    @Test func entropyKeepsTheChannelsApart() throws {
+        let width = 240, height = 100
+        let context = try #require(CGContext(
+            data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+        ))
+        for band in 0 ..< 24 {
+            let v = Double(band * 10) / 255
+            context.setFillColor(CGColor(srgbRed: v, green: v, blue: v, alpha: 1))
+            context.fill(CGRect(x: band * 10, y: 0, width: 10, height: height))
+        }
+        let url = try Harness.folder().appendingPathComponent("bands.png")
+        try Fixture.write(try #require(context.makeImage()), to: url, type: .png, properties: [:])
+        #expect(abs(try #require(ImageIOCodec.entropy(url)) - log2(72)) < 0.01)
     }
 
     @Test(.enabled(if: !ImageIOCodec.canWrite(UTType("public.jpeg-xl")!)))

@@ -42,6 +42,8 @@ struct Curves: Sendable {
     }
 
     /// Palette cap from 80: 224 colours, 8 fewer per step, never under 64. nil below 80.
+    /// ponytail: twin of the engine's `quality::png_colors`; sending `compression` instead would
+    /// also change the engine's deflate level. Change both together.
     var pngColors: Int? {
         factor >= 80 ? clamp(224 - (factor - 80) * 8, 64, 256) : nil
     }
