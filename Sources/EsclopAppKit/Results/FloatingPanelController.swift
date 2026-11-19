@@ -52,8 +52,13 @@ final class FloatingPanelController {
         hosting.rootView = PanelRoot(model: model) { [weak self] size in self?.contentSize = size }
         // A menu closes when the person turns to another window or app, as a system menu does.
         resignObserver = NotificationCenter.default.addObserver(forName: NSWindow.didResignKeyNotification, object: panel, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.closeMenus() }
+            MainActor.assumeIsolated {
+                self?.closeMenus()
+                // The keys went elsewhere: Esc on the card dismisses it again.
+                for card in self?.model.cards ?? [] { card.lentKeys = false }
+            }
         }
+        model.onReturnKeys = { [weak self] in self?.returnKeys() }
         swipeMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
             guard let self, event.window === self.panel else { return event }
             return self.swiped(event) ? nil : event
@@ -142,9 +147,16 @@ final class FloatingPanelController {
         layout()
         if !panel.isVisible { panel.orderFrontRegardless() }
         // "Go to the newest result": the keys come here without activating the app, as a click.
-        // ponytail: like a click, the panel keeps the keys until the cards go or the person
-        // clicks elsewhere. Trigger: people asking for a key back to the app in front.
+        // Esc, Undo, Copy or Save gives them back (`returnKeys`).
         if model.visibleCards.contains(where: \.wantsFocus) { panel.makeKey() }
+    }
+
+    /// The app in front gets its keys back and the cards stay: the panel never activated the
+    /// app, so when it stops being key the window server gives the keys to the active app again.
+    private func returnKeys() {
+        guard panel.isKeyWindow else { return }
+        panel.orderOut(nil)
+        panel.orderFrontRegardless()
     }
 
     /// The panel's frame, for the drop zone to stack above it.

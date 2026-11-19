@@ -169,7 +169,8 @@ import Testing
             let size = try render(object(card), name: name, scheme: scheme)
             #expect(size.width == Metrics.thumbnailWidth, "\(name) is a 208 pt card")
         }
-        try render(object(card(.notice(title: "Skipping the next copy", detail: "Press again to pause everything."))), name: "result-notice", scheme: scheme)
+        // One the app shows: ⌃⇧C with nothing copied.
+        try render(object(card(.notice(title: Strings.text("Nothing to optimise"), detail: Strings.text("Copy an image or a file first.")))), name: "result-notice", scheme: scheme)
     }
 
     /// The detail (pr2-detail-card): a dropped photo shows its folder, a copied screenshot goes back

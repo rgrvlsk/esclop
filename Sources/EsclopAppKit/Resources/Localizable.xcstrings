@@ -6751,6 +6751,16 @@
         }
       }
     },
+    "Set…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Assigna…"
+          }
+        }
+      }
+    },
     "Share": {
       "localizations": {
         "ca": {

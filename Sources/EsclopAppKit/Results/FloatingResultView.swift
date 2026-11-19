@@ -26,8 +26,9 @@ public struct FloatingResultView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.controlActiveState) private var activeState
     @FocusState private var focused: Bool
-    /// The pointer is on the card or its detail (the card's own hover ends with the card face).
-    @State private var pointerOver = false
+    /// Whether the pointer moved onto the card or its detail (the card's own hover ends with the
+    /// card face).
+    @State private var rest = PointerRest()
 
     public init(
         card: ResultCard, corner: ScreenCorner = .bottomRight,
@@ -60,7 +61,14 @@ public struct FloatingResultView: View {
             }
         }
         .animation(reduceMotion ? Motion.crossfade : Motion.detail, value: card.machine.level)
-        .onHover { pointerOver = $0 }
+        // Screen points: the panel and the stack move the card, the pointer only moves itself.
+        .onContinuousHover { phase in
+            if case .active = phase { rest.pointer(at: NSEvent.mouseLocation) } else { rest.reset() }
+        }
+        // A card that comes, goes or moves under a still pointer hears no leave, and one that
+        // appears under a parked pointer has not been pointed at: neither takes the keys until
+        // the pointer moves on it.
+        .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { _ in rest.reset() }
         // The resting pointer's keys: held after a short rest, given back when it leaves, and
         // while a menu, the name, the loupe or a drag has the keys.
         .task(id: hoverKeys) {
@@ -81,12 +89,13 @@ public struct FloatingResultView: View {
         .focusEffectDisabled()
         .onChange(of: focused && activeState == .key) { _, value in interact(.focus(value)) }
         // "Go to the newest result": the keys come to this card, and VoiceOver's cursor with
-        // them (it follows the keyboard focus). ponytail: no AccessibilityFocusState; it stops
-        // ImageRenderer drawing the card. Add it if VoiceOver users turn off "follows focus".
+        // them where it follows the keyboard focus; where it does not, VoiceOver says the card.
+        // ponytail: no AccessibilityFocusState; it stops ImageRenderer drawing the card.
         .onChange(of: card.wantsFocus, initial: true) { _, wants in
             guard wants else { return }
             card.wantsFocus = false
             focused = true
+            AccessibilityNotification.Announcement(info.accessibilityLabel).post()
         }
         // The detail's "…" menu takes the keys while open; they come back here when it closes.
         .onChange(of: card.machine.menuOpen) { _, open in
@@ -99,9 +108,12 @@ public struct FloatingResultView: View {
         .onKeyPress(.escape) {
             // The detail's name being edited takes its own keys.
             if Self.editingText { return .ignored }
-            // Innermost first: the popover, then the detail, then the result itself.
+            // Innermost first: the popover, then the detail, then the keys the hotkey lent (back to
+            // the app in front), then the result itself.
             if card.machine.menuOpen { interact(.menu(false)) } else if card.machine.level == .detail {
                 interact(.closeDetail)
+            } else if card.lentKeys {
+                interact(.returnKeys)
             } else {
                 perform(.dismiss)
             }
@@ -123,6 +135,9 @@ public struct FloatingResultView: View {
         .accessibilityActions {
             ForEach(Self.actions(info, level: card.machine.level), id: \.self) { action in
                 Button(action.accessibilityName) { perform(action) }
+            }
+            if CardKeys.command(for: " ", on: card) != nil {
+                Button(Strings.text("Quick Look")) { _ = press(" ") }
             }
         }
     }
@@ -155,7 +170,7 @@ public struct FloatingResultView: View {
     /// The keys the resting pointer holds for this card now: none while the pointer is away, or
     /// while the options, the "…" menu, the name, the loupe or a drag take keys of their own.
     private var hoverKeys: [Character] {
-        guard pointerOver, !keysTaken else { return [] }
+        guard rest.moved, !keysTaken else { return [] }
         return CardKeys.keys(on: card)
     }
 
@@ -170,8 +185,28 @@ public struct FloatingResultView: View {
     private func run(_ action: CardPresentation.Action, in info: CardPresentation) -> KeyPress.Result {
         guard info.actions.contains(action) else { return .ignored }
         perform(action)
+        if card.lentKeys, CardKeys.givesKeysBack(action) { interact(.returnKeys) }
         return .handled
     }
+}
+
+/// Tells a pointer that moved onto a card from a card that came to a still pointer: only the
+/// first takes the card keys (a parked pointer must not take ⌘Z from the app in front).
+struct PointerRest: Equatable {
+    private var start: CGPoint?
+    private(set) var moved = false
+
+    /// The pointer is inside, at `point` on the screen.
+    mutating func pointer(at point: CGPoint) {
+        if let start {
+            if point != start { moved = true }
+        } else {
+            start = point
+        }
+    }
+
+    /// It left, or the card moved under it: it has to move on the card again.
+    mutating func reset() { self = PointerRest() }
 }
 
 // MARK: - Parts

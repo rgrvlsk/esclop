@@ -80,6 +80,50 @@ import Testing
         #expect(keys.keys.isEmpty && keys.owner == nil)
     }
 
+    /// A card that appears or moves under a still pointer takes no keys; the pointer moving on
+    /// it does (a parked pointer must not take ⌘Z from the editor in front).
+    @Test func onlyAPointerThatMovesOnTheCardTakesTheKeys() {
+        var rest = PointerRest()
+        rest.pointer(at: CGPoint(x: 900, y: 120))
+        rest.pointer(at: CGPoint(x: 900, y: 120))
+        #expect(!rest.moved, "the card came to a parked pointer")
+        rest.pointer(at: CGPoint(x: 903, y: 121))
+        #expect(rest.moved)
+        // The stack moved the card from under it: it has to move again.
+        rest.reset()
+        rest.pointer(at: CGPoint(x: 903, y: 121))
+        #expect(!rest.moved)
+    }
+
+    /// The hotkey lends the keys; Undo, Copy or Save (and Esc, `.returnKeys`) give them back to
+    /// the app in front, and the card stays.
+    @Test func theLentKeysGoBackAfterCopy() async throws {
+        let harness = Harness()
+        harness.pasteboard.clearContents()
+        harness.pasteboard.setData(pngData(), forType: .png)
+        Hotkeys.action(for: .optimiseClipboard)(harness.model)
+        #expect(await eventually { harness.model.cards.first?.result != nil })
+        let card = try #require(harness.model.cards.first)
+        var returned = 0
+        harness.model.onReturnKeys = { returned += 1 }
+        Hotkeys.action(for: .focusNewestResult)(harness.model)
+        #expect(card.lentKeys)
+        #expect(harness.model.press("f", on: card), "Show in Finder keeps the keys")
+        #expect(card.lentKeys && returned == 0)
+        #expect(harness.model.press("c", on: card))
+        #expect(!card.lentKeys && returned == 1)
+        Hotkeys.action(for: .focusNewestResult)(harness.model)
+        harness.model.interact(card, .returnKeys)
+        #expect(!card.lentKeys && returned == 2)
+        #expect(harness.model.cards.contains { $0 === card })
+    }
+
+    @Test func buttonsNameTheirKey() {
+        #expect(CardKeys.help(for: .undo) == CardPresentation.Action.undo.accessibilityName + "  ⌘Z")
+        #expect(CardKeys.help(for: .dismiss).hasSuffix("⌘⌫"))
+        #expect(CardKeys.help(for: .share) == CardPresentation.Action.share.accessibilityName)
+    }
+
     @Test func goToTheNewestResultIsInSettingsWithNoKey() {
         #expect(KeyboardShortcuts.Name.focusNewestResult.defaultShortcut == nil)
         #expect(Hotkeys.all.map(\.name).contains(.focusNewestResult))
