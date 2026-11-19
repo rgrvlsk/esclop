@@ -19,6 +19,9 @@ public struct LoupeState: Equatable, Sendable {
     public var original = false
     /// The button is down: the other side shows until it is released.
     public var pressed = false
+    /// One of the two files could not be decoded: there is nothing true to show, so the lens
+    /// goes and the hint says why.
+    public var unreadable = false
 
     public var showsOriginal: Bool { original != pressed }
 
@@ -28,6 +31,7 @@ public struct LoupeState: Equatable, Sendable {
 
     /// What the hint under the picture says.
     var hint: String {
+        if unreadable { return Strings.text("Can’t read one of the files") }
         switch (pressed, showsOriginal) {
         case (true, true): return Strings.text("Release to see optimised")
         case (true, false): return Strings.text("Release to see original")
@@ -140,16 +144,22 @@ struct Loupe: View {
                     .gesture(press)
                     .onChange(of: held) { _, down in
                         if down { pressedAt = Date() }
-                        card.loupe?.pressed = down
+                        // Until both files are decoded there is no other side to show.
+                        card.loupe?.pressed = down && images != nil
                     }
-                lens(geometry, point: point)
-                    .allowsHitTesting(false)
+                if card.loupe?.unreadable != true {
+                    lens(geometry, point: point)
+                        .allowsHitTesting(false)
+                }
             }
             .onAppear { listen(size: proxy.size) }
         }
         .task(id: after) {
             let sides = await Self.load(before: before, after: after)
-            if !Task.isCancelled { images = sides }
+            guard !Task.isCancelled else { return }
+            images = sides
+            // Never the same picture under both labels.
+            if sides == nil { card.loupe?.unreadable = true }
         }
         .onDisappear { keys.stop() }
     }
@@ -217,7 +227,7 @@ struct Loupe: View {
             .onChanged { value in pointer = value.location }
             .onEnded { value in
                 let moved = hypot(value.location.x - value.startLocation.x, value.location.y - value.startLocation.y)
-                if LoupeState.isClick(held: Date().timeIntervalSince(pressedAt), moved: moved) { card.loupe?.original.toggle() }
+                if images != nil, LoupeState.isClick(held: Date().timeIntervalSince(pressedAt), moved: moved) { card.loupe?.original.toggle() }
             }
     }
 
@@ -229,7 +239,7 @@ struct Loupe: View {
             switch code {
             case 49:
                 // A held Space would flicker.
-                if !repeated { card.loupe?.original.toggle() }
+                if !repeated, images != nil { card.loupe?.original.toggle() }
             case 36, 76, 53:
                 if !repeated { card.loupe = nil }
             case 123, 124, 125, 126:
@@ -278,38 +288,47 @@ struct Loupe: View {
 }
 
 /// Under the picture while the loupe is on, in place of the action row and at its height, so
-/// nothing in the detail moves: what a click or a hold does, and Done.
+/// nothing in the detail moves: the way to the Compare window (split, difference, zoom), what a
+/// click or a hold does, and Done.
 struct LoupeHint: View {
     let state: LoupeState
+    let window: () -> Void
     let done: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
-            // Done's twin, unseen, so the hint sits in the middle of the card.
-            doneButton(Strings.text("Done")).hidden().accessibilityHidden(true)
-            Spacer(minLength: 0)
-            Text(state.hint)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Ink.text)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-                .padding(.horizontal, 16)
-                .frame(height: 34)
-                .background(Capsule().fill(Surface.tile))
-                .overlay(Capsule().strokeBorder(Ink.secondary.opacity(0.18), lineWidth: 0.5))
-                .accessibilityAddTraits(.updatesFrequently)
-            Spacer(minLength: 0)
-            doneButton(Strings.text("Done"))
+            Button(action: window) { PillButton.face("arrow.up.left.and.arrow.down.right", size: 30, glyph: 0.4).contentShape(Circle()) }
+                .buttonStyle(PressScale())
+                .help(Strings.text("Compare in a window"))
+                .accessibilityLabel(Strings.text("Compare in a window"))
+            // The hint takes the room between the two ends, so the Catalan fits whole.
+            HStack(spacing: 6) {
+                if state.unreadable {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Ink.error)
+                        .accessibilityHidden(true)
+                }
+                Text(state.hint)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Ink.text)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity)
+            .frame(height: 34)
+            .background(Capsule().fill(Surface.tile))
+            .overlay(Capsule().strokeBorder(Ink.secondary.opacity(0.18), lineWidth: 0.5))
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.updatesFrequently)
+            Button(Strings.text("Done"), action: done)
+                .font(Typeface.label.weight(.semibold))
+                .foregroundStyle(Ink.charcoalText)
+                .buttonStyle(.plain)
+                .fixedSize()
                 .help(Strings.text("End the comparison"))
         }
         .frame(maxHeight: .infinity)
-    }
-
-    private func doneButton(_ title: String) -> some View {
-        Button(title, action: done)
-            .font(Typeface.label.weight(.semibold))
-            .foregroundStyle(Ink.charcoalText)
-            .buttonStyle(.plain)
-            .fixedSize()
     }
 }

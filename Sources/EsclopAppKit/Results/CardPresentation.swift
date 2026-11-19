@@ -257,6 +257,8 @@ public struct CardPresentation: Equatable, Sendable {
             actions = Self.distinct([.openDetail] + tools + [.reveal, .copy, .dismiss])
             accessibilityLabel = f("%@, already optimised, kept the original", name)
         case let .restored(result):
+            // ponytail: Undo that moved an edited file to the Trash should add "Your edited
+            // version is in the Trash". Trigger: RestoreOutcome.movedToTrash (PR #53) on main.
             fileName = card.displayName ?? result.source.lastPathComponent
             capsule = .status(symbol: "arrow.uturn.backward", text: f("Original restored · %@", Figures.bytes(result.bytesBefore, locale: locale)))
             headline = t("Original restored")
