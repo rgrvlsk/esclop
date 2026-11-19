@@ -22,6 +22,8 @@ struct ImageInfo: Sendable {
     var frameCount: Int
     var hasGainMap: Bool
     var bitDepth: Int
+    /// Pixels per inch; 72 when the file does not say. 144 is a 2x (Retina) screenshot.
+    var dpi: Double = 72
 
     var isAnimated: Bool { frameCount > 1 }
 
@@ -39,12 +41,91 @@ struct ImageInfo: Sendable {
             hasAlpha: properties[kCGImagePropertyHasAlpha] as? Bool ?? false,
             frameCount: CGImageSourceGetCount(source),
             hasGainMap: ImageIOCodec.gainMapType(source) != nil,
-            bitDepth: properties[kCGImagePropertyDepth] as? Int ?? 8
+            bitDepth: properties[kCGImagePropertyDepth] as? Int ?? 8,
+            dpi: (properties[kCGImagePropertyDPIWidth] as? NSNumber)?.doubleValue ?? 72
         )
     }
 }
 
 enum ImageIOCodec {
+    /// Sets the density of a PNG, JPEG or TIFF to 72 dpi without re-encoding it: a PNG's `pHYs`
+    /// and the resolution in its `eXIf`, else the resolution tags through ImageIO.
+    /// ponytail: HEIC, WebP and BMP keep their density (ImageIO cannot rewrite it without
+    /// re-encoding); a 2x screenshot in those formats is rare.
+    static func setOneX(_ url: URL) {
+        guard var data = try? Data(contentsOf: url) else { return }
+        guard data.starts(with: [0x89, 0x50, 0x4E, 0x47]) else { return setOneXThroughImageIO(url) }
+        var offset = 8
+        var changed = false
+        while offset + 12 <= data.count {
+            let length = data[offset ..< offset + 4].reduce(0) { $0 << 8 | Int($1) }
+            let name = String(decoding: data[offset + 4 ..< offset + 8], as: UTF8.self)
+            guard name != "IDAT", offset + 12 + length <= data.count else { break }
+            let body = offset + 8 ..< offset + 8 + length
+            if name == "pHYs", length == 9 {
+                // 2835 pixels per metre in x and y: 72 dpi.
+                data.replaceSubrange(body, with: [0, 0, 0x0B, 0x13, 0, 0, 0x0B, 0x13, 1])
+                changed = true
+            } else if name == "eXIf" {
+                var exif = Data(data[body])
+                if setTIFFResolution72(&exif) { data.replaceSubrange(body, with: exif); changed = true }
+            }
+            let crc = crc32(data[offset + 4 ..< body.upperBound])
+            data.replaceSubrange(body.upperBound ..< body.upperBound + 4, with: withUnsafeBytes(of: crc.bigEndian, Array.init))
+            offset += 12 + length
+        }
+        if changed { try? data.write(to: url, options: .atomic) }
+    }
+
+    /// XResolution and YResolution of a TIFF/EXIF block's first directory set to 72/1, in place.
+    static func setTIFFResolution72(_ tiff: inout Data) -> Bool {
+        guard tiff.count >= 8 else { return false }
+        let little = tiff[0] == 0x49
+        func read(_ at: Int, _ size: Int) -> Int? {
+            guard at >= 0, at + size <= tiff.count else { return nil }
+            let bytes = tiff[at ..< at + size]
+            return (little ? bytes.reversed() : Array(bytes)).reduce(0) { $0 << 8 | Int($1) }
+        }
+        func write32(_ value: UInt32, at: Int) {
+            tiff.replaceSubrange(at ..< at + 4, with: withUnsafeBytes(of: little ? value.littleEndian : value.bigEndian, Array.init))
+        }
+        guard let ifd = read(4, 4), let count = read(ifd, 2) else { return false }
+        var changed = false
+        for index in 0 ..< count {
+            let entry = ifd + 2 + index * 12
+            guard let tag = read(entry, 2), let type = read(entry + 2, 2), let value = read(entry + 8, 4) else { break }
+            guard tag == 0x011A || tag == 0x011B, type == 5, value + 8 <= tiff.count else { continue }
+            write32(72, at: value)
+            write32(1, at: value + 4)
+            changed = true
+        }
+        return changed
+    }
+
+    private static func setOneXThroughImageIO(_ url: URL) {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil), let type = CGImageSourceGetType(source) else { return }
+        let staging = url.deletingLastPathComponent().appendingPathComponent(".\(url.lastPathComponent).dpi")
+        guard let destination = CGImageDestinationCreateWithURL(staging as CFURL, type, 1, nil) else { return }
+        let metadata = CGImageMetadataCreateMutable()
+        for (key, value) in [(kCGImagePropertyTIFFXResolution, "72"), (kCGImagePropertyTIFFYResolution, "72"), (kCGImagePropertyTIFFResolutionUnit, "2")] {
+            CGImageMetadataSetValueMatchingImageProperty(metadata, kCGImagePropertyTIFFDictionary, key, value as CFString)
+        }
+        let options = [kCGImageDestinationMetadata: metadata, kCGImageDestinationMergeMetadata: true] as CFDictionary
+        if CGImageDestinationCopyImageSource(destination, source, options, nil) {
+            _ = try? FileManager.default.replaceItemAt(url, withItemAt: staging)
+        }
+        try? FileManager.default.removeItem(at: staging)
+    }
+
+    static func crc32(_ bytes: Data) -> UInt32 {
+        var crc: UInt32 = 0xFFFF_FFFF
+        for byte in bytes {
+            crc ^= UInt32(byte)
+            for _ in 0 ..< 8 { crc = crc & 1 == 1 ? (crc >> 1) ^ 0xEDB8_8320 : crc >> 1 }
+        }
+        return ~crc
+    }
+
     /// Formats the system can write.
     static func canWrite(_ type: UTType) -> Bool {
         let identifiers = CGImageDestinationCopyTypeIdentifiers() as? [String] ?? []
@@ -117,7 +198,9 @@ enum ImageIOCodec {
         }
         if let quality { properties[kCGImageDestinationLossyCompressionQuality] = quality }
         if type == .tiff {
-            properties[kCGImagePropertyTIFFDictionary] = [kCGImagePropertyTIFFCompression: 5] // LZW
+            var tiff = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any] ?? [:]
+            tiff[kCGImagePropertyTIFFCompression] = 5 // LZW
+            properties[kCGImagePropertyTIFFDictionary] = tiff
         }
         CGImageDestinationAddImage(destination, image, properties as CFDictionary)
         guard CGImageDestinationFinalize(destination) else {
@@ -126,10 +209,11 @@ enum ImageIOCodec {
     }
 
     /// Decodes anything macOS reads (HEIC, JPEG XL, AVIF, TIFF...) to an upright PNG the engine
-    /// can take.
-    static func decodeToPNG(_ source: URL, to url: URL) throws {
+    /// can take, with the EXIF (GPS included) in its eXIf chunk unless `strip`, so the engine
+    /// carries it into WebP and AVIF.
+    static func decodeToPNG(_ source: URL, to url: URL, strip: Bool) throws {
         let image = try uprightImage(source)
-        try write(image, to: url, type: .png, quality: nil, metadataFrom: nil, strip: true)
+        try write(image, to: url, type: .png, quality: nil, metadataFrom: source, strip: strip)
     }
 
     /// Rewrites metadata without re-encoding pixels (JPEG, PNG, TIFF, HEIC): drops EXIF, GPS,
@@ -167,21 +251,40 @@ enum ImageIOCodec {
         return types.first { CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, $0) != nil }
     }
 
-    /// Re-encodes at the same size, carrying the gain map across. JPEG and HEIC hold gain maps.
-    static func reencodeKeepingGainMap(_ url: URL, to output: URL, type: UTType, quality: Double, strip: Bool) throws {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-              let destination = CGImageDestinationCreateWithURL(output as CFURL, type.identifier as CFString, 1, nil)
-        else { throw EsclopError.unsupportedFile(url.lastPathComponent) }
-        var properties: [CFString: Any] = [kCGImageDestinationLossyCompressionQuality: quality]
-        if strip {
-            let original = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
-            properties[kCGImagePropertyExifDictionary] = kCFNull
-            properties[kCGImagePropertyGPSDictionary] = kCFNull
-            properties[kCGImagePropertyIPTCDictionary] = kCFNull
-            properties[kCGImagePropertyOrientation] = original?[kCGImagePropertyOrientation] ?? 1
+    /// Re-encodes every image at the same size (all pages of a multi-page TIFF, LZW), carrying
+    /// the gain map across when `keepGainMap`. JPEG and HEIC hold gain maps.
+    static func reencode(_ url: URL, to output: URL, type: UTType, quality: Double, strip: Bool, keepGainMap: Bool) throws {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { throw EsclopError.unsupportedFile(url.lastPathComponent) }
+        let count = CGImageSourceGetCount(source)
+        guard let destination = CGImageDestinationCreateWithURL(output as CFURL, type.identifier as CFString, count, nil) else {
+            throw EsclopError.unsupportedFile(url.lastPathComponent)
         }
-        CGImageDestinationAddImageFromSource(destination, source, 0, properties as CFDictionary)
-        if let auxType = gainMapType(source), let aux = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, auxType) {
+        for index in 0 ..< count {
+            let original = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any]
+            var properties: [CFString: Any] = [kCGImageDestinationLossyCompressionQuality: quality]
+            if strip {
+                properties[kCGImagePropertyExifDictionary] = kCFNull
+                properties[kCGImagePropertyGPSDictionary] = kCFNull
+                properties[kCGImagePropertyIPTCDictionary] = kCFNull
+                properties[kCGImagePropertyOrientation] = original?[kCGImagePropertyOrientation] ?? 1
+            }
+            if type == .tiff {
+                var tiff = original?[kCGImagePropertyTIFFDictionary] as? [CFString: Any] ?? [:]
+                tiff[kCGImagePropertyTIFFCompression] = 5 // LZW
+                if strip {
+                    // ponytail: TIFF text tags only; an XMP packet in a multi-page TIFF may stay.
+                    // Rewrite with CGImageDestinationCopyImageSource (as `stripMetadata`) if one does.
+                    for tag in [
+                        kCGImagePropertyTIFFArtist, kCGImagePropertyTIFFCopyright, kCGImagePropertyTIFFDateTime,
+                        kCGImagePropertyTIFFDocumentName, kCGImagePropertyTIFFHostComputer, kCGImagePropertyTIFFImageDescription,
+                        kCGImagePropertyTIFFMake, kCGImagePropertyTIFFModel, kCGImagePropertyTIFFSoftware,
+                    ] { tiff[tag] = kCFNull }
+                }
+                properties[kCGImagePropertyTIFFDictionary] = tiff
+            }
+            CGImageDestinationAddImageFromSource(destination, source, index, properties as CFDictionary)
+        }
+        if keepGainMap, let auxType = gainMapType(source), let aux = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, auxType) {
             CGImageDestinationAddAuxiliaryDataInfo(destination, auxType, aux)
         }
         guard CGImageDestinationFinalize(destination) else {

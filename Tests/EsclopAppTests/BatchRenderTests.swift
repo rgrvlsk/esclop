@@ -14,10 +14,17 @@ import Testing
 @Suite struct BatchRenderTests {
     let snapshots = OptionsRenderTests()
 
+    /// A backup that exists, so Restore shows as it would.
+    static let backup: URL = {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-render-backup")
+        FileManager.default.createFile(atPath: url.path, contents: Data())
+        return url
+    }()
+
     func result(_ name: String, before: Int, after: Int) -> OptimisationResult {
         let url = URL(fileURLWithPath: "/tmp/Holiday/\(name)")
         return OptimisationResult(
-            source: url, output: url, backup: URL(fileURLWithPath: "/tmp/backup"), kind: MediaKind.of(url) ?? .image,
+            source: url, output: url, backup: Self.backup, kind: MediaKind.of(url) ?? .image,
             bytesBefore: before, bytesAfter: after, startedAt: Date(), finishedAt: Date()
         )
     }
@@ -59,5 +66,9 @@ import Testing
         try await snapshots.snapshot(BatchView(batch: restored, app: harness.model).frame(width: 560, height: 420), name: "batch-restored", scheme: scheme)
         let finished = BatchView(batch: batch(running: false), app: harness.model).frame(width: 560, height: 520)
         try await snapshots.snapshot(finished, name: "batch-finished", scheme: scheme)
+        // A Restore that failed: the row keeps its saving and says why.
+        let failedRestore = batch(running: false)
+        failedRestore.rows[0].restoreError = CardPresentation.message(for: EsclopError.backupRemoved(file: "/tmp/Holiday/Beach 01.jpg", afterDays: 7))
+        try await snapshots.snapshot(BatchView(batch: failedRestore, app: harness.model).frame(width: 560, height: 520), name: "batch-restore-failed", scheme: scheme)
     }
 }

@@ -305,7 +305,7 @@ final class LockedArray: @unchecked Sendable {
 @Suite struct BackupTests {
     @Test func backUpRestoreAndPrune() throws {
         let folder = try scratchFolder()
-        let store = BackupStore(root: folder.appendingPathComponent("backups"))
+        var store = BackupStore(root: folder.appendingPathComponent("backups"))
         let original = folder.appendingPathComponent("photo.png")
         try Data("original".utf8).write(to: original)
 
@@ -322,13 +322,49 @@ final class LockedArray: @unchecked Sendable {
         try FileManager.default.removeItem(at: original)
         let updated = try store.setOutput(output, for: entry)
         #expect(store.latest(for: output)?.id == entry.id)
-        try store.restore(updated)
+        let trash = try scratchFolder()
+        store.trash = { url in
+            let moved = trash.appendingPathComponent(url.lastPathComponent)
+            try FileManager.default.moveItem(at: url, to: moved)
+            return moved
+        }
+        let result = OptimisationResult(
+            source: original, output: output, backup: updated.backup, kind: .image,
+            bytesBefore: 8, bytesAfter: 9, startedAt: Date(), finishedAt: Date()
+        )
+        let report = try store.restore(result)
         #expect(try String(contentsOf: original, encoding: .utf8) == "original")
         #expect(!FileManager.default.fileExists(atPath: output.path))
+        #expect(report.trashed == [trash.appendingPathComponent("photo.jpeg")], "the converted copy goes to the Trash")
 
         #expect(store.prune(olderThan: 7) == 0)
         #expect(store.prune(olderThan: 1, now: Date().addingTimeInterval(3 * 86400)) == 1)
         #expect(store.entries().isEmpty)
+    }
+
+    /// The Trash refuses: nothing is deleted for good. A converted copy stays where it is, and an
+    /// edited file at the source path stops the restore.
+    @Test func whenTheTrashRefusesNothingIsDeleted() throws {
+        let folder = try scratchFolder()
+        var store = BackupStore(root: folder.appendingPathComponent("backups"))
+        store.trash = { _ in throw CocoaError(.fileWriteNoPermission) }
+        let original = folder.appendingPathComponent("photo.png")
+        try Data("original".utf8).write(to: original)
+        let entry = try store.backUp(original)
+        let output = folder.appendingPathComponent("photo.jpeg")
+        try Data("optimised".utf8).write(to: output)
+        try FileManager.default.removeItem(at: original)
+        let converted = OptimisationResult(source: original, output: output, backup: entry.backup, kind: .image, bytesBefore: 8, bytesAfter: 9, startedAt: Date(), finishedAt: Date())
+        let report = try store.restore(converted)
+        #expect(try String(contentsOf: original, encoding: .utf8) == "original")
+        #expect(report.leftInPlace == output)
+        #expect(try String(contentsOf: output, encoding: .utf8) == "optimised", "still there")
+
+        try Data("edited later".utf8).write(to: original)
+        let inPlace = OptimisationResult(source: original, output: original, backup: entry.backup, kind: .image, bytesBefore: 8, bytesAfter: 9, startedAt: Date(), finishedAt: Date())
+        #expect(throws: EsclopError.self) { try store.restore(inPlace) }
+        #expect(try String(contentsOf: original, encoding: .utf8) == "edited later", "the edit is kept")
+        #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path).filter { $0.contains("esclop-restore") }.isEmpty)
     }
 
     @Test func optimisedMark() throws {

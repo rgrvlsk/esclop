@@ -199,6 +199,50 @@ import Testing
         #expect(try Data(contentsOf: original).count == 5000)
     }
 
+    /// A file that happens to have the old staging name, or another restore's, is not touched.
+    @Test func restoreStagesUnderANameOfItsOwn() async throws {
+        let temp = TempDir()
+        let original = temp.file("photo.jpg", bytes: 100)
+        let bystander = temp.file(".photo.jpg.esclop-restore", bytes: 7)
+        let backup = temp.file("backups/photo.jpg", bytes: 5000)
+        let result = OptimisationResult(source: original, output: original, backup: backup, kind: .image, bytesBefore: 5000, bytesAfter: 100, startedAt: Date(), finishedAt: Date())
+        _ = try await makeService(temp, origin: .cli).restoreBackup(of: result, deleteBackup: false)
+        #expect(try Data(contentsOf: original).count == 5000)
+        #expect(try Data(contentsOf: bystander).count == 7)
+        let left = try FileManager.default.contentsOfDirectory(atPath: temp.url.path).filter { $0.contains("esclop-restore") }
+        #expect(left == [".photo.jpg.esclop-restore"], "no staging file of its own is left behind")
+    }
+
+    /// Edited after it was optimised: the edit goes to the Trash, not into nothing.
+    @Test func restoreSetsAnEditedFileAsideInTheTrash() async throws {
+        let temp = TempDir()
+        let original = temp.file("photo.jpg", bytes: 100)
+        let backup = temp.file("backups/photo.jpg", bytes: 5000)
+        let service = makeService(temp, origin: .cli)
+        service.results.append([OptimisationResult(source: original, output: original, backup: backup, kind: .image, bytesBefore: 5000, bytesAfter: 100, startedAt: Date(), finishedAt: Date())])
+        try Data(repeating: 1, count: 300).write(to: original)
+        let outcome = try await service.restoreBackup(for: original, deleteBackup: false)
+        #expect(try Data(contentsOf: original).count == 5000)
+        let trashed = try #require(outcome.movedToTrash?.first)
+        defer { try? FileManager.default.removeItem(atPath: trashed) }
+        #expect(try Data(contentsOf: URL(fileURLWithPath: trashed)).count == 300, "the edit is in the Trash")
+    }
+
+    /// The backup was pruned: the message says so, not "it was not changed in place".
+    @Test func aPrunedBackupSaysWhenItWasRemoved() async throws {
+        let temp = TempDir()
+        let original = temp.file("photo.jpg", bytes: 100)
+        let gone = temp.url.appendingPathComponent("backups/photo.jpg")
+        let service = makeService(temp, origin: .cli)
+        let old = Date().addingTimeInterval(-8 * 86400)
+        let expired = OptimisationResult(source: original, output: original, backup: gone, kind: .image, bytesBefore: 5000, bytesAfter: 100, startedAt: old, finishedAt: old)
+        await #expect(throws: EsclopError.backupRemoved(file: original.path, afterDays: 7)) { _ = try await service.restoreBackup(of: expired, deleteBackup: false) }
+        var recent = expired
+        recent.finishedAt = Date()
+        await #expect(throws: EsclopError.backupRemoved(file: original.path, afterDays: nil)) { _ = try await service.restoreBackup(of: recent, deleteBackup: false) }
+        #expect(EsclopError.backupRemoved(file: original.path, afterDays: 7).code == "fileNotFound", "agents see the code the tool documents")
+    }
+
     @Test func statusReportsPermissionsAndRoute() async {
         let temp = TempDir()
         let status = await makeService(temp, origin: .mcp, allow: [.allowDeleteBackups]).status()

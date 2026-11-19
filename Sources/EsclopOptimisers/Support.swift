@@ -195,15 +195,17 @@ enum ResultWriter {
         {
             ext = source.pathExtension
         }
-        let destination = request.location.destination(
+        let location = Self.location(for: request, source: source, kind: kind, extension: ext, env: env)
+        let destination = location.destination(
             for: source, extension: ext,
             sameFolderTemplate: env.value(EsclopSettings.sameFolderNameTemplate),
             temporaryRoot: Paths.temporary
         )
+        if case .path = location { try OutputLocation.checkExtension(of: destination, matches: ext) }
         let sourcePath = source.standardizedFileURL.path
         let replacesSource = destination.standardizedFileURL.path == sourcePath
         // A template can resolve to the source itself; that is an in-place write too.
-        let inPlace = request.location == .inPlace || replacesSource
+        let inPlace = location == .inPlace || replacesSource
         if inPlace, request.origin == .mcp, !env.value(EsclopSettings.allowOverwriteOriginals) {
             throw EsclopError.notPermitted(Self.agentOverwriteMessage)
         }
@@ -213,8 +215,8 @@ enum ResultWriter {
             backup = try env.backups.backUp(source, requestID: request.id)
         }
         if !replacesSource, fm.fileExists(atPath: destination.path) {
-            // Whatever is about to be overwritten (a sibling with the new extension, a file a
-            // template names) is kept too. No backup, no overwrite.
+            // A file a template names is about to be overwritten: it is kept too. No backup, no
+            // overwrite. (In place, a sibling with the new extension is never replaced.)
             try env.backups.backUp(destination, requestID: request.id)
         }
 
@@ -239,7 +241,7 @@ enum ResultWriter {
         }
 
         // In place with a new extension: the converted file replaces the original.
-        if request.location == .inPlace, !replacesSource, fm.fileExists(atPath: sourcePath) {
+        if location == .inPlace, !replacesSource, fm.fileExists(atPath: sourcePath) {
             try fm.removeItem(at: source)
         }
 
@@ -259,6 +261,14 @@ enum ResultWriter {
         )
     }
 
+    /// The request's location, except for a result in another format (`ext` differs from the
+    /// source's) when the location came from the settings: then "Converted … go" for `kind`.
+    static func location(for request: OptimisationRequest, source: URL, kind: MediaKind, extension ext: String, env: EngineEnvironment) -> OutputLocation {
+        guard request.locationFromSettings == true, ext.lowercased() != source.pathExtension.lowercased() else { return request.location }
+        return env.value(EsclopSettings.convertedBehaviour(for: kind))
+            .location(specificFolder: env.value(EsclopSettings.specificFolderTemplate))
+    }
+
     static let agentOverwriteMessage =
         "agents may not overwrite originals. Choose another output location, or allow it in Settings → Agents and MCP (esclop://settings/agents/allowOverwriteOriginals)"
 
@@ -276,8 +286,9 @@ enum ResultWriter {
     }
 }
 
-/// Applies `backupRetentionDays` at most once an hour per process, after a new backup.
-enum BackupPruner {
+/// Applies `backupRetentionDays` at most once an hour per process, after a new backup, and once
+/// at app launch.
+public enum BackupPruner {
     private static let lock = NSLock()
     nonisolated(unsafe) private static var last: [String: Date] = [:]
 
@@ -294,6 +305,24 @@ enum BackupPruner {
         DispatchQueue.global(qos: .utility).async {
             let removed = backups.prune(olderThan: days)
             if removed > 0 { Log.backups.info("Pruned \(removed) backups older than \(days) days") }
+        }
+    }
+
+    /// At launch, so old originals go even when no new in-place job runs: backups older than
+    /// `days`, and copied images in `clipboard` not touched for as long. Blocks; call it off the
+    /// main actor. 0 days keeps everything.
+    // ponytail: "keep backups forever" keeps the copied images forever too, since a restore needs
+    // them; give the clipboard folder its own limit if someone keeps backups forever and it grows.
+    public static func pruneAtLaunch(days: Int, backups: BackupStore, clipboard: URL = Clipboard.folder, now: Date = Date()) {
+        guard days > 0 else { return }
+        let removed = backups.prune(olderThan: days, now: now)
+        if removed > 0 { Log.backups.info("Pruned \(removed) backups older than \(days) days") }
+        let cutoff = now.addingTimeInterval(-Double(days) * 86400)
+        let fm = FileManager.default
+        // One folder per copy; its date moves when the image in it is optimised again.
+        for folder in (try? fm.contentsOfDirectory(at: clipboard, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+        where ((try? folder.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? now) < cutoff {
+            try? fm.removeItem(at: folder)
         }
     }
 }
