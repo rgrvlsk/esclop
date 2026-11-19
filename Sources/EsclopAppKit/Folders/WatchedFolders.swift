@@ -75,6 +75,12 @@ public final class WatchedFolders {
         let kind: MediaKind
     }
 
+    /// The batch a burst's files share, opened by its first file that is optimised: a burst
+    /// that goes to a pipeline or is skipped opens no window.
+    private final class BurstBatch {
+        var batch: Batch?
+    }
+
     public init(model: AppModel, pipelines: @escaping () -> [Pipeline]) {
         self.model = model
         self.pipelines = pipelines
@@ -201,7 +207,7 @@ public final class WatchedFolders {
     /// Each file waits for itself alone: one still being written holds no other. A burst the
     /// size of a batch shares one batch window, as dropped files do; rows join as files start.
     private func start(_ files: [URL]) {
-        let batch = files.count >= model.batchThreshold ? model.openBatch(origin: .watchedFolder) : nil
+        let batch = files.count >= model.batchThreshold ? BurstBatch() : nil
         for file in files {
             Task { [weak self] in await self?.process(file, batch: batch) }
         }
@@ -209,7 +215,7 @@ public final class WatchedFolders {
 
     /// Settles one file, decides it again (it may have been optimised or replaced meanwhile) and
     /// runs its job; the file stays in flight until the job is done.
-    private func process(_ file: URL, batch: Batch?) async {
+    private func process(_ file: URL, batch: BurstBatch?) async {
         defer { inFlight.remove(file.path) }
         let settled = await settle(file)
         guard !model.paused else { return }
@@ -226,7 +232,8 @@ public final class WatchedFolders {
         )
         switch decision {
         case .optimise:
-            await model.run(model.factory.job(for: file, origin: .watchedFolder), batch: batch)
+            if let batch, batch.batch == nil { batch.batch = model.openBatch(origin: .watchedFolder) }
+            await model.run(model.factory.job(for: file, origin: .watchedFolder), batch: batch?.batch)
         case let .pipeline(name, _): await model.runPipeline(name, onWatched: file)
         case .skip: return
         }

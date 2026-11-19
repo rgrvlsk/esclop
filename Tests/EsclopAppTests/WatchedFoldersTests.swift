@@ -426,6 +426,29 @@ final class Flag: @unchecked Sendable {
         rig.folders.stop()
     }
 
+    /// A batch-sized burst opens the batch window only for files it optimises, and bursts that
+    /// close together share it.
+    @Test func burstsShareOneBatchAndPipelinesOpenNone() async throws {
+        let piped = TempDir()
+        let other = TempDir()
+        let out = TempDir()
+        let pipeline = Pipeline(
+            name: "copy out", triggers: [.folder(piped.url.path)],
+            sections: [PipelineSection(kind: .image, steps: [.copy(to: out.url.path)])]
+        )
+        let rig = try Rig(pipelines: [pipeline], alsoWatching: [other.url.path])
+        for index in 1 ... 4 { try pngData().write(to: piped.url.appendingPathComponent("p \(index).png"), options: .atomic) }
+        #expect(await eventually { (try? FileManager.default.contentsOfDirectory(atPath: out.url.path).count) == 4 })
+        #expect(rig.harness.model.batch == nil, "a pipeline burst opens no batch window")
+        for index in 1 ... 4 {
+            _ = rig.land("a \(index).png")
+            _ = rig.land("b \(index).png", in: other.url)
+        }
+        #expect(await eventually { rig.harness.requests.requests.count == 8 })
+        #expect(rig.harness.model.batch?.rows.count == 8, "two bursts at once, one batch")
+        rig.folders.stop()
+    }
+
     @Test func savingAPipelineWithAFolderTriggerStartsWatchingIt() throws {
         let rig = try Rig()
         let other = TempDir()
