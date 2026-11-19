@@ -30,7 +30,7 @@ struct Optimise: AsyncParsableCommand {
     @Flag(name: .customLong("remove-audio"), help: "Videos: drop the audio track.")
     var removeAudio = false
 
-    @Option(name: .customLong("playback-speed-factor"), help: "Videos: speed factor, 2 is twice as fast.")
+    @Option(name: .customLong("playback-speed-factor"), help: "Videos and audio: speed factor, 2 is twice as fast.")
     var playbackSpeedFactor: Double?
 
     func validate() throws {
@@ -49,9 +49,9 @@ struct Optimise: AsyncParsableCommand {
             request.pdfDPI = pdfDPI
             request.removeAudio = removeAudio
             request.playbackSpeed = playbackSpeedFactor
-            if pdfDPI != nil { noteFlag("--pdf-dpi", appliesTo: .pdf, "PDFs", sources: request.sources) }
-            if removeAudio { noteFlag("--remove-audio", appliesTo: .video, "videos", sources: request.sources) }
-            if playbackSpeedFactor != nil { noteFlag("--playback-speed-factor", appliesTo: .video, "videos", sources: request.sources) }
+            if pdfDPI != nil { noteFlag("--pdf-dpi", appliesTo: [.pdf], "PDFs", sources: request.sources) }
+            if removeAudio { noteFlag("--remove-audio", appliesTo: [.video], "videos", sources: request.sources) }
+            if playbackSpeedFactor != nil { noteFlag("--playback-speed-factor", appliesTo: [.video, .audio], "videos and audio", sources: request.sources) }
         }
     }
 }

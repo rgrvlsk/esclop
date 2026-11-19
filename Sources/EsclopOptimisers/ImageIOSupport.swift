@@ -48,6 +48,83 @@ struct ImageInfo: Sendable {
 }
 
 enum ImageIOCodec {
+    /// Sets the density of a PNG, JPEG or TIFF to 72 dpi without re-encoding it: a PNG's `pHYs`
+    /// and the resolution in its `eXIf`, else the resolution tags through ImageIO.
+    /// ponytail: HEIC and WebP keep their density; a 2x screenshot in those formats is rare.
+    static func setOneX(_ url: URL) {
+        guard var data = try? Data(contentsOf: url) else { return }
+        guard data.starts(with: [0x89, 0x50, 0x4E, 0x47]) else { return setOneXThroughImageIO(url) }
+        var offset = 8
+        var changed = false
+        while offset + 12 <= data.count {
+            let length = data[offset ..< offset + 4].reduce(0) { $0 << 8 | Int($1) }
+            let name = String(decoding: data[offset + 4 ..< offset + 8], as: UTF8.self)
+            guard name != "IDAT", offset + 12 + length <= data.count else { break }
+            let body = offset + 8 ..< offset + 8 + length
+            if name == "pHYs", length == 9 {
+                // 2835 pixels per metre in x and y: 72 dpi.
+                data.replaceSubrange(body, with: [0, 0, 0x0B, 0x13, 0, 0, 0x0B, 0x13, 1])
+                changed = true
+            } else if name == "eXIf" {
+                var exif = Data(data[body])
+                if setTIFFResolution72(&exif) { data.replaceSubrange(body, with: exif); changed = true }
+            }
+            let crc = crc32(data[offset + 4 ..< body.upperBound])
+            data.replaceSubrange(body.upperBound ..< body.upperBound + 4, with: withUnsafeBytes(of: crc.bigEndian, Array.init))
+            offset += 12 + length
+        }
+        if changed { try? data.write(to: url, options: .atomic) }
+    }
+
+    /// XResolution and YResolution of a TIFF/EXIF block's first directory set to 72/1, in place.
+    static func setTIFFResolution72(_ tiff: inout Data) -> Bool {
+        guard tiff.count >= 8 else { return false }
+        let little = tiff[0] == 0x49
+        func read(_ at: Int, _ size: Int) -> Int? {
+            guard at >= 0, at + size <= tiff.count else { return nil }
+            let bytes = tiff[at ..< at + size]
+            return (little ? bytes.reversed() : Array(bytes)).reduce(0) { $0 << 8 | Int($1) }
+        }
+        func write32(_ value: UInt32, at: Int) {
+            tiff.replaceSubrange(at ..< at + 4, with: withUnsafeBytes(of: little ? value.littleEndian : value.bigEndian, Array.init))
+        }
+        guard let ifd = read(4, 4), let count = read(ifd, 2) else { return false }
+        var changed = false
+        for index in 0 ..< count {
+            let entry = ifd + 2 + index * 12
+            guard let tag = read(entry, 2), let type = read(entry + 2, 2), let value = read(entry + 8, 4) else { break }
+            guard tag == 0x011A || tag == 0x011B, type == 5, value + 8 <= tiff.count else { continue }
+            write32(72, at: value)
+            write32(1, at: value + 4)
+            changed = true
+        }
+        return changed
+    }
+
+    private static func setOneXThroughImageIO(_ url: URL) {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil), let type = CGImageSourceGetType(source) else { return }
+        let staging = url.deletingLastPathComponent().appendingPathComponent(".\(url.lastPathComponent).dpi")
+        guard let destination = CGImageDestinationCreateWithURL(staging as CFURL, type, 1, nil) else { return }
+        let metadata = CGImageMetadataCreateMutable()
+        for (key, value) in [(kCGImagePropertyTIFFXResolution, "72"), (kCGImagePropertyTIFFYResolution, "72"), (kCGImagePropertyTIFFResolutionUnit, "2")] {
+            CGImageMetadataSetValueMatchingImageProperty(metadata, kCGImagePropertyTIFFDictionary, key, value as CFString)
+        }
+        let options = [kCGImageDestinationMetadata: metadata, kCGImageDestinationMergeMetadata: true] as CFDictionary
+        if CGImageDestinationCopyImageSource(destination, source, options, nil) {
+            _ = try? FileManager.default.replaceItemAt(url, withItemAt: staging)
+        }
+        try? FileManager.default.removeItem(at: staging)
+    }
+
+    static func crc32(_ bytes: Data) -> UInt32 {
+        var crc: UInt32 = 0xFFFF_FFFF
+        for byte in bytes {
+            crc ^= UInt32(byte)
+            for _ in 0 ..< 8 { crc = crc & 1 == 1 ? (crc >> 1) ^ 0xEDB8_8320 : crc >> 1 }
+        }
+        return ~crc
+    }
+
     /// Formats the system can write.
     static func canWrite(_ type: UTType) -> Bool {
         let identifiers = CGImageDestinationCopyTypeIdentifiers() as? [String] ?? []

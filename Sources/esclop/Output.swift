@@ -143,9 +143,9 @@ func note(_ message: String) {
     FileHandle.standardError.write(Data("note: \(message)\n".utf8))
 }
 
-/// Notes the files `flag` does nothing for: those not of `kind` (`--pdf-dpi` on a PNG).
-func noteFlag(_ flag: String, appliesTo kind: MediaKind, _ kindName: String, sources: [URL]) {
-    let others = sources.filter { MediaKind.of($0) != kind }
+/// Notes the files `flag` does nothing for: those not of `kinds` (`--pdf-dpi` on a PNG).
+func noteFlag(_ flag: String, appliesTo kinds: Set<MediaKind>, _ kindName: String, sources: [URL]) {
+    let others = sources.filter { MediaKind.of($0).map { !kinds.contains($0) } ?? true }
     guard !others.isEmpty else { return }
     var names = others.prefix(3).map(\.lastPathComponent).joined(separator: ", ")
     if others.count > 3 { names += " and \(others.count - 3) more" }
