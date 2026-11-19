@@ -11,10 +11,13 @@
 import CoreFoundation
 import CoreGraphics
 import Foundation
+import UniformTypeIdentifiers
 
 public extension OutputLocation {
     /// Where the result of processing `source` into a file with extension `ext` goes.
     /// `.sameFolder` never overwrites an existing file; `.path` does (the person named it).
+    /// `.inPlace` with a new extension takes the next free name (`IMG 2.jpg`) rather than
+    /// replace an unrelated sibling.
     func destination(
         for source: URL, extension ext: String,
         sameFolderTemplate: String = "%f-optimised", temporaryRoot: URL = Paths.temporary
@@ -23,7 +26,8 @@ public extension OutputLocation {
         let stem = source.deletingPathExtension().lastPathComponent
         switch self {
         case .inPlace:
-            return folder.appendingPathComponent(stem).appendingPathExtension(ext)
+            let candidate = folder.appendingPathComponent(stem).appendingPathExtension(ext)
+            return candidate.standardizedFileURL.path == source.standardizedFileURL.path ? candidate : Self.unique(candidate)
         case .sameFolder:
             let name = Self.expand(sameFolderTemplate, stem: stem, ext: ext, folder: folder)
             var candidate = folder.appendingPathComponent(name).appendingPathExtension(ext)
@@ -50,6 +54,23 @@ public extension OutputLocation {
         }
     }
 
+    /// Throws when `destination`, named by a `.path` template, ends in an extension of another
+    /// format than `ext` (`-o photo.jpg` for a PDF). Spellings of one type (jpg/jpeg, tif/tiff),
+    /// heic/heif, m4v/mp4 and extensions macOS does not know (`photo.v2`) pass.
+    static func checkExtension(of destination: URL, matches ext: String) throws {
+        let given = destination.pathExtension.lowercased()
+        let expected = ext.lowercased()
+        guard !given.isEmpty, given != expected,
+              let givenType = UTType(filenameExtension: given), !givenType.isDynamic,
+              let expectedType = UTType(filenameExtension: expected)
+        else { return }
+        let pairs: [Set<UTType>] = [[.heic, .heif], Set([.mpeg4Movie, UTType("com.apple.m4v-video")].compactMap { $0 })]
+        if givenType == expectedType || pairs.contains(where: { $0.contains(givenType) && $0.contains(expectedType) }) { return }
+        throw EsclopError.invalidArgument(
+            "\(destination.lastPathComponent) ends in .\(given), but the result is .\(expected): name it .\(expected) or leave the extension out"
+        )
+    }
+
     static func expand(_ template: String, stem: String, ext: String, folder: URL) -> String {
         var text = template
         if text == "~" || text.hasPrefix("~/") {
@@ -73,6 +94,40 @@ public extension OutputLocation {
             if !fm.fileExists(atPath: candidate.path) { return candidate }
         }
         return folder.appendingPathComponent("\(stem) \(UUID().uuidString)").appendingPathExtension(ext)
+    }
+}
+
+/// Files that only count as a set, such as a PDF's pages: all of them land, or none.
+public enum StagedFiles {
+    /// Calls `write` once per name with a path in a hidden folder inside `folder`, then moves
+    /// each file to its name there, or to the next free one (`name 2.png`), so nothing that
+    /// exists is replaced. A throw, or a name `write` did not fill, leaves nothing behind.
+    /// ponytail: the staging folder sits in `folder` so the moves stay on one volume; a crash in
+    /// the middle leaves it there (hidden). Trigger: a report of leftovers; then sweep `.esclop-*`.
+    public static func publish(_ names: [String], into folder: URL, write: (Int, URL) throws -> Void) throws -> [URL] {
+        let fm = FileManager.default
+        try Paths.ensure(folder)
+        let staging = folder.appendingPathComponent(".esclop-\(UUID().uuidString.prefix(8))", isDirectory: true)
+        try fm.createDirectory(at: staging, withIntermediateDirectories: false)
+        defer { try? fm.removeItem(at: staging) }
+        let staged = names.map { staging.appendingPathComponent($0) }
+        for (index, url) in staged.enumerated() {
+            try write(index, url)
+            guard fm.fileExists(atPath: url.path) else { throw EsclopError.other("Could not write \(names[index])") }
+        }
+        var published: [URL] = []
+        do {
+            for url in staged {
+                // moveItem refuses an existing destination, so a file that appears meanwhile stays too.
+                let target = OutputLocation.unique(folder.appendingPathComponent(url.lastPathComponent))
+                try fm.moveItem(at: url, to: target)
+                published.append(target)
+            }
+        } catch {
+            for url in published { try? fm.removeItem(at: url) }
+            throw error
+        }
+        return published
     }
 }
 

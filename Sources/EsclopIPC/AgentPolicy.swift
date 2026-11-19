@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The permission gate for requests from AI agents. Lives here, next to the protocol, because both
-// sides apply it: the MCP server before it starts any work, and the app on every request it
-// receives, since the app is the place an agent cannot route around.
+// sides apply it: the MCP server before it starts any work, and the app again on every request it
+// receives. Both trust the origin a client declares: the gate holds an agent to its switches
+// while it talks MCP, not a program running as the same user, which can run the esclop command
+// line (origin `cli`) or talk to the app's socket itself (docs/mcp.md › Permissions).
 
 import EsclopCore
 import Foundation
 
 // MARK: - Permission gate
 
-/// What an agent may do. Applies to requests whose origin is `.mcp`; everything else passes. The
-/// app runs the same checks on requests it receives, since it is the place an agent cannot route
-/// around; the MCP server runs them first so a refusal comes back before any work starts.
+/// What an agent may do. Applies to requests whose declared origin is `.mcp`; everything else
+/// passes. The app runs the same checks on requests it receives; the MCP server runs them first
+/// so a refusal comes back before any work starts.
 public struct AgentPolicy: Sendable {
     public var origin: RequestOrigin
     public var permissions: any AgentPermissionReading

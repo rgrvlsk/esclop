@@ -13,8 +13,9 @@ import Testing
 
 @MainActor
 @Suite(.serialized) struct FolderEditorRenderTests {
-    /// A fixed, generic path, so the picture shows no machine's temporary folder.
-    static let locked = URL(fileURLWithPath: "/tmp/esclop-render/Shared Shots", isDirectory: true)
+    /// A short, generic path, so the picture shows no machine's temporary folder; its own per
+    /// run, so two checkouts testing at once do not lock each other's folder.
+    static let locked = URL(fileURLWithPath: "/tmp/esclop-render-\(UUID().uuidString.prefix(6))/Shared Shots", isDirectory: true)
 
     @Test func folderList() async throws {
         try FileManager.default.createDirectory(at: Self.locked, withIntermediateDirectories: true)

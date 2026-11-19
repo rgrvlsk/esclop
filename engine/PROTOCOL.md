@@ -139,8 +139,12 @@ the engine wrote at 85 estimates as 85, so optimising twice never degrades a pho
 
 `strip: true` removes EXIF, XMP, IPTC, comments, text chunks, GIF comments/application blocks
 and C2PA, and keeps what `keep` lists: default `["icc", "orientation"]` (what Clop keeps),
-`[]` keeps nothing. Orientation is kept as a minimal EXIF block holding only that tag. PNG
-`pHYs` (density) and decoding-critical data (JFIF, Adobe APP14, `tRNS`, APNG chunks) always stay.
+`[]` keeps nothing else. What stays of a JPEG's EXIF (and of the EXIF carried into a
+re-encode) is a minimal EXIF block: the orientation with `orientation`, the resolution
+(XResolution, YResolution, ResolutionUnit) always, and with `icc` the colour-space tags an
+Adobe RGB photo without a profile is read by (ColorSpace, InteroperabilityIndex). PNG `pHYs`
+(density), the JFIF density (carried into a re-encoded JPEG's fresh header) and
+decoding-critical data (JFIF, Adobe APP14, `tRNS`, APNG chunks) always stay.
 Without `strip`, metadata is carried across re-encodes: JPEG markers to JPEG, ICC and EXIF to
 PNG (`iCCP`, `eXIf`), WebP (`ICCP`, `EXIF`) and AVIF (ICC and EXIF; EXIF only with rav1e). Two things are always dropped
 on a rewrite: JPEG MPF indexes with their secondary images (HDR gain maps, depth maps: route

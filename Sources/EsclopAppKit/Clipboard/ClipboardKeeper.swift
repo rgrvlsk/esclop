@@ -22,6 +22,16 @@ final class ClipboardKeeper: @unchecked Sendable {
     private var held: (count: Int, files: [URL])?
     /// What L'Esclop wrote, by bytes (`ClipboardFingerprint`), the last 32 files.
     private var ownWrites: [ClipboardFingerprint] = []
+    /// L'Esclop's own automatic writes since change `from`, the last at `to`, with nothing copied
+    /// in between (results put back, a pipeline's copy, an automatic link). Anything the person
+    /// copies or asks L'Esclop to copy ends it.
+    private var ownRun: (from: Int, to: Int)?
+
+    /// An automatic write just made, which went over change `before`.
+    private func continued(from before: Int) {
+        let now = pasteboard.changeCount
+        if let run = ownRun, run.to == before { ownRun = (run.from, now) } else { ownRun = (before, now) }
+    }
 
     init(pasteboard: NSPasteboard) {
         self.pasteboard = pasteboard
@@ -44,31 +54,49 @@ final class ClipboardKeeper: @unchecked Sendable {
         held = (count, files)
     }
 
-    /// Writes files as L'Esclop's own, whatever the clipboard holds (the person asked for them).
-    func write(_ files: [URL]) {
+    /// Writes files as L'Esclop's own, whatever the clipboard holds: the person asked for them, or
+    /// (`automatic`) results go back in place.
+    func write(_ files: [URL], automatic: Bool = false) {
+        let before = pasteboard.changeCount
         for file in files {
             if let print = ClipboardFingerprint(file: file) { ownWrites.append(print) }
         }
         if ownWrites.count > 32 { ownWrites.removeFirst(ownWrites.count - 32) }
         Clipboard.write(files: files, to: pasteboard)
         held = (pasteboard.changeCount, files)
+        if automatic { continued(from: before) } else { ownRun = nil }
     }
 
-    /// A pipeline's `copyToClipboard`: text or image bytes, marked as L'Esclop's own. Nothing is
-    /// held, so no result goes back over it.
-    func write(text: String) {
+    /// Text (a pipeline's `copyToClipboard`, a link, a path from Settings), marked as L'Esclop's
+    /// own; a single `link` also as a URL. Nothing is held, so no result goes back over it. With
+    /// `since` (an automatic upload's link) it is written only while the clipboard still holds
+    /// what it held at that change count, or L'Esclop's own automatic writes that followed it: a
+    /// copy made meanwhile stays. False when nothing was written. `since` implies `automatic`.
+    @discardableResult
+    func write(text: String, link: Bool = false, since count: Int? = nil, automatic: Bool = false) -> Bool {
+        let before = pasteboard.changeCount
+        if let count, before != count {
+            guard let run = ownRun, run.to == before, run.from <= count else { return false }
+        }
         pasteboard.clearContents()
-        pasteboard.declareTypes([.string, Clipboard.optimisedType], owner: nil)
+        pasteboard.declareTypes(link ? [.string, .URL, Clipboard.optimisedType] : [.string, Clipboard.optimisedType], owner: nil)
         pasteboard.setString(text, forType: .string)
+        if link { pasteboard.setString(text, forType: .URL) }
         pasteboard.setString("1", forType: Clipboard.optimisedType)
         held = nil
+        if automatic || count != nil { continued(from: before) } else { ownRun = nil }
+        return true
     }
 
+    func changeCount() -> Int { pasteboard.changeCount }
+
     func write(imageData data: Data, type: UTType) {
+        let before = pasteboard.changeCount
         ownWrites.append(ClipboardFingerprint(data: data))
         if ownWrites.count > 32 { ownWrites.removeFirst(ownWrites.count - 32) }
         Clipboard.write(image: data, type: type, to: pasteboard)
         held = nil
+        continued(from: before)
     }
 
     /// Puts each new file in the place of the old one, the other files kept in order, while the
@@ -78,7 +106,7 @@ final class ClipboardKeeper: @unchecked Sendable {
         guard let held, held.count == pasteboard.changeCount else { return false }
         let new = Dictionary(replacements.map { ($0.old.standardizedFileURL.path, $0.new) }, uniquingKeysWith: { first, _ in first })
         guard held.files.contains(where: { new[$0.standardizedFileURL.path] != nil }) else { return false }
-        write(held.files.map { new[$0.standardizedFileURL.path] ?? $0 })
+        write(held.files.map { new[$0.standardizedFileURL.path] ?? $0 }, automatic: true)
         return true
     }
 
@@ -108,9 +136,17 @@ extension AppModel {
         ClipboardKeeper.queue.async { keeper.write(files) }
     }
 
-    /// A pipeline step's copy, as L'Esclop's own.
-    func copyToClipboard(text: String) async {
-        await clipboard.run { $0.write(text: text) }
+    /// A pipeline step's copy (`automatic`) or Settings' copy, as L'Esclop's own.
+    func copyToClipboard(text: String, automatic: Bool = false) async {
+        await clipboard.run { $0.write(text: text, automatic: automatic) }
+    }
+
+    /// Links on the clipboard, one per line; with `since`, only if nothing was copied after it
+    /// (`ClipboardKeeper.write(text:link:since:)`). False when the clipboard kept what was copied.
+    @discardableResult
+    func copyToClipboard(links: [URL], since: Int? = nil) async -> Bool {
+        let text = links.map(\.absoluteString).joined(separator: "\n")
+        return await clipboard.run { $0.write(text: text, link: links.count == 1, since: since) }
     }
 
     func copyToClipboard(imageData: Data, type: UTType) async {

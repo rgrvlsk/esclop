@@ -16,6 +16,9 @@ struct PipelineTryResultView: View {
                     Image(systemName: symbol(step.outcome)).foregroundStyle(color(step.outcome)).frame(width: 16).accessibilityHidden(true)
                     Text("\(index + 1). \(step.step)").font(.callout.monospaced())
                     Text(PipelineVocabulary.outcomeTitle(step.outcome)).foregroundStyle(color(step.outcome))
+                    // ponytail: the step's message is the runner's English (PipelineLogEntry, also handed
+                    // to agents). Keying it means a DiagnosticText in the log entry, an addition to that
+                    // contract; do it when the Try It sheet is next reworked.
                     if let message = step.message, !message.isEmpty {
                         Text(message).foregroundStyle(.secondary).lineLimit(2).truncationMode(.middle)
                     }

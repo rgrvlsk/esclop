@@ -11,7 +11,7 @@ import Foundation
 ///
 /// `perform` reports each file through `events` and returns when the job is done; throwing refuses
 /// the whole job (for example `notPermitted` from `AgentPolicy`). The app should check
-/// `AgentPolicy` itself: it is the place an agent cannot route around. `JobExecutor` does the
+/// `AgentPolicy` itself, on the origin the client declares. `JobExecutor` does the
 /// actual work if the app has nothing more specific to do.
 public protocol AppRequestHandler: Sendable {
     func perform(_ job: OptimisationJob, events: @escaping @Sendable (JobEvent) -> Void) async throws
@@ -200,6 +200,7 @@ extension EsclopError {
     /// Any error as an `EsclopError`, keeping its message.
     public static func wrap(_ error: Error) -> EsclopError {
         if let error = error as? EsclopError { return error }
+        if let error = error as? PipelineStepFailure { return error.error }
         if error is CancellationError { return .cancelled }
         return .other(String(describing: error))
     }

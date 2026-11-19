@@ -85,7 +85,7 @@ Optional, between two `---` lines at the very top. Every key is optional.
 | `icon` | An SF Symbol name for preset zones and menus. |
 | `triggers` | What runs the pipeline on its own, comma separated (see below). |
 | `optimiseFirst` | `true` optimises each file before the steps (after any leading `if`). Skipped when the first step already re-encodes (`convert`, `crop`, `downscale`). Default `false`. |
-| `hideResult` | `true` runs without a floating result or a batch window row when the clipboard, the drop zone, a preset zone, a watched folder or the hotkey runs it. Run on Files…, Finder and the Share tab still show it. Default `false`. |
+| `hideResult` | `true` runs without a floating result or a batch window row when the clipboard, the drop zone, a preset zone, a watched folder, Finder's right-click menu or the hotkey runs it. Run on Files… and the Share tab still show it. Default `false`. |
 
 ### Sections
 
@@ -99,7 +99,7 @@ A plain Clop pipeline is just an `[any]` section, so Clop text is a valid `.pipe
 
 | Trigger | Runs the pipeline |
 |---|---|
-| `clipboard` | on files and images you copy, instead of the plain optimisation, for the kinds it has steps for; the clipboard settings still decide which copies L'Esclop handles |
+| `clipboard` | on files and images you copy, instead of the plain optimisation, for the kinds it has steps for; the clipboard settings still decide which copies L'Esclop handles. It runs on a copy of a copied file, never on the original, and the copy goes back on the clipboard; `if(copiedBy:)` sees the app the copy was made in |
 | `dropZone` | on files dropped on the drop zone (not on its harder drop), instead of the plain optimisation, for the kinds it has steps for |
 | `presetZone` | from a preset zone beside the drop zone while you drag (order and built-in templates: Settings › Floating results › Preset zones) |
 | `folder("~/path")` | on new files directly in that folder, instead of the plain optimisation, for the kinds it has steps for; the folder is watched even when no Settings list names it |
@@ -129,7 +129,7 @@ format and the pixel size.
   (hardware), `slowHighQuality` (software, smaller) or `visuallyLossless` for video.
 - `compression`: 5 (best quality) to 100 (smallest file), `adaptive` to pick per file, or `auto`
   to follow the app's setting. Overrides `encoder` for how hard to compress.
-- `adaptive`: `true` lets the format change when that is smaller (PNG to JPEG and back). Images only.
+- `adaptive`: `true` also tries a PNG without transparency as JPEG and keeps the JPEG when it is much smaller. Images only.
 - `dpi`: PDFs only. Downsample images inside the PDF: 300 keeps print quality, 150 is for screens, 72 is smallest.
 
 `downscale(factor, location?)` applies to images, video and audio. Scale down keeping the proportions.

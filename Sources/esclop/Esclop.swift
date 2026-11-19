@@ -18,8 +18,13 @@ struct EsclopCommand: AsyncParsableCommand {
         Commands go through the L'Esclop app when it is running (results then show on screen and use the \
         app's settings) and run in this process otherwise. --in-process (or ESCLOP_NO_APP=1) skips the app.
 
+        Results replace the original by default and keep a backup: `esclop recent` lists them and \
+        `esclop restore <file>` puts the original back. A result in another format follows the \
+        "Converted … go" setting unless -o or --behaviour says where it goes. Relative paths, -o \
+        included, start in the working directory.
+
         Exit codes:
-          0   success
+          0   success, also when a file is already as small as it gets (left unchanged)
           1   one or more files failed, or the command failed
           64  usage error (bad flag or value)
           65  every file was unreadable (damaged or mislabelled)
@@ -31,19 +36,26 @@ struct EsclopCommand: AsyncParsableCommand {
         version: EsclopVersion.string,
         subcommands: [
             Optimise.self, Convert.self, Downscale.self, Crop.self, Fit.self, Strip.self, Upload.self,
-            PDF.self, Pipeline.self, Settings.self, Status.self, Logs.self, MCPCommand.self, InstallCLI.self,
+            Recent.self, Restore.self, PDF.self, Pipeline.self, Settings.self, Status.self, Logs.self, MCPCommand.self, InstallCLI.self,
         ]
     )
 }
 
 // MARK: - Shared options
 
-struct GlobalOptions: ParsableArguments {
+/// How results are printed: every command has these.
+struct Printing: ParsableArguments {
     @Flag(name: [.customShort("j"), .long], help: "Print JSON instead of text.")
     var json = false
 
     @Flag(name: .customLong("no-color"), help: "No colour, even on a terminal.")
     var noColor = false
+
+    var terminal: Terminal { Terminal(color: !noColor && !json) }
+}
+
+struct GlobalOptions: ParsableArguments {
+    @OptionGroup var printing: Printing
 
     @Flag(name: .customLong("in-process"), help: "Do the work here even when the L'Esclop app is running.")
     var inProcess = false
@@ -52,15 +64,16 @@ struct GlobalOptions: ParsableArguments {
         Integrations.context(origin: origin, inProcess: inProcess)
     }
 
-    var terminal: Terminal { Terminal(color: !noColor && !json) }
+    var json: Bool { printing.json }
+    var terminal: Terminal { printing.terminal }
 }
 
 enum Behaviour: String, ExpressibleByArgument, CaseIterable {
     case inplace, samefolder, temp, specificfolder
 }
 
-/// Files and where results go, shared by every file command.
-struct FileOptions: ParsableArguments {
+/// The files a command works on, shared by every file command and upload.
+struct FileInputs: ParsableArguments {
     @Argument(help: "Files or folders. ~, file:// URLs and relative paths work; http(s) addresses are downloaded to the temporary folder first.")
     var items: [String] = []
 
@@ -73,12 +86,6 @@ struct FileOptions: ParsableArguments {
     @Option(name: .customLong("exclude-types"), parsing: .upToNextOption, help: "Skip these extensions.")
     var excludeTypes: [String] = []
 
-    @Option(name: .shortAndLong, help: "Output folder (ending in /) or path template: %f name, %e extension, %d folder.")
-    var output: String?
-
-    @Option(help: "Where results go: inplace (default, keeps a backup), samefolder, temp, specificfolder (with -o).")
-    var behaviour: Behaviour?
-
     @Flag(name: .customLong("skip-errors"), help: "Skip files that do not exist instead of failing on them.")
     var skipErrors = false
 
@@ -87,23 +94,6 @@ struct FileOptions: ParsableArguments {
 
     @Flag(name: [.customShort("n"), .customLong("no-progress")], help: "No progress on stderr.")
     var noProgress = false
-
-    @Flag(name: [.customShort("c"), .customLong("copy")], help: "Copy the results to the clipboard.")
-    var copy = false
-
-    func validate() throws {
-        // An empty list is refused when the command runs: `pdf crop --list-devices` takes no files.
-        if behaviour == .specificfolder, output == nil { throw ValidationError("--behaviour specificfolder needs -o <folder>.") }
-    }
-
-    var location: OutputLocation {
-        if let output { return .path(output) }
-        switch behaviour {
-        case .samefolder: return .sameFolder
-        case .temp: return .temporary
-        case .inplace, .specificfolder, nil: return .inPlace
-        }
-    }
 
     /// The files to work on. A web address is the person's request to download it: it is
     /// fetched into the temporary folder and that copy is the file worked on.
@@ -131,6 +121,54 @@ struct FileOptions: ParsableArguments {
         if !exclude.isEmpty { files.removeAll { exclude.contains($0.pathExtension.lowercased()) } }
         if skipErrors { files.removeAll { !FileManager.default.fileExists(atPath: $0.path) } }
         return files
+    }
+}
+
+/// Files and where results go, shared by every file command.
+struct FileOptions: ParsableArguments {
+    @OptionGroup var inputs: FileInputs
+
+    @Option(name: .shortAndLong, help: "Output folder (ending in /) or path template: %f name, %e extension, %d the file's folder. Relative to the working directory.")
+    var output: String?
+
+    @Option(help: "Where results go: inplace (default, keeps a backup; a result in another format follows the \"Converted … go\" setting), samefolder, temp, specificfolder (with -o).")
+    var behaviour: Behaviour?
+
+    @Flag(name: [.customShort("c"), .customLong("copy")], help: "Copy the results to the clipboard.")
+    var copy = false
+
+    func validate() throws {
+        // An empty list is refused when the command runs: `pdf crop --list-devices` takes no files.
+        if behaviour == .specificfolder, output == nil { throw ValidationError("--behaviour specificfolder needs -o <folder>.") }
+        if let behaviour, behaviour != .specificfolder, output != nil {
+            throw ValidationError("-o names where results go, and so does --behaviour \(behaviour.rawValue): give one of them.")
+        }
+    }
+
+    var location: OutputLocation {
+        if let output { return .path(Self.anchored(output)) }
+        switch behaviour {
+        case .samefolder: return .sameFolder
+        case .temp: return .temporary
+        case .inplace, .specificfolder, nil: return .inPlace
+        }
+    }
+
+    /// Neither -o nor --behaviour: a result in another format follows "Converted … go".
+    var locationFromSettings: Bool { output == nil && behaviour == nil }
+
+    /// A relative -o template made absolute from the working directory, as every Unix tool reads
+    /// it (the engines read a relative template from the file's folder). `~`, `%d` and `/` are
+    /// absolute already.
+    /// ponytail: templates have no escape, so a `%f`, `%e` or `%d` in the working directory's own
+    /// path is expanded too; anchor per source in the CLI if a person ever hits it.
+    static func anchored(_ template: String, workingDirectory: String = FileManager.default.currentDirectoryPath) -> String {
+        if template.hasPrefix("file:"), let url = try? PathInput.url(template) {
+            return url.path + (template.hasSuffix("/") ? "/" : "")
+        }
+        if template.hasPrefix("/") || template.hasPrefix("~") || template.hasPrefix("%d") { return template }
+        let base = workingDirectory.hasSuffix("/") ? workingDirectory : workingDirectory + "/"
+        return base + (template.hasPrefix("./") ? String(template.dropFirst(2)) : template)
     }
 }
 

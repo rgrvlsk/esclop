@@ -11,6 +11,16 @@ import Foundation
 /// Where a result goes when the person did not say. Maps onto `OutputLocation`.
 public enum FileBehaviour: String, CaseIterable, Codable, Sendable, SettingValue {
     case inPlace, sameFolder, specificFolder, temporary
+
+    /// The location this behaviour stands for; a specific folder is `template` (a path template).
+    public func location(specificFolder template: String) -> OutputLocation {
+        switch self {
+        case .inPlace: return .inPlace
+        case .sameFolder: return .sameFolder
+        case .temporary: return .temporary
+        case .specificFolder: return .path(template)
+        }
+    }
 }
 
 /// A speed change either keeps every frame (the frame rate rises with the speed) or drops frames
@@ -51,7 +61,7 @@ public enum EsclopSettings {
     )
     public static let keepHDR = Setting<Bool>(
         "keepHDR", default: true, title: "Keep HDR",
-        description: "Keep HDR gain maps and HDR video when the output format can carry them. Off converts to SDR.",
+        description: "Keep HDR gain maps and HDR video when the output format can carry them. Off makes photos SDR and video 8-bit, without tone mapping.",
         section: .general
     )
 
@@ -313,32 +323,51 @@ public enum EsclopSettings {
 
     public static let optimisedImageBehaviour = Setting<FileBehaviour>(
         "optimisedImageBehaviour", default: .inPlace, title: "Optimised images go",
-        description: "Where optimised images are written.", section: .output
+        description: "Replacing the original keeps it as a backup; the other places leave it untouched.", section: .output
     )
     public static let optimisedVideoBehaviour = Setting<FileBehaviour>(
         "optimisedVideoBehaviour", default: .inPlace, title: "Optimised videos go",
-        description: "Where optimised videos are written.", section: .output
+        description: "Replacing the original keeps it as a backup; the other places leave it untouched.", section: .output
     )
     public static let optimisedPDFBehaviour = Setting<FileBehaviour>(
         "optimisedPDFBehaviour", default: .inPlace, title: "Optimised PDFs go",
-        description: "Where optimised PDFs are written.", section: .output
+        description: "Replacing the original keeps it as a backup; the other places leave it untouched.", section: .output
     )
     public static let optimisedAudioBehaviour = Setting<FileBehaviour>(
         "optimisedAudioBehaviour", default: .inPlace, title: "Optimised audio goes",
-        description: "Where optimised audio files are written.", section: .output
+        description: "Replacing the original keeps it as a backup; the other places leave it untouched.", section: .output
     )
     public static let convertedImageBehaviour = Setting<FileBehaviour>(
         "convertedImageBehaviour", default: .sameFolder, title: "Converted images go",
-        description: "Where images converted to another format are written.", section: .output
+        description: "Replacing the original keeps it as a backup; the other places leave it untouched.", section: .output
     )
     public static let convertedVideoBehaviour = Setting<FileBehaviour>(
         "convertedVideoBehaviour", default: .inPlace, title: "Converted videos go",
-        description: "Where videos converted to another format are written.", section: .output
+        description: "Replacing the original keeps it as a backup; the other places leave it untouched.", section: .output
     )
     public static let convertedAudioBehaviour = Setting<FileBehaviour>(
         "convertedAudioBehaviour", default: .inPlace, title: "Converted audio goes",
-        description: "Where audio files converted to another format are written.", section: .output
+        description: "Replacing the original keeps it as a backup; the other places leave it untouched.", section: .output
     )
+    /// "Optimised … go" for `kind`.
+    public static func optimisedBehaviour(for kind: MediaKind?) -> Setting<FileBehaviour> {
+        switch kind {
+        case .video: return optimisedVideoBehaviour
+        case .pdf: return optimisedPDFBehaviour
+        case .audio: return optimisedAudioBehaviour
+        case .image, nil: return optimisedImageBehaviour
+        }
+    }
+
+    /// "Converted … go" for `kind`. PDFs are not converted to another format; they follow images.
+    public static func convertedBehaviour(for kind: MediaKind) -> Setting<FileBehaviour> {
+        switch kind {
+        case .video: return convertedVideoBehaviour
+        case .audio: return convertedAudioBehaviour
+        case .image, .pdf: return convertedImageBehaviour
+        }
+    }
+
     public static let sameFolderNameTemplate = Setting<String>(
         "sameFolderNameTemplate", default: "%f-optimised", title: "Same folder name",
         description: "File name for results written next to the original. %f is the original name without extension.",
@@ -462,7 +491,7 @@ public enum EsclopSettings {
 
     public static let allowOverwriteOriginals = Setting<Bool>(
         "allowOverwriteOriginals", default: false, title: "Agents may overwrite originals",
-        description: "Let AI agents (MCP) write results over the original file. A backup is kept either way.",
+        description: "Let AI agents (MCP) write results over the original file. The original is kept as a backup.",
         section: .agents
     )
     public static let allowDeleteBackups = Setting<Bool>(

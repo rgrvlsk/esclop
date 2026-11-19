@@ -257,6 +257,15 @@ final class QuickLookPresenter: NSObject, @preconcurrency QLPreviewPanelDataSour
         panel.makeKeyAndOrderFront(nil)
     }
 
+    /// Space on a card: shows the file, or closes Quick Look when it shows it already.
+    func toggle(_ url: URL) {
+        if file == url, QLPreviewPanel.sharedPreviewPanelExists(), let panel = QLPreviewPanel.shared(), panel.isVisible {
+            panel.orderOut(nil)
+        } else {
+            show(url)
+        }
+    }
+
     func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { file == nil ? 0 : 1 }
 
     func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> (any QLPreviewItem)! {

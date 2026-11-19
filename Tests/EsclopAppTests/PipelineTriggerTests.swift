@@ -46,6 +46,57 @@ import UniformTypeIdentifiers
         #expect(!ranPipeline(harness.model.cards.last?.result))
     }
 
+    @Test func aClipboardPipelineLeavesTheCopiedFileAsItWas() async throws {
+        let harness = Harness()
+        try save("---\ntriggers: clipboard\n---\noptimise", name: "Clip", in: harness)
+        let file = harness.temp.png("photo.png")
+        let bytes = try Data(contentsOf: file)
+        harness.model.handleClipboard(harness.copy(files: [file]))
+        #expect(await eventually { harness.model.cards.first?.result != nil })
+        let result = try #require(harness.model.cards.first?.result)
+        #expect(try Data(contentsOf: file) == bytes, "copying is not a request to change the original")
+        #expect(result.output.standardizedFileURL != file.standardizedFileURL)
+        // The pipeline's result takes the original's place on the clipboard.
+        #expect(await eventually { harness.pasteboard.string(forType: .string) == result.output.path })
+    }
+
+    @Test func copiedByMatchesTheAppTheCopyCameFrom() async throws {
+        let harness = Harness()
+        try save("---\ntriggers: clipboard\n---\nif(copiedBy: Preview) -> copyToClipboard", name: "Clip", in: harness)
+        func copied() -> Bool { harness.model.cards.last?.result?.steps.contains { $0.hasPrefix("copyToClipboard") && $0.contains("done") } ?? false }
+        harness.model.handleClipboard(harness.copy(image: pngData(), app: "com.apple.Preview"))
+        #expect(await eventually { harness.model.cards.count == 1 && harness.model.cards[0].result != nil })
+        #expect(copied(), "\(harness.model.cards[0].result?.steps ?? [])")
+        harness.model.handleClipboard(harness.copy(image: pngData(width: 32), app: "com.example.Other"))
+        #expect(await eventually { harness.model.cards.count == 2 && harness.model.cards[1].result != nil })
+        #expect(!copied())
+    }
+
+    @Test func aLateFailureKeepsItsResultAndStepInTheAppsReport() async throws {
+        let harness = Harness()
+        try save("optimise -> openWith(app: NoSuchApp123)", name: "Late", in: harness)
+        var job = harness.job(harness.temp.png("late.png"))
+        job.operation = .pipeline("Late")
+        let report = await harness.model.run(job)
+        let partial = try #require(report.results.first, "the optimised file is reported")
+        #expect(partial.backup != nil)
+        #expect(report.failures.first?.step?.hasPrefix("openWith") == true, "\(report.failures)")
+    }
+
+    @Test func finderRunsAPipelineLikeAPlainFinderOptimisation() async throws {
+        let harness = Harness()
+        let pipeline = try PipelineParser.parse("---\ntriggers: rightClick\n---\noptimise", name: "Web")
+        try harness.model.service.context.pipelines.save(pipeline)
+        let services = FinderServices(model: harness.model, pipelines: { [pipeline] })
+        let files = (1 ... harness.model.batchThreshold).map { harness.temp.png("finder-\($0).png") }
+        services.handle(.runPipeline, files: files)
+        #expect(harness.model.batch?.origin == .finder, "many files go to one batch window")
+        #expect(harness.model.batch?.rows.count == files.count)
+        #expect(harness.model.cards.isEmpty)
+        #expect(await eventually { harness.requests.requests.count == files.count })
+        #expect(harness.requests.requests.allSatisfy { $0.origin == .finder })
+    }
+
     @Test func copiedPixelsRunTheClipboardPipeline() async throws {
         let harness = Harness()
         try save("---\ntriggers: clipboard\n---\noptimise -> copyToClipboard", name: "Clip", in: harness)
@@ -79,7 +130,7 @@ import UniformTypeIdentifiers
         #expect(harness.model.batch == nil && harness.model.cards.isEmpty)
         // A watched folder's run is quiet too.
         try save("---\ntriggers: folder(\"~/Nowhere\")\nhideResult: true\n---\noptimise", name: "Folder", in: harness)
-        harness.model.runPipeline("Folder", onWatched: harness.temp.png("new.png"))
+        await harness.model.runPipeline("Folder", onWatched: harness.temp.png("new.png"))
         #expect(await eventually { harness.model.recent.count == 5 })
         #expect(harness.model.cards.isEmpty)
     }

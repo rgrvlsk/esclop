@@ -16,14 +16,15 @@ extension AppModel {
     /// The targets set up in Settings › Uploads.
     public var uploadTargets: [UploadTarget] { UploadTarget.all(in: settings) }
 
-    /// Uploads the card's file to `target` (nil: the default one).
-    public func upload(_ card: ResultCard, to target: String? = nil) {
+    /// Uploads the card's file to `target` (nil: the default one). `automatic` (the
+    /// `uploadAutomatically` setting) keeps a copy the person made meanwhile on the clipboard.
+    public func upload(_ card: ResultCard, to target: String? = nil, automatic: Bool = false) {
         guard card.draggableFile != nil, card.upload.map({ if case .uploading = $0 { false } else { true } }) ?? true else { return }
         card.uploadTask?.cancel()
         card.uploadTarget = target
         // Stays on screen while it goes.
         card.machine.refreshed(at: now(), hideAfter: nil)
-        card.uploadTask = upload(card.shownFile, to: target, on: card) { [weak self, weak card] in
+        card.uploadTask = upload(card.shownFile, to: target, on: card, automatic: automatic) { [weak self, weak card] in
             guard let self, let card else { return }
             card.uploadTask = nil
             self.settle(card)
@@ -32,12 +33,24 @@ extension AppModel {
     }
 
     /// Uploads `file` at a turn of the work gate, with its progress and outcome on `view` (a card,
-    /// a batch row, or nothing for a result shown nowhere). The link goes on the clipboard.
+    /// a batch row, or nothing for a result shown nowhere). The link goes on the clipboard; an
+    /// automatic upload's only if nothing was copied since it started, and a batch's links all at
+    /// once when the batch and its uploads are over.
+    // ponytail: a card whose automatic link stayed off the clipboard still reads "link copied";
+    // its Copy Link works. Give `UploadState.uploaded` a flag if that ever confuses someone.
     @discardableResult
-    func upload(_ file: URL, to target: String?, on view: (any ShowsUpload)?, finished: @escaping @MainActor () -> Void = {}) -> Task<Void, Never> {
+    func upload(
+        _ file: URL, to target: String?, on view: (any ShowsUpload)?, batch: Batch? = nil, automatic: Bool = false,
+        finished: @escaping @MainActor () -> Void = {}
+    ) -> Task<Void, Never> {
         let uploader = uploader, gate = gate
         view?.upload = .uploading(fraction: 0)
         return Task { [weak self] in
+            var since: Int?
+            if automatic, let self {
+                since = await self.clipboard.run { $0.changeCount() }
+                if let batch, batch.linksSince == nil { batch.linksSince = since }
+            }
             await gate.acquire()
             let outcome: Result<URL, EsclopError>
             do {
@@ -56,9 +69,17 @@ extension AppModel {
             guard let self else { return }
             switch outcome {
             case let .success(link):
-                view?.upload = .uploaded(link)
-                self.copyLink(link)
-                self.announce(Strings.format("%@ uploaded, the link is on the clipboard", file.lastPathComponent))
+                if batch != nil {
+                    view?.upload = .uploaded(link)
+                    self.announce(Strings.format("%@ uploaded", file.lastPathComponent))
+                } else {
+                    // On the clipboard before the card says so.
+                    let copied = await self.copyToClipboard(links: [link], since: since)
+                    view?.upload = .uploaded(link)
+                    self.announce(copied
+                        ? Strings.format("%@ uploaded, the link is on the clipboard", file.lastPathComponent)
+                        : Strings.format("%@ uploaded", file.lastPathComponent))
+                }
             case .failure(.cancelled):
                 view?.upload = nil
             case let .failure(error):
@@ -67,19 +88,25 @@ extension AppModel {
                 // A result shown nowhere (a quiet pipeline) has no other place to say why.
                 if view == nil { self.notice(Strings.format("%@ was not uploaded", file.lastPathComponent), CardPresentation.message(for: error)) }
             }
+            // Whichever upload ends last, whatever its outcome, puts the batch's links on the clipboard.
+            if let batch { self.copyLinks(of: batch) }
             finished()
         }
     }
 
-    /// The link on the clipboard, marked as L'Esclop's own so the clipboard watcher leaves it.
-    // ponytail: written on the main thread, not on `ClipboardKeeper.queue` where the watcher
-    // reads; move it there (the upload tests read the clipboard right after) if it ever races.
+    /// Copy Link: the link on the clipboard as L'Esclop's own, whatever it holds (the person asked).
     public func copyLink(_ link: URL) {
-        pasteboard.clearContents()
-        pasteboard.declareTypes([.string, .URL, Clipboard.optimisedType], owner: nil)
-        pasteboard.setString(link.absoluteString, forType: .string)
-        pasteboard.setString(link.absoluteString, forType: .URL)
-        pasteboard.setData(Data(), forType: Clipboard.optimisedType)
+        Task { await copyToClipboard(links: [link]) }
+    }
+
+    /// A batch's links, one per line in row order, once the batch has ended and none of its
+    /// uploads is still going; only if nothing was copied since its first upload started.
+    func copyLinks(of batch: Batch) {
+        guard !batch.isRunning, !batch.rows.contains(where: { if case .uploading = $0.upload { true } else { false } }) else { return }
+        let links = batch.rows.compactMap { row -> URL? in if case let .uploaded(link) = row.upload { link } else { nil } }
+        guard !links.isEmpty else { return }
+        let since = batch.linksSince
+        Task { await copyToClipboard(links: links, since: since) }
     }
 
     /// Whether this job's results are uploaded on their own (`uploadAutomatically`).

@@ -10,6 +10,7 @@ import SwiftUI
 
 public struct DropZoneView: View {
     let state: DropZoneState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public init(state: DropZoneState) {
         self.state = state
@@ -28,11 +29,15 @@ public struct DropZoneView: View {
         .padding(.bottom, 2)
         .background(PopoverInk.surface.color, in: RoundedRectangle(cornerRadius: Metrics.dropZoneRadius, style: .continuous))
         .glassSurface(RoundedRectangle(cornerRadius: Metrics.dropZoneRadius, style: .continuous))
-        .animation(Motion.hover, value: state.hovering)
-        .animation(Motion.hover, value: state.harder)
-        .animation(Motion.hover, value: state.keepOriginals)
-        .animation(Motion.hover, value: state.hoveredZone)
+        // Reduce Motion: the tiles change colour in a crossfade and do not grow (DESIGN.md › Motion).
+        .animation(hoverAnimation, value: state.hovering)
+        .animation(hoverAnimation, value: state.harder)
+        .animation(hoverAnimation, value: state.keepOriginals)
+        .animation(hoverAnimation, value: state.hoveredZone)
+        .designTint()
     }
+
+    private var hoverAnimation: Animation { reduceMotion ? Motion.crossfade : Motion.hover }
 
     private var plainTarget: some View {
         // Alone, it takes the panel's width, so it does not float under the hint line.
@@ -45,7 +50,7 @@ public struct DropZoneView: View {
                 }
             }
             // Harder in the warm colour, on cream and on charcoal alike.
-            .foregroundStyle(state.harder ? AnyShapeStyle(state.hovering ? Palette.warm : PopoverInk.warm.color) : AnyShapeStyle(.primary))
+            .foregroundStyle(state.harder ? AnyShapeStyle(state.hovering ? Ink.warmOnCharcoal : PopoverInk.warm.color) : AnyShapeStyle(.primary))
         } label: {
             Text(state.tileTitle)
             if !state.count.isEmpty {
@@ -65,11 +70,11 @@ public struct DropZoneView: View {
                     DropTile(hovered: state.hoveredZone == zone.name, width: DropTiles.zoneWidth) {
                         Image(systemName: zone.icon).font(.system(size: 15, weight: .medium))
                     } label: {
-                        Text(zone.name)
+                        Text(zone.title)
                     }
                     .reportFrame(zone.name, to: state)
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(Strings.format("Preset zone: %@", zone.name))
+                    .accessibilityLabel(Strings.format("Preset zone: %@", zone.title))
                     .accessibilityHint(Strings.text("Drop files here to run this pipeline on them."))
                 }
             }
@@ -114,6 +119,7 @@ struct DropTile<Symbol: View, Label: View>: View {
     let width: CGFloat?
     @ViewBuilder let symbol: Symbol
     @ViewBuilder let label: Label
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         // Symbols on one line across the row, whether a name takes one line or two.
@@ -133,7 +139,7 @@ struct DropTile<Symbol: View, Label: View>: View {
         .frame(minWidth: width ?? DropTiles.plainWidth, maxWidth: width ?? .infinity, minHeight: DropTiles.height, maxHeight: DropTiles.height, alignment: .top)
         .foregroundStyle(hovered ? AnyShapeStyle(Ink.onCharcoal) : AnyShapeStyle(PopoverInk.primary.color))
         .raised(RoundedRectangle(cornerRadius: OptionsType.radius, style: .continuous), fill: hovered ? Ink.charcoal : Surface.cream)
-        .scaleEffect(hovered ? 1.03 : 1)
+        .scaleEffect(hovered && !reduceMotion ? 1.03 : 1)
     }
 }
 
