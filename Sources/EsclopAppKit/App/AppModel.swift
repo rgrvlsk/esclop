@@ -262,21 +262,34 @@ public final class AppModel {
         return task
     }
 
-    /// Puts one batch file's original back, without a floating result.
+    /// Puts one batch file's original back, without a floating result. When that fails the row
+    /// keeps its result and its saving and shows why.
     public func restore(_ row: BatchRow) async {
-        guard let result = row.result, result.backup != nil else { return }
+        guard let result = row.result, row.canRestore else { return }
+        row.restoreError = nil
         do {
-            _ = try service.restoreBackup(of: result, deleteBackup: false)
-            restoredIDs.insert(result.id)
-            noteWritten([result.source, result.output])
+            try await putBack(result)
             row.state = .restored(result)
         } catch {
-            row.state = .failed(CardPresentation.message(for: error))
+            row.restoreError = CardPresentation.message(for: error)
         }
     }
 
+    /// Stops what is still to go first, so no file is optimised after its neighbours came back.
     public func restoreAll(_ batch: Batch) async {
+        batch.cancelAll()
+        // ponytail: polls like `waitWhilePaused`; rows end within an engine's cancel time.
+        while batch.isRunning { try? await Task.sleep(for: .milliseconds(50)) }
         for row in batch.restorable { await restore(row) }
+    }
+
+    /// The one restore every window uses: by the result itself, never by its path (an older
+    /// result for the same file would get the newer original), with the copying off the main actor.
+    private func putBack(_ result: OptimisationResult) async throws {
+        let service = service
+        _ = try await Task.detached { try service.restoreBackup(of: result, deleteBackup: false) }.value
+        restoredIDs.insert(result.id)
+        noteWritten([result.source, result.output])
     }
 
     /// The executor for a request's origin: agents get the pipeline permissions the person set.
@@ -700,7 +713,9 @@ public final class AppModel {
             switch card.phase {
             case let .done(result):
                 source = result.source
-                if result.backup != nil { await restore(result) }
+                // A failed restore shows on the card; encoding the optimised file again would not
+                // start from the original.
+                if result.backup != nil, !(await restore(result)) { return }
             case let .restored(result):
                 source = result.source
             case .working, .failed, .notice:
@@ -726,13 +741,13 @@ public final class AppModel {
         interact(card, .menu(true))
     }
 
-    /// Puts the original back, from a card or the backups menu.
-    public func restore(_ result: OptimisationResult) async {
+    /// Puts the original back, from a card, Recent or Compare. False when it failed; the card or
+    /// a notice says why.
+    @discardableResult
+    public func restore(_ result: OptimisationResult) async -> Bool {
         let card = cards.first { $0.result?.id == result.id }
         do {
-            _ = try await service.restoreBackup(for: result.output, deleteBackup: false)
-            restoredIDs.insert(result.id)
-            noteWritten([result.source, result.output])
+            try await putBack(result)
             if let card {
                 card.phase = .restored(result)
                 card.loupe = nil
@@ -748,11 +763,12 @@ public final class AppModel {
                 // The optimised copy was on the clipboard: the original replaces it there too.
                 writeClipboard(files: [result.source])
             }
+            return true
         } catch {
             if let card { card.phase = .failed(CardPresentation.message(for: error)) } else {
                 notice(Strings.format("Could not restore %@", result.source.lastPathComponent), CardPresentation.message(for: error))
-
             }
+            return false
         }
     }
 

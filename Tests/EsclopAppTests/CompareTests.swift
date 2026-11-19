@@ -251,6 +251,16 @@ enum CompareFixtures {
         #expect(AppModel.size(of: result.source) == 100_000, "the original is back")
     }
 
+    @Test func aFailedRestoreIsNotShownAsRestored() async throws {
+        let harness = Harness()
+        let result = try #require(await harness.model.run(harness.job(harness.temp.file("a.png", bytes: 100_000))).results.first)
+        let compare = CompareModel(app: harness.model)
+        compare.open(result)
+        try FileManager.default.removeItem(at: try #require(result.backup))
+        await compare.restore()
+        #expect(compare.sides != .restored)
+    }
+
     @Test func tryAnotherFollowsTheNewResult() async throws {
         let harness = Harness()
         let report = await harness.model.run(harness.job(harness.temp.file("a.png", bytes: 100_000)))

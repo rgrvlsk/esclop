@@ -37,6 +37,8 @@ public final class BatchRow: Identifiable {
     public let source: URL
     public let bytesBefore: Int
     public var state: State = .waiting
+    /// Why the last Restore failed; the row keeps its result.
+    public var restoreError: String?
     /// Runs the file again (after an error or a cancel).
     var retry: (() -> Void)?
     var cancel: (() -> Void)?
@@ -49,6 +51,12 @@ public final class BatchRow: Identifiable {
     public var result: OptimisationResult? {
         if case let .done(result) = state { return result }
         return nil
+    }
+
+    /// The row has a result whose backup is still there.
+    public var canRestore: Bool {
+        guard let backup = result?.backup else { return false }
+        return FileManager.default.fileExists(atPath: backup.path)
     }
 
     public var isFinished: Bool {
@@ -116,7 +124,7 @@ public final class Batch: Identifiable {
     public var unchanged: Int { rows.filter { $0.state == .unchanged }.count }
     public var failed: Int { rows.filter { if case .failed = $0.state { return true } else { return false } }.count }
     public var cancelled: Int { rows.filter { $0.state == .cancelled }.count }
-    public var restorable: [BatchRow] { rows.filter { $0.result?.backup != nil } }
+    public var restorable: [BatchRow] { rows.filter(\.canRestore) }
 
     public var restored: Int { rows.filter { if case .restored = $0.state { return true } else { return false } }.count }
 
