@@ -9,6 +9,7 @@ import EsclopIPC
 import EsclopPipelines
 import Foundation
 import MCP
+import os
 
 public struct ToolCall: Sendable {
     public let name: String
@@ -16,6 +17,9 @@ public struct ToolCall: Sendable {
     public let service: EsclopService
     public let elicitor: Elicitor
     public let client: ClientState.Snapshot
+    /// Sends `notifications/progress` for the call (progress, total, message); nil when the
+    /// client asked for none (no `_meta.progressToken`).
+    public var progress: (@Sendable (Double, Double, String?) -> Void)?
 }
 
 public struct ToolSpec: Sendable {
@@ -748,7 +752,8 @@ public enum ToolCatalog {
     }
 
     static func runJob(_ call: ToolCall, _ operation: JobOperation, _ request: OptimisationRequest) async throws -> ToolOutput {
-        let report = try await call.service.perform(OptimisationJob(request: request, operation: operation))
+        let progress = call.progress.map { JobProgress(files: request.sources.count, send: $0) }
+        let report = try await call.service.perform(OptimisationJob(request: request, operation: operation)) { progress?.update($0) }
         let summary = JobSummary(operation: operation.name, report: report)
         var text = summary.text
         if report.failures.contains(where: { $0.error.code == "toolMissing" }) {
@@ -781,5 +786,37 @@ public enum ToolCatalog {
         var json = (try? JSONValue.encode(descriptor).objectValue) ?? [:]
         json["schema"] = descriptor.schema
         return .object(json)
+    }
+}
+
+/// A job's progress as MCP progress: each file counts 1 towards a total of the job's files.
+/// Sent only when it rose by a hundredth of the total, so a long video makes about a hundred
+/// notifications, and never lower than the last one (the spec asks for a rising value).
+final class JobProgress: Sendable {
+    private struct State {
+        var fractions: [URL: Double] = [:]
+        var sent = 0.0
+    }
+
+    private let total: Double
+    private let send: @Sendable (Double, Double, String?) -> Void
+    private let state = OSAllocatedUnfairLock(initialState: State())
+
+    init(files: Int, send: @escaping @Sendable (Double, Double, String?) -> Void) {
+        total = Double(max(files, 1))
+        self.send = send
+    }
+
+    func update(_ progress: OptimisationProgress) {
+        // -1 is "working, amount unknown": it moves nothing.
+        let fraction = min(max(progress.fraction, 0), 1)
+        let value: Double? = state.withLock { state in
+            state.fractions[progress.source] = max(state.fractions[progress.source] ?? 0, fraction)
+            let done = state.fractions.values.reduce(0, +)
+            guard done >= state.sent + total / 100 else { return nil }
+            state.sent = done
+            return done
+        }
+        if let value { send(value, total, progress.source.lastPathComponent) }
     }
 }
