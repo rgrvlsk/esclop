@@ -18,7 +18,11 @@ public enum Ink {
     public static let original = Color(nsColor: Palette.dynamic(light: 0xB83A2B, dark: 0xE0705E))
     /// Needs a decision (a suggestion, a failure, a missing permission), and the aggressive mark: 3:1.
     public static let warm = Color(nsColor: Palette.dynamic(light: 0x8F5510, dark: 0xE0A040))
-    /// The failure triangle; the sentence beside it is set in `text`.
+    /// The aggressive mark on a charcoal tile (the drop zone under a drag with ⌘), where `warm`
+    /// would sink into the fill.
+    public static let warmOnCharcoal = Color(nsColor: Palette.dynamic(light: 0xB8741C, dark: 0xE0A040))
+    /// The failure triangle, and error text on a window's row: 5.3:1 light, 5.0:1 dark (system red
+    /// is 3.4:1 in light). The sentence beside a card's triangle is set in `text`.
     public static let error = Color(nsColor: Palette.dynamic(light: 0xC4281C, dark: 0xFF6961))
     /// The straight bar of work in progress, on `Surface.progress`. Progress is never a ring.
     public static let progress = Color(nsColor: Palette.dynamic(light: 0x1F8A80, dark: 0x5FD0C2))
@@ -175,4 +179,15 @@ public enum Elevation {
     public static func rimOpacity(dark: Bool) -> Double { dark ? 0.14 : 0.35 }
     /// The outer hairline, black.
     public static func hairlineOpacity(dark: Bool) -> Double { dark ? 0.30 : 0.10 }
+
+    // A control resting on a panel: one height for everything that is pressed (a tile, a chip, a
+    // round tab, a row that runs something, a pill). What holds controls stays flat, what takes
+    // typing is inset, and nothing raised sits on something raised (owner, 2026-11-14: "the
+    // visual elements do not have the same elevation").
+    public static let controlY: CGFloat = 1
+    public static let controlBlur: CGFloat = 3
+    public static func controlOpacity(dark: Bool) -> Double { dark ? 0.50 : 0.10 }
+    /// The edge: a dark hairline in light; in dark, where a shadow does not show, a light one that
+    /// catches the edge, as macOS draws its own controls.
+    public static func controlEdge(dark: Bool) -> Color { dark ? .white.opacity(0.10) : .black.opacity(0.06) }
 }

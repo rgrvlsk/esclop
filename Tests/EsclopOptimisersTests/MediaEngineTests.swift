@@ -253,6 +253,44 @@ import UniformTypeIdentifiers
     }
 }
 
+/// The PDFKit side: no engine needed.
+@Suite struct PDFPageSafetyTests {
+    @Test func signedPDFsAreNotCropped() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let pdf = world.file("contract.pdf")
+        try signedPDF(at: pdf)
+        let before = try Data(contentsOf: pdf)
+        await #expect(throws: EsclopError.leftAsIs(PDFSignature.reason)) {
+            try await world.engine.cropPDF(pdf, aspectRatio: "1:1", request: world.request(pdf))
+        }
+        await #expect(throws: EsclopError.leftAsIs(PDFSignature.reason)) {
+            try await world.engine.uncropPDF(pdf, request: world.request(pdf))
+        }
+        #expect(try Data(contentsOf: pdf) == before)
+    }
+
+    @Test func aPageThatCannotBeRenderedFailsTheExport() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let pdf = world.file("doc.pdf")
+        try Fixture.pdf(pdf, pages: 3)
+        let folder = world.file("pages")
+        let engine = PDFEngine(env: world.engine.env)
+        #expect(throws: EsclopError.self) {
+            try engine.extractPages(pdf, format: .png, dpi: 18, to: folder) { page, scale in
+                page.document?.index(for: page) == 1 ? nil : PDFEngine.render(page, scale: scale)
+            }
+        }
+        #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path).isEmpty)
+        // A second export next to the first keeps it.
+        let first = try engine.extractPages(pdf, format: .png, dpi: 18, to: folder)
+        let second = try engine.extractPages(pdf, format: .png, dpi: 18, to: folder)
+        #expect(first.map(\.lastPathComponent) == ["doc-1.png", "doc-2.png", "doc-3.png"])
+        #expect(second.map(\.lastPathComponent) == ["doc-1 2.png", "doc-2 2.png", "doc-3 2.png"])
+    }
+}
+
 @Suite(.serialized) struct ClipboardTests {
     func pasteboard() -> NSPasteboard {
         NSPasteboard(name: NSPasteboard.Name("dev.esclop.tests.\(UUID().uuidString)"))
@@ -347,5 +385,112 @@ import UniformTypeIdentifiers
         let result = try await world.engine.convert(mov, to: .gif, request: request, progress: { _ in })
         let size = try #require(Inspect.size(result.output))
         #expect(size.0 == size.1)
+    }
+}
+
+/// Video and audio keep what they carry (HC-10). Fixtures use only what the bundled ffmpeg can
+/// write; subtitles and chapters need Homebrew's (mov_text, ffmetadata) and are checked there.
+@Suite(.enabled(if: Harness.hasFFmpeg)) struct MediaKeepsWhatItCarriesTests {
+    func ffprobe(_ url: URL) async throws -> JSONValue {
+        let result = try await ProcessRunner.run(.ffprobe, ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", "-show_chapters", url.path])
+        return JSONValue(parsing: result.stdoutString)
+    }
+
+    func ffmpegLists(_ list: String, _ name: String) async -> Bool {
+        let output = (try? await ProcessRunner.run(.ffmpeg, ["-hide_banner", list]))?.stdoutString ?? ""
+        return output.split(separator: "\n").contains { $0.split(separator: " ").dropFirst().first == Substring(name) }
+    }
+
+    @Test func optimisingKeepsEveryTrackLanguageSubtitleAndChapter() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let mp4 = world.file("tracks.mp4")
+        let rich = await ffmpegLists("-encoders", "mov_text")
+        var args = ["-hide_banner", "-loglevel", "error", "-y",
+                    "-f", "lavfi", "-i", "testsrc2=d=2:s=320x240:r=30", "-f", "lavfi", "-i", "testsrc=d=2:s=160x120:r=30",
+                    "-f", "lavfi", "-i", "sine=d=2"]
+        if rich {
+            let srt = world.file("sub.srt"), chapters = world.file("chapters.txt")
+            try "1\n00:00:00,000 --> 00:00:01,500\nHola\n".write(to: srt, atomically: true, encoding: .utf8)
+            try ";FFMETADATA1\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=0\nEND=1000\ntitle=Intro\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=1000\nEND=2000\ntitle=Main\n"
+                .write(to: chapters, atomically: true, encoding: .utf8)
+            args += ["-i", srt.path, "-i", chapters.path, "-map", "3", "-map_chapters", "4", "-c:s", "mov_text"]
+        }
+        args += ["-map", "0", "-map", "1", "-map", "2", "-c:v", "mjpeg", "-q:v", "2", "-pix_fmt", "yuvj420p", "-c:a", "aac",
+                 "-metadata", "title=Holiday", "-metadata:s:a:0", "language=cat", mp4.path]
+        try await ProcessRunner.run(.ffmpeg, args)
+
+        var request = world.request(mp4)
+        request.stripMetadata = true
+        let result = try await world.engine.optimise(mp4, request: request, progress: { _ in })
+        let json = try await ffprobe(result.output)
+        let streams = json["streams"]?.arrayValue ?? []
+        let video = streams.filter { $0["codec_type"]?.stringValue == "video" }
+        #expect(video.map { $0["width"]?.intValue } == [320, 160])
+        let audio = streams.filter { $0["codec_type"]?.stringValue == "audio" }
+        #expect(audio.map { $0["tags"]?["language"]?.stringValue } == ["cat"])
+        #expect(json["format"]?["tags"]?["title"] == nil)
+        if rich {
+            #expect(streams.contains { $0["codec_name"]?.stringValue == "mov_text" })
+            #expect(json["chapters"]?.arrayValue?.compactMap { $0["tags"]?["title"]?.stringValue } == ["Intro", "Main"])
+        }
+    }
+
+    @Test func aCropLargerThanTheVideoDoesNotUpscale() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let mov = world.file("small.mov")
+        try await Fixture.video(mov, width: 640, height: 360, audio: false)
+        let result = try await world.engine.crop(mov, to: CropSize(width: 2560, height: 1440), request: world.request(mov, location: .temporary), progress: { _ in })
+        let video = try await Inspect.media(result.output).video
+        #expect(video?.width == 640)
+        #expect(video?.height == 360)
+    }
+
+    @Test func gifFollowsThePlaybackSpeedAndIsNeverFittedAsAnMP4() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let mov = world.file("clip.mov")
+        try await Fixture.video(mov, seconds: 2, audio: false)
+        var request = world.request(mov, location: .temporary)
+        request.playbackSpeed = 2
+        let gif = try await world.engine.convert(mov, to: .gif, request: request, progress: { _ in })
+        let seconds = try await ffprobe(gif.output)["format"]?["duration"]?.stringValue.flatMap(Double.init) ?? 0
+        #expect(abs(seconds - 1) < 0.2)
+
+        var fit = world.request(mov, location: .temporary)
+        fit.format = .gif
+        await #expect(throws: EsclopError.self) { try await world.engine.fit(mov, underBytes: 50_000, request: fit, progress: { _ in }) }
+    }
+
+    @Test func losslessAudioKeepsItsDepthAndRateAndCodecChangesAreNamed() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let alac = world.file("album.m4a")
+        try await ProcessRunner.run(.ffmpeg, [
+            "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "anoisesrc=d=3:a=0.3", "-ac", "2", "-c:a", "alac_at", alac.path,
+        ])
+        let aac = try await world.engine.optimise(alac, request: world.request(alac), progress: { _ in })
+        #expect(aac.steps.contains("Converted Apple Lossless to AAC"))
+        #expect(try await Inspect.media(aac.output).audio?.codec == "aac")
+
+        let flac = world.file("master.flac")
+        try await ProcessRunner.run(.ffmpeg, [
+            "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=d=2:sample_rate=96000", "-c:a", "flac", "-sample_fmt", "s32", flac.path,
+        ])
+        let wav = try await world.engine.convert(flac, to: .wav, request: world.request(flac, location: .temporary), progress: { _ in })
+        let wavAudio = try await Inspect.media(wav.output).audio
+        #expect(wavAudio?.codec == "pcm_s24le")
+        #expect(wavAudio?.sampleRate == 96000)
+
+        let aiff = try await world.engine.convert(flac, to: .aiff, request: world.request(flac, location: .temporary), progress: { _ in })
+        #expect(aiff.output.pathExtension == "aiff")
+        let aiffCodec = try await Inspect.media(aiff.output).audio?.codec
+        #expect(aiffCodec == "pcm_s24be" || aiff.steps.contains { $0.hasPrefix("Reduced to 16 bits") })
+
+        var aggressive = world.request(flac, location: .temporary)
+        aggressive.quality = .aggressive
+        let adpcm = try await world.engine.convert(flac, to: .wav, request: aggressive, progress: { _ in })
+        #expect(adpcm.steps.contains("Encoded as IMA ADPCM, which is lossy"))
     }
 }

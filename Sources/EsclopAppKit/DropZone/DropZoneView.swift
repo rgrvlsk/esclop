@@ -1,121 +1,145 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The drop zone at the results corner: "Drop to optimise" (with Command, "Drop to optimise
-// harder" in the warm colour), and beside it up to four preset zones in a 2 × 2 grid, facing the
-// screen. Text and icons use the popover's explicit inks on its near-opaque surface, so they keep
-// their contrast whatever is behind the glass.
+// The drop zone at the results corner (`pr5-drop-zone`): one row of raised tiles on the popover's
+// surface, the plain "Optimise" tile and up to four preset zones facing the screen, and under them
+// "Drop to optimise · Hold ⌘ to optimise harder" (over a preset zone: "Drop to run “name”"; with
+// ⌥: "The originals stay as they are"). The tile under the drag turns charcoal at the same height,
+// as a chosen tile does in the options popover: one geometry, one elevation.
 
 import SwiftUI
 
 public struct DropZoneView: View {
     let state: DropZoneState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public init(state: DropZoneState) {
         self.state = state
     }
 
     public var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            if state.zonesLeading { zoneGrid }
-            plainTarget
-            if !state.zonesLeading { zoneGrid }
-        }
-        .fixedSize(horizontal: false, vertical: true)
-        .padding(8)
-        .background(PopoverInk.surface.color, in: RoundedRectangle(cornerRadius: Metrics.panelRadius, style: .continuous))
-        .panelSurface()
-        .animation(Motion.hover, value: state.hovering)
-        .animation(Motion.hover, value: state.harder)
-        .animation(Motion.hover, value: state.hoveredZone)
-    }
-
-    private var tint: Color { state.harder ? PopoverInk.warm.color : PopoverInk.accent.color }
-
-    private var plainTarget: some View {
-        let inner = RoundedRectangle(cornerRadius: Metrics.controlRadius, style: .continuous)
-        return HStack(spacing: 12) {
-            Image(systemName: state.harder ? "arrow.down.to.line.compact" : "arrow.down.to.line")
-                .font(.title2.weight(.medium))
-                .foregroundStyle(tint)
-                .frame(width: Metrics.dropZoneIcon, height: Metrics.dropZoneIcon)
-                .background(tint.opacity(state.hovering ? 0.18 : 0.1), in: inner)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(state.title)
-                    .font(.headline)
-                    .foregroundStyle(PopoverInk.primary.color)
-                Text(state.detail)
-                    .font(.caption)
-                    .foregroundStyle(PopoverInk.secondary.color)
-                    .monospacedDigit()
+        VStack(spacing: 10) {
+            HStack(alignment: .top, spacing: 8) {
+                if state.zonesLeading { zoneRow }
+                plainTarget
+                if !state.zonesLeading { zoneRow }
             }
-            Spacer(minLength: 0)
+            hintLine
         }
         .padding(10)
-        .frame(width: Metrics.dropZoneWidth - 16, alignment: .leading)
-        .frame(maxHeight: .infinity)
-        .background {
-            inner
-                .strokeBorder(tint.opacity(state.hovering ? 0.9 : 0.45), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
-                .background(inner.fill(tint.opacity(state.hovering ? 0.08 : 0)))
+        .padding(.bottom, 2)
+        .background(PopoverInk.surface.color, in: RoundedRectangle(cornerRadius: Metrics.dropZoneRadius, style: .continuous))
+        .glassSurface(RoundedRectangle(cornerRadius: Metrics.dropZoneRadius, style: .continuous))
+        // Reduce Motion: the tiles change colour in a crossfade and do not grow (DESIGN.md › Motion).
+        .animation(hoverAnimation, value: state.hovering)
+        .animation(hoverAnimation, value: state.harder)
+        .animation(hoverAnimation, value: state.keepOriginals)
+        .animation(hoverAnimation, value: state.hoveredZone)
+        .designTint()
+    }
+
+    private var hoverAnimation: Animation { reduceMotion ? Motion.crossfade : Motion.hover }
+
+    private var plainTarget: some View {
+        // Alone, it takes the panel's width, so it does not float under the hint line.
+        DropTile(hovered: state.hovering, width: state.zones.isEmpty ? nil : DropTiles.plainWidth) {
+            Group {
+                if let glyph = MenuBarLabel.customGlyph {
+                    Image(nsImage: glyph).renderingMode(.template)
+                } else {
+                    Image(systemName: "arrow.down.to.line").font(.system(size: 17, weight: .medium))
+                }
+            }
+            // Harder in the warm colour, on cream and on charcoal alike.
+            .foregroundStyle(state.harder ? AnyShapeStyle(state.hovering ? Ink.warmOnCharcoal : PopoverInk.warm.color) : AnyShapeStyle(.primary))
+        } label: {
+            Text(state.tileTitle)
+            if !state.count.isEmpty {
+                Text(state.count).font(OptionsType.label).opacity(0.75).monospacedDigit()
+            }
         }
         .reportFrame(DropZoneState.plainTarget, to: state)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(state.title), \(state.detail)")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel([state.plainTitle, state.count, state.plainHint].filter { !$0.isEmpty }.joined(separator: ", "))
     }
 
     @ViewBuilder
-    private var zoneGrid: some View {
+    private var zoneRow: some View {
         if !state.zones.isEmpty {
-            let rows = stride(from: 0, to: state.zones.count, by: 2).map { Array(state.zones[$0 ..< min($0 + 2, state.zones.count)]) }
-            Grid(horizontalSpacing: 6, verticalSpacing: 6) {
-                ForEach(rows, id: \.first?.name) { row in
-                    GridRow {
-                        ForEach(row) { zone in PresetZoneCell(zone: zone, hovered: state.hoveredZone == zone.name, state: state) }
+            HStack(alignment: .top, spacing: 8) {
+                ForEach(state.zones) { zone in
+                    DropTile(hovered: state.hoveredZone == zone.name, width: DropTiles.zoneWidth) {
+                        Image(systemName: zone.icon).font(.system(size: 15, weight: .medium))
+                    } label: {
+                        Text(zone.title)
                     }
+                    .reportFrame(zone.name, to: state)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(Strings.format("Preset zone: %@", zone.title))
+                    .accessibilityHint(Strings.text("Drop files here to run this pipeline on them."))
                 }
             }
             .accessibilityElement(children: .contain)
             .accessibilityLabel(Strings.text("Preset zones"))
         }
     }
+
+    private var hintLine: some View {
+        HStack(spacing: 5) {
+            Text(state.title)
+            if !state.hint.isEmpty {
+                Text(verbatim: "·").accessibilityHidden(true)
+                Text(state.hint).foregroundStyle(hintInk)
+            }
+        }
+        .font(OptionsType.label)
+        .foregroundStyle(PopoverInk.secondary.color)
+        .lineLimit(1)
+        .minimumScaleFactor(0.85)
+        .accessibilityHidden(true)
+    }
+
+    /// ⌥ says what it keeps in the primary ink; ⌘'s aggressive settings in the warm colour.
+    private var hintInk: Color {
+        if state.keepOriginals { return PopoverInk.primary.color }
+        return state.harder ? PopoverInk.warm.color : PopoverInk.secondary.color
+    }
 }
 
-/// One preset zone: the pipeline's symbol and name in a dashed square that fills when a drag is
-/// over it.
-struct PresetZoneCell: View {
-    let zone: PresetZone
-    let hovered: Bool
-    let state: DropZoneState
+/// One target: a symbol in a flat circle over a name of two lines at most, on a raised cream tile
+/// that turns charcoal while the drag is over it.
+enum DropTiles {
+    static let plainWidth: CGFloat = 124
+    static let zoneWidth: CGFloat = 100
+    static let height: CGFloat = 104
+}
 
-    static let size = CGSize(width: 92, height: 64)
+struct DropTile<Symbol: View, Label: View>: View {
+    let hovered: Bool
+    /// nil: as wide as the panel.
+    let width: CGFloat?
+    @ViewBuilder let symbol: Symbol
+    @ViewBuilder let label: Label
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let inner = RoundedRectangle(cornerRadius: Metrics.controlRadius, style: .continuous)
-        let accent = PopoverInk.accent.color
-        VStack(spacing: 4) {
-            Image(systemName: zone.icon)
-                .font(.title3.weight(.medium))
-                .foregroundStyle(hovered ? accent : PopoverInk.icon.color)
-                .frame(height: 22)
-            Text(zone.name)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(PopoverInk.primary.color)
+        // Symbols on one line across the row, whether a name takes one line or two.
+        VStack(spacing: 6) {
+            symbol
+                .frame(width: 38, height: 38)
+                // Inside a raised tile: flat, a tint of the tile.
+                .background(Circle().fill(hovered ? Ink.onCharcoal.opacity(0.14) : Color.primary.opacity(0.06)))
+            VStack(spacing: 1) { label }
+                .font(OptionsType.bodyStrong)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .minimumScaleFactor(0.85)
         }
-        .padding(.horizontal, 6)
-        .frame(width: Self.size.width, height: Self.size.height)
-        .background {
-            inner
-                .strokeBorder(accent.opacity(hovered ? 0.9 : 0.35), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
-                .background(inner.fill(hovered ? PopoverInk.selectedFill.color : .clear))
-        }
-        .scaleEffect(hovered ? 1.03 : 1)
-        .reportFrame(zone.name, to: state)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Strings.format("Preset zone: %@", zone.name))
-        .accessibilityHint(Strings.text("Drop files here to run this pipeline on them."))
+        .padding(.horizontal, 8)
+        .padding(.top, 14)
+        .frame(minWidth: width ?? DropTiles.plainWidth, maxWidth: width ?? .infinity, minHeight: DropTiles.height, maxHeight: DropTiles.height, alignment: .top)
+        .foregroundStyle(hovered ? AnyShapeStyle(Ink.onCharcoal) : AnyShapeStyle(PopoverInk.primary.color))
+        .raised(RoundedRectangle(cornerRadius: OptionsType.radius, style: .continuous), fill: hovered ? Ink.charcoal : Surface.cream)
+        .scaleEffect(hovered && !reduceMotion ? 1.03 : 1)
     }
 }
 

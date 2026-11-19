@@ -92,7 +92,7 @@ public enum SettingPresentation {
         "autoHideFloatingResultsAfter": "s", "autoHideClipboardResultAfter": "s",
         "maxImageSizeMB": "MB", "minImageSizeKB": "kB", "maxVideoSizeMB": "MB", "minVideoSizeKB": "kB",
         "maxPDFSizeMB": "MB", "maxAudioSizeMB": "MB", "minVideoFPS": "fps", "gifMaxWidth": "px", "gifFPS": "fps",
-        "loudnessTarget": "LUFS", "backupRetentionDays": "days",
+        "loudnessTarget": "LUFS", "backupRetentionDays": "days", "batchWindowFrom": "files",
     ]
 
     static let choiceLabels: [String: String] = [
@@ -164,6 +164,21 @@ public enum SettingPresentation {
         default:
             return text(for: value)
         }
+    }
+
+    /// The word after a number field. Backups: "day" after 1, and 0 keeps them for ever.
+    static func unit(_ unit: String, key: String, value: JSONValue?) -> String {
+        guard key == EsclopSettings.backupRetentionDays.key, let days = value?.intValue else { return unit }
+        switch days {
+        case ...0: return Strings.text("days, kept for ever")
+        case 1: return Strings.text("day")
+        default: return unit
+        }
+    }
+
+    /// How long backups are kept, for 1 or more days: "1 day", "7 days".
+    public static func retention(days: Int) -> String {
+        days == 1 ? Strings.text("1 day") : Strings.format("%d days", days)
     }
 
     static func number(_ value: Double) -> String {

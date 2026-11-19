@@ -5,6 +5,7 @@
 
 import EsclopCore
 import Foundation
+import os
 
 // MARK: - Locations
 
@@ -25,12 +26,7 @@ public struct EsclopLocations: Sendable, Hashable {
     }
 
     public static func current(environment: [String: String] = ProcessInfo.processInfo.environment) -> EsclopLocations {
-        var locations: EsclopLocations
-        if let support = environment["ESCLOP_SUPPORT_DIR"], !support.isEmpty {
-            locations = EsclopLocations(support: URL(fileURLWithPath: (support as NSString).expandingTildeInPath, isDirectory: true))
-        } else {
-            locations = EsclopLocations(support: Paths.applicationSupport, pipelines: Paths.pipelines, backups: Paths.backups, logs: Paths.logs)
-        }
+        var locations = EsclopLocations(support: Paths.applicationSupport(environment: environment))
         if let pipelines = environment["ESCLOP_PIPELINES_DIR"], !pipelines.isEmpty {
             locations.pipelines = URL(fileURLWithPath: (pipelines as NSString).expandingTildeInPath, isDirectory: true)
         }
@@ -41,63 +37,102 @@ public struct EsclopLocations: Sendable, Hashable {
 // MARK: - Recent results
 
 /// Results of jobs the CLI and MCP server ran, newest last, one JSON object per line. The app may
-/// append its own; readers de-duplicate by result id. Cleared results (`redactAll`) stay as their
-/// sizes and dates alone, so the saving still counts them; `recent` never returns them.
+/// append its own; readers de-duplicate by result id, the newest line winning. Cleared results
+/// (`redactAll`) stay as their sizes and dates alone, so the saving still counts them; `recent`
+/// never returns them. A withdrawn result (restored, or replaced by a re-run of its card) gets a
+/// line of its sizes marked `withdrawn`: wherever that line is, the result no longer counts and
+/// `recent` skips it, so a batch that appends its results again at its end does not revive one.
 public struct ResultsLog: Sendable {
     public let url: URL
     public var keep: Int
+    /// Appends between two trims; the first append in a process trims too.
+    public var trimEvery: Int
 
-    public init(url: URL, keep: Int = 500) {
+    public init(url: URL, keep: Int = 500, trimEvery: Int = 100) {
         self.url = url
         self.keep = keep
+        self.trimEvery = trimEvery
     }
 
-    public func append(_ results: [OptimisationResult]) {
-        guard !results.isEmpty else { return }
+    /// Every read and write in this process, in order: an append the app hands off is in the
+    /// file before any later read, restore or clear here looks at it.
+    private static let queue = DispatchQueue(label: "dev.esclop.results-log")
+    /// Appends since the last trim, per log file. Only touched on `queue`.
+    private final class TrimCounts: @unchecked Sendable { var counts: [String: Int] = [:] }
+    private static let trimCounts = TrimCounts()
+
+    /// Appends the results, after a line withdrawing each of `withdrawing`. With `wait: false`
+    /// the write happens on a background queue (the app's main actor does not wait for the
+    /// lock or the disk); a process that exits soon after, like the CLI, waits.
+    public func append(_ results: [OptimisationResult], withdrawing withdrawn: [OptimisationResult] = [], wait: Bool = true) {
+        guard !results.isEmpty || !withdrawn.isEmpty else { return }
         let encoder = JSONCoding.wireEncoder()
         var data = Data()
+        for result in withdrawn {
+            var saving = Saving(result)
+            saving.withdrawn = true
+            guard let line = try? encoder.encode(saving) else { continue }
+            data.append(line)
+            data.append(0x0A)
+        }
         for result in results {
             guard let line = try? encoder.encode(result) else { continue }
             data.append(line)
             data.append(0x0A)
         }
-        locked {
+        let write = { [self] in
             do {
-                try Paths.ensure(url.deletingLastPathComponent())
-                if !FileManager.default.fileExists(atPath: url.path) {
-                    FileManager.default.createFile(atPath: url.path, contents: nil)
+                try locked {
+                    if !FileManager.default.fileExists(atPath: url.path) {
+                        FileManager.default.createFile(atPath: url.path, contents: nil)
+                    }
+                    let handle = try FileHandle(forWritingTo: url)
+                    defer { try? handle.close() }
+                    try handle.seekToEnd()
+                    try handle.write(contentsOf: data)
+                    // ponytail: the trim reads the whole log; on a schedule, not on every append.
+                    let count = Self.trimCounts.counts[url.path].map { $0 + 1 } ?? trimEvery
+                    if count >= trimEvery { trimIfNeeded() }
+                    Self.trimCounts.counts[url.path] = count >= trimEvery ? 0 : count
                 }
-                let handle = try FileHandle(forWritingTo: url)
-                defer { try? handle.close() }
-                try handle.seekToEnd()
-                try handle.write(contentsOf: data)
             } catch {
-                return
+                Log.core.error("Could not add to \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .private)")
             }
-            trimIfNeeded()
         }
+        if wait { Self.queue.sync(execute: write) } else { Self.queue.async(execute: write) }
     }
 
     /// The app, the CLI and the MCP server all write the log: an append, a trim and a clear each
     /// hold an exclusive lock on `<log>.lock`, so none writes into a file another is replacing,
-    /// and a trim never puts back names a clear just removed.
-    private func locked<T>(_ body: () throws -> T) rethrows -> T {
-        try? Paths.ensure(url.deletingLastPathComponent())
+    /// and a trim never puts back names a clear just removed. Without the lock nothing changes.
+    private func locked<T>(_ body: () throws -> T) throws -> T {
+        try Paths.ensure(url.deletingLastPathComponent())
         let descriptor = open(url.path + ".lock", O_CREAT | O_RDWR, 0o644)
-        guard descriptor >= 0 else { return try body() }
+        guard descriptor >= 0 else { throw EsclopError.other("Could not open the lock for \(url.lastPathComponent) (errno \(errno))") }
         defer { close(descriptor) }
-        flock(descriptor, LOCK_EX)
+        var result = flock(descriptor, LOCK_EX)
+        while result != 0, errno == EINTR { result = flock(descriptor, LOCK_EX) }
+        guard result == 0 else { throw EsclopError.other("Could not lock \(url.lastPathComponent) (errno \(errno))") }
         defer { flock(descriptor, LOCK_UN) }
         return try body()
     }
 
+    /// The log's lines; none when there is no log yet.
+    private func lines() throws -> [Data.SubSequence] {
+        do {
+            return try Data(contentsOf: url).split(separator: 0x0A)
+        } catch CocoaError.fileReadNoSuchFile {
+            return []
+        }
+    }
+
     /// Newest first.
     public func recent(limit: Int) -> [OptimisationResult] {
-        guard let data = try? Data(contentsOf: url) else { return [] }
+        guard let lines = Self.queue.sync(execute: { try? lines() }) else { return [] }
         let decoder = JSONCoding.wireDecoder()
-        var seen = Set<UUID>()
+        var seen = Self.withdrawnIDs(in: lines, decoder: decoder)
         var results: [OptimisationResult] = []
-        for line in data.split(separator: 0x0A).reversed() {
+        for line in lines.reversed() {
             guard let result = try? decoder.decode(OptimisationResult.self, from: Data(line)), seen.insert(result.id).inserted else { continue }
             results.append(result)
             if results.count >= limit { break }
@@ -114,41 +149,55 @@ public struct ResultsLog: Sendable {
         public var finishedAt: Date
         /// Present, and true, on a cleared line: no name, no path.
         public var redacted: Bool?
+        /// Present, and true, when the result no longer stands: it was restored, or a re-run of
+        /// its card replaced it. Its date stays the result's, so a trim keeps or drops both.
+        public var withdrawn: Bool?
 
-        public init(id: UUID, kind: MediaKind, bytesBefore: Int, bytesAfter: Int, finishedAt: Date, redacted: Bool? = nil) {
+        public init(id: UUID, kind: MediaKind, bytesBefore: Int, bytesAfter: Int, finishedAt: Date, redacted: Bool? = nil, withdrawn: Bool? = nil) {
             self.id = id
             self.kind = kind
             self.bytesBefore = bytesBefore
             self.bytesAfter = bytesAfter
             self.finishedAt = finishedAt
             self.redacted = redacted
+            self.withdrawn = withdrawn
+        }
+
+        init(_ result: OptimisationResult) {
+            self.init(id: result.id, kind: result.kind, bytesBefore: result.bytesBefore, bytesAfter: result.bytesAfter, finishedAt: result.finishedAt)
         }
     }
 
-    /// Each result's sizes and when it finished, newest first, cleared ones included.
+    /// Each result's sizes and when it finished, newest first, cleared ones included, withdrawn
+    /// ones left out.
     public func savings() -> [Saving] {
-        guard let data = try? Data(contentsOf: url) else { return [] }
+        guard let lines = Self.queue.sync(execute: { try? lines() }) else { return [] }
         let decoder = JSONCoding.wireDecoder()
-        var seen = Set<UUID>()
-        return data.split(separator: 0x0A).reversed().compactMap { line in
-            guard let saving = try? decoder.decode(Saving.self, from: Data(line)), seen.insert(saving.id).inserted else { return nil }
-            return saving
-        }
+        let all = lines.reversed().compactMap { try? decoder.decode(Saving.self, from: Data($0)) }
+        var seen = Set(all.filter { $0.withdrawn == true }.map(\.id))
+        return all.filter { seen.insert($0.id).inserted }
+    }
+
+    private static func withdrawnIDs(in lines: [Data.SubSequence], decoder: JSONDecoder) -> Set<UUID> {
+        Set(lines.compactMap { line in
+            (try? decoder.decode(Saving.self, from: Data(line))).flatMap { $0.withdrawn == true ? $0.id : nil }
+        })
     }
 
     /// Clears the names: every line keeps only its sizes, kind and date (`Saving`), written in
     /// one atomic step. The saving stays; no file name or path is left in the log. Backups are
     /// not touched. Readers of `recent` (the CLI, MCP, the app) skip cleared lines: they do not
-    /// decode as a result.
+    /// decode as a result. Throws, and changes nothing, when the log cannot be read or locked.
     public func redactAll() throws {
-        try locked { try redactLocked() }
+        try Self.queue.sync { try locked { try redactLocked() } }
     }
 
     private func redactLocked() throws {
-        guard let data = try? Data(contentsOf: url) else { return }
+        let lines = try lines()
+        guard !lines.isEmpty else { return }
         let decoder = JSONCoding.wireDecoder(), encoder = JSONCoding.wireEncoder()
         var out = Data()
-        for line in data.split(separator: 0x0A) {
+        for line in lines {
             guard var saving = try? decoder.decode(Saving.self, from: Data(line)) else { continue }
             saving.redacted = true
             out.append(try encoder.encode(saving))
@@ -160,13 +209,11 @@ public struct ResultsLog: Sendable {
     /// Keeps the last `keep` lines, and every line from the last eight days, so the week's
     /// saving holds however many files a batch brought.
     private func trimIfNeeded() {
-        guard let data = try? Data(contentsOf: url) else { return }
-        let lines = data.split(separator: 0x0A)
-        guard lines.count > keep * 2 else { return }
+        guard let lines = try? lines(), lines.count > keep * 2 else { return }
         let decoder = JSONCoding.wireDecoder()
         let since = Date().addingTimeInterval(-8 * 86_400)
         // Oldest first: when even the oldest is from the last eight days, nothing can go, and the
-        // file stays as it is instead of being rewritten on every append.
+        // file stays as it is instead of being rewritten.
         if let first = lines.first, let oldest = try? decoder.decode(Saving.self, from: Data(first)), oldest.finishedAt >= since { return }
         let firstKept = lines.count - keep
         let kept = lines.enumerated().filter { index, line in
@@ -397,7 +444,7 @@ extension EsclopError {
     public var code: String {
         switch self {
         case .unsupportedFile, .leftAsIs: return "unsupportedFile"
-        case .fileNotFound: return "fileNotFound"
+        case .fileNotFound, .backupRemoved: return "fileNotFound"
         case .toolMissing: return "toolMissing"
         case .toolFailed: return "toolFailed"
         case .alreadySmaller: return "alreadySmaller"

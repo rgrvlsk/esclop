@@ -33,7 +33,7 @@ public enum OutputFormat: String, Codable, CaseIterable, Sendable {
     // video
     case mp4, mov, webm, mkv, hevc, av1, gifVideo = "gif-video"
     // audio
-    case mp3, aac, m4a, flac, wav, opus
+    case mp3, aac, m4a, flac, wav, opus, aiff
     // documents
     case pdf
 
@@ -41,7 +41,7 @@ public enum OutputFormat: String, Codable, CaseIterable, Sendable {
         switch self {
         case .jpeg, .png, .webp, .avif, .heic, .jxl, .gif, .tiff, .bmp: return .image
         case .mp4, .mov, .webm, .mkv, .hevc, .av1, .gifVideo: return .video
-        case .mp3, .aac, .m4a, .flac, .wav, .opus: return .audio
+        case .mp3, .aac, .m4a, .flac, .wav, .opus, .aiff: return .audio
         case .pdf: return .pdf
         }
     }
@@ -75,6 +75,7 @@ public enum OutputFormat: String, Codable, CaseIterable, Sendable {
         case "qt": self = .mov
         case "ogg", "oga": self = .opus
         case "wave": self = .wav
+        case "aif", "aifc": self = .aiff
         case "gifvideo": self = .gifVideo
         default: return nil
         }
@@ -197,6 +198,10 @@ public struct OptimisationRequest: Codable, Identifiable, Sendable {
     public var loudnessLUFS: Double?
     /// Keep HDR (gain maps, PQ/HLG video) when the output format can carry it. nil follows the settings.
     public var keepHDR: Bool?
+    /// true when `location` is the default where the job came from, not one chosen for this job:
+    /// a result in another format then goes where the "Converted … go" setting for its kind says.
+    /// nil or false keeps `location`.
+    public var locationFromSettings: Bool?
     /// Also try a PNG without transparency as JPEG and keep the JPEG when it is much smaller.
     /// nil follows the "adaptive image format" setting.
     public var adaptiveImageFormat: Bool?
@@ -251,11 +256,14 @@ public struct OptimisationResult: Codable, Identifiable, Sendable {
     public var steps: [String]             // human-readable log of what was applied
     /// Where the file can be fetched after an upload (its public link).
     public var link: URL?
+    /// Where the request came from (a copied image, a dropped file, a watched folder, an agent),
+    /// as the app and the CLI record it in the shared log; nil in lines written before 0.2.
+    public var origin: RequestOrigin?
 
     public init(
         id: UUID = UUID(), source: URL, output: URL, backup: URL? = nil, kind: MediaKind,
         bytesBefore: Int, bytesAfter: Int, width: Int? = nil, height: Int? = nil, duration: TimeInterval? = nil,
-        startedAt: Date, finishedAt: Date, steps: [String] = [], link: URL? = nil
+        startedAt: Date, finishedAt: Date, steps: [String] = [], link: URL? = nil, origin: RequestOrigin? = nil
     ) {
         self.id = id
         self.source = source
@@ -271,6 +279,7 @@ public struct OptimisationResult: Codable, Identifiable, Sendable {
         self.finishedAt = finishedAt
         self.steps = steps
         self.link = link
+        self.origin = origin
     }
 
     public var savedBytes: Int { bytesBefore - bytesAfter }
@@ -297,6 +306,9 @@ public enum EsclopError: Error, Codable, Equatable, Sendable, CustomStringConver
     /// ("Signed PDFs are left as they are, so their signatures stay valid."), shown as it is or
     /// translated.
     case leftAsIs(String)
+    /// The result had a backup, but it is gone: removed by retention after `afterDays` days, or
+    /// some other way when that is nil. `file` is the source path the backup was of.
+    case backupRemoved(file: String, afterDays: Int?)
     case other(String)
 
     /// "This file isn’t a video L'Esclop can read. It may be damaged."
@@ -323,6 +335,8 @@ public enum EsclopError: Error, Codable, Equatable, Sendable, CustomStringConver
         case .appNotRunning: return "The esclop app is not running"
         case let .unreadable(kind): return Self.unreadableMessage(kind)
         case let .leftAsIs(reason): return reason
+        case let .backupRemoved(file, days?): return "The backup of \(file) was removed after \(days) \(days == 1 ? "day" : "days") (Settings → Backups)"
+        case let .backupRemoved(file, nil): return "The backup of \(file) is no longer there"
         case let .other(msg): return msg
         }
     }

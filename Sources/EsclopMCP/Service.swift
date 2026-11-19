@@ -68,7 +68,11 @@ public struct RestoreOutcome: Codable, Sendable {
     public var restored: String
     public var from: String
     public var backupDeleted: Bool
+    /// A converted output the Trash refused; it is still there.
     public var leftInPlace: String?
+    /// Where the files set aside are now, in the Trash: a file changed since it was optimised, a
+    /// converted output.
+    public var movedToTrash: [String]?
 }
 
 public struct LogExcerpt: Codable, Sendable {
@@ -139,6 +143,7 @@ public struct EsclopService: Sendable {
         } else {
             report = await executor.run(job) { if case let .progress(p) = $0 { progress(p) } }
         }
+        report.results = report.results.map { var result = $0; result.origin = result.origin ?? job.request.origin; return result }
         results.append(report.results)
         return report
     }
@@ -309,29 +314,35 @@ public struct EsclopService: Sendable {
         guard let result = candidates.first(where: { canonical($0.output) == target || canonical($0.source) == target }) else {
             throw EsclopError.invalidArgument("No recent result for \(path.path). esclop_recent_results lists what can be restored")
         }
-        return try restoreBackup(of: result, deleteBackup: deleteBackup)
+        return try await restoreBackup(of: result, deleteBackup: deleteBackup)
     }
 
-    /// Puts back the original of a result already in hand (the app's own windows).
-    public func restoreBackup(of result: OptimisationResult, deleteBackup: Bool) throws -> RestoreOutcome {
+    /// Puts back the original of a result already in hand (the app's own windows), through
+    /// `BackupStore.restore`: what was at the path and changed since, and a converted output, go
+    /// to the Trash and the outcome lists them. Async so the copy and the log's lock stay off the
+    /// caller's actor.
+    public func restoreBackup(of result: OptimisationResult, deleteBackup: Bool) async throws -> RestoreOutcome {
         try policy.checkRestore(deleteBackup: deleteBackup)
-        guard let backup = result.backup, FileManager.default.fileExists(atPath: backup.path) else {
+        guard let backup = result.backup else {
             throw EsclopError.fileNotFound("No backup is kept for \(result.source.path); it was not changed in place")
         }
         let fm = FileManager.default
-        let staging = result.source.deletingLastPathComponent().appendingPathComponent(".\(result.source.lastPathComponent).esclop-restore")
-        try? fm.removeItem(at: staging)
-        try fm.copyItem(at: backup, to: staging)
-        if fm.fileExists(atPath: result.source.path) {
-            _ = try fm.replaceItemAt(result.source, withItemAt: staging)
-        } else {
-            try fm.moveItem(at: staging, to: result.source)
+        guard fm.fileExists(atPath: backup.path) else {
+            // ponytail: inferred from the result's age and today's setting, not recorded by prune; a
+            // backup deleted by hand after the retention period also reads "removed after N days".
+            let retention = EsclopSettings.backupRetentionDays
+            let days = (try? context.settings.value(forKey: retention.key))?.intValue ?? retention.defaultValue
+            let expired = days > 0 && result.finishedAt < Date().addingTimeInterval(-Double(days) * 86400)
+            throw EsclopError.backupRemoved(file: result.source.path, afterDays: expired ? days : nil)
         }
+        let report = try BackupStore(root: context.locations.backups).restore(result)
         if deleteBackup { try fm.removeItem(at: backup) }
-        let leftover = result.output.standardizedFileURL != result.source.standardizedFileURL && fm.fileExists(atPath: result.output.path)
+        // The original is back: the result no longer counts in the saving or lists in Recent.
+        results.append([], withdrawing: [result])
         return RestoreOutcome(
             restored: result.source.path, from: backup.path, backupDeleted: deleteBackup,
-            leftInPlace: leftover ? result.output.path : nil
+            leftInPlace: report.leftInPlace?.path,
+            movedToTrash: report.trashed.isEmpty ? nil : report.trashed.map(\.path)
         )
     }
 

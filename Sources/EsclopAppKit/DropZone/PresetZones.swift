@@ -4,7 +4,7 @@
 // A saved pipeline is one when its triggers include `presetZone` (the pipeline editor's "A preset
 // zone while dragging"); a built-in preset is one when the `presetZones` setting names it. The
 // same setting orders them all; pipelines it does not name follow, by name. A drag shows the first
-// four that do something for every kind of file in it, in a 2 × 2 grid like Clop's.
+// four that do something for every kind of file in it, in one row beside the plain target.
 
 import EsclopCore
 import EsclopPipelines
@@ -21,6 +21,10 @@ public struct PresetZone: Identifiable, Hashable, Sendable {
     public var isOn: Bool
 
     public var id: String { name }
+
+    /// The name as the person reads it: a built-in template's in their language. `name` stays
+    /// what runs, as the CLI and agents know it.
+    public var title: String { builtIn ? Strings.text(name) : name }
 
     public init(name: String, icon: String = PresetZone.defaultIcon, builtIn: Bool = false, kinds: Set<MediaKind> = Set(MediaKind.allCases), isOn: Bool = true) {
         self.name = name
@@ -45,7 +49,7 @@ public struct PresetZone: Identifiable, Hashable, Sendable {
 }
 
 public enum PresetZones {
-    /// Clop's 2 × 2 grid.
+    /// Four, as Clop offers; in one row they still fit beside the plain target at a screen edge.
     public static let limit = 4
 
     /// Every pipeline that can be a zone, on or off: the ones that are on in `order`'s order, then
