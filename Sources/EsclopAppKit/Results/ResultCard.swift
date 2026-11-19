@@ -67,6 +67,9 @@ public final class ResultCard: Identifiable {
     public var restoring = false
     /// The detail's name is being edited: the card's keys stand aside, and come back after.
     public var renaming = false
+    /// The "Go to the newest result" hotkey asked for this card to take the keys; the card
+    /// takes them once and clears it.
+    public var wantsFocus = false
     /// The detail's picture is a loupe (Compare); nil when it is not.
     public var loupe: LoupeState?
     /// The row of the detail's "…" menu under the pointer or the arrow keys.

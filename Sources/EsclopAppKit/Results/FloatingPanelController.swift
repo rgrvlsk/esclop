@@ -8,7 +8,8 @@ import EsclopCore
 import SwiftUI
 
 /// A panel that floats without taking focus from the frontmost app, but can become key when
-/// the person clicks into it, so its buttons work from the keyboard.
+/// the person clicks into it or presses "Go to the newest result", so its buttons work from the
+/// keyboard. The pointer resting on a card gives it its plain keys without that (`HoverKeys`).
 final class FloatingPanel: NSPanel {
     init(content: NSView) {
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
@@ -140,6 +141,8 @@ final class FloatingPanelController {
         if contentSize == .zero { contentSize = hosting.fittingSize }
         layout()
         if !panel.isVisible { panel.orderFrontRegardless() }
+        // "Go to the newest result": the keys come here without activating the app, as a click.
+        if model.visibleCards.contains(where: \.wantsFocus) { panel.makeKey() }
     }
 
     /// The panel's frame, for the drop zone to stack above it.

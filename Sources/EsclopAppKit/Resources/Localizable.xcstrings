@@ -3391,6 +3391,16 @@
         }
       }
     },
+    "Go to the newest result": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ves al resultat més recent"
+          }
+        }
+      }
+    },
     "Graphic with transparency": {
       "localizations": {
         "ca": {
