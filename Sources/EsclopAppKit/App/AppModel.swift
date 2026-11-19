@@ -332,6 +332,7 @@ public final class AppModel {
         card?.startedAt = now()
         if let row, !Task.isCancelled { row.state = .working(0) }
         let outcome: Result<OptimisationResult, EsclopError>
+        var failedStep: String?
         if Task.isCancelled {
             outcome = .failure(.cancelled)
         } else {
@@ -344,6 +345,15 @@ public final class AppModel {
                     }
                 }
                 outcome = .success(result)
+            } catch let failed as PipelineStepFailure {
+                // Earlier steps changed the file: keep that in Recent, where its backup restores.
+                if let partial = failed.partial {
+                    events(.result(partial))
+                    noteWritten([partial.output, partial.source] + [partial.backup].compactMap { $0 })
+                    record(partial)
+                }
+                failedStep = failed.step
+                outcome = .failure(Task.isCancelled ? .cancelled : failed.error)
             } catch {
                 outcome = .failure(Task.isCancelled ? .cancelled : .wrap(error))
             }
@@ -370,7 +380,7 @@ public final class AppModel {
             }
             onResult?(result)
         case let .failure(error):
-            events(.failure(FileFailure(source: source, error: error)))
+            events(.failure(FileFailure(source: source, error: error, step: failedStep)))
             if error == .alreadySmaller {
                 card?.phase = .unchanged(bytes: Self.size(of: source))
                 row?.state = .unchanged

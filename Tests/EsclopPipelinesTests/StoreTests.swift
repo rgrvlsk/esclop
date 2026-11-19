@@ -83,6 +83,32 @@ func store(_ tmp: TempDir) -> PipelineStore {
     #expect(try s.load("p").triggers == [.clipboard])
 }
 
+@Test func attachAndDetachKeepCommentsAndLayout() throws {
+    let tmp = try TempDir()
+    let s = store(tmp)
+    let text = """
+    ---
+    # shown in the menu
+    description: Shrink
+    ---
+    # first the size
+    optimise   ->   stripExif
+    """
+    _ = try s.save(text: text, name: "p")
+    try s.attach(.clipboard, to: "p")
+    try s.attach(.dropZone, to: "p")
+    #expect(try s.text(of: "p") == text.replacingOccurrences(of: "description: Shrink\n", with: "description: Shrink\ntriggers: clipboard, dropZone\n") + "\n")
+    #expect(try s.detach(.clipboard, from: "p"))
+    #expect(try s.detach(.dropZone, from: "p"))
+    #expect(try s.text(of: "p") == text + "\n")
+
+    // Without front matter, the attach adds one and the steps stay as written.
+    _ = try s.save(text: "# just steps\noptimise", name: "bare")
+    try s.attach(.mcp, to: "bare")
+    #expect(try s.text(of: "bare") == "---\ntriggers: mcp\n---\n# just steps\noptimise\n")
+    #expect(try s.load("bare").triggers == [.mcp])
+}
+
 @Test func presetsParseAndInstall() throws {
     #expect(PipelineStore.presets.map(\.name) == ["to WebP", "sort screenshots", "fit under 1 MB", "video to GIF", "pdf for sending"])
     #expect(PipelineStore.preset(named: "TO WEBP")?.steps(for: .image) == [.convert(to: "webp")])

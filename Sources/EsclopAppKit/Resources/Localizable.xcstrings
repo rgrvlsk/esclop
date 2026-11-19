@@ -3071,6 +3071,16 @@
         }
       }
     },
+    "Files with several pages or frames are left as they are when the result would keep only one.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els fitxers amb diverses pàgines o fotogrames es deixen tal com estan quan el resultat només en conservaria un."
+          }
+        }
+      }
+    },
     "Filter": {
       "localizations": {
         "ca": {
