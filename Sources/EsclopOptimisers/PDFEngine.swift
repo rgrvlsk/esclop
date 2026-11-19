@@ -166,7 +166,8 @@ struct PDFEngine: Sendable {
         try extractPages(source, format: format, dpi: dpi, to: folder, render: Self.render)
     }
 
-    /// `render` draws one page at a scale (1 = 72 dpi); nil when it cannot.
+    /// `render` draws one page at a scale (1 = 72 dpi); nil when it cannot. A seam for the test
+    /// that makes one page fail; callers use the overload above.
     func extractPages(_ source: URL, format: OutputFormat, dpi: Int, to folder: URL, render: (PDFPage, Double) -> CGImage?) throws -> [URL] {
         let document = try document(source)
         guard format == .png || format == .jpeg else {

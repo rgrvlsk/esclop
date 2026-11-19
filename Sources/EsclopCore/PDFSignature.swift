@@ -4,6 +4,11 @@
 // esclop-engine. It mirrors the engine's own refusal (engine/crates/esclop-engine/src/pdf/mod.rs,
 // `is_signed`): a catalog `/Perms` (DocMDP, Reader usage rights) or a signature value with a
 // `/ByteRange`. Rewriting such a file moves the bytes the signature covers and breaks it.
+//
+// ponytail: two owners of one rule. Change this with `is_signed` and `reasons::SIGNED`. It differs
+// at the edges: the byte scan also sees a signature an incremental save has cleared (refused, safe)
+// and the field walk misses an escaped `/Byte#52ange` reached only through a page's `/Annots`.
+// Trigger to merge: an engine op that answers "signed?", or PDFKit writes moving into the engine.
 
 import CoreGraphics
 import Foundation
