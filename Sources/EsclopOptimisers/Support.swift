@@ -242,6 +242,7 @@ enum ResultWriter {
         // Stage next to the destination so the final swap stays on one volume.
         let folder = destination.deletingLastPathComponent()
         try Paths.ensure(folder)
+        StagedFiles.removeLeftovers(in: folder)
         let staging = folder.appendingPathComponent(".\(destination.lastPathComponent).esclop-\(UUID().uuidString.prefix(8))")
         try fm.moveItem(at: produced.url, to: staging)
         do {
@@ -330,25 +331,30 @@ public enum BackupPruner {
     }
 
     /// At launch, so old originals go even when no new in-place job runs: backups older than
-    /// `days`, and copied images in `clipboard` and optimised copies of copied files in `results`
-    /// not touched for as long. Blocks; call it off the main actor. 0 days keeps everything.
-    // ponytail: "keep backups forever" keeps the copied images and the results folder (a copy of
-    // each file a clipboard pipeline ran on) forever too, since a restore needs them; give those
-    // folders their own limit if someone keeps backups forever and they grow.
-    public static func pruneAtLaunch(
-        days: Int, backups: BackupStore, clipboard: URL = Clipboard.folder,
-        results: URL = Paths.temporary.appendingPathComponent("results", isDirectory: true), now: Date = Date()
-    ) {
+    /// `days`, and whatever L'Esclop left in its temporary folder (copied images, optimised
+    /// copies, downloads, dropped files, work and estimate folders, a pipeline's or a Shortcut's
+    /// files) not touched for as long. A folder that holds only folders (`clipboard`, `results`,
+    /// `downloads` …) holds one per item: each goes on its own date. Anything else goes on its
+    /// own. Blocks; call it off the main actor. 0 days keeps everything.
+    // ponytail: "keep backups forever" keeps the temporary folder forever too, since a restore
+    // may need a copy there; give it its own limit if someone keeps backups forever and it grows.
+    public static func pruneAtLaunch(days: Int, backups: BackupStore, temporary: URL = Paths.temporary, now: Date = Date()) {
         guard days > 0 else { return }
         let removed = backups.prune(olderThan: days, now: now)
         if removed > 0 { Log.backups.info("Pruned \(removed) backups older than \(days) days") }
         let cutoff = now.addingTimeInterval(-Double(days) * 86400)
         let fm = FileManager.default
-        // One folder per copy; its date moves when the image in it is optimised again.
-        for parent in [clipboard, results] {
-            for folder in (try? fm.contentsOfDirectory(at: parent, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
-            where ((try? folder.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? now) < cutoff {
-                try? fm.removeItem(at: folder)
+        let keys: [URLResourceKey] = [.contentModificationDateKey, .isDirectoryKey]
+        func children(_ folder: URL) -> [URL] { (try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: keys)) ?? [] }
+        func isFolder(_ url: URL) -> Bool { (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false }
+        func isOld(_ url: URL) -> Bool { ((try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? now) < cutoff }
+        // A folder's date moves when something is added to it or removed from it.
+        for entry in children(temporary) {
+            let inside = isFolder(entry) ? children(entry) : []
+            if isFolder(entry), inside.allSatisfy(isFolder) {
+                for item in inside where isOld(item) { try? fm.removeItem(at: item) }
+            } else if isOld(entry) {
+                try? fm.removeItem(at: entry)
             }
         }
     }

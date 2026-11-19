@@ -74,7 +74,7 @@ enum Behaviour: String, ExpressibleByArgument, CaseIterable {
 
 /// The files a command works on, shared by every file command and upload.
 struct FileInputs: ParsableArguments {
-    @Argument(help: "Files or folders. ~, file:// URLs and relative paths work; http(s) addresses are downloaded to the temporary folder first.")
+    @Argument(help: "Files or folders. ~, file:// URLs and relative paths work. An http(s) address is downloaded first, into the working directory when the result goes beside its file (the default), else into the temporary folder.")
     var items: [String] = []
 
     @Flag(name: .shortAndLong, help: "Include files in subfolders.")
@@ -96,16 +96,30 @@ struct FileInputs: ParsableArguments {
     var noProgress = false
 
     /// The files to work on. A web address is the person's request to download it: it is
-    /// fetched into the temporary folder and that copy is the file worked on.
-    func sources(download: (URL) async throws -> URL = { try await WebDownload.fetch($0) }) async throws -> [URL] {
+    /// fetched into the temporary folder and that copy is the file worked on, moved first into
+    /// `folder` (the working directory, when the result goes beside its file) under a name
+    /// nothing there has.
+    func sources(
+        into folder: URL? = nil, downloaded: (URL) -> Void = { _ in }, download: (URL) async throws -> URL = { try await WebDownload.fetch($0) }
+    ) async throws -> [URL] {
         var urls: [URL] = []
         for item in items {
             guard let address = try WebDownload.address(item) else {
                 urls.append(try PathInput.url(item))
                 continue
             }
+            if WebDownload.isInsecure(address) { note("\(item) comes over insecure http: it may have been changed on the way") }
             do {
-                urls.append(try await download(address))
+                var file = try await download(address)
+                if let folder {
+                    let kept = OutputLocation.unique(folder.appendingPathComponent(file.lastPathComponent))
+                    try FileManager.default.moveItem(at: file, to: kept)
+                    // The download's own folder, once empty.
+                    rmdir(file.deletingLastPathComponent().path)
+                    file = kept
+                }
+                downloaded(file)
+                urls.append(file)
             } catch where skipErrors {
                 FileHandle.standardError.write(Data("skipped \(item): \(error)\n".utf8))
                 continue
@@ -156,6 +170,12 @@ struct FileOptions: ParsableArguments {
 
     /// Neither -o nor --behaviour: a result in another format follows "Converted … go".
     var locationFromSettings: Bool { output == nil && behaviour == nil }
+
+    /// Where a web address is downloaded to: the working directory when the result goes beside
+    /// its file, so the result is there and not in the temporary folder; else nil (temporary).
+    var downloadFolder: URL? {
+        output == nil && behaviour != .temp ? URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true) : nil
+    }
 
     /// A relative -o template made absolute from the working directory, as every Unix tool reads
     /// it (the engines read a relative template from the file's folder). `~`, `%d` and `/` are

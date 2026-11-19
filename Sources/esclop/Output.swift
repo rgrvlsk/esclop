@@ -79,12 +79,13 @@ enum Output {
 
     /// Prints a job and returns the exit code it deserves. A file already as small as it gets is
     /// listed as unchanged and does not fail the command.
-    static func report(_ summary: JobSummary, printing: Printing) -> Int32 {
+    /// `downloaded`: the paths of files downloaded for this job, named by their path.
+    static func report(_ summary: JobSummary, printing: Printing, downloaded: Set<String> = []) -> Int32 {
         let terminal = printing.terminal
         if printing.json {
             json(summary)
         } else {
-            summary.results.forEach { print(terminal.line($0)) }
+            summary.results.forEach { print(terminal.line($0, fullPath: downloaded.contains($0.source))) }
             summary.failures.forEach { print(terminal.line($0)) }
             if summary.results.count > 1 {
                 print(terminal.dim("Total \(ByteSize.format(summary.bytesBefore)) → \(ByteSize.format(summary.bytesAfter)) (−\(ResultSummary.percentText(summary.savedPercent))%) over \(summary.results.count) files"))
@@ -216,7 +217,10 @@ func runFileJob(
     _ operation: JobOperation, files: FileOptions, global: GlobalOptions, skipOptimised: Bool = false,
     configure: (inout OptimisationRequest) -> Void = { _ in }
 ) async throws {
-    try await runJob(operation, inputs: files.inputs, printing: global.printing, context: global.context(), skipOptimised: skipOptimised) { request in
+    try await runJob(
+        operation, inputs: files.inputs, printing: global.printing, context: global.context(), skipOptimised: skipOptimised,
+        downloadInto: files.downloadFolder
+    ) { request in
         request.location = files.location
         if files.locationFromSettings { request.locationFromSettings = true }
         configure(&request)
@@ -228,11 +232,12 @@ func runFileJob(
 
 func runJob(
     _ operation: JobOperation, inputs: FileInputs, printing: Printing, context: @autoclosure () -> ServiceContext,
-    skipOptimised: Bool = false, configure: (inout OptimisationRequest) -> Void, finished: (JobReport) -> Void
+    skipOptimised: Bool = false, downloadInto: URL? = nil, configure: (inout OptimisationRequest) -> Void, finished: (JobReport) -> Void
 ) async throws {
     guard !inputs.items.isEmpty else { throw ValidationError("Give at least one file or folder.") }
     try await guarded(printing) {
-        var sources = try await inputs.sources()
+        var downloaded: Set<String> = []
+        var sources = try await inputs.sources(into: downloadInto) { downloaded.insert($0.path) }
         let optimised = skipOptimised ? sources.filter(OptimisedMark.isMarked) : []
         sources.removeAll { optimised.contains($0) }
         let skipped = optimised.map { source in
@@ -260,6 +265,6 @@ func runJob(
         let report = try await service.perform(job) { progress.update($0) }
         progress.clear()
         finished(report)
-        return Output.report(summary(report), printing: printing)
+        return Output.report(summary(report), printing: printing, downloaded: downloaded)
     }
 }

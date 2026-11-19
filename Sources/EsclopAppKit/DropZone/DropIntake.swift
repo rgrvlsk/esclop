@@ -94,8 +94,8 @@ struct DropIntake {
     /// the drop is under way. Files go ahead as they arrive, gathered while they come within
     /// `gather` of each other, so a drop of many photos is one batch and a slow video or a file
     /// that never comes holds back no other. Failures come with the files they arrived beside.
-    // ponytail: promised and downloaded files stay in $TMPDIR/esclop until macOS clears it, like
-    // the copies in `results`; prune them at launch with those if they pile up. A legacy promise
+    // Promised and downloaded files go with the launch sweep (`BackupPruner.pruneAtLaunch`).
+    // ponytail: a legacy promise
     // is taken to list one type per file (unverified); one listing fewer would lose the rest.
     // Files more than `gather` apart are separate batches, each counted against
     // `batchWindowFrom` (slow iCloud originals give cards, not one window); gather longer if so.

@@ -7,7 +7,7 @@ import Testing
 
 @Suite struct BackupPrunerTests {
     /// Retention also applies at launch: no new in-place job has to run first.
-    @Test func launchRemovesExpiredBackupsAndCopiedImages() throws {
+    @Test func launchRemovesExpiredBackupsAndOldTemporaryFiles() throws {
         let fm = FileManager.default
         let root = fm.temporaryDirectory.appendingPathComponent("esclop-pruner-\(UUID().uuidString.prefix(8))", isDirectory: true)
         defer { try? fm.removeItem(at: root) }
@@ -19,25 +19,36 @@ import Testing
         let fresh = try store.backUp(file)
         try age(old, days: 10)
 
-        let clipboard = root.appendingPathComponent("clipboard", isDirectory: true)
-        let oldCopy = try Paths.ensure(clipboard.appendingPathComponent("old", isDirectory: true))
-        let newCopy = try Paths.ensure(clipboard.appendingPathComponent("new", isDirectory: true))
-        try fm.setAttributes([.modificationDate: Date().addingTimeInterval(-10 * 86400)], ofItemAtPath: oldCopy.path)
-        // Optimised copies of copied files, one folder per result.
-        let results = root.appendingPathComponent("results", isDirectory: true)
-        let oldResult = try Paths.ensure(results.appendingPathComponent("old", isDirectory: true))
-        let newResult = try Paths.ensure(results.appendingPathComponent("new", isDirectory: true))
-        try fm.setAttributes([.modificationDate: Date().addingTimeInterval(-10 * 86400)], ofItemAtPath: oldResult.path)
+        // L'Esclop's temporary folder: folders of one folder per item, and loose leftovers.
+        let temporary = try Paths.ensure(root.appendingPathComponent("temporary", isDirectory: true))
+        let tenDaysAgo = Date().addingTimeInterval(-10 * 86400)
+        var kept: [URL] = [], gone: [URL] = []
+        for parent in ["clipboard", "results", "downloads", "dropped", "work", "estimates"] {
+            let folder = temporary.appendingPathComponent(parent, isDirectory: true)
+            let old = try Paths.ensure(folder.appendingPathComponent("old", isDirectory: true))
+            try Data("copy".utf8).write(to: old.appendingPathComponent("photo.png"))
+            try fm.setAttributes([.modificationDate: tenDaysAgo], ofItemAtPath: old.path)
+            kept += [try Paths.ensure(folder.appendingPathComponent("new", isDirectory: true)), folder]
+            gone.append(old)
+        }
+        // A Shortcut's input: a file whose own date is old (a copy keeps it) in a folder made now.
+        let shortcut = try Paths.ensure(temporary.appendingPathComponent("shortcuts-NEW", isDirectory: true))
+        try Data("input".utf8).write(to: shortcut.appendingPathComponent("old photo.png"))
+        try fm.setAttributes([.modificationDate: tenDaysAgo], ofItemAtPath: shortcut.appendingPathComponent("old photo.png").path)
+        kept.append(shortcut.appendingPathComponent("old photo.png"))
+        let oldFork = try Paths.ensure(temporary.appendingPathComponent("fork-OLD", isDirectory: true))
+        try Data("fork".utf8).write(to: oldFork.appendingPathComponent("photo.png"))
+        try fm.setAttributes([.modificationDate: tenDaysAgo], ofItemAtPath: oldFork.path)
+        gone.append(oldFork)
 
-        BackupPruner.pruneAtLaunch(days: 7, backups: store, clipboard: clipboard, results: results)
+        BackupPruner.pruneAtLaunch(days: 7, backups: store, temporary: temporary)
         #expect(store.entries().map(\.id) == [fresh.id])
-        #expect(!fm.fileExists(atPath: oldCopy.path))
-        #expect(fm.fileExists(atPath: newCopy.path))
-        #expect(!fm.fileExists(atPath: oldResult.path))
-        #expect(fm.fileExists(atPath: newResult.path))
+        for url in gone { #expect(!fm.fileExists(atPath: url.path), "\(url.lastPathComponent) in \(url.deletingLastPathComponent().lastPathComponent)") }
+        for url in kept { #expect(fm.fileExists(atPath: url.path), "\(url.path)") }
 
-        BackupPruner.pruneAtLaunch(days: 0, backups: store, clipboard: clipboard, results: results, now: Date().addingTimeInterval(365 * 86400))
+        BackupPruner.pruneAtLaunch(days: 0, backups: store, temporary: temporary, now: Date().addingTimeInterval(365 * 86400))
         #expect(store.entries().count == 1, "0 days keeps everything")
+        #expect(fm.fileExists(atPath: shortcut.path))
     }
 
     /// Moves a backup's manifest date back.
