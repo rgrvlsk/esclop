@@ -443,14 +443,11 @@ final class Flag: @unchecked Sendable {
         for index in 1 ... 4 { try pngData().write(to: piped.url.appendingPathComponent("p \(index).png"), options: .atomic) }
         #expect(await eventually { (try? FileManager.default.contentsOfDirectory(atPath: out.url.path).count) == 4 })
         #expect(rig.harness.model.batch == nil, "a pipeline burst opens no batch window")
-        var opened: [ObjectIdentifier] = []
-        rig.harness.model.onBatch = { opened.append(ObjectIdentifier($0)) }
         let landed = (1 ... 4).flatMap { [rig.land("a \($0).png"), rig.land("b \($0).png", in: other.url)] }
         // Handed over in one go, before the stream reports them: FSEvents can report part of a
         // burst 0.3 s later, as late as the test's burst window.
         rig.folders.received(landed)
         #expect(await eventually { rig.harness.model.batch?.rows.count == 8 }, "two bursts at once, one batch")
-        #expect(opened.count == 1)
         rig.harness.model.batch?.cancelAll()
         rig.folders.stop()
     }

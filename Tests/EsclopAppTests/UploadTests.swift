@@ -155,8 +155,9 @@ struct SilentServer {
     }
 
     @Test func anUploadCanBeStopped() async throws {
-        // A server that never answers: the upload can only end by being stopped, however long
-        // other suites hold the main actor before the stop (a real server finished all 60 MB first).
+        // A server that never answers: within the session's 60 s timeout the upload can only end
+        // by being stopped, however long other suites hold the main actor (a real server finished
+        // all 60 MB first).
         let server = try SilentServer()
         defer { server.stop() }
         let temp = TempDir()

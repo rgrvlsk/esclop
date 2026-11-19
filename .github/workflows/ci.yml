@@ -116,7 +116,8 @@ jobs:
         run: |
           set -o pipefail
           swift build --build-tests 2>&1 | tee "$RUNNER_TEMP/build.log"
-          warnings="$(grep -E '^(/[^ ]*/)?(Sources|Tests)/[^:]+:[0-9]+:[0-9]+: .*warning: |^macro expansion [^:]+:[0-9]+:[0-9]+: .*warning: ' "$RUNNER_TEMP/build.log" | sort -u || true)"
+          # grep exits 1 when nothing matches; 2 (a broken pattern or log) fails the step.
+          warnings="$(grep -E "^$PWD/(Sources|Tests)/[^:]+:[0-9]+:[0-9]+: .*warning: |^macro expansion [^:]+:[0-9]+:[0-9]+: .*warning: " "$RUNNER_TEMP/build.log" | sort -u)" || [ $? -eq 1 ]
           if [ -n "$warnings" ]; then
             echo "::error::The build has warnings in the package's code:"
             echo "$warnings"
