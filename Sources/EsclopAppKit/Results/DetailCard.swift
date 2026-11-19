@@ -356,10 +356,13 @@ struct DetailName: View {
     }
 
     /// A name already taken (or one the file system refuses) beeps and keeps the field open.
+    /// ponytail: a change of case only counts as taken on a case-insensitive volume. Trigger:
+    /// rename through a temporary name, if people ask for it.
     private func commit() {
-        guard !draft.isEmpty, draft != stem else { return end() }
+        let name = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, name != stem else { return end() }
         let before = card.result?.output
-        rename(draft)
+        rename(name)
         guard card.result?.output == before else { return end() }
         NSSound.beep()
         focused = true

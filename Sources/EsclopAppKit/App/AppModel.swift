@@ -92,13 +92,16 @@ public final class AppModel {
         return Self.newest(cards.filter { !grouped.contains($0.id) }, Self.visibleLimit - 1)
     }
 
-    /// The newest `limit` cards, oldest first, and every card still working, so a file at work
-    /// never loses its Stop to newer results.
+    /// The newest `limit` cards, oldest first, the files at work before the finished ones, so a
+    /// file at work keeps its Stop while newer results arrive. ponytail: past `limit` files at
+    /// work at once the oldest ones hide, and the menu's working rows have no Stop. Trigger: Stop
+    /// on those rows, if several clipboard and drop jobs at once turn out to be common.
     static func newest(_ list: [ResultCard], _ limit: Int) -> [ResultCard] {
-        var room = max(0, limit - list.filter(\.isWorking).count)
-        var kept = Set<UUID>()
-        for card in list.reversed() where card.isWorking || room > 0 {
-            if !card.isWorking { room -= 1 }
+        let working = Set(list.filter(\.isWorking).suffix(limit).map(\.id))
+        var room = limit - working.count
+        var kept = working
+        for card in list.reversed() where !card.isWorking && room > 0 {
+            room -= 1
             kept.insert(card.id)
         }
         return list.filter { kept.contains($0.id) }
@@ -530,7 +533,8 @@ public final class AppModel {
         let time = now()
         // A result that lands behind newer ones (a file at work keeps its place while others
         // finish) comes to the front, so it never arrives unseen.
-        if !visibleCards.contains(where: { $0.id == card.id }), let index = cards.firstIndex(where: { $0.id == card.id }) {
+        // Grouped failures keep their order in the list (oldest first).
+        if card.failure == nil, !visibleCards.contains(where: { $0.id == card.id }), let index = cards.firstIndex(where: { $0.id == card.id }) {
             cards.append(cards.remove(at: index))
         }
         let delay = hideDelay(for: card).map(Self.seconds)
@@ -802,7 +806,11 @@ public final class AppModel {
 
     /// Shows a recent result's card again.
     public func show(_ result: OptimisationResult) {
-        if let index = cards.firstIndex(where: { $0.result?.id == result.id }) {
+        // Its card, done or restored, never a twin that offers Undo again.
+        if let index = cards.firstIndex(where: { card in
+            if case let .restored(restored) = card.phase { return restored.id == result.id }
+            return card.result?.id == result.id
+        }) {
             // It comes to the front, its time starts again.
             let card = cards.remove(at: index)
             cards.append(card)
