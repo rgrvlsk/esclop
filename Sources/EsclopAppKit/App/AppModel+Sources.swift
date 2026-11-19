@@ -61,12 +61,12 @@ extension AppModel {
         let batch = urls.count >= batchThreshold ? openBatch(origin: origin) : nil
         // Every file shows in the window at once, waiting, before its job starts.
         for url in urls { batch?.add(url, bytes: Self.size(of: url)) }
-        // A file retried after the rest went back goes back on its own.
+        // Every result, a retried file's too; one retried after the rest went back goes on its own.
         let onResult: ((OptimisationResult) -> Void)? = copyBack ? { result in
-            guard putBack.done else { return }
-            Task { await self.putBackOnClipboard([(result.source, result.output)]) }
+            putBack.results.append((result.source, result.output))
+            if putBack.done { Task { await self.putBackOnClipboard([(result.source, result.output)]) } }
         } : nil
-        var runs: [Task<JobReport, Never>] = []
+        var runs: [Task<Void, Never>] = []
         for url in urls {
             let base = factory.job(for: url, origin: origin, aggressive: aggressive)
             runs.append(Task {
@@ -79,20 +79,21 @@ extension AppModel {
                     if found.rule != nil { found.choice.apply(to: &job.request) }
                     context = found
                 }
-                return await run(job, context: context, batch: batch, onResult: onResult)
+                await run(job, context: context, batch: batch, onResult: onResult)
             })
         }
         guard copyBack else { return }
         Task {
-            var results: [(old: URL, new: URL)] = []
-            for run in runs { results += await run.value.results.map { ($0.source, $0.output) } }
+            for run in runs { await run.value }
             putBack.done = true
-            await putBackOnClipboard(results)
+            await putBackOnClipboard(putBack.results)
         }
     }
 
-    /// Whether the results of one copy went back together, after its last file.
+    /// The results of one copy, gathered until its last file is done (a retry's result arrives
+    /// only through `onResult`, not in the first run's report).
     @MainActor private final class PutBack {
+        var results: [(old: URL, new: URL)] = []
         var done = false
     }
 
