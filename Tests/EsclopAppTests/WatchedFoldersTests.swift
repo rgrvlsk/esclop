@@ -131,7 +131,7 @@ import Testing
             finished.set()
         }
         let settled = await FileSettle.wait(for: file, interval: .milliseconds(150))
-        #expect(settled)
+        #expect(settled == .steady)
         #expect(finished.isSet, "the wait ended only once the writer stopped")
         #expect(FileSettle.snapshot(file)?.size == 21000)
         try await writer.value
@@ -141,13 +141,25 @@ import Testing
         let temp = TempDir()
         let file = temp.file("a.png")
         try? FileManager.default.removeItem(at: file)
-        #expect(await FileSettle.wait(for: file, interval: .milliseconds(20)) == false)
+        #expect(await FileSettle.wait(for: file, interval: .milliseconds(20)) == .unsettled)
     }
 
     @Test func anEmptyFileDoesNotSettle() async {
         let temp = TempDir()
         let file = temp.file("a.png", bytes: 0)
-        #expect(await FileSettle.wait(for: file, interval: .milliseconds(20), timeout: .milliseconds(300)) == false)
+        #expect(await FileSettle.wait(for: file, interval: .milliseconds(20), timeout: .milliseconds(300)) == .unsettled)
+    }
+
+    /// W7: a still file L'Esclop may not open says so at once, instead of waiting out the timeout.
+    @Test func aFileThatCannotBeOpenedIsUnreadable() async throws {
+        let temp = TempDir()
+        let file = temp.file("locked.png")
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: file.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: file.path) }
+        let clock = ContinuousClock()
+        let started = clock.now
+        #expect(await FileSettle.wait(for: file, interval: .milliseconds(20), timeout: .seconds(30)) == .unreadable)
+        #expect(clock.now - started < .seconds(5), "no wait for the timeout")
     }
 }
 
@@ -161,16 +173,17 @@ final class Flag: @unchecked Sendable {
 /// The watcher end to end: real FSEvents on a temporary folder, the test engine behind the model.
 @MainActor @Suite(.serialized) struct WatchedFoldersTests {
     @MainActor struct Rig {
-        let harness = Harness()
+        let harness: Harness
         let folder: URL
         let folders: WatchedFolders
         var store: PipelineStore
 
-        init(pipelines: [Pipeline] = []) throws {
+        init(pipelines: [Pipeline] = [], delay: Duration = .zero, alsoWatching extra: [String] = []) throws {
+            harness = Harness(delay: delay)
             folder = harness.temp.url.appendingPathComponent("Shots", isDirectory: true)
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            // Only this folder: the defaults would also watch the real Desktop for videos.
-            try EsclopSettings.imageDirs.set([folder.path], in: harness.settings.store)
+            // Only these folders: the defaults would also watch the real Desktop for videos.
+            try EsclopSettings.imageDirs.set([folder.path] + extra, in: harness.settings.store)
             for (_, _, list) in WatchPlan.lists where list.key != EsclopSettings.imageDirs.key { try list.set([], in: harness.settings.store) }
             try EsclopSettings.enableAutomaticImageOptimisations.set(true, in: harness.settings.store)
             store = PipelineStore(directory: EsclopLocations(support: harness.temp.url.appendingPathComponent("support", isDirectory: true)).pipelines, useTrash: false)
@@ -184,8 +197,8 @@ final class Flag: @unchecked Sendable {
         }
 
         /// A file written in one go, the way screencapture saves a screenshot.
-        func land(_ name: String, bytes: Int = 100_000) -> URL {
-            let file = folder.appendingPathComponent(name)
+        func land(_ name: String, bytes: Int = 100_000, in other: URL? = nil) -> URL {
+            let file = (other ?? folder).appendingPathComponent(name)
             try? Data(repeating: 0x41, count: bytes).write(to: file, options: .atomic)
             return file
         }
@@ -289,6 +302,110 @@ final class Flag: @unchecked Sendable {
         try pngData().write(to: file, options: .atomic)
         let copied = out.url.appendingPathComponent("shot.png")
         #expect(await eventually { FileManager.default.fileExists(atPath: copied.path) }, "the pipeline's copy step ran")
+        #expect(rig.harness.requests.requests.allSatisfy { $0.origin == .watchedFolder })
+        rig.folders.stop()
+    }
+
+    /// W1: a burst in one folder leaves the same kind in another folder alone.
+    @Test func aBurstInOneFolderDoesNotSkipAnotherFolder() async throws {
+        let other = TempDir()
+        let rig = try Rig(alsoWatching: [other.url.path])
+        rig.folders.burstWindow = .seconds(1)
+        rig.harness.model.hideDelayOverride = .seconds(600)
+        for index in 1 ... 5 { _ = rig.land("unzipped \(index).png") }
+        _ = rig.land("Screenshot.png", in: other.url)
+        #expect(await eventually { rig.harness.model.recent.count == 1 })
+        #expect(rig.harness.model.recent.first?.source.lastPathComponent == "Screenshot.png")
+        #expect(rig.harness.model.cards.contains { if case .notice = $0.phase { return true } else { return false } })
+        try await Task.sleep(for: .seconds(1))
+        #expect(rig.harness.requests.requests.count == 1, "only the other folder's screenshot")
+        rig.folders.stop()
+    }
+
+    /// W2: a watched folder renamed away is missing at once, and watched again when it is back;
+    /// one that did not exist yet is watched as soon as it is created.
+    @Test func aRenamedOrNewFolderIsNoticed() async throws {
+        let parent = TempDir()
+        let later = parent.url.appendingPathComponent("Later", isDirectory: true)
+        let rig = try Rig(alsoWatching: [later.path])
+        // By path: a folder's URL loses its trailing slash while the folder is not there.
+        func status(_ folder: URL) -> FolderStatus? { rig.folders.statuses.first { $0.key.path == WatchPlan.canonical(folder.path).path }?.value }
+        #expect(status(rig.folder) == .watching)
+        #expect(status(later) == .missing)
+        let moved = rig.harness.temp.url.appendingPathComponent("Shots old", isDirectory: true)
+        try FileManager.default.moveItem(at: rig.folder, to: moved)
+        #expect(await eventually(.seconds(10)) { status(rig.folder) == .missing }, "the rename is seen")
+        #expect(rig.harness.model.watchedFolderCount == 0)
+        try FileManager.default.moveItem(at: moved, to: rig.folder)
+        #expect(await eventually(.seconds(10)) { status(rig.folder) == .watching }, "and the way back")
+        try FileManager.default.createDirectory(at: later, withIntermediateDirectories: true)
+        #expect(await eventually(.seconds(10)) { status(later) == .watching })
+        _ = rig.land("new.png", in: later)
+        #expect(await eventually { rig.harness.model.recent.count == 1 }, "a file in the new folder is optimised")
+        rig.folders.stop()
+    }
+
+    /// W3: when FSEvents refuses the stream, nothing claims to be watched.
+    @Test func aStreamThatCannotStartIsNotWatching() throws {
+        let tooLong = "/" + Array(repeating: "x", count: 600).joined(separator: "/")
+        let rig = try Rig(alsoWatching: [tooLong])
+        #expect(rig.folders.isWatching == false)
+        #expect(rig.folders.statuses[WatchPlan.canonical(rig.folder.path)] == .notWatching)
+        #expect(rig.harness.model.watchedFolderCount == 0)
+        #expect(FolderRow.problem(.notWatching) != nil, "the Settings row says so")
+        #expect(FolderWatcher { _ in }.start([URL(fileURLWithPath: tooLong)]) == false)
+    }
+
+    /// W4: events for a file that is already on its way, while its job runs, start nothing more.
+    @Test func aRepeatedEventDuringTheJobRunsOneJob() async throws {
+        let rig = try Rig(delay: .seconds(2))
+        let file = rig.land("Screenshot.png")
+        #expect(await eventually { !rig.harness.model.cards.isEmpty }, "the job started")
+        for _ in 0 ..< 3 {
+            rig.folders.received([file])
+            try await Task.sleep(for: .milliseconds(300))
+        }
+        #expect(await eventually { rig.harness.model.recent.count == 1 })
+        try await Task.sleep(for: .seconds(1))
+        #expect(rig.harness.requests.requests.count == 1)
+        #expect(rig.folders.inFlight.isEmpty, "released once the job is done")
+        rig.folders.stop()
+    }
+
+    /// W5: one file still being written does not hold back the others of its burst.
+    @Test func aSlowFileDoesNotHoldAFastOne() async throws {
+        let rig = try Rig()
+        let slow = rig.folder.appendingPathComponent("Download.png")
+        FileManager.default.createFile(atPath: slow.path, contents: Data(repeating: 0x41, count: 10000))
+        _ = rig.land("Screenshot.png")
+        let handle = try FileHandle(forWritingTo: slow)
+        var fastDoneWhileSlowGrew = false
+        for _ in 0 ..< 40 {
+            try handle.seekToEnd()
+            try handle.write(contentsOf: Data(repeating: 0x41, count: 1000))
+            try await Task.sleep(for: .milliseconds(60))
+            if rig.harness.model.recent.contains(where: { $0.source.lastPathComponent == "Screenshot.png" }) { fastDoneWhileSlowGrew = true }
+        }
+        try handle.close()
+        #expect(fastDoneWhileSlowGrew)
+        #expect(await eventually { rig.harness.model.recent.count == 2 }, "the slow one too, once it stopped")
+        rig.folders.stop()
+    }
+
+    /// W6: the "too many" notice optimises them after all.
+    @Test func tooManyFilesCanBeOptimisedAnyway() async throws {
+        let rig = try Rig()
+        rig.folders.burstWindow = .seconds(1)
+        rig.harness.model.hideDelayOverride = .seconds(600)
+        for index in 1 ... 5 { _ = rig.land("copied \(index).png") }
+        #expect(await eventually {
+            rig.harness.model.cards.contains { if case .notice = $0.phase { return true } else { return false } }
+        })
+        let notice = try #require(rig.harness.model.cards.first { if case .notice = $0.phase { return true } else { return false } })
+        #expect(notice.presentation.actions == [.optimiseAnyway, .dismiss])
+        rig.harness.model.perform(.optimiseAnyway, on: notice)
+        #expect(!rig.harness.model.cards.contains { $0.id == notice.id }, "the notice goes")
+        #expect(await eventually { rig.harness.requests.requests.count == 5 })
         #expect(rig.harness.requests.requests.allSatisfy { $0.origin == .watchedFolder })
         rig.folders.stop()
     }

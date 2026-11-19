@@ -2,7 +2,8 @@
 //
 // File events in the watched folders, from FSEvents: one stream for every folder, file-level
 // events, delivered on a serial queue and handed to the main actor as paths. Only files that
-// were created, renamed into place or written count; removals do not.
+// were created, renamed into place or written count; removals do not. With `rootChanged`, a
+// watched folder that is created, renamed or deleted is reported too.
 
 import CoreServices
 import Foundation
@@ -15,30 +16,41 @@ final class FolderWatcher: @unchecked Sendable {
     private let handler: Handler
     /// Report every change, removals included (the pipelines folder), not only new files.
     private let everyChange: Bool
+    /// A watched folder itself appeared, moved or went away (FSEvents' root change).
+    private let rootChanged: (@Sendable () -> Void)?
 
-    init(everyChange: Bool = false, handler: @escaping Handler) {
+    init(everyChange: Bool = false, rootChanged: (@Sendable () -> Void)? = nil, handler: @escaping Handler) {
+        self.rootChanged = rootChanged
         self.everyChange = everyChange
         self.handler = handler
     }
 
     deinit { stop() }
 
-    /// Watches `folders` (existing ones only: FSEvents refuses a whole stream for one missing
-    /// path). Replaces any earlier stream.
-    func start(_ folders: [URL]) {
+    /// Watches `folders`, replacing any earlier stream. A folder that is not there yet can be in
+    /// the list: its creation is a root change. False when FSEvents refused the stream (a path
+    /// too long, for one), so nothing is watched.
+    @discardableResult
+    func start(_ folders: [URL]) -> Bool {
         stop()
-        guard !folders.isEmpty else { return }
+        guard !folders.isEmpty else { return false }
         var context = FSEventStreamContext(
             version: 0, info: Unmanaged.passUnretained(self).toOpaque(), retain: nil, release: nil, copyDescription: nil
         )
-        let flags = UInt32(kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagNoDefer | kFSEventStreamCreateFlagUseCFTypes)
+        var flags = kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagNoDefer | kFSEventStreamCreateFlagUseCFTypes
+        if rootChanged != nil { flags |= kFSEventStreamCreateFlagWatchRoot }
         guard let stream = FSEventStreamCreate(
             nil, Self.callback, &context, folders.map(\.path) as CFArray,
-            FSEventStreamEventId(kFSEventStreamEventIdSinceNow), 0.3, flags
-        ) else { return }
+            FSEventStreamEventId(kFSEventStreamEventIdSinceNow), 0.3, UInt32(flags)
+        ) else { return false }
         FSEventStreamSetDispatchQueue(stream, queue)
-        FSEventStreamStart(stream)
+        guard FSEventStreamStart(stream) else {
+            FSEventStreamInvalidate(stream)
+            FSEventStreamRelease(stream)
+            return false
+        }
         self.stream = stream
+        return true
     }
 
     func stop() {
@@ -60,6 +72,9 @@ final class FolderWatcher: @unchecked Sendable {
         guard let info else { return }
         let watcher = Unmanaged<FolderWatcher>.fromOpaque(info).takeUnretainedValue()
         let list = unsafeBitCast(paths, to: NSArray.self) as? [String] ?? []
+        if let rootChanged = watcher.rootChanged, (0 ..< count).contains(where: { Int(flags[$0]) & kFSEventStreamEventFlagRootChanged != 0 }) {
+            rootChanged()
+        }
         if watcher.everyChange {
             watcher.handler(list.map { URL(fileURLWithPath: $0) })
             return
@@ -77,6 +92,14 @@ final class FolderWatcher: @unchecked Sendable {
 /// checks, and the file can be opened. A screenshot is written in one go; a download or a
 /// recording grows for a while.
 enum FileSettle {
+    enum Outcome: Equatable {
+        case steady
+        /// Still, but L'Esclop may not open it: no point in waiting longer.
+        case unreadable
+        /// It disappeared, stayed empty, or kept changing until the timeout.
+        case unsettled
+    }
+
     struct Snapshot: Equatable {
         var size: Int
         var modified: Date
@@ -87,26 +110,32 @@ enum FileSettle {
         return Snapshot(size: (attributes[.size] as? NSNumber)?.intValue ?? 0, modified: attributes[.modificationDate] as? Date ?? .distantPast)
     }
 
-    /// True once the file has been still for `steadyChecks` checks `interval` apart; false when
-    /// it disappeared, stayed empty, or kept changing until `timeout`.
+    /// Steady once the file has been still for `steadyChecks` checks `interval` apart and opens.
     static func wait(
         for url: URL, interval: Duration = .milliseconds(300), steadyChecks: Int = 2, timeout: Duration = .seconds(180)
-    ) async -> Bool {
+    ) async -> Outcome {
         let clock = ContinuousClock()
         let deadline = clock.now + timeout
         var last = snapshot(url)
         var steady = 0
         while clock.now < deadline, !Task.isCancelled {
             try? await Task.sleep(for: interval)
-            guard let now = snapshot(url) else { return false }
+            guard let now = snapshot(url) else { return .unsettled }
             if now == last, now.size > 0 {
                 steady += 1
-                if steady >= steadyChecks, FileHandle(forReadingAtPath: url.path) != nil { return true }
+                guard steady >= steadyChecks else { continue }
+                do {
+                    try FileHandle(forReadingFrom: url).close()
+                    return .steady
+                } catch {
+                    // A writer that holds the file shut keeps it waiting; a refusal does not pass.
+                    if WatchedFolders.isDenied(error) { return .unreadable }
+                }
             } else {
                 steady = 0
                 last = now
             }
         }
-        return false
+        return .unsettled
     }
 }
