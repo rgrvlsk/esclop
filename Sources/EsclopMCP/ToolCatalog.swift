@@ -790,8 +790,8 @@ public enum ToolCatalog {
 }
 
 /// A job's progress as MCP progress: each file counts 1 towards a total of the job's files.
-/// Sent only when it rose by a hundredth of the total, so a long video makes about a hundred
-/// notifications, and never lower than the last one (the spec asks for a rising value).
+/// Sent only when it rose by a hundredth of the total, or reached it, so a long video makes about
+/// a hundred notifications, and never lower than the last one (the spec asks for a rising value).
 final class JobProgress: Sendable {
     private struct State {
         var fractions: [URL: Double] = [:]
@@ -813,7 +813,7 @@ final class JobProgress: Sendable {
         let value: Double? = state.withLock { state in
             state.fractions[progress.source] = max(state.fractions[progress.source] ?? 0, fraction)
             let done = state.fractions.values.reduce(0, +)
-            guard done >= state.sent + total / 100 else { return nil }
+            guard done >= state.sent + total / 100 || (done == total && done > state.sent) else { return nil }
             state.sent = done
             return done
         }

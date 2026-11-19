@@ -112,6 +112,15 @@ struct Session {
         #expect(updates.last?.progress == 1, "half of each of the two files")
     }
 
+    /// The last step is sent even when it rose by less than a hundredth: a bar reaches the end.
+    @Test func progressReachesTheTotal() {
+        let sent = SentProgress()
+        let progress = JobProgress(files: 1) { value, _, _ in sent.append(value) }
+        let file = URL(fileURLWithPath: "/x/a.mp4")
+        for fraction in [0.5, 0.995, 0.998, 1.0, 1.0] { progress.update(OptimisationProgress(requestID: UUID(), source: file, fraction: fraction)) }
+        #expect(sent.values == [0.5, 0.995, 1.0])
+    }
+
     @Test func aPipelineThatFailsLateIsAnError() async throws {
         let session = try await Session.start()
         defer { Task { await session.stop() } }
@@ -282,4 +291,11 @@ final class Heard: @unchecked Sendable {
     private var list: [ProgressNotification.Parameters] = []
     func append(_ update: ProgressNotification.Parameters) { lock.lock(); list.append(update); lock.unlock() }
     var all: [ProgressNotification.Parameters] { lock.lock(); defer { lock.unlock() }; return list }
+}
+
+final class SentProgress: @unchecked Sendable {
+    private let lock = NSLock()
+    private var list: [Double] = []
+    func append(_ value: Double) { lock.lock(); list.append(value); lock.unlock() }
+    var values: [Double] { lock.lock(); defer { lock.unlock() }; return list }
 }

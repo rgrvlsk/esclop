@@ -8741,6 +8741,16 @@
         }
       }
     },
+    "Two results would be named %@ in the folder. Rename one, or save beside the originals.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dos resultats es dirien %@ a la carpeta. Canvia el nom d’un, o desa’ls al costat dels originals."
+          }
+        }
+      }
+    },
     "Unchanged": {
       "localizations": {
         "ca": {

@@ -80,7 +80,7 @@ public enum ShortcutActions {
     /// window shows them, else one floating result each.
     public static func run(_ operation: Operation, on files: [URL], options: Options = Options()) async throws -> [URL] {
         let model = try await ready()
-        try check(operation, files)
+        try check(operation, files, options: options)
         let jobs = files.map { job(operation, for: $0, options: options, factory: model.factory) }
         let batch = !options.hideResult && jobs.count >= model.batchThreshold ? model.openBatch(origin: .shortcuts) : nil
         // Every file shows in the window at once, waiting, before its job starts.
@@ -134,11 +134,23 @@ public enum ShortcutActions {
     }
 
     /// Refuses what no file of the action could do, before anything runs.
-    static func check(_ operation: Operation, _ files: [URL]) throws {
+    static func check(_ operation: Operation, _ files: [URL], options: Options = Options()) throws {
         guard !files.isEmpty else { throw Failure(message: Strings.text("No files were given to the action.")) }
         let unsupported = files.filter { MediaKind.of($0) == nil }
         guard unsupported.isEmpty else {
             throw Failure(message: Strings.format("L’Esclop cannot optimise this kind of file (%@).", names(unsupported)))
+        }
+        if case .folder = options.place {
+            // One folder holds one file of each name: two sources named alike (or converted to
+            // the same name) would write over each other. The files run at the same time.
+            var seen = Set<String>()
+            for file in files {
+                var name = file.lastPathComponent
+                if case let .convert(format) = operation { name = file.deletingPathExtension().lastPathComponent + "." + format.fileExtension }
+                guard seen.insert(name.lowercased()).inserted else {
+                    throw Failure(message: Strings.format("Two results would be named %@ in the folder. Rename one, or save beside the originals.", name))
+                }
+            }
         }
         switch operation {
         case let .downscale(factor) where !(factor > 0 && factor <= 1):

@@ -135,5 +135,5 @@ public enum CompressionLevel: String, AppEnum, CaseIterable, Sendable {
 /// The paper sizes and devices `Crop PDF` offers; a ratio such as 3:4 can be typed too.
 public struct PDFShapeOptions: DynamicOptionsProvider {
     public init() {}
-    public func results() async throws -> [String] { EsclopIPC.AspectRatio.presets.map(\.name) }
+    public func results() async throws -> [String] { EsclopIPC.AspectRatio.presetNames }
 }

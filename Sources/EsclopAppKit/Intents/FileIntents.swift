@@ -27,6 +27,9 @@ func intentFiles(_ urls: [URL]) -> [IntentFile] {
     urls.map { IntentFile(fileURL: $0, filename: $0.lastPathComponent, type: UTType(filenameExtension: $0.pathExtension)) }
 }
 
+// ponytail: the six shared parameters are repeated in each intent: App Intents has no parameter
+// mixin on macOS 14. Move them into one type if a later macOS target offers one.
+
 /// The shared choices as `ShortcutActions` takes them; "in a folder" needs the folder.
 @MainActor
 func shortcutOptions(
@@ -39,7 +42,7 @@ func shortcutOptions(
     case .inPlace: where_ = .inPlace
     case .besideOriginal: where_ = .besideOriginal
     case .folder:
-        // ponytail: any file is offered; a folder-only picker needs macOS 15.
+        // A folder passed from another action can still be a file: check it.
         var isFolder: ObjCBool = false
         guard let url = folder?.fileURL, FileManager.default.fileExists(atPath: url.path, isDirectory: &isFolder), isFolder.boolValue else {
             throw ShortcutActions.Failure(message: Strings.text("Choose the folder the results go to."))
@@ -63,7 +66,7 @@ public struct OptimiseFilesIntent: AppIntent {
     @Parameter(title: "Save", default: .settings)
     public var place: ResultPlace
 
-    @Parameter(title: "Folder")
+    @Parameter(title: "Folder", supportedTypeIdentifiers: ["public.folder"])
     public var folder: IntentFile?
 
     @Parameter(title: "Compression")
@@ -112,7 +115,7 @@ public struct OptimiseURLIntent: AppIntent {
     @Parameter(title: "Save", default: .settings)
     public var place: ResultPlace
 
-    @Parameter(title: "Folder")
+    @Parameter(title: "Folder", supportedTypeIdentifiers: ["public.folder"])
     public var folder: IntentFile?
 
     @Parameter(title: "Compression")
@@ -161,7 +164,7 @@ public struct ConvertFilesIntent: AppIntent {
     @Parameter(title: "Save", default: .settings)
     public var place: ResultPlace
 
-    @Parameter(title: "Folder")
+    @Parameter(title: "Folder", supportedTypeIdentifiers: ["public.folder"])
     public var folder: IntentFile?
 
     @Parameter(title: "Compression")
@@ -209,7 +212,7 @@ public struct DownscaleFilesIntent: AppIntent {
     @Parameter(title: "Save", default: .settings)
     public var place: ResultPlace
 
-    @Parameter(title: "Folder")
+    @Parameter(title: "Folder", supportedTypeIdentifiers: ["public.folder"])
     public var folder: IntentFile?
 
     @Parameter(title: "Compression")
@@ -257,7 +260,7 @@ public struct ChangeSpeedIntent: AppIntent {
     @Parameter(title: "Save", default: .settings)
     public var place: ResultPlace
 
-    @Parameter(title: "Folder")
+    @Parameter(title: "Folder", supportedTypeIdentifiers: ["public.folder"])
     public var folder: IntentFile?
 
     @Parameter(title: "Compression")
@@ -317,7 +320,7 @@ public struct CropFilesIntent: AppIntent {
     @Parameter(title: "Save", default: .settings)
     public var place: ResultPlace
 
-    @Parameter(title: "Folder")
+    @Parameter(title: "Folder", supportedTypeIdentifiers: ["public.folder"])
     public var folder: IntentFile?
 
     @Parameter(title: "Compression")
@@ -387,7 +390,7 @@ public struct CropPDFIntent: AppIntent {
     @Parameter(title: "Save", default: .settings)
     public var place: ResultPlace
 
-    @Parameter(title: "Folder")
+    @Parameter(title: "Folder", supportedTypeIdentifiers: ["public.folder"])
     public var folder: IntentFile?
 
     @Parameter(title: "Hide the floating result", default: false)

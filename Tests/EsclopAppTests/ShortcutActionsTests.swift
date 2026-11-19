@@ -117,6 +117,22 @@ import Testing
         #expect(try shortcutOptions(place: .besideOriginal, folder: nil, hideResult: false, copy: false).place == .besideOriginal)
     }
 
+    @Test func aFolderTakesOneResultOfEachName() async throws {
+        let harness = Harness()
+        let folder = ShortcutActions.Options(place: .folder(harness.temp.url.appendingPathComponent("out", isDirectory: true)))
+        let alike = [harness.temp.file("a/IMG_1.jpg"), harness.temp.file("b/img_1.JPG")]
+        await withModel(harness) {
+            await #expect(throws: ShortcutActions.Failure.self) { try await ShortcutActions.run(.optimise(harder: false), on: alike, options: folder) }
+            let converted = [harness.temp.file("c/photo.png"), harness.temp.file("c/photo.jpg")]
+            await #expect(throws: ShortcutActions.Failure.self, "both become photo.webp") {
+                try await ShortcutActions.run(.convert(.webp), on: converted, options: folder)
+            }
+        }
+        #expect(harness.requests.requests.isEmpty, "nothing ran")
+        // A Live Photo's two halves keep their names: they may go together.
+        #expect(throws: Never.self) { try ShortcutActions.check(.optimise(harder: false), [harness.temp.file("d/IMG_2.HEIC"), harness.temp.file("d/IMG_2.MOV")], options: folder) }
+    }
+
     @Test func resultsGoWhereAskedAndOnTheClipboard() async throws {
         let harness = Harness()
         let file = harness.temp.file("a.png")
