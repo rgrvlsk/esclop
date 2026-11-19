@@ -138,7 +138,7 @@ Ops and parameters the Swift side sends:
 
 | Op | Params sent | When |
 |---|---|---|
-| `png.optimise` | `lossy`, `quality` [0, max], `speed`, `strip` | PNG output |
+| `png.optimise` | `lossy`, `quality` [0, max], `speed`, `colors` (from compression 80), `strip` | PNG output |
 | `jpeg.optimise` | `quality`, `progressive: true`, `strip` | JPEG to JPEG |
 | `convert` | `format` (png, jpeg, gif), `quality`, `progressive`, `strip` | other inputs to PNG/JPEG/GIF |
 | `webp.encode` | `quality`, `lossless: false`, `strip` | WebP output |

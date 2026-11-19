@@ -67,7 +67,7 @@ struct PDFEngine: Sendable {
         }
         let (dpi, sourceMax) = resolveDPI(for: input, plan: plan)
         let output = work.file(stem: "optimised", ext: "pdf")
-        try await engine(input, to: output, dpi: dpi, factor: plan.factor(for: .pdf, format: .pdf, env: env), strip: plan.strip, progress: progress)
+        let reply = try await engine(input, to: output, dpi: dpi, factor: plan.factor(for: .pdf, format: .pdf, env: env), strip: plan.strip, progress: progress)
         if let sourceMax, dpi < sourceMax {
             steps.append("Downsampled images from \(sourceMax) to \(dpi) dpi")
         } else if dpi < PDFResolution.noDownsampleDPI {
@@ -75,7 +75,7 @@ struct PDFEngine: Sendable {
         } else {
             steps.append("Recompressed without downsampling")
         }
-        return Produced(url: output, width: nil, height: nil, duration: nil, steps: steps, allowLarger: plan.crop != nil)
+        return Produced(url: output, width: nil, height: nil, duration: nil, steps: steps, allowLarger: plan.crop != nil, lossless: reply.raw["lossy"] == .bool(false))
     }
 
     /// How long one `pdf.optimise` may take (what Ghostscript was given).
@@ -83,8 +83,9 @@ struct PDFEngine: Sendable {
 
     /// `pdf.optimise`: 300 dpi means no downsampling. A result that is not smaller comes back
     /// as the engine's `already_smaller`, which the caller treats like any other optimiser's.
-    func engine(_ input: URL, to output: URL, dpi: Int, factor: Int, strip: Bool, progress: ProgressSink) async throws {
-        _ = try await env.images.call("pdf.optimise", input: input, output: output, params: [
+    @discardableResult
+    func engine(_ input: URL, to output: URL, dpi: Int, factor: Int, strip: Bool, progress: ProgressSink) async throws -> EngineReply {
+        let reply = try await env.images.call("pdf.optimise", input: input, output: output, params: [
             "dpi": .int(dpi < PDFResolution.noDownsampleDPI ? dpi : 0),
             "compression": .int(factor),
             "strip": .bool(strip),
@@ -93,6 +94,7 @@ struct PDFEngine: Sendable {
         guard PDFDocument(url: output) != nil else {
             throw EsclopError.toolFailed(tool: Tool.esclopEngine.rawValue, exitCode: 0, stderr: "esclop-engine wrote an unreadable PDF")
         }
+        return reply
     }
 
     /// Walks down the DPI stops until the file fits.

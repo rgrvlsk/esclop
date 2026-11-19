@@ -78,14 +78,16 @@ struct ImageEngine: Sendable {
 
     /// With "adaptive image format" on (or a request asking for it) and no explicit format: JPEG
     /// for a PNG without transparent pixels, PNG for a flat JPEG (entropy under 5 over more than
-    /// a megapixel, as Clop judges it). nil when the output path names another extension, so an
-    /// explicit `-o shot.png` stays PNG instead of failing after the work.
+    /// a megapixel, as Clop judges it). Any JPEG target counts, also one the automatic lists
+    /// chose (a flat HEIC may end as PNG), as in Clop, where the test sits in `optimiseJPEG`.
+    /// nil when the output path names another extension, so an explicit `-o shot.png` stays
+    /// PNG instead of failing after the work.
     func adaptiveAlternative(to target: OutputFormat, source: URL, info: ImageInfo, plan: Plan) -> OutputFormat? {
         guard plan.request.adaptiveImageFormat ?? env.value(EsclopSettings.adaptiveImageSize), plan.format == nil, !info.isAnimated else { return nil }
         let alternative: OutputFormat
         switch target {
         case .png where !Self.hasTransparentPixels(source, info: info): alternative = .jpeg
-        case .jpeg where info.width * info.height > 1_000_000 && (ImageIOCodec.entropy(source) ?? 8) < 5: alternative = .png
+        case .jpeg where info.width * info.height > 1_000_000 && (ImageIOCodec.entropy(source) ?? 0) < 5: alternative = .png
         default: return nil
         }
         if case .path = plan.request.location {
@@ -588,9 +590,10 @@ extension ImageIOCodec {
         return false
     }
 
-    /// Shannon entropy of the red, green and blue values (0 to 8 bits), as Clop measures it to
-    /// spot flat graphics saved as JPEG. Sampled on at most about two megapixels, nearest
-    /// neighbour, so no new values appear. nil when the image cannot be read.
+    /// Shannon entropy over the red, green and blue histograms side by side (768 bins, 0 to
+    /// log2(768) bits), as Clop's `calculateShannonEntropy` measures it to spot flat graphics
+    /// saved as JPEG. Sampled on at most about two megapixels, nearest neighbour, so no new
+    /// values appear. nil when the image cannot be read.
     static func entropy(_ url: URL) -> Double? {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
               let image = CGImageSourceCreateImageAtIndex(source, 0, nil), image.width > 0, image.height > 0
@@ -604,8 +607,8 @@ extension ImageIOCodec {
         context.interpolationQuality = .none
         context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
         let pixels = UnsafeBufferPointer(start: data.bindMemory(to: UInt8.self, capacity: width * height * 4), count: width * height * 4)
-        var histogram = [Int](repeating: 0, count: 256)
-        for (index, value) in pixels.enumerated() where index % 4 != 3 { histogram[Int(value)] += 1 }
+        var histogram = [Int](repeating: 0, count: 768)
+        for (index, value) in pixels.enumerated() where index % 4 != 3 { histogram[(index % 4) * 256 + Int(value)] += 1 }
         let total = Double(width * height * 3)
         return histogram.reduce(0.0) { sum, count in
             guard count > 0 else { return sum }

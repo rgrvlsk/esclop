@@ -11056,7 +11056,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "imatges: webp, avif, heic, jxl, jpeg, png, gif; vídeo: mp4, hevc, x265, av1, webm, gif; àudio: m4a, mp3, ogg, flac, wav, aiff"
+            "value": "imatges: webp, avif, heic, jpeg, png, gif; vídeo: mp4, hevc, x265, av1, webm, gif; àudio: m4a, mp3, ogg, flac, wav, aiff"
           }
         }
       }

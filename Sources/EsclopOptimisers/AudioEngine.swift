@@ -75,7 +75,7 @@ struct AudioEngine: Sendable {
         if let speed { steps.append("Changed speed to \(String(format: "%g", speed))x") }
         if let loudness { steps.append("Normalised loudness to \(String(format: "%g", loudness)) LUFS") }
         let changesContent = !sameFormat || speed != nil || loudness != nil
-        return Produced(url: output, width: nil, height: nil, duration: duration, steps: steps, allowLarger: changesContent)
+        return Produced(url: output, width: nil, height: nil, duration: duration, steps: steps, allowLarger: changesContent, lossless: codec.isLossless && !changesContent)
     }
 
     /// Album artwork: kept, recompressed to at most 600 px JPEG, or dropped.
