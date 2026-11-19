@@ -306,20 +306,31 @@ struct RuleCheckbox: View {
     @Bindable var model: OptionsModel
 
     var body: some View {
+        let rule = model.rule
         VStack(alignment: .leading, spacing: 4) {
-            Toggle(isOn: $model.ruleOn) {
+            Toggle(isOn: Binding(get: { rule != nil }, set: { model.ruleOn = $0 })) {
                 Text(ClipboardRule.checkboxTitle(origin: model.origin, inputType: model.card.inputType ?? "")).font(OptionsType.label)
             }
             .switchLabel(title: ClipboardRule.checkboxTitle(origin: model.origin, inputType: model.card.inputType ?? ""), hint: nil)
 
             .toggleStyle(.checkbox)
             .disabled(model.card.isWorking)
-            if model.ruleOn, let origin = model.card.fileOrigin, let input = model.card.inputType {
-                Text(ClipboardRule(origin: origin, inputType: input, choice: model.card.appliedRule?.choice ?? model.card.choice).promise())
+            if let rule {
+                Text(rule.promise())
                     .font(OptionsType.label)
                     .foregroundStyle(PopoverInk.secondary.color)
                     .padding(.leading, 20)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+            // The box stays ticked for the stored rule; this result was made another way.
+            if model.ruleDiffers {
+                Button(Strings.text("Use this from now on")) { model.useChoiceAsRule() }
+                    .buttonStyle(.plain)
+                    .font(OptionsType.label.weight(.semibold))
+                    .foregroundStyle(Ink.charcoalText)
+                    .padding(.leading, 20)
+                    .disabled(model.card.isWorking)
+                    .help(Strings.text("Store this choice as the rule"))
             }
         }
         .padding(.horizontal, 12)

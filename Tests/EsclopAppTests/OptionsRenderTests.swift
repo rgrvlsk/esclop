@@ -80,6 +80,14 @@ import UniformTypeIdentifiers
         ruled.choice = OptimiseChoice(format: .webp)
         ruled.appliedRule = ClipboardRule(origin: .screenshot, inputType: UTType.png.identifier, choice: ruled.choice)
         try await snapshot(model(ruled, harness: harness), name: "options-rule", scheme: scheme)
+
+        // The stored rule makes WebP, this result is AVIF: "Use this from now on".
+        let other = card(.done(renders.saved(after: 285_000)))
+        other.choice = OptimiseChoice(format: .avif)
+        try harness.model.rules.save(ClipboardRule(origin: .screenshot, inputType: UTType.png.identifier, choice: OptimiseChoice(format: .webp)))
+        let differs = model(other, harness: harness)
+        #expect(differs.ruleDiffers)
+        try await snapshot(differs, name: "options-rule-differs", scheme: scheme)
     }
 
     @Test(arguments: [ColorScheme.light, .dark])

@@ -259,13 +259,18 @@ public struct OptimisationResult: Codable, Identifiable, Sendable {
     /// Where the request came from (a copied image, a dropped file, a watched folder, an agent),
     /// as the app and the CLI record it in the shared log; nil in lines written before 0.2.
     public var origin: RequestOrigin?
+    /// The request that made it: every file of a multi-file job shares it, while `id` is this
+    /// result's own. Nil in lines written before 0.2, where `id` was the request's.
+    public var requestID: UUID?
 
     public init(
         id: UUID = UUID(), source: URL, output: URL, backup: URL? = nil, kind: MediaKind,
         bytesBefore: Int, bytesAfter: Int, width: Int? = nil, height: Int? = nil, duration: TimeInterval? = nil,
-        startedAt: Date, finishedAt: Date, steps: [String] = [], link: URL? = nil, origin: RequestOrigin? = nil
+        startedAt: Date, finishedAt: Date, steps: [String] = [], link: URL? = nil, origin: RequestOrigin? = nil,
+        requestID: UUID? = nil
     ) {
         self.id = id
+        self.requestID = requestID
         self.source = source
         self.output = output
         self.backup = backup

@@ -34,9 +34,9 @@ final class TempDir: @unchecked Sendable {
     deinit { try? FileManager.default.removeItem(at: url) }
 }
 
-/// A settings suite of its own, emptied when the value goes away.
+/// A settings suite of its own, a plist in the temporary folder, removed when the value goes away.
 final class TestSettings: @unchecked Sendable {
-    let store = SettingsStore(suiteName: "dev.esclop.app-tests.\(UUID().uuidString)")
+    let store = SettingsStore(suiteName: FileManager.default.temporaryDirectory.appendingPathComponent("esclop-app-settings-\(UUID().uuidString)").path)
     deinit { store.removeAll() }
 }
 

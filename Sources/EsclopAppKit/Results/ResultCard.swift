@@ -61,10 +61,18 @@ public final class ResultCard: Identifiable {
     /// that change, so it is not offered then.
     public var adjusted = false
     /// The scale the last run applied to the original, 1 when it was not scaled (a crop is not a
-    /// scale): the Size tab's chosen tile.
+    /// scale): the Size tab's chosen tile. Every re-run applies it again, until Original.
     public var downscale = 1.0
-    /// Undo is putting the original back; its buttons wait until it is done.
+    /// The crop the last run applied to the original; every re-run applies it again, until
+    /// Original or Reset.
+    /// ponytail: the crop and the scale live as long as the card; a card made again (from Recent
+    /// after it hid, or by Retry) runs uncropped. Trigger: the results log recording them.
+    public var crop: CropSize?
+    /// Undo or a re-run is putting the original back; Undo and another re-run wait until it is
+    /// done.
     public var restoring = false
+    /// Undo moved a version edited after optimising to the Trash: the restored card says so.
+    public var editInTrash = false
     /// The detail's name is being edited: the card's keys stand aside, and come back after.
     public var renaming = false
     /// The "Go to the newest result" hotkey asked for this card to take the keys; the card

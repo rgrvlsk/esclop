@@ -56,7 +56,7 @@ struct SizeTab: View {
     }
 
     private func tile(_ preset: OptionsModel.SizePreset) -> some View {
-        let selected = abs(model.currentScale - preset.factor) < 0.01
+        let selected = model.isCurrent(preset.factor)
         return Button { model.scale(to: preset.factor) } label: {
             VStack(alignment: .leading, spacing: 2) {
                 Text(preset.title).font(OptionsType.bodyStrong)
@@ -230,17 +230,18 @@ struct CropEditor: View {
                 .frame(maxHeight: 220)
 
                 HStack(spacing: 6) {
+                    // No "px": the heading says the size, and Catalan's Restableix and Retalla
+                    // need the room.
                     OptionsNumberField(title: Strings.text("Width"), text: $widthText, width: 64).onSubmit(applySize)
                     Text("×").foregroundStyle(PopoverInk.secondary.color)
                     OptionsNumberField(title: Strings.text("Height"), text: $heightText, width: 64).onSubmit(applySize)
-                    Text("px").foregroundStyle(PopoverInk.secondary.color)
-                    Spacer()
+                    Spacer(minLength: 4)
                     // Back to the whole picture; the preview stays.
                     Button(Strings.text("Reset")) { model.resetCrop() }
                         .buttonStyle(.plain)
                         .font(OptionsType.bodyStrong)
                         .foregroundStyle(Ink.charcoalText)
-                        .disabled(crop.cropSize == nil)
+                        .disabled((crop.cropSize == nil && model.card.crop == nil) || model.card.isWorking)
                     CharcoalButton(title: Strings.text("Crop")) { model.applyCrop() }
                         .keyboardShortcut(.defaultAction)
                         .disabled(crop.cropSize == nil || model.card.isWorking)

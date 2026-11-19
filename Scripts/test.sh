@@ -9,6 +9,18 @@
 # never finished, and exits 124. CI sets it so a hang fails in minutes, with names and stacks.
 set -eu
 cd "$(dirname "$0")/.."
+# Engine tests run whatever Binaries/esclop-engine holds: refuse one older than its sources.
+# CI unpacks an engine built for these exact sources (cached by their hash), with older dates.
+# ESCLOP_ALLOW_STALE_ENGINE=1 runs anyway.
+if [ -f Binaries/esclop-engine ] && [ -z "${CI:-}" ] && [ "${ESCLOP_ALLOW_STALE_ENGINE:-}" != 1 ]; then
+    # The sources CI's engine cache key hashes (.github/workflows/binaries.yml).
+    newer="$(find engine/crates engine/Cargo.toml engine/Cargo.lock Scripts/build-engine.sh Scripts/build-libaom.sh \
+        -type f -newer Binaries/esclop-engine | head -1)"
+    if [ -n "$newer" ]; then
+        echo "Binaries/esclop-engine is older than $newer. Run Scripts/build-engine.sh, or set ESCLOP_ALLOW_STALE_ENGINE=1." >&2
+        exit 1
+    fi
+fi
 # The MCP conformance test drives the real `esclop mcp serve` binary over stdio.
 swift build --product esclop >&2
 ESCLOP_TEST_BINARY="$(swift build --show-bin-path)/esclop"

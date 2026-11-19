@@ -137,4 +137,97 @@ import Testing
         compare.open(same)
         #expect(compare.choice.format == nil)
     }
+
+    /// Clop re-runs its steps: a crop and a scale stay through another choice until Reset or
+    /// Original take them off.
+    @Test func aCropAndAScaleStayThroughAnotherChoice() async throws {
+        let harness = Harness()
+        _ = await harness.model.run(harness.job(harness.temp.file("a.png", bytes: 100_000)))
+        let card = try #require(harness.model.cards.first)
+        let rect = CropRect(x: 0, y: 0, width: 16, height: 9)
+        func runs(_ count: Int, _ change: () -> Void) async throws -> OptimisationRequest {
+            change()
+            #expect(await eventually { harness.requests.requests.count == count && card.result != nil })
+            return try #require(harness.requests.requests.last)
+        }
+        _ = try await runs(2) { harness.model.crop(card, to: CropSize(rect: rect)) }
+        var request = try await runs(3) { harness.model.apply(OptimiseChoice(format: .webp), to: card) }
+        #expect(request.crop?.rect == rect && request.format == .webp, "crop, then WebP: still cropped")
+        request = try await runs(4) { harness.model.downscale(card, to: 0.5) }
+        #expect(request.crop?.rect == rect && request.downscale == 0.5)
+        request = try await runs(5) { harness.model.apply(OptimiseChoice(format: .avif), to: card) }
+        #expect(request.crop?.rect == rect && request.downscale == 0.5, "Half, then AVIF: still half")
+        let options = OptionsModel(card: card, app: harness.model)
+        request = try await runs(6) { options.resetCrop() }
+        #expect(request.crop == nil && request.downscale == 0.5, "Reset takes the crop off, the scale stays")
+        request = try await runs(7) { harness.model.crop(card, to: CropSize(rect: rect)) }
+        #expect(request.crop?.rect == rect && request.downscale == 0.5)
+        request = try await runs(8) { options.scale(to: 1) }
+        #expect(request.crop == nil && request.downscale == nil, "Original takes both off")
+    }
+
+    /// Two quick re-runs, or Undo during a re-run, start one restore: a second would put the
+    /// original back twice and send it to the Trash as an edit.
+    @Test func aSecondRestoreWaitsForTheFirst() async throws {
+        let harness = Harness()
+        _ = await harness.model.run(harness.job(harness.temp.file("a.png", bytes: 100_000)))
+        let card = try #require(harness.model.cards.first)
+        harness.model.perform(.downscale, on: card)
+        harness.model.perform(.downscale, on: card)
+        harness.model.perform(.undo, on: card)
+        #expect(await eventually { harness.requests.requests.count == 2 && card.result != nil })
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(harness.requests.requests.count == 2)
+        #expect(card.result != nil, "Undo waited, the re-run's result stands")
+        #expect(!card.restoring && !card.editInTrash)
+    }
+
+    /// After Save to Downloads and Undo, Show in Finder shows the original, not the saved copy.
+    @Test func undoForgetsTheSavedCopy() async throws {
+        let harness = Harness()
+        let downloads = harness.temp.url.appendingPathComponent("Downloads", isDirectory: true)
+        try FileManager.default.createDirectory(at: downloads, withIntermediateDirectories: true)
+        harness.model.downloads = { downloads }
+        let file = harness.temp.file("a.png", bytes: 100_000)
+        _ = await harness.model.run(harness.job(file, origin: .dropZone))
+        let card = try #require(harness.model.cards.first)
+        harness.model.perform(.save, on: card)
+        #expect(card.savedCopy != nil)
+        harness.model.perform(.undo, on: card)
+        #expect(await eventually { if case .restored = card.phase { true } else { false } })
+        #expect(card.savedCopy == nil)
+        harness.model.perform(.reveal, on: card)
+        #expect(harness.revealed.urls.last?.standardizedFileURL == file.standardizedFileURL)
+    }
+
+    /// A file copied in Finder comes back from Recent as the copy it was, by its recorded origin.
+    @Test func recentUsesTheRecordedOrigin() throws {
+        let harness = Harness()
+        let file = URL(fileURLWithPath: "/tmp/Desktop/Report.png")
+        var result = OptimisationResult(source: file, output: file, kind: .image, bytesBefore: 2_000, bytesAfter: 1_000, startedAt: Date(), finishedAt: Date())
+        result.origin = .clipboard
+        let card = harness.model.show(result)
+        #expect(card.origin == .clipboard)
+        #expect(card.presentation.tools.first == .copy, "Copy, as when it was copied")
+        #expect(card.presentation.fileName == "Report.png", "it has a name of its own")
+    }
+
+    /// Undo never deletes: when it moved an edited version to the Trash, the card says so.
+    @Test func undoSaysWhereTheEditWent() throws {
+        let file = URL(fileURLWithPath: "/tmp/a.png")
+        let inPlace = OptimisationResult(source: file, output: file, kind: .image, bytesBefore: 2_000, bytesAfter: 1_000, startedAt: Date(), finishedAt: Date())
+        var converted = inPlace
+        converted.output = URL(fileURLWithPath: "/tmp/a.webp")
+        #expect(!AppModel.editWentToTrash(trashed: 0, restoring: inPlace))
+        #expect(AppModel.editWentToTrash(trashed: 1, restoring: inPlace))
+        #expect(!AppModel.editWentToTrash(trashed: 1, restoring: converted), "the converted output alone")
+        #expect(AppModel.editWentToTrash(trashed: 2, restoring: converted))
+
+        let card = ResultCard(jobID: inPlace.id, source: file, origin: .dropZone, bytesBefore: 2_000, phase: .restored(inPlace))
+        #expect(!card.presentation.caption.contains("Trash"))
+        card.editInTrash = true
+        #expect(card.presentation.caption == "Your edited version is in the Trash")
+        #expect(card.presentation.accessibilityLabel.hasSuffix("Your edited version is in the Trash"))
+        #expect(CardPresentation(card: card, locale: Locale(identifier: "ca")).caption == "La teva versió editada és a la Paperera")
+    }
 }
