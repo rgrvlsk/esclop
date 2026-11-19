@@ -104,6 +104,11 @@ public enum EsclopSettings {
         "enableDragAndDrop", default: true, title: "Show the drop zone",
         description: "Show a drop zone while dragging files, to optimise whatever is dropped on it.", section: .interface
     )
+    /// Clop's "only with ⌥": the zone stays hidden during a drag until ⌥ is tapped.
+    public static let dropZoneOnlyWithOption = Setting<Bool>(
+        "dropZoneOnlyWithOption", default: false, title: "Show the drop zone only after tapping ⌥",
+        description: "While dragging, the drop zone stays hidden until you tap Option; it then opens under the pointer. Tap Option again to hide it.", section: .interface
+    )
 
     // MARK: Images
 
@@ -505,7 +510,7 @@ public enum EsclopSettings {
     public static let all: [AnySetting] = [
         stripMetadata.erased, preserveDates.erased, keepHDR.erased,
         floatingResultsCorner.erased, followCursorScreen.erased, autoHideFloatingResults.erased,
-        autoHideFloatingResultsAfter.erased, autoHideClipboardResultAfter.erased, batchWindowFrom.erased, enableDragAndDrop.erased, presetZones.erased,
+        autoHideFloatingResultsAfter.erased, autoHideClipboardResultAfter.erased, batchWindowFrom.erased, enableDragAndDrop.erased, dropZoneOnlyWithOption.erased, presetZones.erased,
         imageCompression.erased, imageAggressiveCompression.erased,
         useAggressiveOptimisationJPEG.erased, useAggressiveOptimisationPNG.erased, useAggressiveOptimisationGIF.erased,
         adaptiveImageSize.erased, formatsToConvertToJPEG.erased, formatsToConvertToPNG.erased,

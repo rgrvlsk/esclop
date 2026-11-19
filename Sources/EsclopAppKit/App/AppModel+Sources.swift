@@ -239,12 +239,64 @@ extension AppModel {
 
     // MARK: Drop zone
 
-    public func optimiseDropped(_ urls: [URL], harder: Bool) {
+    /// A drop on the zone: on the plain tile (`zone` nil) or on a preset zone. Promised and
+    /// downloaded files arrive first (the promises are asked for now, during the drop).
+    func takeDrop(_ intake: DropIntake, harder: Bool, keepOriginals: Bool, zone: String?) {
+        let arriving = intake.resolve()
+        Task {
+            let (files, failures) = await arriving.value
+            if let failure = failures.first {
+                notice(Strings.text("Could not get the dropped file"), CardPresentation.message(for: failure))
+                guard !files.isEmpty else { return }
+            }
+            if let zone {
+                runPresetZone(zone, on: files, keepOriginals: keepOriginals)
+            } else {
+                optimiseDropped(files, harder: harder, keepOriginals: keepOriginals)
+            }
+        }
+    }
+
+    /// `keepOriginals` (⌥ held at the drop): every original stays as it is.
+    public func optimiseDropped(_ urls: [URL], harder: Bool, keepOriginals: Bool = false) {
         let files = PathInput.expand(urls, recursive: true).filter { MediaKind.of($0) != nil }
         guard !files.isEmpty else { return notice(Strings.text("Nothing to optimise"), Strings.text("Drop images, videos, PDFs or audio files.")) }
         // Harder is a plain optimisation the person asked for; a plain drop runs a drop-zone pipeline.
         let triggered = harder ? [] : pipelines(for: .dropZone)
-        optimise(files, origin: .dropZone, aggressive: harder, copy: nil, pipeline: { Self.first(of: triggered, for: $0) })
+        optimiseDrop(files, aggressive: harder, keepOriginals: keepOriginals, pipeline: { Self.first(of: triggered, for: $0) })
+    }
+
+    /// With `keepOriginals`, a plain optimisation that would write in place writes beside the
+    /// original instead (the other places leave it alone already). A pipeline has its own places
+    /// for each step, so it runs on a copy in the temporary folder.
+    private func optimiseDrop(_ files: [URL], aggressive: Bool, keepOriginals: Bool, pipeline: @escaping (URL) -> Pipeline?) {
+        guard keepOriginals else { return optimise(files, origin: .dropZone, aggressive: aggressive, copy: nil, pipeline: pipeline) }
+        Task {
+            var sources: [URL] = []
+            for file in files {
+                guard pipeline(file) != nil else {
+                    sources.append(file)
+                    continue
+                }
+                do {
+                    sources.append(try await Self.copyAside(file))
+                } catch {
+                    notice(Strings.format("Could not copy %@", file.lastPathComponent), CardPresentation.message(for: error))
+                }
+            }
+            guard !sources.isEmpty else { return }
+            optimise(sources, origin: .dropZone, aggressive: aggressive, copy: nil, adjust: { job in
+                if job.request.location == .inPlace { job.request.location = .sameFolder }
+            }, pipeline: pipeline)
+        }
+    }
+
+    /// A copy of `file` in a new folder under the temporary one, made off the main thread.
+    nonisolated static func copyAside(_ file: URL) async throws -> URL {
+        let folder = try Paths.ensure(Paths.temporary.appendingPathComponent("kept/\(UUID().uuidString.prefix(8))", isDirectory: true))
+        let copy = folder.appendingPathComponent(file.lastPathComponent)
+        try FileManager.default.copyItem(at: file, to: copy)
+        return copy
     }
 
     /// The saved pipelines with this trigger, by name: read once per copy or drop.
@@ -261,11 +313,11 @@ extension AppModel {
 
     /// Files dropped on a preset zone: the pipeline runs on each, through the usual floating
     /// results, or the batch window from `batchWindowFrom` files, like a plain drop.
-    public func runPresetZone(_ name: String, on urls: [URL]) {
+    public func runPresetZone(_ name: String, on urls: [URL], keepOriginals: Bool = false) {
         let files = PathInput.expand(urls, recursive: true).filter { MediaKind.of($0) != nil }
         guard !files.isEmpty else { return notice(Strings.text("Nothing to optimise"), Strings.text("Drop images, videos, PDFs or audio files.")) }
         var zone = (try? service.context.pipelines.resolve(name)) ?? Pipeline(name: name, steps: [])
         zone.name = name
-        optimise(files, origin: .dropZone, aggressive: false, copy: nil, pipeline: { _ in zone })
+        optimiseDrop(files, aggressive: false, keepOriginals: keepOriginals, pipeline: { _ in zone })
     }
 }

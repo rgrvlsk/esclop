@@ -99,7 +99,7 @@ import Testing
         let target = controller.target
         var dropped: [(String?, Int)] = []
         let original = target.onDrop
-        target.onDrop = { urls, _, zone in dropped.append((zone, urls.count)) }
+        target.onDrop = { intake, _, _, zone in dropped.append((zone, intake.files.count)) }
         defer { target.onDrop = original }
         for name in ["One", "Two", "Three", DropZoneState.plainTarget] {
             let frame = try #require(controller.state.frames[name], "\(name) reported its frame")
