@@ -79,9 +79,22 @@ enum CardKeys {
         return max(0.1, (next * 100).rounded() / 100)
     }
 
-    /// The key a "…" menu row shows at its end, as a system menu shows its key.
+    /// The key a "…" menu row shows at its end, as a system menu shows its key, and a button's
+    /// tooltip after its name.
     static func label(for action: CardPresentation.Action) -> String? {
-        letters.first { $0.value == action }.map { "⌘" + $0.key.uppercased() }
+        if action == .dismiss || action == .stop { return "⌘⌫" }
+        return letters.first { $0.value == action }.map { "⌘" + $0.key.uppercased() }
+    }
+
+    /// A button's tooltip: its name, then its key where it has one ("Undo  ⌘Z").
+    static func help(for action: CardPresentation.Action) -> String {
+        label(for: action).map { action.accessibilityName + "  " + $0 } ?? action.accessibilityName
+    }
+
+    /// After these the hotkey's lent keys go back to the app in front: the person came to undo,
+    /// copy or save the newest result, and goes back to work.
+    static func givesKeysBack(_ action: CardPresentation.Action) -> Bool {
+        [.undo, .copy, .save].contains(action)
     }
 }
 
@@ -92,10 +105,18 @@ extension AppModel {
         guard let command = CardKeys.command(for: Character(key.lowercased()), on: card) else { return false }
         switch command {
         case .quickLook: QuickLookPresenter.shared.toggle(card.shownFile)
-        case let .perform(action): perform(action, on: card)
+        case let .perform(action):
+            perform(action, on: card)
+            if card.lentKeys, CardKeys.givesKeysBack(action) { returnKeys(from: card) }
         case let .downscale(scale): downscale(card, to: scale)
         }
         return true
+    }
+
+    /// The keys the hotkey lent go back to the app in front; the card stays.
+    func returnKeys(from card: ResultCard) {
+        card.lentKeys = false
+        onReturnKeys?()
     }
 
     /// The "Go to the newest result" hotkey: the newest card takes the keys and VoiceOver's
@@ -106,7 +127,9 @@ extension AppModel {
             return true
         }
         guard let newest else { return }
+        for card in cards { card.lentKeys = false }
         newest.wantsFocus = true
+        newest.lentKeys = true
         onCardsChange?()
     }
 }
