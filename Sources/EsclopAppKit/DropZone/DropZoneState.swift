@@ -36,17 +36,23 @@ public final class DropZoneState {
         self.zonesLeading = zonesLeading
     }
 
+    /// The line under the tiles: what a drop does.
     public var title: String { harder ? Strings.text("Drop to optimise harder") : Strings.text("Drop to optimise") }
 
-    public var detail: String {
-        switch (fileCount, harder) {
-        case (0, _): return Strings.text("Drag files here. Hold ⌘ for harder")
-        case (1, true): return Strings.text("1 file with the aggressive settings")
-        case (1, false): return Strings.text("1 file. Hold ⌘ for harder")
-        case (_, true): return Strings.format("%d files with the aggressive settings", fileCount)
-        case (_, false): return Strings.format("%d files. Hold ⌘ for harder", fileCount)
+    /// The plain tile's name.
+    public var tileTitle: String { harder ? Strings.text("Optimise harder") : Strings.text("Optimise") }
+
+    /// What the drag carries, under the plain tile's name; empty while it is shown without a drag.
+    public var count: String {
+        switch fileCount {
+        case 0: ""
+        case 1: Strings.text("1 file")
+        default: Strings.format("%d files", fileCount)
         }
     }
+
+    /// After the title, on the same line: how to change what a drop does, or what it now does.
+    public var hint: String { harder ? Strings.text("With the aggressive settings") : Strings.text("Hold ⌘ to optimise harder") }
 
     /// Which target is at `point` (top-left origin): a zone's name, `plainTarget`, or nil.
     public func target(at point: CGPoint) -> String? {

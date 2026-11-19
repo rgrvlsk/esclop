@@ -65,8 +65,11 @@ public enum Clipboard {
         return .empty
     }
 
-    /// Saves pasted image bytes to a file esclop can work on (in `Paths.temporary/clipboard`).
-    public static func materialise(_ content: ClipboardContent, folder: URL = Paths.temporary.appendingPathComponent("clipboard", isDirectory: true)) throws -> [URL] {
+    /// Where copied images are saved to be optimised.
+    public static var folder: URL { Paths.temporary.appendingPathComponent("clipboard", isDirectory: true) }
+
+    /// Saves pasted image bytes to a file esclop can work on (in `folder`).
+    public static func materialise(_ content: ClipboardContent, folder: URL = Clipboard.folder) throws -> [URL] {
         switch content {
         case let .files(urls): return urls
         case let .path(url): return [url]
