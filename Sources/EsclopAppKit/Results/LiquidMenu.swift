@@ -412,21 +412,28 @@ struct LiquidMenuRow: View {
 
     var body: some View {
         Button(action: choose) {
-            Text(action.title)
-                .font(.system(size: 13))
-                .foregroundStyle(Ink.text)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, minHeight: LiquidMenu.row, alignment: .leading)
-                .padding(.horizontal, 14)
-                .background {
-                    if highlighted {
-                        RoundedRectangle(cornerRadius: 9, style: .continuous).fill(NeutralFill.resting).padding(.horizontal, 5).padding(.vertical, 2)
-                    }
+            HStack(spacing: 8) {
+                Text(action.title)
+                    .foregroundStyle(Ink.text)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                // Its key on the card, where it has one, as a system menu shows its key.
+                if let key = CardKeys.label(for: action) {
+                    Text(key).foregroundStyle(Ink.secondary).accessibilityHidden(true)
                 }
-                .contentShape(Rectangle())
-                .overlay(alignment: .top) {
-                    if separated { Rectangle().fill(Ink.secondary.opacity(0.18)).frame(height: 0.5).padding(.horizontal, 12) }
+            }
+            .font(.system(size: 13))
+            .frame(maxWidth: .infinity, minHeight: LiquidMenu.row, alignment: .leading)
+            .padding(.horizontal, 14)
+            .background {
+                if highlighted {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous).fill(NeutralFill.resting).padding(.horizontal, 5).padding(.vertical, 2)
                 }
+            }
+            .contentShape(Rectangle())
+            .overlay(alignment: .top) {
+                if separated { Rectangle().fill(Ink.secondary.opacity(0.18)).frame(height: 0.5).padding(.horizontal, 12) }
+            }
         }
         .buttonStyle(.plain)
         .onHover(perform: hover)

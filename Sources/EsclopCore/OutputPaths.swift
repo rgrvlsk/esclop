@@ -11,10 +11,13 @@
 import CoreFoundation
 import CoreGraphics
 import Foundation
+import UniformTypeIdentifiers
 
 public extension OutputLocation {
     /// Where the result of processing `source` into a file with extension `ext` goes.
     /// `.sameFolder` never overwrites an existing file; `.path` does (the person named it).
+    /// `.inPlace` with a new extension takes the next free name (`IMG 2.jpg`) rather than
+    /// replace an unrelated sibling.
     func destination(
         for source: URL, extension ext: String,
         sameFolderTemplate: String = "%f-optimised", temporaryRoot: URL = Paths.temporary
@@ -23,7 +26,8 @@ public extension OutputLocation {
         let stem = source.deletingPathExtension().lastPathComponent
         switch self {
         case .inPlace:
-            return folder.appendingPathComponent(stem).appendingPathExtension(ext)
+            let candidate = folder.appendingPathComponent(stem).appendingPathExtension(ext)
+            return candidate.standardizedFileURL.path == source.standardizedFileURL.path ? candidate : Self.unique(candidate)
         case .sameFolder:
             let name = Self.expand(sameFolderTemplate, stem: stem, ext: ext, folder: folder)
             var candidate = folder.appendingPathComponent(name).appendingPathExtension(ext)
@@ -48,6 +52,23 @@ public extension OutputLocation {
             }
             return url.standardizedFileURL
         }
+    }
+
+    /// Throws when `destination`, named by a `.path` template, ends in an extension of another
+    /// format than `ext` (`-o photo.jpg` for a PDF). Spellings of one type (jpg/jpeg, tif/tiff),
+    /// heic/heif, m4v/mp4 and extensions macOS does not know (`photo.v2`) pass.
+    static func checkExtension(of destination: URL, matches ext: String) throws {
+        let given = destination.pathExtension.lowercased()
+        let expected = ext.lowercased()
+        guard !given.isEmpty, given != expected,
+              let givenType = UTType(filenameExtension: given), !givenType.isDynamic,
+              let expectedType = UTType(filenameExtension: expected)
+        else { return }
+        let pairs: [Set<UTType>] = [[.heic, .heif], Set([.mpeg4Movie, UTType("com.apple.m4v-video")].compactMap { $0 })]
+        if givenType == expectedType || pairs.contains(where: { $0.contains(givenType) && $0.contains(expectedType) }) { return }
+        throw EsclopError.invalidArgument(
+            "\(destination.lastPathComponent) ends in .\(given), but the result is .\(expected): name it .\(expected) or leave the extension out"
+        )
     }
 
     static func expand(_ template: String, stem: String, ext: String, folder: URL) -> String {

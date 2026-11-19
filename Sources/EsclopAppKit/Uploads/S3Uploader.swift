@@ -28,6 +28,10 @@ public struct S3Uploader: Sendable {
             throw EsclopError.invalidArgument(Strings.text("The endpoint is an address such as https://s3.eu-west-1.amazonaws.com."))
         }
         guard FileManager.default.fileExists(atPath: file.path) else { throw EsclopError.fileNotFound(file.path) }
+        // ponytail: one PUT, which S3 takes up to 5 GiB; a multipart upload when larger files need to go.
+        if let size = (try? FileManager.default.attributesOfItem(atPath: file.path))?[.size] as? NSNumber, size.int64Value > Self.largestPut {
+            throw EsclopError.invalidArgument(Strings.format("%@ is larger than 5 GB, the most L’Esclop can upload in one go.", file.lastPathComponent))
+        }
         let type = UTType(filenameExtension: file.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
@@ -57,6 +61,42 @@ public struct S3Uploader: Sendable {
         }
         progress(1)
         return link
+    }
+
+    /// Removes `key` from the target's bucket (the test upload's file, once checked).
+    public func delete(_ key: String, from target: UploadTarget, credentials: UploadCredentials) async throws {
+        guard let url = target.objectURL(key: key) else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        let signed = S3Signer.sign(
+            method: "DELETE", url: url, headers: ["host": S3Signer.hostHeader(url)],
+            accessKey: credentials.accessKeyID, secret: credentials.secret, region: target.region, date: now()
+        )
+        for (name, value) in signed { request.setValue(value, forHTTPHeaderField: name) }
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200 ..< 300).contains(http.statusCode) else {
+            throw EsclopError.other(Self.refusal(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: data))
+        }
+    }
+
+    /// The largest file one PUT takes (S3's limit, also R2's and B2's).
+    static let largestPut: Int64 = 5 * 1024 * 1024 * 1024
+
+    /// Whether `link` answers for someone without the keys (a HEAD request), as the test upload
+    /// checks: throws what to set when it does not.
+    public func checkLink(_ link: URL) async throws {
+        var request = URLRequest(url: link)
+        request.httpMethod = "HEAD"
+        let response: URLResponse
+        do {
+            (_, response) = try await session.data(for: request)
+        } catch let error as URLError {
+            throw EsclopError.other(Strings.format("Could not reach %@: %@", link.host() ?? link.absoluteString, error.localizedDescription))
+        }
+        guard let http = response as? HTTPURLResponse, (200 ..< 300).contains(http.statusCode) else {
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            throw EsclopError.other(Strings.format("The test file went up, but its link answers %d: people you send it to cannot open it. Set the public link to an address that serves the bucket, with {path}.", status))
+        }
     }
 
     /// "The upload target refused the file (403): AccessDenied, Access Denied."

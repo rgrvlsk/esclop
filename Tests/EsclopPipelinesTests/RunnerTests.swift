@@ -395,6 +395,85 @@ func options(_ tmp: TempDir, scripts: Bool = false) -> PipelineRunOptions {
     #expect(nothing.files[0].log[0].outcome == .unchanged)
 }
 
+@Test func aFailedCopyLeavesTheFileItWouldReplace() async throws {
+    let tmp = try TempDir()
+    let png = try tmp.file("a.png", bytes: 300)
+    let kept = try tmp.file("out/a.png", bytes: 777)
+    // An unreadable file fails the copy the way a full disk does: after the destination is chosen.
+    try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: png.path)
+    defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: png.path) }
+    let report = await runner(Recorder()).run(steps: [.copy(to: kept.path)], on: [png], options: options(tmp))
+    #expect(report.files[0].status == .failed)
+    #expect(try Data(contentsOf: kept).count == 777, "the old file is still there")
+    #expect(try FileManager.default.contentsOfDirectory(atPath: kept.deletingLastPathComponent().path) == ["a.png"], "no staging file left")
+
+    // A copy that works replaces it.
+    try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: png.path)
+    let replaced = await runner(Recorder()).run(steps: [.copy(to: kept.path)], on: [png], options: options(tmp))
+    #expect(replaced.files[0].status == .completed)
+    #expect(try Data(contentsOf: kept).count == 300)
+}
+
+@Test func renamingOnlyTheCaseKeepsTheFile() async throws {
+    let tmp = try TempDir()
+    let png = try tmp.file("a.PNG", bytes: 300)
+    let report = await runner(Recorder()).run(steps: [.rename(to: "a.png")], on: [png], options: options(tmp))
+    #expect(report.files[0].status == .completed, "\(report.files[0].log)")
+    #expect(try FileManager.default.contentsOfDirectory(atPath: tmp.url.path).filter { $0.hasPrefix("a.") } == ["a.png"])
+    #expect(try Data(contentsOf: tmp.url.appendingPathComponent("a.png")).count == 300)
+}
+
+@Test func aTrialKeepsEveryDestinationInItsFolder() async throws {
+    let tmp = try TempDir()
+    let trial = tmp.url.appendingPathComponent("trial", isDirectory: true)
+    let png = try tmp.file("trial/a.png")
+    let outside = tmp.url.appendingPathComponent("elsewhere").path
+    // A real folder named without a trailing `/` still means "into it".
+    let folder = tmp.url.appendingPathComponent("folder")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let rec = Recorder()
+    var opts = options(tmp, scripts: true)
+    opts.trialFolder = trial
+    let steps = try PipelineParser.parseSteps(#"optimise(location: "\#(outside)/small/") -> copy(to: "\#(folder.path)") -> copy(to: "\#(outside)/") -> move(to: "../moved.png") -> runScript(code: "echo") -> runShortcut(name: "x")"#)
+    let report = await runner(rec).run(steps: steps, on: [png], options: opts)
+    let file = report.files[0]
+    #expect(file.status == .completed, "\(file.log)")
+    #expect(file.log[1].message?.hasSuffix(folder.path + "/a.png") == true, "\(file.log[1])")
+    #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path).isEmpty)
+    #expect(!FileManager.default.fileExists(atPath: outside))
+    #expect(!tmp.exists("moved.png"))
+    #expect(file.finalFile?.path.hasPrefix(trial.path + "/") == true)
+    #expect(file.log.suffix(2).map(\.outcome) == [.skipped, .skipped])
+    #expect(!rec.calls.contains { $0.hasPrefix("zsh") || $0.hasPrefix("shortcuts") }, "\(rec.calls)")
+}
+
+@Test func aTrialSkipsDeleteAsItSkipsScripts() async throws {
+    let tmp = try TempDir()
+    let png = try tmp.file("trial/a.png")
+    var opts = options(tmp)
+    opts.allowDelete = false
+    opts.trialFolder = png.deletingLastPathComponent()
+    let report = await runner(Recorder()).run(steps: [.delete(path: "sourceFile")], on: [png], options: opts)
+    #expect(report.files[0].status == .completed, "\(report.files[0].log)")
+    #expect(report.files[0].log.map(\.outcome) == [.skipped])
+    #expect(FileManager.default.fileExists(atPath: png.path))
+}
+
+@Test func adaptiveOptimiseAsksTheEngineForIt() async throws {
+    let tmp = try TempDir()
+    let rec = Recorder()
+    let report = await runner(rec).run(steps: [.optimise(adaptive: true), .optimise()], on: [try tmp.file("a.png")], options: options(tmp))
+    #expect(rec.calls == ["optimise(a.png, inPlace, q30, adaptive)", "optimise(a.png, inPlace, q30)"])
+    #expect(report.files[0].log.allSatisfy { $0.message?.contains("not available") != true })
+}
+
+@Test func aFailureKeepsItsCause() async throws {
+    let tmp = try TempDir()
+    let report = await runner(Recorder()).run(steps: [.optimise(), .copy(to: "")], on: [try tmp.file("a.png")], options: options(tmp))
+    #expect(report.files[0].cause == .invalidArgument("empty destination"))
+    #expect(report.files[0].results.count == 1)
+}
+
 @Test func progressIsReported() async throws {
     let tmp = try TempDir()
     let a = try tmp.file("a.png"), b = try tmp.file("b.png")

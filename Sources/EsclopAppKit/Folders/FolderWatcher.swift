@@ -13,6 +13,7 @@ final class FolderWatcher: @unchecked Sendable {
 
     private var stream: FSEventStreamRef?
     private let queue = DispatchQueue(label: "dev.esclop.folder-watcher")
+    private static let queueKey = DispatchSpecificKey<Bool>()
     private let handler: Handler
     /// Report every change, removals included (the pipelines folder), not only new files.
     private let everyChange: Bool
@@ -23,6 +24,7 @@ final class FolderWatcher: @unchecked Sendable {
         self.rootChanged = rootChanged
         self.everyChange = everyChange
         self.handler = handler
+        queue.setSpecific(key: Self.queueKey, value: true)
     }
 
     deinit { stop() }
@@ -59,6 +61,9 @@ final class FolderWatcher: @unchecked Sendable {
         FSEventStreamInvalidate(stream)
         FSEventStreamRelease(stream)
         self.stream = nil
+        // Let a callback already running finish before this object can go away (the stream holds
+        // an unretained pointer to it). Skipped when stopping from that callback itself.
+        if DispatchQueue.getSpecific(key: Self.queueKey) != true { queue.sync {} }
     }
 
     /// Created, renamed into place or written; a file, not removed.

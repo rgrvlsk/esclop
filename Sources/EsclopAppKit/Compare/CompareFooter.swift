@@ -36,11 +36,12 @@ struct CompareFooter: View {
                         .help(Strings.text("Put the original back and drop the optimised file"))
                     Button(Strings.text("Keep")) { model.keep() }
                         .keyboardShortcut(.defaultAction)
-                        .buttonStyle(.borderedProminent)
+                        .primaryButton()
                         .help(Strings.text("Keep the optimised file and close"))
                 } else {
                     Button(Strings.text("Close")) { model.close() }
                         .keyboardShortcut(.defaultAction)
+                        .primaryButton()
                 }
             }
             .disabled(model.isWorking)

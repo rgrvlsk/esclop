@@ -125,8 +125,9 @@ to overwrite originals and `sameFolder` otherwise.
 - Prompt `shrink_for` (`platform`: email, slack, web, app-store; optional `paths`): concrete
   targets for each destination and which tools reach them.
 
-Trigger tools save configuration; automatic clipboard, drop-zone and folder triggers await
-GUI integration. App start/stop tools do not provide the planned optimisation UI yet.
+Trigger tools save configuration. While the L'Esclop app runs, a pipeline attached to the
+clipboard, the drop zone or a folder runs on what the person copies, drops or saves there, in
+place of the plain optimisation. App start/stop tools do not provide the planned optimisation UI yet.
 
 ## Permissions
 
@@ -149,7 +150,7 @@ overwriting is allowed; pipeline `copy`, `move` and `rename` steps do not replac
 either. Writing a new pipeline, running pipelines and every read-only tool need no permission. A refusal
 comes back as `notPermitted` naming the switch; agents should tell the person rather than look for
 another way. The app-side request handler implements the same checks. The gate covers
-MCP requests: an agent that can run shell commands can also run the `esclop` command line, which
+MCP requests and trusts the origin a client declares: an agent that can run shell commands can also run the `esclop` command line, which
 acts for the person (origin `cli`) like any other program they run.
 
 ### Questions to the person
@@ -180,7 +181,8 @@ fails with `needsInput` and the options, so the agent can ask in the chat and ca
   the replies.
 
 Environment variables, mostly for testing: `ESCLOP_NO_APP=1` never uses the app;
-`ESCLOP_SUPPORT_DIR` moves all of esclop's data (pipelines, recent results, backups);
+`ESCLOP_SUPPORT_DIR` moves all of esclop's data (pipelines, recent results, backups, logs) for
+the CLI, the MCP server, the engine and the app alike;
 `ESCLOP_PIPELINES_DIR` moves only the pipelines; `ESCLOP_MCP_ELICIT_TIMEOUT` sets the question
 timeout in seconds.
 

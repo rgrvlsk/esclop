@@ -38,6 +38,126 @@ pub fn minimal_exif(orientation: u8) -> Vec<u8> {
     v
 }
 
+/// What stripping keeps of an EXIF block: the orientation (`Some` and not 1), the resolution
+/// (XResolution, YResolution, ResolutionUnit: describing the picture, like JFIF density and PNG
+/// pHYs) and, with `colour`, the tags an Adobe RGB photo without a profile is read by
+/// (ColorSpace, InteroperabilityIndex). In the source's byte order; None when nothing is left.
+pub fn kept_exif(source: Option<&[u8]>, orientation: Option<u8>, colour: bool) -> Option<Vec<u8>> {
+    let src = source.and_then(|t| match t.get(0..4)? {
+        b"II\x2a\0" => Some((t, true)),
+        b"MM\0\x2a" => Some((t, false)),
+        _ => None,
+    });
+    let le = src.is_some_and(|(_, le)| le);
+    let ifd = |off: Option<u32>| src.zip(off).map(|((t, le), o)| ifd_entries(t, o as usize, le)).unwrap_or_default();
+    let pointer = |entries: &[IfdEntry], tag: u16| {
+        entries.iter().find(|e| e.tag == tag && e.value.len() == 4).and_then(|e| read_u32(&e.value, 0, le))
+    };
+    let pick = |entries: Vec<IfdEntry>, tags: &[u16]| -> Vec<IfdEntry> {
+        entries.into_iter().filter(|e| tags.contains(&e.tag)).collect()
+    };
+    let ifd0 = ifd(src.and_then(|(t, le)| read_u32(t, 4, le)));
+    let exif = if colour { ifd(pointer(&ifd0, EXIF_IFD)) } else { Vec::new() };
+    let interop = pick(ifd(pointer(&exif, INTEROP_IFD)), &[0x0001]);
+    let mut exif = pick(exif, &[0xA001]);
+    if !interop.is_empty() {
+        exif.push(IfdEntry { tag: INTEROP_IFD, kind: 4, count: 1, value: vec![0; 4] });
+    }
+    let short = |v: u16| if le { v.to_le_bytes() } else { v.to_be_bytes() }.to_vec();
+    let mut first: Vec<IfdEntry> = orientation
+        .filter(|o| *o != 1)
+        .map(|o| IfdEntry { tag: 0x0112, kind: 3, count: 1, value: short(o as u16) })
+        .into_iter()
+        .collect();
+    first.extend(pick(ifd0, &[0x011A, 0x011B, 0x0128]));
+    if !exif.is_empty() {
+        first.push(IfdEntry { tag: EXIF_IFD, kind: 4, count: 1, value: vec![0; 4] });
+    }
+    if first.is_empty() {
+        return None;
+    }
+    let mut chain = vec![first];
+    if !exif.is_empty() {
+        chain.push(exif);
+        if !interop.is_empty() {
+            chain.push(interop);
+        }
+    }
+    Some(tiff_from_ifds(le, &chain))
+}
+
+const EXIF_IFD: u16 = 0x8769;
+const INTEROP_IFD: u16 = 0xA005;
+
+#[derive(Debug, Clone)]
+struct IfdEntry {
+    tag: u16,
+    kind: u16,
+    count: u32,
+    /// The value bytes in the block's byte order, wherever they were stored.
+    value: Vec<u8>,
+}
+
+/// The entries of the IFD at `off` (values up to 1 KB each; longer ones are skipped).
+fn ifd_entries(tiff: &[u8], off: usize, le: bool) -> Vec<IfdEntry> {
+    let n = read_u16(tiff, off, le).unwrap_or(0) as usize;
+    (0..n.min(512))
+        .filter_map(|i| {
+            let e = off + 2 + i * 12;
+            let (tag, kind, count) = (read_u16(tiff, e, le)?, read_u16(tiff, e + 2, le)?, read_u32(tiff, e + 4, le)?);
+            let unit = match kind {
+                1 | 2 | 6 | 7 => 1,
+                3 | 8 => 2,
+                4 | 9 | 11 => 4,
+                5 | 10 | 12 => 8,
+                _ => return None,
+            };
+            let len = unit * count as usize;
+            if len == 0 || len > 1024 {
+                return None;
+            }
+            let at = if len <= 4 { e + 8 } else { read_u32(tiff, e + 8, le)? as usize };
+            Some(IfdEntry { tag, kind, count, value: tiff.get(at..at + len)?.to_vec() })
+        })
+        .collect()
+}
+
+/// A TIFF block of `chain`'s IFDs in order; the EXIF and interoperability pointer entries in
+/// each one point to the next.
+fn tiff_from_ifds(le: bool, chain: &[Vec<IfdEntry>]) -> Vec<u8> {
+    let u16b = |v: u16| if le { v.to_le_bytes() } else { v.to_be_bytes() };
+    let u32b = |v: u32| if le { v.to_le_bytes() } else { v.to_be_bytes() };
+    let mut out = if le { b"II\x2a\0".to_vec() } else { b"MM\0\x2a".to_vec() };
+    out.extend_from_slice(&u32b(8));
+    for entries in chain {
+        let data_start = out.len() + 2 + entries.len() * 12 + 4;
+        let data_len: usize =
+            entries.iter().filter(|e| e.value.len() > 4).map(|e| e.value.len().next_multiple_of(2)).sum();
+        let next = (data_start + data_len) as u32;
+        let mut data = Vec::with_capacity(data_len);
+        out.extend_from_slice(&u16b(entries.len() as u16));
+        for e in entries {
+            out.extend_from_slice(&u16b(e.tag));
+            out.extend_from_slice(&u16b(e.kind));
+            out.extend_from_slice(&u32b(e.count));
+            if e.tag == EXIF_IFD || e.tag == INTEROP_IFD {
+                out.extend_from_slice(&u32b(next));
+            } else if e.value.len() <= 4 {
+                let mut v = e.value.clone();
+                v.resize(4, 0);
+                out.extend_from_slice(&v);
+            } else {
+                out.extend_from_slice(&u32b((data_start + data.len()) as u32));
+                data.extend_from_slice(&e.value);
+                data.resize(data.len().next_multiple_of(2), 0);
+            }
+        }
+        out.extend_from_slice(&u32b(0)); // no next IFD
+        out.extend_from_slice(&data);
+    }
+    out
+}
+
 fn read_u16(b: &[u8], off: usize, le: bool) -> Option<u16> {
     let s: [u8; 2] = b.get(off..off + 2)?.try_into().ok()?;
     Some(if le { u16::from_le_bytes(s) } else { u16::from_be_bytes(s) })
@@ -244,7 +364,7 @@ const ZIGZAG: [usize; 64] = [
 ///
 /// JFIF and Adobe segments describe the old encoding and are written fresh by the encoder; MPF
 /// indexes secondary images (gain maps) that a re-encode does not keep. With `strip`, only the
-/// ICC chunks and a minimal orientation block survive (as `keep` allows).
+/// ICC chunks and what [`kept_exif`] keeps survive (as `keep` allows).
 pub fn jpeg_markers_to_carry(
     parts: &JpegParts,
     strip: bool,
@@ -274,13 +394,26 @@ pub fn jpeg_markers_to_carry(
             out.push((s.marker, s.data.to_vec()));
         }
     }
-    if strip && keep_orientation {
-        let o = orientation_override.unwrap_or_else(|| parts.orientation());
-        if o != 1 {
-            out.insert(0, (APP1, exif_app1(&minimal_exif(o))));
+    if strip {
+        let o = keep_orientation.then(|| orientation_override.unwrap_or_else(|| parts.orientation()));
+        if let Some(exif) = kept_exif(parts.exif(), o, keep_icc) {
+            out.insert(0, (APP1, exif_app1(&exif)));
         }
     }
     out
+}
+
+/// The JFIF density (unit, X, Y: the DPI) of a JPEG, as its five bytes.
+pub fn jfif_density(parts: &JpegParts) -> Option<[u8; 5]> {
+    parts.segments.iter().find(|s| s.is_jfif() && s.data.starts_with(b"JFIF\0"))?.data.get(7..12)?.try_into().ok()
+}
+
+/// Writes `density` into the JFIF header an encoder put first in `jpeg`.
+pub fn set_jfif_density(jpeg: &mut [u8], density: [u8; 5]) {
+    // FFD8, FFE0, length, "JFIF\0", version (2 bytes), then unit, X and Y density.
+    if jpeg.len() > 18 && jpeg[2..4] == [0xFF, APP0] && &jpeg[6..11] == b"JFIF\0" {
+        jpeg[13..18].copy_from_slice(&density);
+    }
 }
 
 /// An APP1 payload for a TIFF/EXIF block.
@@ -743,6 +876,60 @@ pub fn gif_strip(b: &[u8]) -> Result<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stripping_keeps_orientation_resolution_and_colour_space_only() {
+        let e = |tag, kind, count, value: &[u8]| IfdEntry { tag, kind, count, value: value.to_vec() };
+        let rational = [300u32.to_le_bytes(), 1u32.to_le_bytes()].concat();
+        let source = tiff_from_ifds(
+            true,
+            &[
+                vec![
+                    e(0x010F, 2, 7, b"Camera\0"),
+                    e(0x0112, 3, 1, &6u16.to_le_bytes()),
+                    e(0x011A, 5, 1, &rational),
+                    e(0x011B, 5, 1, &rational),
+                    e(0x0128, 3, 1, &2u16.to_le_bytes()),
+                    e(EXIF_IFD, 4, 1, &[0; 4]),
+                ],
+                vec![
+                    e(0x9003, 2, 20, b"2026:01:02 03:04:05\0"),
+                    e(0xA001, 3, 1, &0xFFFFu16.to_le_bytes()),
+                    e(INTEROP_IFD, 4, 1, &[0; 4]),
+                ],
+                vec![e(0x0001, 2, 4, b"R03\0")],
+            ],
+        );
+        let tags = |entries: &[IfdEntry]| entries.iter().map(|e| e.tag).collect::<Vec<_>>();
+        let next = |entry: &IfdEntry| read_u32(&entry.value, 0, true).unwrap() as usize;
+
+        let kept = kept_exif(Some(&source), Some(6), true).unwrap();
+        let ifd0 = ifd_entries(&kept, 8, true);
+        assert_eq!(tags(&ifd0), [0x0112, 0x011A, 0x011B, 0x0128, EXIF_IFD]);
+        assert_eq!(exif_orientation(&kept), Some(6));
+        assert_eq!(ifd0[1].value, rational);
+        let exif = ifd_entries(&kept, next(&ifd0[4]), true);
+        assert_eq!(tags(&exif), [0xA001, INTEROP_IFD]);
+        assert_eq!(exif[0].value, 0xFFFFu16.to_le_bytes());
+        assert_eq!(ifd_entries(&kept, next(&exif[1]), true)[0].value, b"R03\0");
+
+        let plain = kept_exif(Some(&source), None, false).unwrap();
+        assert_eq!(tags(&ifd_entries(&plain, 8, true)), [0x011A, 0x011B, 0x0128]);
+        assert_eq!(kept_exif(None, Some(1), true), None);
+        assert_eq!(kept_exif(None, Some(3), false).as_deref().and_then(exif_orientation), Some(3));
+    }
+
+    #[test]
+    fn jfif_density_survives_a_fresh_header() {
+        use crate::codec::jpeg::{EncodeOptions, Layout, codec};
+        let opts =
+            EncodeOptions { quality: 80, progressive: false, fast_scans: false, chroma_full: false, markers: &[] };
+        let mut jpeg = codec().encode(&[128; 8 * 8 * 3], 8, 8, Layout::Rgb, &opts).unwrap();
+        let dpi300 = [1, 1, 44, 1, 44];
+        assert_ne!(jfif_density(&JpegParts::parse(&jpeg).unwrap()), Some(dpi300));
+        set_jfif_density(&mut jpeg, dpi300);
+        assert_eq!(jfif_density(&JpegParts::parse(&jpeg).unwrap()), Some(dpi300));
+    }
 
     #[test]
     fn orientation_roundtrip() {

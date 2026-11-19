@@ -33,6 +33,21 @@ struct ImageEngine: Sendable {
         guard let info = ImageInfo.probe(source), let sourceFormat = info.format else {
             throw Self.unreadableOrUnsupported(source)
         }
+        guard halvesRetina(info, plan: plan) else {
+            return try await produce(source, info: info, sourceFormat: sourceFormat, plan: plan, work: work, progress: progress)
+        }
+        var halved = plan
+        halved.downscale = 0.5
+        var produced = try await produce(source, info: info, sourceFormat: sourceFormat, plan: halved, work: work, progress: progress)
+        // Half the pixels at 72 dpi: the screenshot shows at the size it had.
+        ImageIOCodec.setOneX(produced.url)
+        produced.steps.insert("Downscaled the 2x screenshot to 1x", at: 0)
+        return produced
+    }
+
+    private func produce(
+        _ source: URL, info: ImageInfo, sourceFormat: OutputFormat, plan: Plan, work: WorkFolder, progress: ProgressSink
+    ) async throws -> Produced {
         let target = targetFormat(for: sourceFormat, info: info, plan: plan)
         if target == .pdf {
             return try imageToPDF(source, info: info, work: work)
@@ -43,6 +58,7 @@ struct ImageEngine: Sendable {
         let factor = plan.factor(for: .image, format: target, env: env)
         let curves = Curves(factor)
         let geometry = try geometry(for: source, info: info, plan: plan)
+        try Self.checkKeepsFrames(info, from: sourceFormat, to: target, geometryChanged: geometry.changed)
         let formatChanged = target != sourceFormat
         var steps: [String] = []
         if formatChanged { steps.append("Converted \(sourceFormat.rawValue.uppercased()) to \(target.rawValue.uppercased())") }
@@ -52,11 +68,15 @@ struct ImageEngine: Sendable {
             return try await gifsicle(source, info: info, geometry: geometry, curves: curves, strip: plan.strip, work: work, steps: steps, allowLarger: allowLarger)
         }
 
-        if plan.keepHDR, info.hasGainMap, target == .jpeg || target == .heic {
-            if let produced = try hdr(source, info: info, target: target, geometry: geometry, curves: curves, strip: plan.strip, work: work, steps: steps, allowLarger: allowLarger) {
-                return produced
+        if plan.keepHDR, info.hasGainMap {
+            if target == .jpeg || target == .heic {
+                if let produced = try hdr(source, info: info, target: target, geometry: geometry, curves: curves, strip: plan.strip, work: work, steps: steps, allowLarger: allowLarger) {
+                    return produced
+                }
+                steps.append("HDR dropped: resizing gain maps needs macOS 15")
+            } else {
+                steps.append("HDR dropped: \(target.rawValue.uppercased()) cannot hold the gain map")
             }
-            steps.append("HDR dropped: resizing gain maps needs macOS 15")
         }
 
         if Self.imageIOFormats.contains(target) {
@@ -67,16 +87,26 @@ struct ImageEngine: Sendable {
             source, info: info, sourceFormat: sourceFormat, target: target, geometry: geometry, curves: curves,
             strip: plan.strip, work: work, progress: progress, steps: steps, allowLarger: allowLarger
         )
-        if env.value(EsclopSettings.adaptiveImageSize), plan.format == nil, target == .png, !info.hasAlpha {
+        if plan.request.adaptiveImageFormat ?? env.value(EsclopSettings.adaptiveImageSize), plan.format == nil, target == .png, !info.hasAlpha, !info.isAnimated {
             produced = await adaptiveJPEG(instead: produced, curves: curves, strip: plan.strip, work: work)
         }
         return produced
     }
 
+    /// "Downscale Retina screenshots": an automatic optimisation of a still 2x (144 dpi) image with
+    /// no size of its own halves its width and height, as a 1x screenshot of the same screen.
+    func halvesRetina(_ info: ImageInfo, plan: Plan) -> Bool {
+        plan.automatic && plan.operation == .optimise && plan.downscale == nil && plan.crop == nil
+            && !info.isAnimated && abs(info.dpi - 144) < 1
+            && env.value(EsclopSettings.downscaleRetinaImages)
+    }
+
     /// The explicit format, else the automatic conversion lists, else the source's own format.
+    /// Animations and multi-page files are never converted automatically: the lists' targets
+    /// hold one picture.
     func targetFormat(for sourceFormat: OutputFormat, info: ImageInfo, plan: Plan) -> OutputFormat {
         if let format = plan.format { return format == .gifVideo ? .gif : format }
-        if plan.automatic {
+        if plan.automatic, !info.isAnimated {
             let ext = sourceFormat.rawValue
             if env.value(EsclopSettings.formatsToConvertToJPEG).map({ $0.lowercased() }).contains(ext) {
                 // JPEG has no alpha: keep transparency in PNG instead.
@@ -87,6 +117,23 @@ struct ImageEngine: Sendable {
             }
         }
         return sourceFormat
+    }
+
+    static let keepsOnlyOneFrame = EsclopError.leftAsIs(
+        "Files with several pages or frames are left as they are when the result would keep only one."
+    )
+
+    /// Throws unless every frame or page of `info` reaches `target`: GIF and WebP animations
+    /// between those two formats (resized or cropped too), and APNGs or multi-page TIFFs
+    /// optimised in their own format at their own size.
+    /// ponytail: frames are ImageIO's image count, so a TIFF with a thumbnail IFD may count as
+    /// two pages and be left as it is; conservative, nothing is lost.
+    static func checkKeepsFrames(_ info: ImageInfo, from source: OutputFormat, to target: OutputFormat, geometryChanged: Bool) throws {
+        guard info.isAnimated else { return }
+        let animations: Set<OutputFormat> = [.gif, .webp]
+        if animations.contains(source), animations.contains(target) { return }
+        if source == target, source == .png || source == .tiff, !geometryChanged { return }
+        throw keepsOnlyOneFrame
     }
 
     /// An image L'Esclop knows by its name but cannot decode is damaged; anything else is a kind
@@ -140,32 +187,37 @@ struct ImageEngine: Sendable {
         var inputFormat = sourceFormat
         let report: @Sendable (Double) -> Void = { progress($0) }
 
-        if !Self.engineReadable.contains(sourceFormat) || info.orientation != 1 && geometry.changed {
+        if !Self.engineReadable.contains(sourceFormat) || info.orientation != 1 && geometry.changed && !info.isAnimated {
             // The engine reads PNG, JPEG, WebP and GIF; ImageIO decodes everything else (and
             // applies the orientation so crop rectangles mean the same thing on both sides).
             let decoded = work.file("decoded.png")
-            try ImageIOCodec.decodeToPNG(source, to: decoded)
+            try ImageIOCodec.decodeToPNG(source, to: decoded, strip: strip)
             input = decoded
             inputFormat = .png
         }
+        // Lossless intermediates: the final encode is the only lossy step. Animations go
+        // through WebP, which keeps their frames.
+        let between: (format: OutputFormat, params: [String: JSONValue]) = info.isAnimated
+            ? (.webp, ["format": "webp", "lossless": true])
+            : (.png, ["format": "png", "lossy": false])
         if let crop = geometry.crop {
-            let cropped = work.file("cropped.png")
-            try await engine.call("crop", input: input, output: cropped, params: [
+            let cropped = work.file(stem: "cropped", ext: between.format.fileExtension)
+            try await engine.call("crop", input: input, output: cropped, params: between.params.merging([
                 "x": .int(Int(crop.minX)), "y": .int(Int(crop.minY)),
-                "width": .int(Int(crop.width)), "height": .int(Int(crop.height)), "format": "png",
-            ])
+                "width": .int(Int(crop.width)), "height": .int(Int(crop.height)),
+            ]) { $1 })
             input = cropped
-            inputFormat = .png
+            inputFormat = between.format
             steps.append("Cropped to \(Int(crop.width))x\(Int(crop.height))")
         }
         let current = geometry.crop.map { (Int($0.width), Int($0.height)) } ?? (info.width, info.height)
         if current.0 != geometry.width || current.1 != geometry.height {
-            let resized = work.file("resized.png")
-            try await engine.call("resize", input: input, output: resized, params: [
-                "width": .int(geometry.width), "height": .int(geometry.height), "format": "png",
-            ])
+            let resized = work.file(stem: "resized", ext: between.format.fileExtension)
+            try await engine.call("resize", input: input, output: resized, params: between.params.merging([
+                "width": .int(geometry.width), "height": .int(geometry.height),
+            ]) { $1 })
             input = resized
-            inputFormat = .png
+            inputFormat = between.format
             steps.append("Resized to \(geometry.width)x\(geometry.height)")
         }
 
@@ -201,7 +253,7 @@ struct ImageEngine: Sendable {
             var input = input
             if inputFormat != .png {
                 let png = work.file("as-png.png")
-                try await engine.call("convert", input: input, output: png, params: ["format": "png", "strip": stripValue])
+                try await engine.call("convert", input: input, output: png, params: ["format": "png", "lossy": false, "strip": stripValue])
                 input = png
             }
             return try await engine.call("png.optimise", input: input, output: output, params: [
@@ -241,8 +293,8 @@ struct ImageEngine: Sendable {
         }
     }
 
-    /// With "adaptive image format" on, a PNG without transparency is also tried as JPEG and the
-    /// JPEG wins when it is smaller by more than 100 KB.
+    /// With "adaptive image format" on (or a request asking for it), a PNG without transparency
+    /// is also tried as JPEG and the JPEG wins when it is smaller by more than 100 KB.
     private func adaptiveJPEG(instead produced: Produced, curves: Curves, strip: Bool, work: WorkFolder) async -> Produced {
         let jpeg = work.file(stem: "adaptive", ext: "jpeg")
         guard (try? await encode(produced.url, inputFormat: .png, to: jpeg, target: .jpeg, curves: curves, strip: strip, work: work, report: { _ in })) != nil,
@@ -296,8 +348,9 @@ struct ImageEngine: Sendable {
         var steps = steps
         let output = work.file(stem: "optimised", ext: target.fileExtension)
         let quality: Double? = target == .heic ? curves.imageIOHEICQuality : nil
-        if target == .heic, info.format == .heic, !geometry.changed {
-            try ImageIOCodec.reencodeKeepingGainMap(source, to: output, type: type, quality: quality ?? 0.8, strip: strip)
+        if target == info.format, target == .heic || info.isAnimated, !geometry.changed {
+            // Every page of a multi-page TIFF; a HEIC's gain map only through `hdr` (Keep HDR).
+            try ImageIOCodec.reencode(source, to: output, type: type, quality: quality ?? 0.8, strip: strip, keepGainMap: false)
         } else {
             let image = try ImageIOCodec.render(ImageIOCodec.uprightImage(source), crop: geometry.crop, width: geometry.width, height: geometry.height)
             try ImageIOCodec.write(image, to: output, type: type, quality: quality, metadataFrom: source, strip: strip)
@@ -317,7 +370,7 @@ struct ImageEngine: Sendable {
         let quality = target == .heic ? curves.imageIOHEICQuality : curves.imageIOJPEGQuality
         var steps = steps
         if !geometry.changed {
-            try ImageIOCodec.reencodeKeepingGainMap(source, to: output, type: type, quality: quality, strip: strip)
+            try ImageIOCodec.reencode(source, to: output, type: type, quality: quality, strip: strip, keepGainMap: true)
         } else if #available(macOS 15, *) {
             try ImageIOCodec.renderHDR(source, crop: geometry.crop, width: geometry.width, height: geometry.height, to: output, type: type, quality: quality)
             steps.append("Resized to \(geometry.width)x\(geometry.height)")
@@ -328,15 +381,31 @@ struct ImageEngine: Sendable {
         return Produced(url: output, width: geometry.width, height: geometry.height, duration: nil, steps: steps, allowLarger: allowLarger)
     }
 
+    /// One PDF page per picture: every page of a multi-page TIFF. An animation's frames are
+    /// not pages, so animations are left as they are.
     private func imageToPDF(_ source: URL, info: ImageInfo, work: WorkFolder) throws -> Produced {
-        guard let image = NSImage(contentsOf: source), let page = PDFPage(image: image) else {
-            throw Self.unreadableOrUnsupported(source)
+        var images: [NSImage] = []
+        if info.isAnimated {
+            let reps = info.format == .tiff ? NSBitmapImageRep.imageReps(withContentsOf: source) ?? [] : []
+            guard reps.count == info.frameCount else { throw Self.keepsOnlyOneFrame }
+            images = reps.map { rep in
+                let image = NSImage(size: rep.size)
+                image.addRepresentation(rep)
+                return image
+            }
+        } else if let image = NSImage(contentsOf: source) {
+            images = [image]
         }
         let document = PDFDocument()
-        document.insert(page, at: 0)
+        for image in images {
+            guard let page = PDFPage(image: image) else { throw Self.unreadableOrUnsupported(source) }
+            document.insert(page, at: document.pageCount)
+        }
+        guard document.pageCount > 0 else { throw Self.unreadableOrUnsupported(source) }
         let output = work.file(stem: "converted", ext: "pdf")
         guard document.write(to: output) else { throw EsclopError.other("Could not write the PDF") }
-        return Produced(url: output, width: info.width, height: info.height, duration: nil, steps: ["Placed the image on a PDF page"], allowLarger: true)
+        let step = images.count > 1 ? "Placed the \(images.count) pages on PDF pages" : "Placed the image on a PDF page"
+        return Produced(url: output, width: info.width, height: info.height, duration: nil, steps: [step], allowLarger: true)
     }
 
     // MARK: Watermark
@@ -365,6 +434,7 @@ struct ImageEngine: Sendable {
         var produced = try await process(intermediate, plan: next, work: folder, progress: progress)
         produced.allowLarger = true
         produced.steps.insert("Added a watermark (\(watermark.position.rawValue))", at: 0)
+        if plan.keepHDR, info.hasGainMap { produced.steps.append("HDR dropped: the watermark is drawn on the SDR picture") }
         if !plan.strip { ImageIOCodec.copyMetadata(from: source, to: produced.url) }
         return produced
     }
@@ -405,15 +475,19 @@ struct ImageEngine: Sendable {
         }
         let format = targetFormat(for: sourceFormat, info: info, plan: plan)
         let base = plan.factor(for: .image, format: format, env: env)
+        // Fitting may scale.
+        try Self.checkKeepsFrames(info, from: sourceFormat, to: format, geometryChanged: true)
 
-        // The engine searches in one call when it can read the file and write the format.
+        // The engine searches in one call when it can read the file and write the format. It
+        // writes no gain map, so HDR photos kept as HDR go through `process`.
         if plan.crop == nil, plan.downscale == nil, format != .gif, !Self.imageIOFormats.contains(format),
+           !(plan.keepHDR && info.hasGainMap && format == .jpeg),
            let caps = await env.images.capabilitiesIfAvailable(), caps.supports("fit"), caps.canEncode(format.rawValue)
         {
             var input = source
             if !Self.engineReadable.contains(sourceFormat) {
                 input = work.file("decoded.png")
-                try ImageIOCodec.decodeToPNG(source, to: input)
+                try ImageIOCodec.decodeToPNG(source, to: input, strip: plan.strip)
             }
             let output = work.file(stem: "fit", ext: format.fileExtension)
             let reply = try await env.images.call("fit", input: input, output: output, params: [
