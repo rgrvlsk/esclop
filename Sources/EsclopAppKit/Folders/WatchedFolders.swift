@@ -13,6 +13,7 @@ import EsclopIPC
 import EsclopPipelines
 import Foundation
 import Observation
+import UniformTypeIdentifiers
 
 /// Whether L'Esclop can watch a folder, as the settings and the menu say it.
 public enum FolderStatus: Equatable, Sendable {
@@ -66,7 +67,10 @@ public final class WatchedFolders {
     @ObservationIgnored private(set) var denied = Set<URL>()
     /// How long files of one kind gather into a burst.
     @ObservationIgnored var burstWindow: Duration = .seconds(1)
-    @ObservationIgnored var settle: @Sendable (URL) async -> FileSettle.Outcome = { await FileSettle.wait(for: $0) }
+    /// Files picked up that arrived whole (`FileSettle.arrivedWhole`), by path, until their job is done.
+    @ObservationIgnored private var arrivedWhole = Set<String>()
+    /// Waits for a file; the flag says it arrived whole, so the still checks alone settle it.
+    @ObservationIgnored var settle: @Sendable (URL, Bool) async -> FileSettle.Outcome = { await FileSettle.wait(for: $0, quiet: $1 ? 0 : FileSettle.quiet) }
 
     /// Files of one kind that arrive in one folder: a burst in Downloads leaves a Desktop
     /// screenshot alone.
@@ -110,8 +114,8 @@ public final class WatchedFolders {
         }
         let watcher = watcher ?? FolderWatcher(rootChanged: { [weak self] in
             Task { @MainActor in self?.refresh() }
-        }) { [weak self] files in
-            Task { @MainActor in self?.received(files) }
+        }) { [weak self] files, renamed in
+            Task { @MainActor in self?.received(files, renamed: renamed) }
         }
         self.watcher = watcher
         isWatching = watcher.start(folders)
@@ -134,17 +138,24 @@ public final class WatchedFolders {
 
     /// Files the stream reported. Decided at once (a stat and an xattr read each), so files that
     /// arrive together join the same burst.
-    func received(_ files: [URL]) {
+    func received(_ files: [URL], renamed: Set<URL> = []) {
         guard isWatching, !model.paused else { return }
+        let firstSeen = Date()
+        let screenshots = WatchPlan.canonical(OriginSignals.screenshotFolder()).path
         // One spelling per file (/var or /private/var), whoever reports it.
         // ponytail: a file replaced while its job runs is not looked at again; queue one more pass
         // for files with events during their job if that is ever seen.
-        for file in files.map({ $0.resolvingSymlinksInPath() }) where !inFlight.contains(file.path) {
+        for reported in files {
+            let file = reported.resolvingSymlinksInPath()
+            guard !inFlight.contains(file.path) else { continue }
             let folder = WatchPlan.canonical(file.deletingLastPathComponent().path)
             guard !denied.contains(folder) else { continue }
             let size: Int
+            let modified: Date?
             do {
-                size = ((try FileManager.default.attributesOfItem(atPath: file.path))[.size] as? NSNumber)?.intValue ?? 0
+                let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
+                size = (attributes[.size] as? NSNumber)?.intValue ?? 0
+                modified = attributes[.modificationDate] as? Date
             } catch {
                 if Self.isDenied(error) { deny(folder) }
                 continue
@@ -156,6 +167,12 @@ public final class WatchedFolders {
             )
             guard let kind = decision.kind else { continue }
             inFlight.insert(file.path)
+            if FileSettle.arrivedWhole(
+                renamed: renamed.contains(reported), isScreenshot: Self.isScreenshot(file, kind: kind, folder: folder.path, screenshots: screenshots),
+                modified: modified, firstSeen: firstSeen
+            ) {
+                arrivedWhole.insert(file.path)
+            }
             add(file, to: BurstKey(folder: folder, kind: kind))
         }
     }
@@ -193,7 +210,7 @@ public final class WatchedFolders {
         bursts[key] = nil
         burstTasks[key] = nil
         guard burst.isTooLarge else { return start(burst.files) }
-        burst.files.forEach { inFlight.remove($0.path) }
+        burst.files.forEach { inFlight.remove($0.path); arrivedWhole.remove($0.path) }
         model.notice(
             Self.tooManyTitle(key.kind, count: burst.limit),
             Strings.format("They appeared together in %@, so L’Esclop left them alone.", PathInput.abbreviate(key.folder)),
@@ -218,8 +235,8 @@ public final class WatchedFolders {
     /// Settles one file, decides it again (it may have been optimised or replaced meanwhile) and
     /// runs its job; the file stays in flight until the job is done.
     private func process(_ file: URL, batch: BurstBatch?) async {
-        defer { inFlight.remove(file.path) }
-        let settled = await settle(file)
+        defer { inFlight.remove(file.path); arrivedWhole.remove(file.path) }
+        let settled = await settle(file, arrivedWhole.contains(file.path))
         guard !model.paused else { return }
         if settled == .unreadable {
             return model.notice(
@@ -260,6 +277,17 @@ public final class WatchedFolders {
         case .pdf: return Strings.format("More than %d new PDFs at once", count)
         case .audio: return Strings.format("More than %d new audio files at once", count)
         }
+    }
+
+    /// An image in the folder macOS saves screenshots to, under a name it gives them: the sure,
+    /// cheap case of a file that arrives whole.
+    nonisolated static func isScreenshot(_ file: URL, kind: MediaKind, folder: String, screenshots: String) -> Bool {
+        guard kind == .image, folder == screenshots else { return false }
+        var signals = OriginSignals(inputType: UTType(filenameExtension: file.pathExtension)?.identifier ?? "public.image")
+        signals.fileName = file.lastPathComponent
+        signals.folder = folder
+        signals.screenshotFolder = screenshots
+        return OriginClassifier.classify(signals) == .screenshot
     }
 
     /// The folder's `.esclopignore` or `.clopignore` matches the file's name.

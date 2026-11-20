@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import CoreServices
 import EsclopCore
 import EsclopIPC
 import EsclopPipelines
@@ -214,6 +215,49 @@ import Testing
         #expect(await FileSettle.wait(for: file, interval: .milliseconds(20), quiet: 600) == .steady)
     }
 
+    /// A clock that moves only when the wait sleeps.
+    final class FakeClock: @unchecked Sendable {
+        private let lock = NSLock()
+        private var time: Date
+        init(_ start: Date) { time = start }
+        var now: Date { lock.withLock { time } }
+        func sleep(_ duration: Duration) { lock.withLock { time += Double(duration.components.seconds) + Double(duration.components.attoseconds) / 1e18 } }
+    }
+
+    /// G6b on a fake clock: a file that arrived whole settles after the two checks (0.6 s, as
+    /// before the quiet time came in); one written a moment ago waits until it is 1.5 s old
+    /// (the next check after, 1.8 s, when the float sum falls just short).
+    @Test func aWholeFileTakesTheChecksAndAGrowingOneWaitsForQuiet() async throws {
+        let temp = TempDir()
+        let start = Date(timeIntervalSince1970: 2_000_000_000)
+        for (whole, expected) in [(true, 0.59 ... 0.61), (false, 1.49 ... 1.81)] {
+            let file = temp.file("shot-\(whole).png")
+            try FileManager.default.setAttributes([.modificationDate: start], ofItemAtPath: file.path)
+            let clock = FakeClock(start)
+            let settled = await FileSettle.wait(for: file, quiet: whole ? 0 : FileSettle.quiet, now: { clock.now }, sleep: { clock.sleep($0) })
+            #expect(settled == .steady)
+            #expect(expected.contains(clock.now.timeIntervalSince(start)), "whole \(whole): \(clock.now.timeIntervalSince(start)) s")
+        }
+    }
+
+    /// What counts as arriving whole, on fixed times.
+    @Test func arrivingWholeIsARenameAScreenshotOrAnOldDate() {
+        let seen = Date(timeIntervalSince1970: 2_000_000_000)
+        #expect(FileSettle.arrivedWhole(renamed: true, isScreenshot: false, modified: seen, firstSeen: seen), "renamed into place")
+        #expect(FileSettle.arrivedWhole(renamed: false, isScreenshot: true, modified: seen, firstSeen: seen), "a screenshot by folder and name")
+        #expect(FileSettle.arrivedWhole(renamed: false, isScreenshot: false, modified: seen - 1, firstSeen: seen), "a second old when first seen")
+        #expect(!FileSettle.arrivedWhole(renamed: false, isScreenshot: false, modified: seen - 0.3, firstSeen: seen), "written a moment ago")
+        #expect(!FileSettle.arrivedWhole(renamed: false, isScreenshot: false, modified: nil, firstSeen: seen))
+        let created = FSEventStreamEventFlags(kFSEventStreamEventFlagItemIsFile | kFSEventStreamEventFlagItemCreated | kFSEventStreamEventFlagItemModified)
+        #expect(!FolderWatcher.isRenamedIntoPlace(created))
+        #expect(FolderWatcher.isRenamedIntoPlace(FSEventStreamEventFlags(kFSEventStreamEventFlagItemIsFile | kFSEventStreamEventFlagItemRenamed)))
+        #expect(!FolderWatcher.isRenamedIntoPlace(created | FSEventStreamEventFlags(kFSEventStreamEventFlagItemRenamed)), "renamed, then written")
+        // The screenshot rule: an image named as macOS names them, in its screenshot folder.
+        #expect(WatchedFolders.isScreenshot(URL(fileURLWithPath: "/shots/Screenshot 2026-11-20 at 18.00.00.png"), kind: .image, folder: "/shots", screenshots: "/shots"))
+        #expect(!WatchedFolders.isScreenshot(URL(fileURLWithPath: "/shots/export.png"), kind: .image, folder: "/shots", screenshots: "/shots"))
+        #expect(!WatchedFolders.isScreenshot(URL(fileURLWithPath: "/elsewhere/Screenshot 1.png"), kind: .image, folder: "/elsewhere", screenshots: "/shots"))
+    }
+
     @Test func aFileThatGoesAwayDoesNotSettle() async {
         let temp = TempDir()
         let file = temp.file("a.png")
@@ -272,7 +316,7 @@ final class Flag: @unchecked Sendable {
             let store = store
             folders = WatchedFolders(model: harness.model, pipelines: { (try? store.list()) ?? [] })
             folders.burstWindow = .milliseconds(300)
-            folders.settle = { await FileSettle.wait(for: $0, interval: .milliseconds(100)) }
+            folders.settle = { await FileSettle.wait(for: $0, interval: .milliseconds(100), quiet: $1 ? 0 : FileSettle.quiet) }
             folders.refresh()
         }
 
@@ -453,7 +497,7 @@ final class Flag: @unchecked Sendable {
         #expect(rig.folders.statuses[WatchPlan.canonical(rig.folder.path)] == .notWatching)
         #expect(rig.harness.model.watchedFolderCount == 0)
         #expect(FolderRow.problem(.notWatching) != nil, "the Settings row says so")
-        #expect(FolderWatcher { _ in }.start([URL(fileURLWithPath: tooLong)]) == false)
+        #expect(FolderWatcher { _, _ in }.start([URL(fileURLWithPath: tooLong)]) == false)
     }
 
     /// W4: events for a file that is already on its way, while its job runs, start nothing more.
@@ -588,7 +632,7 @@ final class Flag: @unchecked Sendable {
         // the calls below hand the file over.
         rig.folders.stop()
         let seen = Flag()
-        let witness = FolderWatcher { files in
+        let witness = FolderWatcher { files, _ in
             if files.contains(where: { $0.lastPathComponent == "shot.png" }) { seen.set() }
         }
         witness.start([rig.folder])

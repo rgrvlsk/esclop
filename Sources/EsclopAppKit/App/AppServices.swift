@@ -107,7 +107,7 @@ public final class AppServices {
             Task { @MainActor in folders?.refresh(retryDenied: true) }
         }
         // A pipeline saved, attached to a folder or deleted (here, by the CLI or by an agent).
-        pipelineFiles = FolderWatcher(everyChange: true) { [weak folders, weak pipelinesWindow, weak model] _ in
+        pipelineFiles = FolderWatcher(everyChange: true) { [weak folders, weak pipelinesWindow, weak model] _, _ in
             Task { @MainActor in
                 folders?.refresh()
                 pipelinesWindow?.model.reload()
