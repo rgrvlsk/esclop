@@ -178,7 +178,7 @@ extension JSONValue: ExpressibleByStringLiteral, ExpressibleByIntegerLiteral, Ex
 // MARK: - Storage
 
 /// Where setting values live. `shared` is the app's suite (see `Paths.defaultsSuite`); tests
-/// make their own. A suite name that is a path is a plist there (`<path>.plist`).
+/// make their own.
 /// Sendable by hand: `UserDefaults` is thread-safe and the rest is immutable.
 public final class SettingsStore: @unchecked Sendable {
     // UserDefaults is documented as thread safe.
@@ -211,12 +211,28 @@ public final class SettingsStore: @unchecked Sendable {
         for key in SettingsRegistry.shared.keys {
             defaults.removeObject(forKey: key)
         }
-        // That leaves an empty plist; a suite that is a path (tests, `ESCLOP_SUPPORT_DIR`) goes.
-        if let suiteName, suiteName.hasPrefix("/") {
-            defaults.synchronize()
-            try? FileManager.default.removeItem(atPath: suiteName + ".plist")
-        }
     }
+}
+
+extension SettingsStore {
+    /// For test runs: removes the plists that earlier runs' suites named `prefix…` left in
+    /// `folder` (cfprefsd writes a removed domain's file back seconds later, so they pile up).
+    /// Only files over an hour old go, so a run going on in another checkout keeps its own.
+    /// Returns how many it removed.
+    package static func removeEarlierSuites(prefix: String, in folder: URL = preferences) -> Int {
+        precondition(prefix.contains("test") && prefix.hasSuffix("."), "only test suites are swept")
+        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+        var removed = 0
+        for file in files where file.pathExtension == "plist" && file.deletingPathExtension().lastPathComponent.hasPrefix(prefix) {
+            guard let modified = try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
+                  modified < Date(timeIntervalSinceNow: -3600), (try? FileManager.default.removeItem(at: file)) != nil else { continue }
+            removed += 1
+        }
+        return removed
+    }
+
+    package static let preferences = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("Preferences", isDirectory: true)
 }
 
 // MARK: - Settings

@@ -3,27 +3,91 @@ import Foundation
 import Testing
 @testable import EsclopCore
 
-/// A throwaway UserDefaults suite per test. Named: on CI runners a suite at a path sometimes lost
-/// a write.
+/// A throwaway UserDefaults suite per test, named as the app's own is. The first one of a run
+/// removes the files earlier runs' suites left in ~/Library/Preferences.
 func scratchStore() -> SettingsStore {
-    SettingsStore(suiteName: "dev.esclop.tests.\(UUID().uuidString)")
+    _ = sweptEarlierRuns
+    return SettingsStore(suiteName: "dev.esclop.tests.\(UUID().uuidString)")
+}
+
+private let sweptEarlierRuns = SettingsStore.removeEarlierSuites(prefix: "dev.esclop.tests.")
+
+/// Sees changes to one key through key-value observation.
+final class KeyWatcher: NSObject, @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    var changes: Int { lock.withLock { count } }
+    override func observeValue(forKeyPath _: String?, of _: Any?, change _: [NSKeyValueChangeKey: Any]?, context _: UnsafeMutableRawPointer?) {
+        lock.withLock { count += 1 }
+    }
 }
 
 @Suite struct SettingsTests {
-    /// With ESCLOP_SUPPORT_DIR set, a scripted or test run keeps its settings in that folder and
-    /// never touches the person's.
-    @Test func theSupportFolderHoldsItsOwnSettings() throws {
+    /// With ESCLOP_SUPPORT_DIR set, a scripted or test run has settings of its own, apart from
+    /// the person's: a named suite for that folder. Not a plist in the folder: a suite at a path
+    /// lost writes on CI runners, a setting read back with its earlier value.
+    @Test func theSupportFolderHasSettingsOfItsOwn() async throws {
         #expect(Paths.defaultsSuite(environment: [:]) == "dev.esclop.app")
         let folder = try scratchFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
         let suite = Paths.defaultsSuite(environment: ["ESCLOP_SUPPORT_DIR": folder.path])
-        #expect(suite == folder.appendingPathComponent("settings").path)
+        #expect(suite.hasPrefix("dev.esclop.support."), "a named suite, not a path: \(suite)")
+        #expect(Paths.defaultsSuite(environment: ["ESCLOP_SUPPORT_DIR": folder.path + "/"]) == suite, "one folder, one suite")
+        #expect(Paths.defaultsSuite(environment: ["ESCLOP_SUPPORT_DIR": folder.path + "-other"]) != suite)
+        // A folder the first command makes keeps its suite, also behind a symlink.
+        let link = folder.appendingPathComponent("link")
+        try FileManager.default.createDirectory(at: folder.appendingPathComponent("real"), withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: folder.appendingPathComponent("real"))
+        let later = ["ESCLOP_SUPPORT_DIR": link.appendingPathComponent("run").path]
+        let before = Paths.defaultsSuite(environment: later)
+        try FileManager.default.createDirectory(at: link.appendingPathComponent("run"), withIntermediateDirectories: true)
+        #expect(Paths.defaultsSuite(environment: later) == before)
+        // And spelled with /private, as `pwd -P` gives it.
+        let real = "/private" + folder.resolvingSymlinksInPath().appendingPathComponent("again").path
+        let first = Paths.defaultsSuite(environment: ["ESCLOP_SUPPORT_DIR": real])
+        try FileManager.default.createDirectory(atPath: real, withIntermediateDirectories: true)
+        #expect(Paths.defaultsSuite(environment: ["ESCLOP_SUPPORT_DIR": real]) == first)
+
         let store = SettingsStore(suiteName: suite)
-        try EsclopSettings.imageCompression.set(61, in: store)
-        #expect(EsclopSettings.imageCompression.value(in: SettingsStore(suiteName: suite)) == 61)
-        #expect(FileManager.default.fileExists(atPath: suite + ".plist"))
-        store.removeAll()
-        #expect(!FileManager.default.fileExists(atPath: suite + ".plist"), "removeAll leaves no file")
+        defer {
+            store.removeAll()
+            try? FileManager.default.removeItem(at: SettingsStore.preferences.appendingPathComponent("\(suite).plist"))
+        }
+        // What the CLI and the app do: write through one store, read and follow through another.
+        let other = SettingsStore(suiteName: suite)
+        let watcher = KeyWatcher()
+        other.defaults.addObserver(watcher, forKeyPath: EsclopSettings.convertedImageBehaviour.key, context: nil)
+        defer { other.defaults.removeObserver(watcher, forKeyPath: EsclopSettings.convertedImageBehaviour.key) }
+        try EsclopSettings.convertedImageBehaviour.set(.temporary, in: store)
+        try EsclopSettings.convertedImageBehaviour.set(.inPlace, in: store)
+        #expect(EsclopSettings.convertedImageBehaviour.value(in: store) == .inPlace)
+        #expect(EsclopSettings.convertedImageBehaviour.value(in: other) == .inPlace)
+        for _ in 0 ..< 100 where watcher.changes < 2 { try await Task.sleep(for: .milliseconds(50)) }
+        #expect(watcher.changes >= 2, "the other store saw both changes")
+        EsclopSettings.convertedImageBehaviour.reset(in: store)
+        #expect(!EsclopSettings.convertedImageBehaviour.isSet(in: other))
+    }
+
+    /// Earlier runs' files go, an hour after they were last written; nothing else does.
+    @Test func earlierTestSuitesAreSwept() throws {
+        let folder = try scratchFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let prefix = "dev.esclop.sweep-test-\(UUID().uuidString.prefix(8))."
+        func file(_ name: String, hoursOld: Double) throws {
+            let url = folder.appendingPathComponent(name)
+            try Data().write(to: url)
+            try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -hoursOld * 3600)], ofItemAtPath: url.path)
+        }
+        try file("\(prefix)A.plist", hoursOld: 30)
+        try file("\(prefix)B.plist", hoursOld: 2)
+        try file("\(prefix)fresh.plist", hoursOld: 0.1)
+        try file("\(prefix)A.txt", hoursOld: 30)
+        try file("\(prefix.dropLast()).plist", hoursOld: 30)
+        try file("dev.esclop.app.plist", hoursOld: 30)
+        try file("other.\(prefix)A.plist", hoursOld: 30)
+        #expect(SettingsStore.removeEarlierSuites(prefix: prefix, in: folder) == 2)
+        let left = try FileManager.default.contentsOfDirectory(atPath: folder.path).sorted()
+        #expect(left == ["\(prefix)A.txt", "\(prefix)fresh.plist", "\(prefix.dropLast()).plist", "dev.esclop.app.plist", "other.\(prefix)A.plist"].sorted())
     }
 
     @Test func defaultsWhenNothingIsStored() {

@@ -36,11 +36,19 @@ final class TempDir: @unchecked Sendable {
 
 /// A settings suite of its own, emptied when the value goes away. A named suite, as the app's own
 /// is: on CI runners a suite at a path sometimes lost a write, even to a read through the same
-/// UserDefaults, and a change through key-value observation.
-/// ponytail: each named suite leaves a plist in ~/Library/Preferences (cfprefsd writes a removed
-/// domain back). Sweep old ones at the start of a run if they pile up.
+/// UserDefaults, and a change through key-value observation. Each one still leaves a plist in
+/// ~/Library/Preferences (cfprefsd writes a removed domain back), so the first one of a run
+/// removes those of earlier runs.
 final class TestSettings: @unchecked Sendable {
-    let store = SettingsStore(suiteName: "dev.esclop.app-tests.\(UUID().uuidString)")
+    static let prefix = "dev.esclop.app-tests."
+    static let sweptEarlierRuns = SettingsStore.removeEarlierSuites(prefix: prefix)
+    let store: SettingsStore
+
+    init() {
+        _ = Self.sweptEarlierRuns
+        store = SettingsStore(suiteName: Self.prefix + UUID().uuidString)
+    }
+
     deinit { store.removeAll() }
 }
 

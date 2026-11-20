@@ -193,8 +193,9 @@ token nothing is sent.
   the replies.
 
 Environment variables, mostly for testing: `ESCLOP_NO_APP=1` never uses the app;
-`ESCLOP_SUPPORT_DIR` moves all of esclop's data (settings, pipelines, recent results, backups, logs) for
-the CLI, the MCP server, the engine and the app alike;
+`ESCLOP_SUPPORT_DIR` moves esclop's data (pipelines, recent results, backups, logs) to that folder and
+gives it settings of its own (the `dev.esclop.support.<hash>` suite), for the CLI, the MCP server, the
+engine and the app alike. Deleting the folder does not reset those settings;
 `ESCLOP_PIPELINES_DIR` moves only the pipelines; `ESCLOP_MCP_ELICIT_TIMEOUT` sets the question
 timeout in seconds.
 
