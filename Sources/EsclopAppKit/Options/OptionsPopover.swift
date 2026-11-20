@@ -84,16 +84,19 @@ public struct OptionsPopover: View {
         }
     }
 
-    /// The listed ⌘ shortcuts work from any tab. Copy, Save as…, Quick Look and Show in Finder
+    /// The listed ⌘ shortcuts work from any tab; Show in Finder takes Clop's ⌘F too, as the card
+    /// does. Copy, Save as…, Quick Look and Show in Finder
     /// are also rows of the Actions tab (ShareTab), which show these keys, and Restore original's
     /// tooltip shows ⌘Z: change both together.
     private var shortcuts: some View {
         Group {
             Button("") { model.app.perform(.copy, on: model.card) }.keyboardShortcut("c")
-            // ⌘S means what it means on the card: Save to Downloads, where the card offers it.
-            Button("") { _ = model.app.press("s", on: model.card) }.keyboardShortcut("s")
+            // ⌘S means what it means on the card: Save to Downloads, where the card offers it, and
+            // a beep where it does not.
+            Button("") { model.app.pressOrBeep("s", on: model.card) }.keyboardShortcut("s")
             Button("") { model.app.saveAs(model.card) }.keyboardShortcut("s", modifiers: [.command, .shift])
             Button("") { model.app.perform(.reveal, on: model.card) }.keyboardShortcut("r")
+            Button("") { model.app.perform(.reveal, on: model.card) }.keyboardShortcut("f")
             Button("") { model.app.perform(.undo, on: model.card) }.keyboardShortcut("z")
             // ⌘Y as in Finder: a bare Space would take the key from a focused tile or checkbox.
             Button("") { model.app.quickLook(model.card) }.keyboardShortcut("y")

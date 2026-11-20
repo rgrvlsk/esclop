@@ -215,7 +215,7 @@ struct UploadTargetEditor: View {
                 SecureField(Strings.text("Secret access key"), text: $draft.secret, prompt: draft.keysSaved ? Text(Strings.text("Saved in the Keychain")) : nil)
             }
             .formStyle(.grouped)
-            Text(Strings.text("Path tokens: %f name, %e extension, %y %m %d date, %r five random letters. In the public link, {path} is the uploaded path; leave it empty to use the endpoint's address."))
+            Text(Strings.text("Path tokens: %f name, %e extension, %y %m %d date, %r five random letters. In the public link, {path} is the uploaded path; leave it empty to use the endpoint’s address."))
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

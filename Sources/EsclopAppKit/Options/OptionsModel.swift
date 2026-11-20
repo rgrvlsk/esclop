@@ -316,10 +316,7 @@ public final class OptionsModel {
     }
 
     public func choose(compression: OptimiseChoice.Compression) {
-        var choice = card.choice
-        choice.compression = compression
-        choice.quality = nil
-        apply(choice)
+        apply(card.choice.with(compression: compression))
     }
 
     public func commitQuality() {

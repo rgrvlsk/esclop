@@ -59,7 +59,7 @@ struct AgentsConnectSection: View {
         } header: {
             Text(Strings.text("Connect an agent"))
         } footer: {
-            Text(Strings.text("Connecting adds an esclop entry to the agent's own config file and nothing else. You see the change before it is written, and the previous version is kept in L’Esclop’s folder."))
+            Text(Strings.text("Connecting adds an esclop entry to the agent’s own config file and nothing else. You see the change before it is written, and the previous version is kept in L’Esclop’s folder."))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 // Grouped forms put footers on the trailing side; these read with the rows above.
@@ -157,7 +157,7 @@ struct AgentRow: View {
         case .different: return Strings.format("Runs another esclop: %@. Update it to this one.", row.status.command?.command ?? "?")
         case .absent: return row.status.present ? Strings.format("Not connected. %@", path) : Strings.format("Not found on this Mac. %@", path)
         case .unreadable: return Strings.format("%@ does not parse, so it is left alone: %@", path, row.status.detail ?? "")
-        case .manual: return Strings.text("Configured in Warp's own settings: Settings → AI → MCP Servers → Add, then paste the JSON.")
+        case .manual: return Strings.text("Configured in Warp’s own settings: Settings → AI → MCP Servers → Add, then paste the JSON.")
         }
     }
 

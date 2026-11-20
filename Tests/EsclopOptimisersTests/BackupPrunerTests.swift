@@ -41,14 +41,17 @@ import Testing
         try fm.setAttributes([.modificationDate: tenDaysAgo], ofItemAtPath: oldFork.path)
         gone.append(oldFork)
 
-        BackupPruner.pruneAtLaunch(days: 7, backups: store, temporary: temporary)
+        BackupPruner.prune(days: 7, backups: store, temporary: temporary)
         #expect(store.entries().map(\.id) == [fresh.id])
         for url in gone { #expect(!fm.fileExists(atPath: url.path), "\(url.lastPathComponent) in \(url.deletingLastPathComponent().lastPathComponent)") }
         for url in kept { #expect(fm.fileExists(atPath: url.path), "\(url.path)") }
 
-        BackupPruner.pruneAtLaunch(days: 0, backups: store, temporary: temporary, now: Date().addingTimeInterval(365 * 86400))
-        #expect(store.entries().count == 1, "0 days keeps everything")
+        // Backups kept for ever: the temporary folder still goes after its own limit, not before.
+        BackupPruner.prune(days: 0, backups: store, temporary: temporary, now: Date().addingTimeInterval(Double(BackupPruner.temporaryDays - 1) * 86400))
         #expect(fm.fileExists(atPath: shortcut.path))
+        BackupPruner.prune(days: 0, backups: store, temporary: temporary, now: Date().addingTimeInterval(365 * 86400))
+        #expect(store.entries().count == 1, "0 days keeps every backup")
+        #expect(!fm.fileExists(atPath: shortcut.path), "a week at most for the temporary folder")
     }
 
     /// Moves a backup's manifest date back.

@@ -22,6 +22,6 @@ extension EsclopEngine: PipelineMediaOperations {
         _ source: URL, format: PageImageFormat, scale: Double, into directory: URL,
         request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void
     ) async throws -> [URL] {
-        try await extractPDFPages(source, format: format == .jpeg ? .jpeg : .png, dpi: Int((72 * scale).rounded()), to: directory)
+        try await extractPDFPages(source, format: format == .jpeg ? .jpeg : .png, dpi: 72 * scale, to: directory)
     }
 }

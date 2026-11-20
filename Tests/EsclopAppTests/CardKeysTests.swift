@@ -18,14 +18,71 @@ import Testing
     @Test func eachKeyRunsItsActionOnAFinishedResult() {
         let shot = cards.card(.done(cards.saved()))
         let expected: [Character: CardKeys.Command] = [
-            " ": .quickLook, "z": .perform(.undo), "c": .perform(.copy), "f": .perform(.reveal),
+            " ": .quickLook, "z": .perform(.undo), "c": .perform(.copy), "f": .perform(.reveal), "r": .perform(.reveal),
             "d": .perform(.compare), "k": .perform(.crop), "s": .perform(.save), CardKeys.delete: .perform(.dismiss),
             "-": .downscale(0.75), "1": .downscale(0.1), "5": .downscale(0.5), "9": .downscale(0.9),
+            "a": .harder, "o": .open, "u": .perform(.upload),
         ]
         for (key, command) in expected {
             #expect(CardKeys.command(for: key, on: shot) == command, "key \(key)")
         }
         #expect(CardKeys.command(for: "q", on: shot) == nil)
+        #expect(CardKeys.command(for: "x", on: shot) == nil, "a picture has no playback speed")
+        let movie = URL(fileURLWithPath: "/tmp/Clip.mov")
+        let video = cards.card(.done(cards.saved(movie, kind: .video)), source: movie)
+        #expect(CardKeys.command(for: "x", on: video) == .speed)
+        shot.choice.compression = .aggressive
+        #expect(CardKeys.command(for: "a", on: shot) == nil, "already compressed harder")
+    }
+
+    /// Clop's A, O, U and X act on the result: harder from the original, the default app, an
+    /// upload (Settings › Uploads while there is no target), the speed in the options.
+    @Test func clopsOtherLettersAct() async throws {
+        let harness = Harness()
+        var opened: [URL] = []
+        harness.model.openFile = { opened.append($0) }
+        _ = await harness.model.run(harness.job(harness.temp.file("a.png")))
+        let card = try #require(harness.model.cards.first)
+        #expect(harness.model.press("o", on: card))
+        #expect(opened == [card.shownFile])
+        #expect(harness.model.press("u", on: card))
+        #expect(opened.last == URL(string: "esclop://settings/uploads"), "no target yet: its settings")
+        #expect(harness.model.press("a", on: card))
+        #expect(await eventually { harness.requests.requests.count == 2 && card.result != nil })
+        #expect(harness.requests.requests.last?.quality.tier == .aggressive)
+        #expect(card.choice.compression == .aggressive)
+        #expect(!harness.model.press("x", on: card), "a picture has no speed")
+
+        let movie = harness.temp.file("b.mov")
+        _ = await harness.model.run(harness.job(movie))
+        let clip = try #require(harness.model.cards.last)
+        #expect(harness.model.press("x", on: clip))
+        #expect(clip.optionsTab == .optimise && clip.machine.menuOpen, "the options open where the speed is")
+    }
+
+    /// "Card keys under the pointer" off: the resting pointer holds no key, new ones included.
+    @Test func theSwitchKeepsEveryKeyWithTheAppInFront() {
+        let shot = cards.card(.done(cards.saved()))
+        let held = FloatingResultView.hoverKeys(on: shot, switchOn: true, moved: true, taken: false)
+        #expect(["a", "o", "u", "r", "f"].allSatisfy(held.contains))
+        #expect(FloatingResultView.hoverKeys(on: shot, switchOn: false, moved: true, taken: false).isEmpty)
+    }
+
+    /// ⌘S on a result with no Save to Downloads (a dropped file) beeps instead of doing nothing;
+    /// a key that is not the card's goes on to the window.
+    @Test func aCardKeyThatDoesNothingBeeps() async throws {
+        let harness = Harness()
+        var beeps = 0
+        harness.model.beep = { beeps += 1 }
+        _ = await harness.model.run(harness.job(harness.temp.file("a.png")))
+        let card = try #require(harness.model.cards.first)
+        #expect(CardKeys.command(for: "s", on: card) == nil)
+        #expect(harness.model.pressOrBeep("s", on: card))
+        #expect(beeps == 1)
+        #expect(!harness.model.pressOrBeep("q", on: card))
+        #expect(beeps == 1)
+        #expect(harness.model.pressOrBeep("r", on: card), "Show in Finder")
+        #expect(beeps == 1)
     }
 
     /// Clop's modifiers: Space alone, every other key with ⌘, so a resting pointer never takes
@@ -33,6 +90,7 @@ import Testing
     @Test func onlySpaceGoesWithoutCommand() {
         #expect(CardKeys.all.filter { !CardKeys.needsCommand($0) } == [" "])
         #expect(CardKeys.label(for: .compare) == "⌘D")
+        #expect(CardKeys.label(for: .reveal) == "⌘R", "Finder's own key, shown everywhere; ⌘F works too")
         #expect(CardKeys.label(for: .share) == nil)
     }
 
@@ -124,9 +182,43 @@ import Testing
         #expect(CardKeys.help(for: .share) == CardPresentation.Action.share.accessibilityName)
     }
 
-    @Test func goToTheNewestResultIsInSettingsWithNoKey() {
-        #expect(KeyboardShortcuts.Name.focusNewestResult.defaultShortcut == nil)
-        #expect(Hotkeys.all.map(\.name).contains(.focusNewestResult))
+    /// The keyboard alone reaches a result: ⌃⇧N out of the box, beside ⌃⇧C and ⌃⇧A. "Show the
+    /// last result" waits for a key.
+    @Test func goToTheNewestResultHasAKeyAndShowLastResultIsInSettings() {
+        #expect(KeyboardShortcuts.Name.focusNewestResult.defaultShortcut == .init(.n, modifiers: [.control, .shift]))
+        let defaults = Hotkeys.all.compactMap(\.name.defaultShortcut)
+        #expect(Set(defaults.map(\.description)).count == defaults.count, "no two hotkeys share a key")
+        #expect(KeyboardShortcuts.Name.showLastResult.defaultShortcut == nil)
+        #expect(Hotkeys.all.map(\.name) == [.optimiseClipboard, .optimiseClipboardHarder, .focusNewestResult, .showLastResult])
+    }
+
+    /// "Show floating results" off: a drop's results go to Recent only, a big drop opens no batch
+    /// window, and "Show the last result" brings up the newest result not on screen; with no
+    /// result at all it beeps.
+    @Test func showLastResultBringsBackWhatIsNotOnScreen() async throws {
+        let harness = Harness()
+        var beeps = 0
+        harness.model.beep = { beeps += 1 }
+        try EsclopSettings.showFloatingResults.set(false, in: harness.settings.store)
+        Hotkeys.action(for: .showLastResult)(harness.model)
+        #expect(beeps == 1 && harness.model.cards.isEmpty, "nothing to show yet")
+        let many = (1...harness.model.batchThreshold).map { harness.temp.file("b\($0).png") }
+        harness.model.optimise(many, origin: .dropZone)
+        #expect(await eventually { harness.model.recent.count == many.count })
+        #expect(harness.model.batch == nil, "no batch window either")
+        harness.model.optimise([harness.temp.file("a.png")], origin: .dropZone)
+        #expect(await eventually { harness.model.recent.count == many.count + 1 })
+        #expect(harness.model.cards.isEmpty)
+        Hotkeys.action(for: .showLastResult)(harness.model)
+        let card = try #require(harness.model.cards.first)
+        #expect(card.result?.id == harness.model.recent.first?.id)
+        Hotkeys.action(for: .showLastResult)(harness.model)
+        #expect(harness.model.cards.count == 2, "the newest is on screen: the next one comes")
+        #expect(harness.model.cards.last?.result?.id == harness.model.recent[1].id)
+        harness.model.dismiss(card)
+        Hotkeys.action(for: .showLastResult)(harness.model)
+        #expect(harness.model.cards.last?.result?.id == card.result?.id, "the card that went comes back")
+        #expect(beeps == 1)
     }
 
     /// Copy, the result, the hotkey, Z: a copied screenshot is undone from the keyboard alone.

@@ -115,7 +115,7 @@ struct PDFEngine: Sendable {
                 return Produced(url: output, width: nil, height: nil, duration: nil, steps: ["Fit under \(ByteFormat.string(target)) at \(dpi) dpi"], allowLarger: true)
             }
         }
-        throw EsclopError.other("Could not fit under \(ByteFormat.string(target)); the smallest attempt was \(ByteFormat.string(smallest)) at \(stops.last ?? PDFResolution.minDPI) dpi")
+        throw EsclopError.cannotFit(underBytes: target, smallest: smallest == Int.max ? nil : smallest)
     }
 
     /// `pdf.optimise` without downsampling, at the lightest compression, drops the document
@@ -162,39 +162,79 @@ struct PDFEngine: Sendable {
         return Produced(url: output, width: nil, height: nil, duration: nil, steps: ["Restored the full pages"], allowLarger: true)
     }
 
-    /// Renders pages to PNG or JPEG files in `folder` (`<name>-<page>.<ext>`, or the next free
-    /// name), all of them or none: a page that cannot be rendered fails the whole export.
-    /// ponytail: the pipelines' page exporter; `esclop pdf pages` uses `PDFPageTools.exportPages`,
-    /// which also optimises each page and names JPEGs `.jpg`. Give export one owner (this one
-    /// calling `optimiseNewImage`) when either side changes again.
-    func extractPages(_ source: URL, format: OutputFormat, dpi: Int, to folder: URL) throws -> [URL] {
-        try extractPages(source, format: format, dpi: dpi, to: folder, render: Self.render)
-    }
-
-    /// `render` draws one page at a scale (1 = 72 dpi); nil when it cannot. A seam for the test
-    /// that makes one page fail; callers use the overload above.
-    func extractPages(_ source: URL, format: OutputFormat, dpi: Int, to folder: URL, render: (PDFPage, Double) -> CGImage?) throws -> [URL] {
+    /// Renders pages (1-based numbers, all when nil) as PNG or JPEG files in `folder`
+    /// (`<name>-<page>`, zero-padded to the page count, JPEGs `.jpg`), all of them or none, under
+    /// the next free name when one is taken: a page that cannot be rendered fails the export.
+    /// Without a `format`, a page that is one photo becomes a JPEG and any other page a PNG. The
+    /// one page exporter: `EsclopEngine.extractPDFPages` optimises what it writes.
+    func extractPages(
+        _ source: URL, pages: [Int]? = nil, format: OutputFormat?, dpi: Double, to folder: URL,
+        render: (PDFPage, Double) -> CGImage? = Self.render
+    ) throws -> [URL] {
+        if let format, format != .png, format != .jpeg {
+            throw EsclopError.invalidArgument("Pages export as png or jpeg")
+        }
+        guard dpi >= 18, dpi <= 1200 else { throw EsclopError.invalidArgument("DPI must be between 18 and 1200") }
+        guard FileManager.default.fileExists(atPath: source.path) else { throw EsclopError.fileNotFound(source.path) }
         let document = try document(source)
-        guard format == .png || format == .jpeg else {
-            throw EsclopError.invalidArgument("Pages render to PNG or JPEG")
+        var seen = Set<Int>()
+        let wanted = (pages ?? Array(1 ... document.pageCount)).filter { seen.insert($0).inserted }
+        if let bad = wanted.first(where: { $0 < 1 || $0 > document.pageCount }) {
+            throw EsclopError.invalidArgument("Page \(bad) is outside 1...\(document.pageCount)")
         }
-        let stem = source.deletingPathExtension().lastPathComponent
-        let scale = Double(max(18, min(dpi, 1200))) / 72
-        let names = (1 ... document.pageCount).map { "\(stem)-\($0).\(format.fileExtension)" }
+        let base = source.deletingPathExtension().lastPathComponent
+        let digits = String(document.pageCount).count
+        let formats = wanted.map { number in
+            format ?? (document.page(at: number - 1).map(Self.isOnePhoto) == true ? .jpeg : .png)
+        }
+        let names = wanted.indices.map { index in
+            let number = String(wanted[index])
+            return "\(base)-\(String(repeating: "0", count: max(0, digits - number.count)))\(number).\(formats[index] == .jpeg ? "jpg" : "png")"
+        }
         return try StagedFiles.publish(names, into: folder) { index, url in
-            guard let page = document.page(at: index), let image = render(page, scale) else {
-                throw EsclopError.other("Could not render page \(index + 1) of \(source.lastPathComponent)")
+            guard let page = document.page(at: wanted[index] - 1), let image = render(page, dpi / 72) else {
+                throw EsclopError.other("Could not render page \(wanted[index]) of \(source.lastPathComponent)")
             }
-            try ImageIOCodec.write(image, to: url, type: format == .png ? .png : .jpeg, quality: format == .jpeg ? 0.85 : nil, strip: true)
+            let jpeg = formats[index] == .jpeg
+            try ImageIOCodec.write(image, to: url, type: jpeg ? .jpeg : .png, quality: jpeg ? 0.9 : nil, strip: true)
         }
     }
 
+    /// A page that only draws one picture, such as a scan or a photo: one image of 8 bits or more
+    /// per component and no fonts or forms in its own resources. A 1-bit scan of text stays PNG,
+    /// and so does a page whose resources are inherited (they read as none).
+    static func isOnePhoto(_ page: PDFPage) -> Bool {
+        guard let dictionary = page.pageRef?.dictionary else { return false }
+        var resources: CGPDFDictionaryRef?
+        guard CGPDFDictionaryGetDictionary(dictionary, "Resources", &resources), let resources else { return false }
+        var fonts: CGPDFDictionaryRef?
+        if CGPDFDictionaryGetDictionary(resources, "Font", &fonts), let fonts, CGPDFDictionaryGetCount(fonts) > 0 { return false }
+        var objects: CGPDFDictionaryRef?
+        guard CGPDFDictionaryGetDictionary(resources, "XObject", &objects), let objects, CGPDFDictionaryGetCount(objects) == 1 else {
+            return false
+        }
+        var isImage = false
+        CGPDFDictionaryApplyBlock(objects, { _, value, _ in
+            var stream: CGPDFStreamRef?
+            var subtype: UnsafePointer<CChar>?
+            var bits: CGPDFInteger = 0
+            if CGPDFObjectGetValue(value, .stream, &stream), let stream, let object = CGPDFStreamGetDictionary(stream),
+               CGPDFDictionaryGetName(object, "Subtype", &subtype), let subtype
+            {
+                isImage = String(cString: subtype) == "Image" && CGPDFDictionaryGetInteger(object, "BitsPerComponent", &bits) && bits >= 8
+            }
+            return false
+        }, nil)
+        return isImage
+    }
+
+    /// One page on white at `scale` (1 = 72 dpi); nil when it cannot be drawn.
     static func render(_ page: PDFPage, scale: Double) -> CGImage? {
         let bounds = page.bounds(for: .cropBox)
         let rotated = page.rotation % 180 != 0
-        let width = Int((rotated ? bounds.height : bounds.width) * scale)
-        let height = Int((rotated ? bounds.width : bounds.height) * scale)
-        guard let context = CGContext(
+        let width = Int(((rotated ? bounds.height : bounds.width) * scale).rounded())
+        let height = Int(((rotated ? bounds.width : bounds.height) * scale).rounded())
+        guard width > 0, height > 0, width * height < 400_000_000, let context = CGContext(
             data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
             space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else { return nil }

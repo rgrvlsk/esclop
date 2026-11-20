@@ -31,6 +31,16 @@
         }
       }
     },
+    "%@ (%@ on the result)": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (%@ al resultat)"
+          }
+        }
+      }
+    },
     "%@ animated GIFs": {
       "localizations": {
         "ca": {
@@ -127,6 +137,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ passa de 5 GB, el màxim que L’Esclop pot pujar d’un sol cop."
+          }
+        }
+      }
+    },
+    "%@ is lossless, so it cannot be fitted to a size.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ és sense pèrdua, així que no es pot ajustar a una mida."
           }
         }
       }
@@ -331,6 +351,16 @@
         }
       }
     },
+    "%@, downloading": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, s’està baixant"
+          }
+        }
+      }
+    },
     "%@, left as it was": {
       "localizations": {
         "ca": {
@@ -406,7 +436,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@, pujant"
+            "value": "%@, s’està pujant"
           }
         }
       }
@@ -1946,7 +1976,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fes clic o mantén premut per veure l’optimitzat"
+            "value": "Clic o mantén premut: optimitzat"
           }
         }
       }
@@ -1956,7 +1986,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fes clic o mantén premut per veure l’original"
+            "value": "Clic o mantén premut: original"
           }
         }
       }
@@ -2131,7 +2161,7 @@
         }
       }
     },
-    "Configured in Warp's own settings: Settings → AI → MCP Servers → Add, then paste the JSON.": {
+    "Configured in Warp’s own settings: Settings → AI → MCP Servers → Add, then paste the JSON.": {
       "localizations": {
         "ca": {
           "stringUnit": {
@@ -2211,7 +2241,7 @@
         }
       }
     },
-    "Connecting adds an esclop entry to the agent's own config file and nothing else. You see the change before it is written, and the previous version is kept in L’Esclop’s folder.": {
+    "Connecting adds an esclop entry to the agent’s own config file and nothing else. You see the change before it is written, and the previous version is kept in L’Esclop’s folder.": {
       "localizations": {
         "ca": {
           "stringUnit": {
@@ -2551,6 +2581,26 @@
         }
       }
     },
+    "Could not fit under %@. No attempt came out smaller than the original.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha pogut deixar per sota de %@. Cap intent no ha quedat més petit que l’original."
+          }
+        }
+      }
+    },
+    "Could not fit under %@. The smallest attempt was %@.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha pogut deixar per sota de %@. L’intent més petit feia %@."
+          }
+        }
+      }
+    },
     "Could not get the dropped file": {
       "localizations": {
         "ca": {
@@ -2726,7 +2776,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Personalitzada"
+            "value": "A mida"
           }
         }
       }
@@ -2901,12 +2951,32 @@
         }
       }
     },
+    "Do nothing": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No facis res"
+          }
+        }
+      }
+    },
     "Done": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Fet"
+          }
+        }
+      }
+    },
+    "Download and optimise": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Baixa i optimitza"
           }
         }
       }
@@ -2927,6 +2997,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Baixa imatges, vídeos, PDF o fitxers d’àudio del web i optimitza’ls. Les baixades van a la carpeta temporal de L’Esclop, tret que triïs on desar-les."
+          }
+        }
+      }
+    },
+    "Downloading…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’està baixant…"
           }
         }
       }
@@ -3047,6 +3127,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Deixa anar per executar «%@»"
+          }
+        }
+      }
+    },
+    "Dropped file": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fitxer deixat anar"
           }
         }
       }
@@ -3361,12 +3451,12 @@
         }
       }
     },
-    "Files are optimised on this Mac, with no account. They leave it only when you upload them or set up automatic uploads. L’Esclop needs no Accessibility, Screen Recording or Full Disk Access.": {
+    "Files are optimised on this Mac, with no account. They leave it only when you upload them or set up automatic uploads. A copied media link is only offered for download: nothing is fetched until you click. L’Esclop needs no Accessibility, Screen Recording or Full Disk Access.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Els fitxers s’optimitzen en aquest Mac, sense cap compte. Només en surten si els puges o si configures les pujades automàtiques. L’Esclop no necessita Accessibilitat, Gravació de la pantalla ni Accés complet al disc."
+            "value": "Els fitxers s’optimitzen en aquest Mac, sense cap compte. Només en surten si els puges o si configures les pujades automàtiques. Un enllaç multimèdia copiat només es proposa per baixar: no es baixa res fins que hi fas clic. L’Esclop no necessita Accessibilitat, Gravació de la pantalla ni Accés complet al disc."
           }
         }
       }
@@ -3491,12 +3581,22 @@
         }
       }
     },
+    "Fit dropped": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’ha tret el límit de mida"
+          }
+        }
+      }
+    },
     "Fit under": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Encaixa sota"
+            "value": "Per sota de"
           }
         }
       }
@@ -4047,6 +4147,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Havia canviat després d’optimitzar-la. El resultat nou parteix de l’original."
+          }
+        }
+      }
+    },
+    "It is larger than %@.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fa més de %@."
+          }
+        }
+      }
+    },
+    "It is not an image, video, PDF or audio file.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No és cap imatge, vídeo, PDF ni fitxer d’àudio."
+          }
+        }
+      }
+    },
+    "It is on this Mac or the local network: download it with Optimise Clipboard.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "És en aquest Mac o a la xarxa local: baixa-la amb Optimitza el porta-retalls."
           }
         }
       }
@@ -4786,7 +4916,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mou a la paperera"
+            "value": "Mou a la Paperera"
           }
         }
       }
@@ -5401,6 +5531,16 @@
         }
       }
     },
+    "Offer to download": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proposa la baixada"
+          }
+        }
+      }
+    },
     "On the result under the pointer: Quick Look, Undo, Copy": {
       "localizations": {
         "ca": {
@@ -5646,7 +5786,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Optimitza-ho igualment"
+            "value": "Optimitza’ls igualment"
           }
         }
       }
@@ -5921,6 +6061,16 @@
         }
       }
     },
+    "Path tokens: %f name, %e extension, %y %m %d date, %r five random letters. In the public link, {path} is the uploaded path; leave it empty to use the endpoint’s address.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marcadors del camí: %f nom, %e extensió, %y %m %d data, %r cinc lletres a l’atzar. A l’enllaç públic, {path} és el camí pujat; deixa’l buit per fer servir l’adreça del punt d’accés."
+          }
+        }
+      }
+    },
     "PDF": {
       "localizations": {
         "ca": {
@@ -6047,16 +6197,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Camí"
-          }
-        }
-      }
-    },
-    "Path tokens: %f name, %e extension, %y %m %d date, %r five random letters. In the public link, {path} is the uploaded path; leave it empty to use the endpoint's address.": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Marcadors del camí: %f nom, %e extensió, %y %m %d data, %r cinc lletres a l’atzar. A l’enllaç públic, {path} és el camí pujat; deixa’l buit per fer servir l’adreça del punt d’accés."
           }
         }
       }
@@ -6461,7 +6601,7 @@
         }
       }
     },
-    "Quit L'Esclop": {
+    "Quit L’Esclop": {
       "localizations": {
         "ca": {
           "stringUnit": {
@@ -6566,7 +6706,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deixa anar per veure l’optimitzat"
+            "value": "Deixa anar: optimitzat"
           }
         }
       }
@@ -6576,7 +6716,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deixa anar per veure l’original"
+            "value": "Deixa anar: original"
           }
         }
       }
@@ -7146,7 +7286,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Passa per una drecera"
+            "value": "Executa una drecera"
           }
         }
       }
@@ -7246,7 +7386,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Executa un altre esclop: %@. Actualitza’l a aquest."
+            "value": "Executa un altre esclop: %@. Canvia’l per aquest."
           }
         }
       }
@@ -7511,6 +7651,26 @@
         }
       }
     },
+    "setting.showFloatingResults.summary": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desactivat, els resultats només van a Recents i al tauler de la barra de menús, com quan un pipeline n’amaga el resultat."
+          }
+        }
+      }
+    },
+    "setting.showFloatingResults.title": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra els resultats flotants"
+          }
+        }
+      }
+    },
     "Settings and more": {
       "localizations": {
         "ca": {
@@ -7681,6 +7841,16 @@
         }
       }
     },
+    "Show the last result": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra l’últim resultat"
+          }
+        }
+      }
+    },
     "Show the pipeline as a form or as text": {
       "localizations": {
         "ca": {
@@ -7806,7 +7976,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Salta si"
+            "value": "Omet si"
           }
         }
       }
@@ -7816,7 +7986,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Saltat"
+            "value": "Omès"
           }
         }
       }
@@ -8131,6 +8301,16 @@
         }
       }
     },
+    "The public link is an address with {path} where the file’s path goes.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’enllaç públic és una adreça amb {path} on va el camí del fitxer."
+          }
+        }
+      }
+    },
     "TOML, for Codex": {
       "localizations": {
         "ca": {
@@ -8376,7 +8556,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "El fitxer ha canviat després d’optimitzar-lo i no s’ha pogut moure a la paperera, així que s’ha deixat tal com era."
+            "value": "El fitxer ha canviat després d’optimitzar-lo i no s’ha pogut moure a la Paperera, així que s’ha deixat tal com era."
           }
         }
       }
@@ -8586,17 +8766,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "El fitxer del pipeline va a la paperera i el pots recuperar d’allà."
-          }
-        }
-      }
-    },
-    "The public link is an address with {path} where the file's path goes.": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "L’enllaç públic és una adreça amb {path} on va el camí del fitxer."
+            "value": "El fitxer del pipeline va a la Paperera i el pots recuperar d’allà."
           }
         }
       }
@@ -8617,6 +8787,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Les mateixes opcions al Terminal"
+          }
+        }
+      }
+    },
+    "The server answered with error %d.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El servidor ha respost amb l’error %d."
           }
         }
       }
@@ -9356,7 +9536,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pujant…"
+            "value": "S’està pujant…"
           }
         }
       }
@@ -9366,7 +9546,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pujant… %d %%"
+            "value": "S’està pujant… %d %%"
           }
         }
       }
@@ -9601,7 +9781,7 @@
         }
       }
     },
-    "Welcome to L'Esclop": {
+    "Welcome to L’Esclop": {
       "localizations": {
         "ca": {
           "stringUnit": {
@@ -9611,7 +9791,7 @@
         }
       }
     },
-    "Welcome to L'Esclop…": {
+    "Welcome to L’Esclop…": {
       "localizations": {
         "ca": {
           "stringUnit": {
@@ -9706,7 +9886,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Treballant"
+            "value": "En curs"
           }
         }
       }
@@ -10926,7 +11106,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Identificadors de paquet de les apps les còpies de les quals no s’optimitzen mai."
+            "value": "Les còpies fetes en aquestes apps (per identificador de paquet) no s’optimitzen mai."
           }
         }
       }
@@ -11826,7 +12006,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quan el text copiat és l’adreça web d’una imatge, un vídeo, un PDF o un àudio, el baixa i l’optimitza. Els altres enllaços no s’obren mai."
+            "value": "Quan copies l’adreça web d’una imatge, un vídeo, un PDF o un fitxer d’àudio. Si te la proposa, no baixa res fins que hi facis clic. Els altres enllaços no s’obren mai."
           }
         }
       }
@@ -11836,7 +12016,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Baixa les adreces web copiades"
+            "value": "Adreces web copiades"
           }
         }
       }
@@ -12166,7 +12346,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fonts els resultats de les quals es pugen tan bon punt s’optimitzen, amb l’enllaç al porta-retalls."
+            "value": "D’aquestes fonts, els resultats es pugen tan bon punt s’optimitzen, amb l’enllaç al porta-retalls."
           }
         }
       }

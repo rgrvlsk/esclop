@@ -4,7 +4,9 @@
 // pasteboard. Behaviour follows Clop 3.5: skip our own writes and the nspasteboard.org transient,
 // concealed and auto-generated markers, skip copies made in ignored apps, optimise copied image
 // data, and copied files only when their kind's clipboard setting is on and they are not marked
-// as already optimised. A copied web address of such a file is downloaded first, as Clop does.
+// as already optimised. A copied web address of such a file is offered for download, and fetched
+// only on the offer's click (or on its own when the person chose that). Clop's watcher leaves
+// addresses alone; only its Optimise Clipboard hotkey and a drop download one.
 
 import AppKit
 import EsclopCore
@@ -35,9 +37,13 @@ public enum ClipboardAction: Equatable, Sendable {
     case optimiseFiles([URL], copied: [URL], ClipboardCopy)
     /// A copied web address of a media file, to download and then optimise as a copied file.
     case optimiseAddress(URL, ClipboardCopy)
+    /// A copied web address of a media file, to offer for download; nothing is fetched yet.
+    case offerAddress(URL, ClipboardCopy)
 
     public enum Reason: Equatable, Sendable {
         case ownWrite, transient, paused, ignoredApp, empty, unsupported
+        /// An address on this Mac or the local network (`WebDownload.isLocal`): only the hotkey fetches it.
+        case localAddress
         case skipped(RequestFactory.Skip)
     }
 }
@@ -60,9 +66,11 @@ public struct ClipboardPolicy: Sendable {
     /// watcher does not read it.
     public var readsText: Bool { EsclopSettings.optimiseImagePathClipboard.value(in: factory.settings) }
 
-    /// Copied web addresses are downloaded (`optimiseURLClipboard`); otherwise the watcher does
-    /// not read them.
-    public var readsAddresses: Bool { EsclopSettings.optimiseURLClipboard.value(in: factory.settings) }
+    /// What copied web addresses of media do (`optimiseURLClipboard`).
+    public var addresses: CopiedAddressAction { EsclopSettings.optimiseURLClipboard.value(in: factory.settings) }
+
+    /// Copied web addresses are offered or downloaded; with "Do nothing" the watcher does not read them.
+    public var readsAddresses: Bool { addresses != .ignore }
 
     /// `content` is only read when the cheap checks pass. `appBefore` is the app that was in front
     /// at the poll before: a copy made just before switching apps belongs to it.
@@ -89,7 +97,8 @@ public struct ClipboardPolicy: Sendable {
         case let .address(url):
             guard readsAddresses, let kind = MediaKind.of(url) else { return .ignore(.unsupported) }
             guard factory.clipboardAllows(kind) else { return .ignore(.skipped(.disabled)) }
-            return .optimiseAddress(url, copy)
+            guard !WebDownload.isLocal(url) else { return .ignore(.localAddress) }
+            return addresses == .download ? .optimiseAddress(url, copy) : .offerAddress(url, copy)
         case .empty:
             return .ignore(.empty)
         }

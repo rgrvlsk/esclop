@@ -185,7 +185,7 @@ struct FormatOptions: View {
                 }
                 // Charcoal like every text button: amber means a decision is needed.
                 Button(Strings.text("Optimise harder")) { model.optimiseHarder() }
-                    .help(Strings.text("Run it again with aggressive compression"))
+                    .help(CardKeys.onTheResult(Strings.text("Run it again with aggressive compression"), key: "⌘A"))
             }
             .buttonStyle(.plain)
             .font(OptionsType.label.weight(.semibold))
@@ -272,6 +272,8 @@ struct SpeedMenu: View {
             .labelsHidden()
             .fixedSize()
         }
+        // The result's ⌘X opens the options here.
+        .help(CardKeys.onTheResult(Strings.text("Playback speed"), key: "⌘X"))
         .frame(minHeight: 28)
     }
 }

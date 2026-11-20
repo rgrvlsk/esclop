@@ -35,7 +35,7 @@ struct FloatingStackView: View {
                     perform: { model.perform($0, on: card) },
                     interact: { model.interact(card, $0) },
                     options: { OptionsModel(card: card, app: model) },
-                    press: { model.press($0, on: card) },
+                    press: { model.pressOrBeep($0, on: card) },
                     keysTaken: keysTaken,
                     pointerKeys: EsclopSettings.cardKeysUnderPointer.value(in: model.settings)
                 )

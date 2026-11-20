@@ -90,6 +90,17 @@ import UniformTypeIdentifiers
         try await snapshot(differs, name: "options-rule-differs", scheme: scheme)
     }
 
+    /// "Differentiate without colour": the suggested tile's amber dot becomes a symbol.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func suggestionWithoutColour(scheme: ColorScheme) async throws {
+        let harness = Harness()
+        // A photo from Photos: JPEG is suggested, so its tile carries the mark.
+        let photo = URL(fileURLWithPath: "/tmp/IMG_0042.heic")
+        let suggestion = model(card(.done(renders.saved(photo)), source: photo, origin: .photos, input: .heic), harness: harness)
+        try await snapshot(OptionsPopover(model: suggestion), name: "options-suggested-tile", scheme: scheme)
+        try await snapshot(OptionsPopover(model: suggestion).environment(\._accessibilityDifferentiateWithoutColor, true), name: "differentiate-options", scheme: scheme)
+    }
+
     @Test(arguments: [ColorScheme.light, .dark])
     func sizeAndShareTabs(scheme: ColorScheme) async throws {
         let harness = Harness()
@@ -105,6 +116,11 @@ import UniformTypeIdentifiers
         fitted.fit = 1_000_000
         fitted.adjusted = true
         try await snapshot(model(fitted, harness: harness) { $0.tab = .size }, name: "options-size-fit", scheme: scheme)
+        // A custom fit takes the place of Custom…, so no chip wraps alone.
+        let custom = card(.done(renders.saved()))
+        custom.fit = 750_000
+        custom.adjusted = true
+        try await snapshot(model(custom, harness: harness) { $0.tab = .size }, name: "options-size-fit-custom", scheme: scheme)
         let crop = model(card(.done(renders.saved())), harness: harness) { model in
             model.tab = .crop
             model.startCrop(aspect: .ratio(16, 9))

@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// PDF operations that need no external tool: non-destructive crop (setting each page's crop box),
-// uncrop, and exporting pages as images. They run through PDFKit, so they need no engine and
-// never re-encode the document's content.
+// PDF operations that need no external tool: non-destructive crop (setting each page's crop box)
+// and uncrop. They run through PDFKit, so they need no engine and never re-encode the document's
+// content. Pages export as images through `EsclopEngine.extractPDFPages`.
 
 import CoreGraphics
 import EsclopCore
 import Foundation
-import ImageIO
 import PDFKit
-import UniformTypeIdentifiers
 
 public struct PDFPageTools: Sendable {
     public init() {}
@@ -46,69 +44,6 @@ public struct PDFPageTools: Sendable {
         }
         try write(document, to: output, replacing: source)
         return document.pageCount
-    }
-
-    /// Renders pages (1-based numbers, all when nil) as PNG or JPEG files in `folder`, all of
-    /// them or none, under the next free name when one is taken. Without a `format`, a page that
-    /// is one photo becomes a JPEG and any other page a PNG.
-    public func exportPages(_ source: URL, pages: [Int]?, format: OutputFormat?, dpi: Double, into folder: URL) throws -> [URL] {
-        if let format, format != .png, format != .jpeg {
-            throw EsclopError.invalidArgument("Pages export as png or jpeg")
-        }
-        guard dpi >= 18, dpi <= 1200 else { throw EsclopError.invalidArgument("DPI must be between 18 and 1200") }
-        let document = try open(source)
-        var seen = Set<Int>()
-        let wanted = (pages ?? Array(1 ... max(1, document.pageCount))).filter { seen.insert($0).inserted }
-        if let bad = wanted.first(where: { $0 < 1 || $0 > document.pageCount }) {
-            throw EsclopError.invalidArgument("Page \(bad) is outside 1...\(document.pageCount)")
-        }
-        let base = source.deletingPathExtension().lastPathComponent
-        let digits = String(document.pageCount).count
-        let formats = wanted.map { number in
-            format ?? (document.page(at: number - 1).map(Self.isOnePhoto) == true ? .jpeg : .png)
-        }
-        let names = wanted.indices.map { index in
-            let number = wanted[index]
-            return "\(base)-\(String(repeating: "0", count: max(0, digits - String(number).count)))\(number).\(formats[index] == .jpeg ? "jpg" : "png")"
-        }
-        return try StagedFiles.publish(names, into: folder) { index, url in
-            guard let page = document.page(at: wanted[index] - 1) else { throw EsclopError.other("Cannot read page \(wanted[index])") }
-            let type: UTType = formats[index] == .png ? .png : .jpeg
-            let image = try render(page, scale: dpi / 72, opaque: type == .jpeg)
-            guard let destination = CGImageDestinationCreateWithURL(url as CFURL, type.identifier as CFString, 1, nil) else {
-                throw EsclopError.other("Cannot write \(names[index])")
-            }
-            CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: 0.9] as CFDictionary)
-            guard CGImageDestinationFinalize(destination) else { throw EsclopError.other("Cannot write \(names[index])") }
-        }
-    }
-
-    /// A page that only draws one picture, such as a scan or a photo: one image of 8 bits or more
-    /// per component and no fonts or forms in its own resources. A 1-bit scan of text stays PNG,
-    /// and so does a page whose resources are inherited (they read as none).
-    static func isOnePhoto(_ page: PDFPage) -> Bool {
-        guard let dictionary = page.pageRef?.dictionary else { return false }
-        var resources: CGPDFDictionaryRef?
-        guard CGPDFDictionaryGetDictionary(dictionary, "Resources", &resources), let resources else { return false }
-        var fonts: CGPDFDictionaryRef?
-        if CGPDFDictionaryGetDictionary(resources, "Font", &fonts), let fonts, CGPDFDictionaryGetCount(fonts) > 0 { return false }
-        var objects: CGPDFDictionaryRef?
-        guard CGPDFDictionaryGetDictionary(resources, "XObject", &objects), let objects, CGPDFDictionaryGetCount(objects) == 1 else {
-            return false
-        }
-        var isImage = false
-        CGPDFDictionaryApplyBlock(objects, { _, value, _ in
-            var stream: CGPDFStreamRef?
-            var subtype: UnsafePointer<CChar>?
-            var bits: CGPDFInteger = 0
-            if CGPDFObjectGetValue(value, .stream, &stream), let stream, let object = CGPDFStreamGetDictionary(stream),
-               CGPDFDictionaryGetName(object, "Subtype", &subtype), let subtype
-            {
-                isImage = String(cString: subtype) == "Image" && CGPDFDictionaryGetInteger(object, "BitsPerComponent", &bits) && bits >= 8
-            }
-            return false
-        }, nil)
-        return isImage
     }
 
     /// The crop box for one page. `rotation` swaps the ratio for pages displayed sideways.
@@ -153,25 +88,5 @@ public struct PDFPageTools: Sendable {
         } else {
             try FileManager.default.moveItem(at: staging, to: output)
         }
-    }
-
-    private func render(_ page: PDFPage, scale: Double, opaque: Bool) throws -> CGImage {
-        let bounds = page.bounds(for: .cropBox)
-        let sideways = (page.rotation % 180) != 0
-        let width = Int(((sideways ? bounds.height : bounds.width) * scale).rounded())
-        let height = Int(((sideways ? bounds.width : bounds.height) * scale).rounded())
-        guard width > 0, height > 0, width * height < 400_000_000,
-              let context = CGContext(
-                  data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
-                  space: CGColorSpace(name: CGColorSpace.sRGB)!,
-                  bitmapInfo: opaque ? CGImageAlphaInfo.noneSkipLast.rawValue : CGImageAlphaInfo.premultipliedLast.rawValue
-              )
-        else { throw EsclopError.other("Cannot render a \(width)x\(height) page") }
-        context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
-        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
-        context.scaleBy(x: scale, y: scale)
-        page.draw(with: .cropBox, to: context)
-        guard let image = context.makeImage() else { throw EsclopError.other("Cannot render page") }
-        return image
     }
 }

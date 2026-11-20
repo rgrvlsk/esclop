@@ -84,7 +84,7 @@ extension Fixture {
 
     /// A noisy HDR JPEG with a gain map, made with Core Image, big enough to fit under a size.
     @available(macOS 15, *)
-    static func hdrPhotoJPEG(_ url: URL) throws {
+    static func hdrPhotoJPEG(_ url: URL, properties: [String: Any] = [:]) throws {
         let photo = CIImage(cgImage: try gradient(width: 640, height: 480, deep: false, alpha: false, noise: true))
         let hdr = photo.applyingFilter("CIColorMatrix", parameters: [
             "inputRVector": CIVector(x: 3, y: 0, z: 0, w: 0), "inputGVector": CIVector(x: 0, y: 3, z: 0, w: 0),
@@ -92,7 +92,7 @@ extension Fixture {
         ])
         let sdr = hdr.applyingFilter("CIToneMapHeadroom", parameters: ["inputTargetHeadroom": 1.0])
         try CIContext().writeJPEGRepresentation(
-            of: sdr, to: url, colorSpace: CGColorSpace(name: CGColorSpace.displayP3)!,
+            of: sdr.settingProperties(properties), to: url, colorSpace: CGColorSpace(name: CGColorSpace.displayP3)!,
             options: [.hdrImage: hdr, CIImageRepresentationOption(rawValue: kCGImageDestinationLossyCompressionQuality as String): 1.0]
         )
     }
@@ -192,6 +192,41 @@ extension Inspect {
         #expect(Inspect.type(result.output) == .jpeg)
         #expect(try String(contentsOf: sibling, encoding: .utf8) == "an unrelated jpeg")
         #expect(world.backups.entries().map { $0.original.lastPathComponent } == ["photo.png"])
+    }
+
+    /// Stripping clears the camera and author tags of every type ImageIO re-encodes at the same
+    /// size, not only TIFF's: a HEIC, and an HDR JPEG whose gain map is carried across.
+    @Test func strippingClearsTheCameraTagsOfEveryType() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let tags: [CFString] = [
+            kCGImagePropertyTIFFMake, kCGImagePropertyTIFFModel, kCGImagePropertyTIFFArtist,
+            kCGImagePropertyTIFFCopyright, kCGImagePropertyTIFFDateTime,
+        ]
+        let values: [String] = ["Apple", "iPhone", "esclop test", "esclop", "2026:01:01 10:00:00"]
+        let tiff = Dictionary(uniqueKeysWithValues: zip(tags, values))
+        let gps: [CFString: Any] = [kCGImagePropertyGPSLatitude: 41.38, kCGImagePropertyGPSLatitudeRef: "N"]
+        let heic = world.file("camera.heic")
+        try Fixture.write(Fixture.gradient(width: 640, height: 480, deep: false, alpha: false, noise: true), to: heic, type: .heic, properties: [
+            kCGImageDestinationLossyCompressionQuality: 1.0, kCGImagePropertyTIFFDictionary: tiff, kCGImagePropertyGPSDictionary: gps,
+        ])
+        var files = [heic]
+        if #available(macOS 15, *) {
+            let jpeg = world.file("hdr.jpeg")
+            try Fixture.hdrPhotoJPEG(jpeg, properties: [
+                kCGImagePropertyTIFFDictionary as String: tiff, kCGImagePropertyGPSDictionary as String: gps,
+            ])
+            try #require(ImageInfo.probe(jpeg)?.hasGainMap == true)
+            files.append(jpeg)
+        }
+        func tiffTags(_ url: URL) -> [CFString: Any] { Inspect.properties(url)[kCGImagePropertyTIFFDictionary] as? [CFString: Any] ?? [:] }
+        for file in files {
+            try #require(tiffTags(file)[kCGImagePropertyTIFFMake] != nil, "\(file.lastPathComponent)")
+            let result = try await world.engine.optimise(file, request: world.request(file, location: .temporary), progress: { _ in })
+            #expect(Inspect.type(result.output) == Inspect.type(file))
+            for tag in tags { #expect(tiffTags(result.output)[tag] == nil, "\(file.lastPathComponent) \(tag)") }
+            #expect(Inspect.properties(result.output)[kCGImagePropertyGPSDictionary] == nil, "\(file.lastPathComponent)")
+        }
     }
 
     @Test func gainMapsFollowKeepHDR() async throws {

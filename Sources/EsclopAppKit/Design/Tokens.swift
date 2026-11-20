@@ -191,3 +191,20 @@ public enum Elevation {
     /// catches the edge, as macOS draws its own controls.
     public static func controlEdge(dark: Bool) -> Color { dark ? .white.opacity(0.10) : .black.opacity(0.06) }
 }
+
+/// With "Differentiate without colour" on (System Settings › Accessibility › Display), the aqua
+/// and amber states also carry a symbol, so work in progress and a decision to make do not rest
+/// on colour alone. Off, it draws nothing.
+struct StateMark: View {
+    enum Meaning { case working, decision }
+    let meaning: Meaning
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiate
+
+    var body: some View {
+        if differentiate {
+            Image(systemName: meaning == .working ? "hourglass" : "exclamationmark.circle.fill")
+                .foregroundStyle(meaning == .working ? AnyShapeStyle(Ink.text) : AnyShapeStyle(Ink.warm))
+                .accessibilityHidden(true)
+        }
+    }
+}

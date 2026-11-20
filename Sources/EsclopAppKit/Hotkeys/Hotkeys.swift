@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Global hotkeys, with Clop 3.5's default keys: Control-Shift-C optimises the clipboard,
-// Control-Shift-A optimises it harder. "Go to the newest result" has no key until one is set: it
-// gives the newest card the keys. People change them in Settings. There is no pause key:
+// Control-Shift-A optimises it harder. Control-Shift-N, "Go to the newest result", gives the
+// newest card the keys, so the keyboard alone reaches a result. "Show the last result" (Clop's `=`)
+// has no key until one is set. People change them in Settings. There is no pause key:
 // pausing is a setting (Settings, Shortcuts, the CLI), with no state of its own on screen.
 // A pipeline's `hotkey:` (front matter) runs that pipeline on the clipboard; those keys follow the
 // pipeline files and are registered again whenever they change.
@@ -14,7 +15,8 @@ import KeyboardShortcuts
 extension KeyboardShortcuts.Name {
     public static let optimiseClipboard = Self("optimiseClipboard", default: .init(.c, modifiers: [.control, .shift]))
     public static let optimiseClipboardHarder = Self("optimiseClipboardHarder", default: .init(.a, modifiers: [.control, .shift]))
-    public static let focusNewestResult = Self("focusNewestResult")
+    public static let focusNewestResult = Self("focusNewestResult", default: .init(.n, modifiers: [.control, .shift]))
+    public static let showLastResult = Self("showLastResult")
 }
 
 public enum Hotkeys {
@@ -23,6 +25,7 @@ public enum Hotkeys {
             (.optimiseClipboard, Strings.text("Optimise the clipboard")),
             (.optimiseClipboardHarder, Strings.text("Optimise the clipboard harder")),
             (.focusNewestResult, Strings.text("Go to the newest result")),
+            (.showLastResult, Strings.text("Show the last result")),
         ]
     }
 
@@ -32,6 +35,7 @@ public enum Hotkeys {
         switch name {
         case .optimiseClipboardHarder: return { $0.optimiseClipboardNow(aggressive: true) }
         case .focusNewestResult: return { $0.focusNewestResult() }
+        case .showLastResult: return { $0.showLastResult() }
         default: return { $0.optimiseClipboardNow(aggressive: false) }
         }
     }

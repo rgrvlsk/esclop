@@ -168,13 +168,13 @@ public struct MenuPanel: View {
                 }
                 Button(Strings.text("Show Backups in Finder"), action: run { model.reveal([model.service.context.locations.backups]) })
                 if let welcome = actions.welcome {
-                    Button(Strings.text("Welcome to L'Esclop…"), action: run(welcome))
+                    Button(Strings.text("Welcome to L’Esclop…"), action: run(welcome))
                 }
                 if let check = actions.checkForUpdates {
                     Button(Strings.text("Check for Updates…"), action: run(check))
                 }
                 Divider()
-                Button(Strings.text("Quit L'Esclop"), action: actions.quit).keyboardShortcut("q")
+                Button(Strings.text("Quit L’Esclop"), action: actions.quit).keyboardShortcut("q")
             } label: {
                 PillButton.face("gearshape", size: 30, glyph: 0.5)
             }
@@ -503,11 +503,14 @@ struct WorkingRow: View {
         let fraction: Double = if case let .working(value) = card.phase { max(0, value) } else { 0 }
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 5) {
-                Text(card.displayName ?? card.source.lastPathComponent)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Ink.text)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                HStack(spacing: 5) {
+                    StateMark(meaning: .working).font(.system(size: 12, weight: .semibold))
+                    Text(card.displayName ?? card.source.lastPathComponent)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Ink.text)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
                 ProgressBar(fraction: fraction)
             }
             Text(Strings.format("%d %%", Int((fraction * 100).rounded())))

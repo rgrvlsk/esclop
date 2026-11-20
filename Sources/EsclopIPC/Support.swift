@@ -486,10 +486,11 @@ extension EsclopError {
         case .cancelled: return "cancelled"
         case .notPermitted: return "notPermitted"
         case .invalidPipeline: return "invalidPipeline"
-        case .invalidArgument: return "invalidArgument"
+        // The fit cases came in later: they keep the codes they had as plain messages.
+        case .invalidArgument, .losslessCannotFit: return "invalidArgument"
         case .appNotRunning: return "appNotRunning"
         case .unreadable: return "unreadable"
-        case .other: return "other"
+        case .other, .cannotFit: return "other"
         }
     }
 }
