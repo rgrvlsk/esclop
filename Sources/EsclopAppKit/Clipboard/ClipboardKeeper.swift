@@ -29,14 +29,14 @@ final class ClipboardKeeper: @unchecked Sendable {
     private var ownRun: (from: Int, to: Int)?
     /// The last copy the clipboard watcher saw, with the app it came from.
     private var lastCopy: ClipboardCopy?
-    /// L'Esclop's last write of files, at its change count; any other write ends it.
-    private var lastFiles: (count: Int, files: [URL])?
-    /// What a copy at `count` gathers onto (`appendClipboardResults`): the files of L'Esclop's
-    /// last write, which the copy followed with no other copy seen in between.
+    /// L'Esclop's last write of files, at its change count, which the next copy gathers onto
+    /// (`appendClipboardResults`); any other write, or a second copy, ends it.
     // ponytail: two copies between two polls (0.5 s) look like one, so text copied just before an
-    // image does not stop the gathering. Clop also resets after 30 s of quiet; add that if people
-    // find old results in a paste.
-    private var gatherOnto: (count: Int, files: [URL])?
+    // image does not stop the gathering; nor does it when "Optimise Clipboard" runs on the image
+    // before the watcher's next poll. Clop also resets after 30 s of quiet; add that if people
+    // find old results in a paste. Several files go back without pixels (`Clipboard.write`), so
+    // an app that pastes only pixels gets nothing once a second result gathers.
+    private var lastFiles: (count: Int, files: [URL])?
 
     /// An automatic write just made, which went over change `before`.
     private func continued(from before: Int) {
@@ -65,8 +65,8 @@ final class ClipboardKeeper: @unchecked Sendable {
     func hold(_ files: [URL], at count: Int, gathering: Bool = false) {
         if let held, held.count > count { return }
         var before: [URL] = []
-        if gathering, let gatherOnto, gatherOnto.count == count {
-            before = gatherOnto.files.filter { !files.contains($0) && FileManager.default.fileExists(atPath: $0.path) }
+        if gathering, let own = lastFiles, count > own.count {
+            before = own.files.filter { !files.contains($0) && FileManager.default.fileExists(atPath: $0.path) }
         }
         held = (count, before + files)
     }
@@ -142,11 +142,8 @@ final class ClipboardKeeper: @unchecked Sendable {
 
     /// The clipboard watcher saw `copy` (every copy, also one it left alone).
     func noteCopy(_ copy: ClipboardCopy) {
-        if let own = lastFiles, copy.changeCount > own.count, (lastCopy?.changeCount ?? own.count) <= own.count {
-            gatherOnto = (copy.changeCount, own.files)
-        } else {
-            gatherOnto = nil
-        }
+        // A second copy since L'Esclop's last write: nothing gathers onto that write any more.
+        if let own = lastFiles, let last = lastCopy, last.changeCount > own.count { lastFiles = nil }
         lastCopy = copy
     }
 

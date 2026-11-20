@@ -35,21 +35,25 @@ extension AppModel {
             }
         case let .optimiseAddress(address, copy):
             let triggered = pipelines(for: .clipboard)
-            Task { await optimiseAddress(address, aggressive: false, copy: copy, pipeline: { Self.first(of: triggered, for: $0) }) }
+            Task { await optimiseAddress(address, aggressive: false, automatic: true, copy: copy, pipeline: { Self.first(of: triggered, for: $0) }) }
         }
     }
 
     /// A copied web address of media: downloaded (`WebDownload.fetch`, with its limits), then
     /// optimised as a copied file, so its result goes back on the clipboard while the clipboard
     /// still holds the address. A refused download is a notice, as a refused drop is; the
-    /// watcher sees each copy once, so it is never tried again on its own.
-    func optimiseAddress(_ address: URL, aggressive: Bool, copy: ClipboardCopy, pipeline: @escaping (URL) -> Pipeline?) async {
+    /// watcher sees each copy once, so it is never tried again on its own. `automatic` (the
+    /// watcher's copy) applies a copied file's rules to the download: its kind, size and mark.
+    // ponytail: nothing shows while it downloads and it cannot be stopped; a large video (up to
+    // `WebDownload.largest`) takes minutes. Show a working card from the start if people wait on one.
+    func optimiseAddress(_ address: URL, aggressive: Bool, automatic: Bool = false, copy: ClipboardCopy, pipeline: @escaping (URL) -> Pipeline?) async {
         let file: URL
         do {
             file = try await download(address)
         } catch {
             return notice(Strings.text("Could not download the copied address"), CardPresentation.message(for: error))
         }
+        if automatic, factory.automaticSkip(for: file) != nil { return }
         if WebDownload.isInsecure(address) {
             notice(Strings.format("%@ came over insecure http", file.lastPathComponent), Strings.text("It may have been changed on the way."))
         }

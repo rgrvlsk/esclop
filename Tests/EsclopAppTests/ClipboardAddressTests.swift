@@ -112,7 +112,7 @@ final class FakeDownload: @unchecked Sendable {
 
     @Test func aCopiedAddressIsDownloadedAndItsResultGoesBack() async throws {
         let harness = Harness()
-        let fake = FakeDownload(file: harness.temp.png("cove.png"))
+        let fake = FakeDownload(file: harness.temp.file("cove.png"))
         harness.model.download = { try fake.fetch($0) }
         let address = try #require(URL(string: "https://example.com/cove.png"))
         harness.model.handleClipboard(.optimiseAddress(address, copy(address.absoluteString, on: harness)))
@@ -127,7 +127,7 @@ final class FakeDownload: @unchecked Sendable {
 
     @Test func somethingCopiedDuringTheDownloadStays() async throws {
         let harness = Harness()
-        let file = harness.temp.png("cove.png")
+        let file = harness.temp.file("cove.png")
         let pasteboard = harness.pasteboard
         // The person copies a note while the address downloads.
         harness.model.download = { _ in
@@ -142,6 +142,21 @@ final class FakeDownload: @unchecked Sendable {
         #expect(await eventually { harness.model.cards.first?.result != nil })
         await harness.clipboardSettles()
         #expect(harness.pasteboard.string(forType: .string) == "a note")
+    }
+
+    @Test func aDownloadFollowsACopiedFilesRules() async throws {
+        let harness = Harness()
+        // Below `minImageSizeKB`, and a PDF the address did not name (`Content-Disposition`).
+        for file in [harness.temp.file("icon.png", bytes: 5_000), harness.temp.file("report.pdf")] {
+            let fake = FakeDownload(file: file)
+            harness.model.download = { try fake.fetch($0) }
+            let address = try #require(URL(string: "https://example.com/photo.png"))
+            await harness.model.optimiseAddress(address, aggressive: false, automatic: true, copy: copy(address.absoluteString, on: harness), pipeline: { _ in nil })
+            #expect(fake.addresses == [address])
+        }
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(harness.model.cards.isEmpty)
+        #expect(harness.requests.requests.isEmpty)
     }
 
     @Test func aRefusedDownloadIsANoticeOnce() async throws {
