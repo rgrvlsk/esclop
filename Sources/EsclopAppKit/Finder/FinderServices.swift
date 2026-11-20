@@ -25,6 +25,8 @@ final class FinderServices: NSObject {
     let pipelines: () -> [Pipeline]
     /// Shows the pipeline choice; a menu at the pointer in the app, recorded in tests.
     var choosePipeline: @MainActor ([Pipeline], @escaping (Pipeline) -> Void) -> Void = FinderServices.popUpMenu
+    /// Asks the question and says whether to go on; an alert in the app, recorded in tests.
+    var confirm: @MainActor (_ question: String, _ button: String) -> Bool = FinderServices.ask
 
     init(model: AppModel, pipelines: @escaping () -> [Pipeline]) {
         self.model = model
@@ -67,6 +69,7 @@ final class FinderServices: NSObject {
         guard !media.isEmpty else {
             return model.notice(Strings.text("Nothing to optimise"), Strings.text("Choose images, videos, PDFs or audio files in Finder."))
         }
+        guard confirmed(action, media, in: files) else { return }
         switch action {
         case .optimise:
             model.optimise(media, origin: .finder)
@@ -94,6 +97,33 @@ final class FinderServices: NSObject {
                 choosePipeline(offered) { [weak self] pipeline in self?.run(pipeline, on: media) }
             }
         }
+    }
+
+    /// A folder can hold far more than the person had in mind, and the files change in place:
+    /// past the batch threshold, ask once. A selection of files only goes ahead as it is.
+    func confirmed(_ action: Action, _ media: [URL], in selection: [URL]) -> Bool {
+        let folders = selection.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true }
+        let count = action == .convertToWebP ? media.filter { MediaKind.of($0) == .image }.count : media.count
+        guard !folders.isEmpty, count > model.batchThreshold else { return true }
+        let place = folders.count == 1 ? folders[0].lastPathComponent : Strings.format("%d folders", folders.count)
+        switch action {
+        case .optimise, .optimiseHarder:
+            return confirm(Strings.format("Optimise %d files in %@?", count, place), Strings.text("Optimise"))
+        case .convertToWebP:
+            return confirm(Strings.format("Convert %d images in %@ to WebP?", count, place), Strings.text("Convert"))
+        case .runPipeline:
+            return confirm(Strings.format("Run a pipeline on %d files in %@?", count, place), Strings.text("Continue"))
+        }
+    }
+
+    static func ask(_ question: String, button: String) -> Bool {
+        let alert = NSAlert()
+        alert.messageText = question
+        alert.informativeText = Strings.text("Every image, video, PDF and audio file inside, subfolders included.")
+        alert.addButton(withTitle: button)
+        alert.addButton(withTitle: Strings.text("Cancel"))
+        NSApp.activate()
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     /// Like a plain Finder optimisation: floating results, or the batch window from

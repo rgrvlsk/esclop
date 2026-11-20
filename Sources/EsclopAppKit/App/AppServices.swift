@@ -166,9 +166,13 @@ public final class AppServices {
         log.info("L'Esclop \(EsclopVersion.string, privacy: .public) is running")
     }
 
-    /// Handles `esclop://` links: `esclop://settings/...` opens the Settings window there.
+    /// Handles `esclop://` links (`esclop://settings/...` opens the Settings window there) and
+    /// files: Open With and a drop on the app's icon (Info.plist's document types) optimise
+    /// them as a drop on the drop zone does.
     public func open(_ urls: [URL]) {
-        for url in urls where !settingsWindow.open(url) && !pipelinesWindow.open(url) && !compareWindow.open(url) && !dropZone.open(url) {
+        let files = urls.filter(\.isFileURL)
+        if !files.isEmpty { model.optimiseDropped(files, harder: false) }
+        for url in urls where !url.isFileURL && !settingsWindow.open(url) && !pipelinesWindow.open(url) && !compareWindow.open(url) && !dropZone.open(url) {
 
             log.info("Ignored a link L'Esclop does not handle: \(url.absoluteString, privacy: .private)")
         }

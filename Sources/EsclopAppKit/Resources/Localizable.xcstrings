@@ -471,6 +471,16 @@
         }
       }
     },
+    "%d folders": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d carpetes"
+          }
+        }
+      }
+    },
     "%d min left": {
       "localizations": {
         "ca": {
@@ -2261,6 +2271,16 @@
         }
       }
     },
+    "Convert %d images in %@ to WebP?": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vols convertir a WebP %d imatges de %@?"
+          }
+        }
+      }
+    },
     "Convert Files": {
       "localizations": {
         "ca": {
@@ -3187,6 +3207,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tots els fitxers"
+          }
+        }
+      }
+    },
+    "Every image, video, PDF and audio file inside, subfolders included.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Totes les imatges, vídeos, PDF i fitxers d’àudio que hi ha a dins, subcarpetes incloses."
           }
         }
       }
@@ -5571,6 +5601,16 @@
         }
       }
     },
+    "Optimise %d files in %@?": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vols optimitzar %d fitxers de %@?"
+          }
+        }
+      }
+    },
     "Optimise Clipboard": {
       "localizations": {
         "ca": {
@@ -7077,6 +7117,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Executa un pipeline"
+          }
+        }
+      }
+    },
+    "Run a pipeline on %d files in %@?": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vols executar un pipeline amb %d fitxers de %@?"
           }
         }
       }
