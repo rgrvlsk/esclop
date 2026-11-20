@@ -8,6 +8,7 @@
 import AppKit
 import EsclopCore
 import Foundation
+import ImageIO
 import UniformTypeIdentifiers
 
 public enum ClipboardContent: Sendable, Equatable {
@@ -42,8 +43,9 @@ public enum Clipboard {
         pasteboard.types?.contains(optimisedType) ?? false
     }
 
-    /// What is on the pasteboard, most specific first: files, image data, a path, base64.
-    public static func read(_ pasteboard: NSPasteboard = .general) -> ClipboardContent {
+    /// What is on the pasteboard, most specific first: files, image data, a path, base64. Without
+    /// `text`, copied text is not read at all (it can be long, and is often not wanted).
+    public static func read(_ pasteboard: NSPasteboard = .general, text readsText: Bool = true) -> ClipboardContent {
         if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL],
            !urls.isEmpty
         {
@@ -54,7 +56,7 @@ public enum Clipboard {
                 return .image(data, utType)
             }
         }
-        if let text = pasteboard.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
+        if readsText, let text = pasteboard.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
             if let image = decodeBase64Image(text) {
                 return .base64Image(image.data, image.type)
             }
@@ -87,8 +89,13 @@ public enum Clipboard {
         }
     }
 
+    /// Above this many pixels a single image goes back without its TIFF form: decoding it takes
+    /// long and the TIFF is huge (a 24 MP JPEG makes 70-95 MB). The file and its own type remain.
+    static let tiffPixelLimit = 8_000_000
+
     /// Puts files back: the file URLs, plus the image bytes for a single image so apps that only
-    /// paste pixels (chat, mail) get the optimised image too.
+    /// paste pixels (chat, mail) get the optimised image too. It reads and can decode the image:
+    /// call it off the main thread.
     public static func write(files urls: [URL], to pasteboard: NSPasteboard = .general) {
         pasteboard.clearContents()
         let items: [NSPasteboardItem] = urls.map { url in
@@ -100,7 +107,9 @@ public enum Clipboard {
                let data = try? Data(contentsOf: url)
             {
                 item.setData(data, forType: NSPasteboard.PasteboardType(type.identifier))
-                if type != .png, type != .tiff, let image = NSImage(data: data), let tiff = image.tiffRepresentation {
+                if type != .png, type != .tiff, pixels(in: data) <= tiffPixelLimit,
+                   let image = NSImage(data: data), let tiff = image.tiffRepresentation
+                {
                     // Apps that only read TIFF still get pixels; they read the original type first.
                     item.setData(tiff, forType: .tiff)
                 }
@@ -108,6 +117,15 @@ public enum Clipboard {
             return item
         }
         pasteboard.writeObjects(items)
+    }
+
+    /// Width times height of the first image in `data`, read from its header; `Int.max` when unknown.
+    static func pixels(in data: Data) -> Int {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int, let height = properties[kCGImagePropertyPixelHeight] as? Int
+        else { return .max }
+        return width * height
     }
 
     /// Puts image bytes back without a file (for pasting into apps that take pixels).
