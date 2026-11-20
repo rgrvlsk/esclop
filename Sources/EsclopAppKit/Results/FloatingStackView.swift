@@ -15,7 +15,7 @@ struct FloatingStackView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// The cards measure where they are from here (`FloatingResultView`'s pointer rest).
-    static let space = "FloatingStack"
+    nonisolated static let space = "FloatingStack"
 
     private var menuOpen: Bool {
         model.visibleCards.contains { $0.machine.detailMenuOpen }

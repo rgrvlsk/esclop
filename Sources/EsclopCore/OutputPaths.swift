@@ -153,6 +153,8 @@ public extension StagedFiles {
     static func removeLeftovers(in folder: URL, now: Date = Date()) {
         let fm = FileManager.default
         guard let names = try? fm.contentsOfDirectory(atPath: folder.path) else { return }
+        // A local regex: a static one is not Sendable, which the strict concurrency check rejects.
+        let leftover = #/\.(.+\.)?esclop-(restore-)?[0-9A-F]{8}/#
         for name in names where name.hasPrefix(".") && name.wholeMatch(of: leftover) != nil {
             let url = folder.appendingPathComponent(name)
             guard let changed = (try? url.resourceValues(forKeys: [.attributeModificationDateKey]))?.attributeModificationDate,
@@ -160,8 +162,6 @@ public extension StagedFiles {
             try? fm.removeItem(at: url)
         }
     }
-
-    private static let leftover = #/\.(.+\.)?esclop-(restore-)?[0-9A-F]{8}/#
 }
 
 public extension CropSize {

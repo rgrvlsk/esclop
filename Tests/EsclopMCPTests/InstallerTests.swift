@@ -512,6 +512,20 @@ import Testing
         #expect(installer.isPresent(claude) && installer.isPresent(desktop) && installer.isPresent(gemini))
     }
 
+    /// Antigravity's app and its `agy` CLI share one config file: either one finds it.
+    @Test func antigravityIsFoundByItsAppOrItsCLI() throws {
+        let agent = try #require(AgentCatalog.agent("agy"))
+        #expect(agent.id == "antigravity" && agent.configPaths == ["~/.gemini/config/mcp_config.json"])
+        let byApp = TempDir(), byCLI = TempDir()
+        #expect(!installer(byApp).isPresent(agent))
+        try FileManager.default.createDirectory(at: byApp.url.appendingPathComponent("Applications/Antigravity.app"), withIntermediateDirectories: true)
+        #expect(installer(byApp).isPresent(agent))
+        let agy = byCLI.file("bin/agy")
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: agy.path)
+        #expect(installer(byCLI).isPresent(agent))
+        #expect(AgentCatalog.agent("kimi-code")?.configPaths == ["~/.kimi-code/mcp.json"])
+    }
+
     @Test func aliasesResolve() {
         #expect(AgentCatalog.agent("claude")?.id == "claude-code")
         #expect(AgentCatalog.agent("ChatGPT")?.id == "codex")

@@ -52,7 +52,12 @@ final class FakeEngine: OptimisationEngine, @unchecked Sendable {
                                   startedAt: Date(), finishedAt: Date(), steps: [call])
     }
 
-    func optimise(_ source: URL, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { record("optimise", source, request) }
+    func optimise(_ source: URL, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult {
+        // Halfway, then unknown (-1), as an engine reports a long file.
+        progress(OptimisationProgress(requestID: request.id, source: source, fraction: 0.5))
+        progress(OptimisationProgress(requestID: request.id, source: source, fraction: -1))
+        return record("optimise", source, request)
+    }
     func convert(_ source: URL, to format: OutputFormat, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { record("convert:\(format.rawValue)", source, request) }
     func downscale(_ source: URL, factor: Double, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { record("downscale:\(factor)", source, request) }
     func crop(_ source: URL, to size: CropSize, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { record("crop", source, request) }

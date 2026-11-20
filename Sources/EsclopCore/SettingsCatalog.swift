@@ -61,7 +61,7 @@ public enum EsclopSettings {
     )
     public static let keepHDR = Setting<Bool>(
         "keepHDR", default: true, title: "Keep HDR",
-        description: "Keep HDR gain maps and HDR video when the output format can carry them. Off makes photos SDR and video 8-bit, without tone mapping.",
+        description: "Keep HDR gain maps and HDR video when the output format can carry them. Off makes photos SDR; HDR video stays HDR, as this build cannot convert it to SDR.",
         section: .general
     )
 
@@ -417,6 +417,11 @@ public enum EsclopSettings {
         "optimiseImagePathClipboard", default: false, title: "Optimise copied image paths",
         description: "When a copied text is the path of an image file, optimise that file.", section: .clipboard
     )
+    public static let optimiseURLClipboard = Setting<Bool>(
+        "optimiseURLClipboard", default: true, title: "Download copied web addresses",
+        description: "When a copied text is the web address of an image, video, PDF or audio file, download and optimise it. Other links are never opened.",
+        section: .clipboard
+    )
     public static let clipboardIgnoredAppBundleIds = Setting<[String]>(
         "clipboardIgnoredAppBundleIds", default: [], title: "Ignored apps",
         description: "Bundle identifiers of apps whose copies are never optimised.", section: .clipboard
@@ -430,6 +435,11 @@ public enum EsclopSettings {
     public static let autoCopyToClipboard = Setting<Bool>(
         "autoCopyToClipboard", default: true, title: "Copy results to the clipboard",
         description: "Put the optimised file back on the clipboard after optimising a copied one.",
+        section: .clipboard
+    )
+    public static let appendClipboardResults = Setting<Bool>(
+        "appendClipboardResults", default: false, title: "Gather clipboard results",
+        description: "Add each new result to the files L'Esclop last put on the clipboard, so one paste gives them all.",
         section: .clipboard
     )
 
@@ -565,8 +575,8 @@ public enum EsclopSettings {
         convertedAudioBehaviour.erased, sameFolderNameTemplate.erased, specificFolderTemplate.erased,
         backupRetentionDays.erased,
         enableClipboardOptimiser.erased, optimiseVideoClipboard.erased, optimisePDFClipboard.erased,
-        optimiseAudioClipboard.erased, optimiseImagePathClipboard.erased, clipboardIgnoredAppBundleIds.erased,
-        clipboardRules.erased, autoCopyToClipboard.erased,
+        optimiseAudioClipboard.erased, optimiseImagePathClipboard.erased, optimiseURLClipboard.erased,
+        clipboardIgnoredAppBundleIds.erased, clipboardRules.erased, autoCopyToClipboard.erased, appendClipboardResults.erased,
         pauseAutomaticOptimisations.erased, enableAutomaticImageOptimisations.erased,
         enableAutomaticVideoOptimisations.erased, enableAutomaticPDFOptimisations.erased,
         enableAutomaticAudioOptimisations.erased, imageDirs.erased, videoDirs.erased, pdfDirs.erased, audioDirs.erased,

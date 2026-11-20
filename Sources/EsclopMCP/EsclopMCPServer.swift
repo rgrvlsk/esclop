@@ -119,24 +119,38 @@ public struct EsclopMCPServer: Sendable {
             ListTools.Result(tools: ToolCatalog.all.map(\.tool))
         }
 
-        await server.withMethodHandler(CallTool.self) { params in
+        await server.withMethodHandler(CallTool.self) { [weak server] params in
             await inFlight.enter()
             defer { Task { await inFlight.leave() } }
             guard let spec = ToolCatalog.byName[params.name] else {
                 return ToolOutput("Unknown tool \(params.name). Tools: \(ToolCatalog.all.map(\.tool.name).joined(separator: ", "))", isError: true).result
             }
-            let call = ToolCall(
+            var call = ToolCall(
                 name: params.name, arguments: ToolArguments(params.arguments), service: service,
                 elicitor: elicitor, client: await client.current
             )
+            // A client that sent a progress token hears how the job goes, in order, and nothing
+            // after the result: a long video then does not hit the client's timeout.
+            let (updates, sink) = AsyncStream<ProgressNotification.Parameters>.makeStream()
+            var sender: Task<Void, Never>?
+            if let token = params._meta?.progressToken {
+                call.progress = { progress, total, message in
+                    sink.yield(.init(progressToken: token, progress: progress, total: total, message: message))
+                }
+                sender = Task { for await update in updates { try? await server?.notify(ProgressNotification.message(update)) } }
+            }
+            let output: ToolOutput
             do {
-                return try await spec.run(call).result
+                output = try await spec.run(call)
             } catch let failure as ToolFailure {
-                return ToolOutput(failure.message, structured: ["error": .string(failure.message), "code": .string(failure.code)], isError: true).result
+                output = ToolOutput(failure.message, structured: ["error": .string(failure.message), "code": .string(failure.code)], isError: true)
             } catch {
                 let wrapped = EsclopError.wrap(error)
-                return ToolOutput(wrapped.description, structured: ["error": .string(wrapped.description), "code": .string(wrapped.code)], isError: true).result
+                output = ToolOutput(wrapped.description, structured: ["error": .string(wrapped.description), "code": .string(wrapped.code)], isError: true)
             }
+            sink.finish()
+            await sender?.value
+            return output.result
         }
 
         await server.withMethodHandler(ListResources.self) { _ in

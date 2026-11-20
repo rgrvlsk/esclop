@@ -29,11 +29,15 @@ import Testing
             #expect(service["NSPortName"] as? String == "L'Esclop", "the port is the app's name")
             #expect(service["NSRequiredContext"] != nil, "shown for files in Finder")
             let types = try #require(service["NSSendFileTypes"] as? [String])
+            // Folders too: `handle` takes the media files inside them.
             if message == "convertFilesToWebP" {
-                #expect(types == ["public.image"], "only images convert to WebP")
+                #expect(types == ["public.image", "public.folder"], "only images convert to WebP")
             } else {
-                #expect(Set(types) == ["public.image", "public.movie", "public.audio", "com.adobe.pdf"], "only the kinds L'Esclop handles")
+                #expect(Set(types) == ["public.image", "public.movie", "public.audio", "com.adobe.pdf", "public.folder"], "only the kinds L'Esclop handles")
             }
+            // Clop's key for its Optimise service, so the habit carries over; the others have none.
+            let key = (service["NSKeyEquivalent"] as? [String: String])?["default"]
+            #expect(key == (message == "optimiseFiles" ? "^O" : nil), "\(message)")
         }
     }
 
@@ -57,6 +61,16 @@ import Testing
         services.handle(.optimiseHarder, files: [harness.temp.file("b.png")])
         #expect(await eventually { harness.requests.requests.count == 2 })
         #expect(harness.requests.requests[1].quality == .aggressive)
+    }
+
+    @Test func aFolderBringsTheMediaInside() async throws {
+        let harness = Harness()
+        let services = FinderServices(model: harness.model, pipelines: { [] })
+        let image = harness.temp.file("shots/inner/a.png")
+        _ = harness.temp.file("shots/notes.txt")
+        services.handle(.optimise, files: [image.deletingLastPathComponent().deletingLastPathComponent()])
+        #expect(await eventually { harness.requests.requests.count == 1 })
+        #expect(harness.requests.requests[0].sources.map(\.lastPathComponent) == ["a.png"], "the text file is left out")
     }
 
     @Test func manyFilesGoToTheBatchWindow() async throws {

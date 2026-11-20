@@ -141,6 +141,7 @@ public struct AppClient: Sendable {
         case timedOut
     }
 
+    /// Sendable by hand: `value` is behind `lock`.
     private final class Flag: @unchecked Sendable {
         private let lock = NSLock()
         private var value = false

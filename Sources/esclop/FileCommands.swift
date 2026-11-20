@@ -7,6 +7,8 @@ import ArgumentParser
 import EsclopCore
 import EsclopIPC
 import EsclopMCP
+import struct EsclopOptimisers.EsclopEngine
+import enum EsclopPipelines.PageImageFormat
 import Foundation
 
 struct Optimise: AsyncParsableCommand {
@@ -94,10 +96,18 @@ extension OutputFormat: ExpressibleByArgument {
         self = format
     }
 
-    public static var allValueStrings: [String] { allCases.map(\.rawValue) }
+    /// The help lists what esclop writes: JPEG XL is still accepted, for its clear error.
+    public static var allValueStrings: [String] { allCases.filter { $0 != .jxl }.map(\.rawValue) }
 }
 
 extension MediaKind: ExpressibleByArgument {}
+
+extension PageImageFormat: ExpressibleByArgument {
+    public init?(argument: String) {
+        guard let format = OutputFormat(argument: argument), let page = PageImageFormat(rawValue: format.rawValue) else { return nil }
+        self = page
+    }
+}
 
 struct Downscale: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
@@ -295,8 +305,8 @@ struct PDF: AsyncParsableCommand {
         @Option(help: "Pages to export: 1,3-5. Default all.")
         var pages: String?
 
-        @Option(help: "png or jpeg.")
-        var format: OutputFormat = .png
+        @Option(help: "Default: jpeg for a page that is one photo, else png.")
+        var format: PageImageFormat?
 
         @Option(help: "Resolution, 72 is the page's point size.")
         var dpi: Double = 144
@@ -307,7 +317,6 @@ struct PDF: AsyncParsableCommand {
         @OptionGroup var global: GlobalOptions
 
         func validate() throws {
-            guard format == .png || format == .jpeg else { throw ValidationError("--format is png or jpeg.") }
             if let pages { _ = try Self.parsePages(pages) }
         }
 
@@ -327,7 +336,11 @@ struct PDF: AsyncParsableCommand {
                 let source = try PathInput.url(pdf)
                 let folder = try output.map { try PathInput.url($0) }
                     ?? source.deletingLastPathComponent().appendingPathComponent(source.deletingPathExtension().lastPathComponent + " pages", isDirectory: true)
-                let written = try PDFPageTools().exportPages(source, pages: try pages.map(Self.parsePages), format: format, dpi: dpi, into: folder)
+                let written = try PDFPageTools().exportPages(
+                    source, pages: try pages.map(Self.parsePages), format: format.map { $0 == .jpeg ? .jpeg : .png }, dpi: dpi, into: folder
+                )
+                let engine = EsclopEngine()
+                for page in written { await engine.optimiseNewImage(page) }
                 let bytes = written.reduce(0) { $0 + PageExport.size(of: $1) }
                 if global.json {
                     Output.json(PageExport(source: source.path, pages: written.map(\.path), bytes: bytes))
