@@ -265,12 +265,16 @@ struct ImageEngine: Sendable {
 
         let output = work.file(stem: "optimised", ext: target.fileExtension)
         var reply: EngineReply?
+        var primaryIsSource = false
         do {
             reply = try await encode(input, inputFormat: inputFormat, to: output, target: target, curves: curves, strip: strip, work: work, report: report)
             steps.append(reply?.raw["lossy"] == .bool(false) ? "Optimised without loss" : encodeStep(target, curves: curves))
         } catch EsclopError.alreadySmaller where input != source && inputFormat == target {
             // The optimiser could not beat the resized intermediate; that file is the answer.
             try FileManager.default.copyItem(at: input, to: output)
+        } catch EsclopError.alreadySmaller where input == source && alternative != nil {
+            // The source stays the answer in its format; the alternative may still beat it.
+            primaryIsSource = true
         }
 
         if !strip, input != source, target == .jpeg || target == .png {
@@ -285,7 +289,7 @@ struct ImageEngine: Sendable {
             // would apply the loss twice.
             let candidate = work.file(stem: "adaptive", ext: alternative.fileExtension)
             if (try? await encode(input, inputFormat: inputFormat, to: candidate, target: alternative, curves: curves, strip: strip, work: work, report: { _ in })) != nil,
-               fileSize(output) - fileSize(candidate) > 100_000
+               fileSize(primaryIsSource ? source : output) - fileSize(candidate) > 100_000
             {
                 if !strip, input != source { ImageIOCodec.copyMetadata(from: source, to: candidate) }
                 let names = (alternative.rawValue.uppercased(), target.rawValue.uppercased())
@@ -294,6 +298,7 @@ struct ImageEngine: Sendable {
                 produced.steps.append("\(names.0) was smaller than \(names.1), kept \(names.0)")
             }
         }
+        if primaryIsSource, produced.url == output { throw EsclopError.alreadySmaller }
         // Crops, resizes and conversions lose the density: a 144 dpi screenshot or a 300 dpi
         // print keeps the size it shows and prints at.
         if [.png, .jpeg].contains(OutputFormat.of(url: produced.url)), let dpi = ImageInfo.probe(produced.url)?.dpi, abs(dpi - info.dpi) >= 0.5 {
