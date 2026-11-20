@@ -239,6 +239,38 @@ func rejects(_ arguments: [String]) -> Bool {
         #expect(code([.alreadySmaller], results: 1) == 0)
         #expect(code([.alreadySmaller, .fileNotFound("/x/c.png")]) == 1)
         #expect(code([.fileNotFound("/x/c.png")]) == 66)
+        // `-o photo.jpg --to webp`: wrong for every file is a usage error.
+        #expect(code([.invalidArgument("photo.jpg ends in .jpg, but the result is .webp")]) == 64)
+        #expect(code([.invalidArgument("x"), .toolMissing("ffmpeg")]) == 1)
+        #expect(code([.invalidArgument("x")], results: 1) == 1)
+    }
+
+    /// `esclop restore` on a file with no recent result names the CLI's list, not the MCP tool,
+    /// and exits 1 (nothing to put back is not a usage error); the JSON code stays.
+    @Test func restoringAnUnknownFileNamesEsclopRecent() throws {
+        // An empty support folder of its own: no recent results, and the person's log is not read.
+        let support = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-restore-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: support) }
+        func run(_ arguments: [String]) throws -> (Int32, String) {
+            let process = Process()
+            process.executableURL = try esclopBinary()
+            process.arguments = arguments
+            process.environment = ProcessInfo.processInfo.environment.merging(["ESCLOP_NO_APP": "1", "ESCLOP_SUPPORT_DIR": support.path]) { $1 }
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = pipe
+            try process.run()
+            let output = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            process.waitUntilExit()
+            return (process.terminationStatus, output)
+        }
+        let unknown = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-never-\(UUID().uuidString).png").path
+        let (status, output) = try run(["restore", "--no-color", unknown])
+        #expect(status == 1, "\(output)")
+        #expect(output.contains("`esclop recent`") && !output.contains("esclop_recent_results"), "\(output)")
+        let (jsonStatus, json) = try run(["restore", "--json", unknown])
+        #expect(jsonStatus == 1 && json.contains("\"invalidArgument\""), "\(json)")
     }
 
     /// Exit 65 when every file was unreadable, through the real binary: the per-file path, which

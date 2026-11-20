@@ -104,6 +104,8 @@ enum Output {
         if nothingDone, failures.allSatisfy({ $0.code == "fileNotFound" }) { return 66 }
         if nothingDone, failures.allSatisfy({ $0.code == "toolMissing" }) { return 69 }
         if nothingDone, failures.allSatisfy({ $0.code == "unreadable" }) { return 65 }
+        // `-o photo.jpg --to webp`, a video to WebP: the request was wrong for every file (usage).
+        if nothingDone, failures.allSatisfy({ $0.code == "invalidArgument" }) { return 64 }
         return 1
     }
 

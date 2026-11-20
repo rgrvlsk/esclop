@@ -135,11 +135,16 @@ public enum AgentCatalog {
                         container: ["mcpServers"], style: .typedStdio, homeEvidence: ["~/.factory"], apps: [], binaries: ["droid"]),
         AgentDefinition(id: "qwen", name: "Qwen Code", configPaths: ["~/.qwen/settings.json"], format: .json,
                         container: ["mcpServers"], style: .standard, homeEvidence: ["~/.qwen"], apps: [], binaries: ["qwen"]),
+        // One file for the Antigravity app and its `agy` CLI.
+        AgentDefinition(id: "antigravity", name: "Antigravity", configPaths: ["~/.gemini/config/mcp_config.json"], format: .json,
+                        container: ["mcpServers"], style: .standard, homeEvidence: ["~/.gemini/antigravity"], apps: ["Antigravity.app"], binaries: ["agy"]),
+        AgentDefinition(id: "kimi", name: "Kimi Code", configPaths: ["~/.kimi-code/mcp.json"], format: .json,
+                        container: ["mcpServers"], style: .standard, homeEvidence: ["~/.kimi-code"], apps: [], binaries: ["kimi"]),
     ]
 
     public static func agent(_ id: String) -> AgentDefinition? {
         let key = id.lowercased()
-        let aliases = ["claude": "claude-code", "chatgpt": "codex", "codex-cli": "codex", "github-copilot": "copilot", "copilot-cli": "copilot", "gemini-cli": "gemini", "code": "vscode", "devin": "windsurf"]
+        let aliases = ["claude": "claude-code", "chatgpt": "codex", "codex-cli": "codex", "github-copilot": "copilot", "copilot-cli": "copilot", "gemini-cli": "gemini", "code": "vscode", "devin": "windsurf", "agy": "antigravity", "kimi-code": "kimi"]
         return all.first { $0.id == (aliases[key] ?? key) }
     }
 }
