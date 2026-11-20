@@ -45,19 +45,33 @@ final class OriginalsModel {
     nonisolated static func items(_ entries: [BackupEntry], log: ResultsLog) -> [OriginalItem] {
         // ponytail: the whole log, once per load; it keeps eight days of results.
         let logged = Dictionary(log.recent(limit: .max).compactMap { result in result.backup.map { ($0.standardizedFileURL.path, result) } }, uniquingKeysWith: { newest, _ in newest })
+        let cleared = log.savings().filter { $0.redacted == true }
         return entries.map { entry in
+            if let result = logged[entry.backup.standardizedFileURL.path] {
+                return OriginalItem(entry: entry, result: result, inPlace: isInPlace(entry))
+            }
             let output = entry.output ?? entry.original
-            // ponytail: a rebuilt result has no logged id, so restoring it does not withdraw the
-            // cleared line from the saving totals; the manifest would need the result id for that.
-            let result = logged[entry.backup.standardizedFileURL.path] ?? OptimisationResult(
-                id: entry.id, source: entry.original, output: output, backup: entry.backup, kind: MediaKind.of(entry.original) ?? .image,
-                // Done when the backup was made: anything at the path changed after that goes to
-                // the Trash on restore. A backup with no output named (a file a template's output
-                // replaced) matches no size, so what is there always goes to the Trash.
-                // ponytail: its restored card then calls that file an edited version; give the
-                // no-output case its own words if templates overwriting files get common.
-                bytesBefore: entry.bytes, bytesAfter: entry.output == nil ? -1 : AppModel.size(of: output),
-                startedAt: entry.createdAt, finishedAt: entry.createdAt,
+            let kind = MediaKind.of(entry.original) ?? .image
+            // A backup with no output named (a file a template's output replaced) matches no
+            // size, so what is there always goes to the Trash. ponytail: its restored card then
+            // calls that file an edited version; give the no-output case its own words if
+            // templates overwriting files get common.
+            let bytesAfter = entry.output == nil ? -1 : AppModel.size(of: output)
+            // After Recent › Clear the log keeps each result's sizes and time, not its name. The
+            // backup is made before the encode, so its time would call the result an edit after
+            // a long encode: the first cleared line since the backup with the same sizes judges
+            // it instead. Its own line is one of those, so the time is never later than its own
+            // finish, and anything changed after that still goes to the Trash.
+            let line = cleared.filter { saving in
+                saving.kind == kind && saving.bytesBefore == entry.bytes && saving.bytesAfter == bytesAfter
+                    && saving.finishedAt >= entry.createdAt.addingTimeInterval(-2)
+            }.map(\.finishedAt).min()
+            // ponytail: the rebuilt result keeps the backup's id, never a line's (two files of one
+            // size would swap them), so restoring it leaves the cleared line in the saving totals.
+            let result = OptimisationResult(
+                id: entry.id, source: entry.original, output: output, backup: entry.backup, kind: kind,
+                bytesBefore: entry.bytes, bytesAfter: bytesAfter,
+                startedAt: entry.createdAt, finishedAt: line ?? entry.createdAt,
                 requestID: entry.requestID
             )
             return OriginalItem(entry: entry, result: result, inPlace: isInPlace(entry))

@@ -31,6 +31,9 @@ public final class AppModel {
     /// Shows the batch window when a batch starts.
     @ObservationIgnored var onBatch: ((Batch) -> Void)?
 
+    /// Closes the batch window once Recent › Clear forgot its batch.
+    @ObservationIgnored var onBatchForgotten: (() -> Void)?
+
     /// Opens the batch window on the latest batch again (the menu).
     public func showBatch() {
         if let batch { onBatch?(batch) }
@@ -210,7 +213,7 @@ public final class AppModel {
     /// Results whose original can still be put back.
     public var restorable: [OptimisationResult] {
         recent.filter { result in
-            guard let backup = result.backup, !restoredIDs.contains(result.id) else { return false }
+            guard let backup = result.backup, !isRestored(result) else { return false }
             return FileManager.default.fileExists(atPath: backup.path)
         }
     }
@@ -327,6 +330,7 @@ public final class AppModel {
         guard let result = row.result, row.canRestore else { return }
         row.restoreError = nil
         do {
+            // `putBack` marks the latest batch's rows; this one may be from a batch Clear forgot.
             row.editInTrash = try await putBack(result)
             row.state = .restored(result)
         } catch is RestoreUnderWay {
@@ -354,16 +358,47 @@ public final class AppModel {
     /// Compare's Restore Original): a second would put the original back twice and send it to the
     /// Trash as an edit, so it throws `RestoreUnderWay`. True when a version edited after
     /// optimising went to the Trash on the way.
+    /// Once back, the original is never put back again: that would send it to the Trash as an
+    /// edit. The batch rows with the result show it restored, whichever window restored it.
     @discardableResult
     private func putBack(_ result: OptimisationResult) async throws -> Bool {
-        guard restoringIDs.insert(result.id).inserted else { throw RestoreUnderWay() }
-        defer { restoringIDs.remove(result.id) }
+        let keys = Self.restoreKeys(of: result)
+        guard restoredIDs.isDisjoint(with: keys) else {
+            markRestored(result, editInTrash: false)
+            return false
+        }
+        guard restoringIDs.isDisjoint(with: keys) else { throw RestoreUnderWay() }
+        restoringIDs.formUnion(keys)
+        defer { restoringIDs.subtract(keys) }
         let (service, restoreBackup) = (service, restoreBackup)
         let outcome = try await Task.detached { try await restoreBackup(service, result) }.value
-        restoredIDs.insert(result.id)
+        restoredIDs.formUnion(keys)
         forget(result)
         noteWritten([result.source, result.output])
-        return Self.editWentToTrash(trashed: outcome.movedToTrash?.count ?? 0, restoring: result)
+        let editInTrash = Self.editWentToTrash(trashed: outcome.movedToTrash?.count ?? 0, restoring: result)
+        markRestored(result, editInTrash: editInTrash)
+        return editInTrash
+    }
+
+    /// The original of `result` is back (`putBack`).
+    func isRestored(_ result: OptimisationResult) -> Bool {
+        !restoredIDs.isDisjoint(with: Self.restoreKeys(of: result))
+    }
+
+    /// The result's id and its backup's (the folder's name): Originals rebuilds a result the log
+    /// no longer names with the backup's id, and it is the same original.
+    nonisolated static func restoreKeys(of result: OptimisationResult) -> Set<UUID> {
+        let backup = result.backup.flatMap { UUID(uuidString: $0.deletingLastPathComponent().lastPathComponent) }
+        return Set([result.id] + (backup.map { [$0] } ?? []))
+    }
+
+    private func markRestored(_ result: OptimisationResult, editInTrash: Bool) {
+        let keys = Self.restoreKeys(of: result)
+        for row in batch?.rows ?? [] {
+            guard let done = row.result, !keys.isDisjoint(with: Self.restoreKeys(of: done)) else { continue }
+            row.editInTrash = editInTrash
+            row.state = .restored(done)
+        }
     }
 
     /// Why a result with no backup has no original to put back.
@@ -554,13 +589,18 @@ public final class AppModel {
     }
 
     /// Recent's Clear (privacy): the names go from the panel and from the shared log, which the
-    /// CLI and MCP server read too; the sizes stay, so the saving still counts them. The files,
-    /// their backups and the cards on screen are not touched.
+    /// CLI and MCP server read too; the sizes stay, so the saving still counts them. A finished
+    /// batch goes too, with the menu's Last batch tile and its window: they list the names. The
+    /// files, their backups and the cards on screen are not touched.
     public func clearRecent() {
         do {
             try service.results.redactAll()
             loadingRecent?.cancel()
             recent = []
+            if let batch, !batch.isRunning {
+                self.batch = nil
+                onBatchForgotten?()
+            }
         } catch {
             // The names are still on disk: the list stays, so the panel does not claim otherwise.
             NSSound.beep()

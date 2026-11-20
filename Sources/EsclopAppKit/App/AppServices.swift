@@ -86,6 +86,7 @@ public final class AppServices {
         let batchWindow = BatchWindowController(model: model)
         self.batchWindow = batchWindow
         model.onBatch = { [weak batchWindow] batch in batchWindow?.show(batch) }
+        model.onBatchForgotten = { [weak batchWindow] in batchWindow?.close() }
         originalsWindow = OriginalsWindowController(model: OriginalsModel(app: model))
         let store = model.service.context.pipelines
         finderServices = FinderServices(model: model, pipelines: { (try? store.list()) ?? [] })
