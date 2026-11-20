@@ -12,7 +12,7 @@ import Testing
 
 @MainActor
 @Suite struct SettingsWindowTests {
-    let settings = TestSettings(observed: true)
+    let settings = TestSettings()
 
     func model(onChange: @escaping (String, JSONValue) -> Void = { _, _ in }) -> SettingsViewModel {
         SettingsViewModel(
