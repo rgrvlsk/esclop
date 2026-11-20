@@ -289,20 +289,19 @@ enum ImageIOCodec {
                 properties[kCGImagePropertyIPTCDictionary] = kCFNull
                 properties[kCGImagePropertyOrientation] = original?[kCGImagePropertyOrientation] ?? 1
             }
-            if type == .tiff {
-                var tiff = original?[kCGImagePropertyTIFFDictionary] as? [CFString: Any] ?? [:]
-                tiff[kCGImagePropertyTIFFCompression] = 5 // LZW
-                if strip {
-                    // ponytail: TIFF text tags only; an XMP packet in a multi-page TIFF may stay.
-                    // Rewrite with CGImageDestinationCopyImageSource (as `stripMetadata`) if one does.
-                    for tag in [
-                        kCGImagePropertyTIFFArtist, kCGImagePropertyTIFFCopyright, kCGImagePropertyTIFFDateTime,
-                        kCGImagePropertyTIFFDocumentName, kCGImagePropertyTIFFHostComputer, kCGImagePropertyTIFFImageDescription,
-                        kCGImagePropertyTIFFMake, kCGImagePropertyTIFFModel, kCGImagePropertyTIFFSoftware,
-                    ] { tiff[tag] = kCFNull }
-                }
-                properties[kCGImagePropertyTIFFDictionary] = tiff
+            var tiff = original?[kCGImagePropertyTIFFDictionary] as? [CFString: Any] ?? [:]
+            if type == .tiff { tiff[kCGImagePropertyTIFFCompression] = 5 } // LZW
+            if strip {
+                // The camera and author tags of every type (HEIC and JPEG carry them too).
+                // ponytail: TIFF text tags only; an XMP packet may stay. Rewrite with
+                // CGImageDestinationCopyImageSource (as `stripMetadata`) if one does.
+                for tag in [
+                    kCGImagePropertyTIFFArtist, kCGImagePropertyTIFFCopyright, kCGImagePropertyTIFFDateTime,
+                    kCGImagePropertyTIFFDocumentName, kCGImagePropertyTIFFHostComputer, kCGImagePropertyTIFFImageDescription,
+                    kCGImagePropertyTIFFMake, kCGImagePropertyTIFFModel, kCGImagePropertyTIFFSoftware,
+                ] { tiff[tag] = kCFNull }
             }
+            if type == .tiff || strip { properties[kCGImagePropertyTIFFDictionary] = tiff }
             CGImageDestinationAddImageFromSource(destination, source, index, properties as CFDictionary)
         }
         if keepGainMap, let auxType = gainMapType(source), let aux = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, auxType) {
