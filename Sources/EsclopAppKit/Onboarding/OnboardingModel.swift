@@ -60,6 +60,7 @@ public final class OnboardingModel {
         guard let following = Step(rawValue: step.rawValue + 1) else { finish(); return }
         forward = true
         step = following
+        if step.rawValue >= Step.permissions.rawValue { startWatching() }
     }
 
     public func back() {
@@ -71,6 +72,18 @@ public final class OnboardingModel {
     public func go(to target: Step) {
         forward = target.rawValue >= step.rawValue
         step = target
+        if step.rawValue >= Step.permissions.rawValue { startWatching() }
+    }
+
+    /// Starts watching the folders (AppServices, on the first run): only once the Permissions page
+    /// explains why macOS asks about the Desktop, or the tour ends, so the question never covers
+    /// the Welcome page. Runs once.
+    @ObservationIgnored public var onPermissions: (() -> Void)?
+
+    private func startWatching() {
+        let start = onPermissions
+        onPermissions = nil
+        start?()
     }
 
     /// Skip and Done both end it for good; the menu can still bring it back.
@@ -82,6 +95,7 @@ public final class OnboardingModel {
     /// Closing the window (its close button, ⌘W) ends it too, or it would open at every launch.
     public func windowClosed() {
         defaults.set(true, forKey: Self.finishedKey)
+        startWatching()
     }
 
     /// Back to the first step, for opening it again from the menu.
@@ -112,6 +126,27 @@ public final class OnboardingModel {
     public func refreshAccess() {
         clipboardAccess = readClipboardAccess()
         loginStatus = readLoginStatus()
+        // Again only once its page read it: reading the Desktop is what makes macOS ask.
+        if step == .permissions, desktopAccess != .unknown { Task { await checkDesktop() } }
+    }
+
+    /// Whether L’Esclop may read the Desktop, as Settings' folder rows see it; unknown until the
+    /// Permissions page shows.
+    public private(set) var desktopAccess: Access = .unknown
+    @ObservationIgnored var readDesktopAccess: @Sendable () -> Access = {
+        guard let desktop = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first else { return .unknown }
+        switch FolderStatus.check(desktop) {
+        case .watching: return .allowed
+        case .unreadable: return .denied
+        case .missing, .notWatching: return .unknown
+        }
+    }
+
+    /// Off the main actor: macOS holds the read until the person answers its question, and the
+    /// page explaining it must be drawn by then.
+    public func checkDesktop() async {
+        let read = readDesktopAccess
+        desktopAccess = await Task.detached(priority: .userInitiated) { read() }.value
     }
 
     /// macOS 15.4 and later can ask before every programmatic read of the clipboard.

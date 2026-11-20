@@ -47,6 +47,8 @@ struct SettingRow: View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             SettingLabel(title: descriptor.title, summary: descriptor.summary)
             if model.isModified(key) {
+                // At the trailing edge, beside the control it resets.
+                Spacer(minLength: 8)
                 Button {
                     model.reset(key)
                 } label: {

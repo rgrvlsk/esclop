@@ -80,15 +80,19 @@ it. A click opens a 316 pt cream panel under it (`pr3-menu-panel`), with a notch
 glyph; a second click, a click anywhere else, Esc or a command closes it. It never activates
 the app, so the app in front keeps its windows, but it takes the keys, so ⌘O works.
 
-- **Header:** "Today" in the serif, and a round gear: Settings… ⌘, Pipelines…, Show Backups in
-  Finder, Welcome to L'Esclop…, Check for Updates…, Quit L'Esclop ⌘Q.
+- **Header:** "Today" in the serif, and a round gear: Settings… ⌘, Pipelines…, Originals… (every
+  kept original, newest first, with its date, size, Restore and Show in Finder; the total and
+  Remove All under them), Show Backups in Finder, Welcome to L'Esclop…, Check for Updates…, Quit
+  L'Esclop ⌘Q.
 - **Saved:** TODAY and 7 DAYS chips (charcoal when chosen); an arc from the original size (brick
   red, at its left end) to the new size (grey, at its right), with the saving's figure between
   them, and the other range under it ("Last 7 days −19.6 GB", or "Today −2.8 GB"). The sums come
   from the shared results log, cleared results included; the log keeps every result from the
   last eight days for them.
-- **Working** (aqua), only while a batch runs: "6 of 8", a straight bar and the file at work. A
-  click shows the batch window.
+- **Working** (aqua), only while a batch runs: "6 of 8", a straight bar and the file at work.
+  When it ends, **Last batch** in the tile's cream: its saving and its counts ("5 optimised ·
+  1 failed"), until the next batch, so Restore All and Retry stay reachable. A click shows the
+  batch window.
 - **Recent:** the files being optimised, then the last twelve results, five in view: the
   picture, the name, "2.4 MB → 612 kB · 9:41" and the saving. On hover, Copy and Show in Finder;
   a click shows the result's card again; the context menu adds Compare and Restore Original.
@@ -188,7 +192,10 @@ many copied files, or a list from the CLI or an agent. It comes forward without 
   Stop, Restore All, Show in Finder.
 - **Rows:** thumbnail, name, sizes or status, the file's own deflate bar and its saving. On hover
   the saving gives way to 28 pt round buttons (restore, try again, stop, copy, Show in Finder);
-  the same actions are in the context menu and are VoiceOver actions.
+  the same actions are in the context menu and are VoiceOver actions, with Show as Result (the
+  file's floating result and its options) and Quick Look. A finished row drags out as its file;
+  Space shows the row under the pointer in Quick Look. A restore that sent an edited version
+  to the Trash says so on the row.
 - Pause holds the files still waiting; the ones running finish. Stop keeps every original. New
   files join a batch that is still running. VoiceOver announces the batch once, when it ends.
 
@@ -241,14 +248,17 @@ Symbols; checkmarks are symbols, not text glyphs.
   zone follows the drag to the display under it.
 - Settings: sidebar panes with the search at the top of the sidebar, grouped forms with native
   controls (switches, menus, sliders with their figure, fields with a stepper and unit). Each
-  row has its title and a one-line explanation; a reset arrow appears beside the title while
-  the value differs from the default. A typed value is checked as it is typed, and a refused one
+  row has its title and a one-line explanation; a reset arrow appears at the trailing edge,
+  beside the control, while the value differs from the default. The search folds accents. A typed value is checked as it is typed, and a refused one
   keeps the field and says why under the row in red. A deep link scrolls to its row and marks
   it with an accent wash that fades after 2.5 s (no scroll animation with Reduce Motion).
 - Onboarding: one 640 × 560 window with a transparent title bar, five steps (welcome, automatic,
   permissions, agents, done) and a footer with Skip, step dots and Back/Continue. Steps slide in
   the direction of travel (350 ms spring); Reduce Motion turns it into a 180 ms crossfade. The
-  steps reuse Settings rows, so a switch flipped in the tour is the same setting.
+  steps reuse Settings rows, so a switch flipped in the tour is the same setting (Open at login
+  is also in Settings › General). Permissions shows the Desktop's access as Settings' folder rows
+  read it; on the first run the folders are watched only from that page on, so macOS's question
+  never covers Welcome.
 
 ## Motion
 | Event | Motion |

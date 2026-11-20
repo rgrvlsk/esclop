@@ -18,6 +18,8 @@ import SwiftUI
 public struct MenuPanelActions {
     public var settings: () -> Void
     public var pipelines: () -> Void
+    /// The Originals window: every original L'Esclop keeps.
+    public var originals: (() -> Void)?
     public var welcome: (() -> Void)?
     public var checkForUpdates: (() -> Void)?
     public var quit: () -> Void
@@ -25,11 +27,12 @@ public struct MenuPanelActions {
     public var close: () -> Void
 
     public init(
-        settings: @escaping () -> Void, pipelines: @escaping () -> Void, welcome: (() -> Void)?,
+        settings: @escaping () -> Void, pipelines: @escaping () -> Void, originals: (() -> Void)? = nil, welcome: (() -> Void)?,
         checkForUpdates: (() -> Void)?, quit: @escaping () -> Void = { NSApp.terminate(nil) }, close: @escaping () -> Void
     ) {
         self.settings = settings
         self.pipelines = pipelines
+        self.originals = originals
         self.welcome = welcome
         self.checkForUpdates = checkForUpdates
         self.quit = quit
@@ -111,7 +114,7 @@ public struct MenuPanel: View {
                 header
                 saved
                 if model.paused { PausedLine { model.setPaused(false) } }
-                if let batch = model.batch, batch.isRunning { working(batch) }
+                if let batch = model.batch, !batch.rows.isEmpty { batchRow(batch) }
                 recent
                 commands
             }
@@ -159,6 +162,9 @@ public struct MenuPanel: View {
             Menu {
                 Button(Strings.text("Settings…"), action: run(actions.settings)).keyboardShortcut(",")
                 Button(Strings.text("Pipelines…"), action: run(actions.pipelines))
+                if let originals = actions.originals {
+                    Button(Strings.text("Originals…"), action: run(originals))
+                }
                 Button(Strings.text("Show Backups in Finder"), action: run { model.reveal([model.service.context.locations.backups]) })
                 if let welcome = actions.welcome {
                     Button(Strings.text("Welcome to L'Esclop…"), action: run(welcome))
@@ -258,30 +264,54 @@ public struct MenuPanel: View {
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
-    // MARK: Working
+    // MARK: Batch
 
-    private func working(_ batch: Batch) -> some View {
-        Button { actions.close(); model.showBatch() } label: {
+    /// The batch at work (aqua), or once it ends the last one, until the next: its window keeps
+    /// Restore All and Retry after it was closed.
+    private func batchRow(_ batch: Batch) -> some View {
+        let running = batch.isRunning
+        let info = BatchPresentation(batch: batch)
+        return Button { actions.close(); model.showBatch() } label: {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 14) {
-                    Text(Strings.text("Working")).sectionLabel()
-                    Text(Strings.format("%d of %d", batch.finished, batch.total))
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Ink.text)
-                        .monospacedDigit()
+                    if running {
+                        Text(Strings.text("Working")).sectionLabel()
+                        Text(Strings.format("%d of %d", batch.finished, batch.total))
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Ink.text)
+                            .monospacedDigit()
+                    } else {
+                        Text(Strings.text("Last batch")).sectionLabel()
+                        Spacer(minLength: 4)
+                        if let percent = info.percent {
+                            Text(percent)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Ink.saving)
+                                .monospacedDigit()
+                        }
+                    }
                 }
-                ProgressBar(fraction: batch.progress)
-                if let row = batch.rows.first(where: \.isRunning) {
-                    Text(row.source.lastPathComponent)
+                if !running {
+                    // "5 optimised · 1 failed": what is left to restore or retry there.
+                    Text(info.counts)
                         .font(Typeface.caption)
                         .foregroundStyle(Ink.secondary)
+                        .monospacedDigit()
                         .lineLimit(1)
-                        .truncationMode(.middle)
+                } else {
+                    ProgressBar(fraction: batch.progress)
+                    if let row = batch.rows.first(where: \.isRunning) {
+                        Text(row.source.lastPathComponent)
+                            .font(Typeface.caption)
+                            .foregroundStyle(Ink.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
                 }
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous).fill(Surface.progress))
+            .background(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous).fill(running ? Surface.progress : Surface.tile))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

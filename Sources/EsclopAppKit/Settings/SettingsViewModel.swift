@@ -63,6 +63,8 @@ public final class SettingsViewModel {
     @ObservationIgnored public var uploads: UploadSettingsSupport?
     /// The folder watcher, so a folder row shows what the watcher sees now.
     @ObservationIgnored public weak var watchedFolders: WatchedFolders?
+    /// Open at login, which is the system's login items, not a registry setting (the tour's switch).
+    @ObservationIgnored public var login: OnboardingModel?
 
     /// The upload targets in the setting.
     public var uploadTargets: [UploadTarget] {
@@ -153,10 +155,12 @@ public final class SettingsViewModel {
 
     /// Every row matching all the words of the query, in pane order.
     public var hits: [Hit] {
-        let words = query.lowercased().split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+        // Accents fold on both sides: "copia" finds "Còpies", "cópia" finds "copies".
+        func folded(_ text: String) -> String { text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: locale) }
+        let words = folded(query).split(whereSeparator: { !$0.isLetter && !$0.isNumber })
         guard !words.isEmpty else { return [] }
         func matches(_ fields: [String]) -> Bool {
-            let haystack = fields.joined(separator: " ").lowercased()
+            let haystack = folded(fields.joined(separator: " "))
             return words.allSatisfy { haystack.contains($0) }
         }
         var found: [Hit] = []

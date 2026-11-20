@@ -39,6 +39,8 @@ public final class BatchRow: Identifiable {
     public var state: State = .waiting
     /// Why the last Restore failed; the row keeps its result.
     public var restoreError: String?
+    /// The restore moved a version edited after optimising to the Trash (`putBack`).
+    public var editInTrash = false
     /// An automatic upload of the row's result (`uploadAutomatically`).
     public var upload: ResultCard.UploadState?
     /// Runs the file again (after an error or a cancel).

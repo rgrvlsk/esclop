@@ -78,6 +78,11 @@ struct SettingsPaneView: View {
     @ViewBuilder private var extras: some View {
         switch pane {
         case .general:
+            if let login = model.login {
+                Section {
+                    LoginItemRows(onboarding: login, rowID: Self.openAtLoginRow, highlighted: model.highlighted == Self.openAtLoginRow)
+                }
+            }
             Section(Strings.text("Keyboard shortcuts")) {
                 ForEach(Hotkeys.all, id: \.name.rawValue) { hotkey in
                     KeyboardShortcuts.Recorder(hotkey.title, name: hotkey.name)
@@ -133,6 +138,7 @@ struct SettingsPaneView: View {
     }
 
     static let resetAllRow = "advanced.resetAll"
+    static let openAtLoginRow = "general.openAtLogin"
 
     /// The rows the search finds that are not registry settings.
     static var extraRows: [SettingsViewModel.ExtraRow] {
@@ -147,6 +153,11 @@ struct SettingsPaneView: View {
                 pane: .agents, keywords: ["mcp", "install", "agent", "ai", "connect", agent.id]
             )
         } + [
+            SettingsViewModel.ExtraRow(
+                id: openAtLoginRow, title: Strings.text("Open at login"),
+                summary: Strings.text("Keep L’Esclop in the menu bar after a restart, so copies are optimised from the start."),
+                pane: .general, keywords: ["login", "startup", "launch", "login items", "open at login"]
+            ),
             SettingsViewModel.ExtraRow(
                 id: AgentsTestSection.rowID, title: Strings.text("Test the MCP server"), summary: Strings.text("Start esclop mcp serve and ask for its tools."),
                 pane: .agents, keywords: ["mcp", "smoke", "handshake", "check", "test the mcp server"]

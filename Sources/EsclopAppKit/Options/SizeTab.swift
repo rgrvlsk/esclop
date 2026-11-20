@@ -120,6 +120,11 @@ struct FitChips: View {
     @State private var custom = false
     static let targets = [500_000, 1_000_000, 2_000_000, 5_000_000]
 
+    /// A kept fit that no preset chip stands for.
+    static func custom(_ fit: Int?) -> Int? {
+        fit.flatMap { targets.contains($0) ? nil : $0 }
+    }
+
     var body: some View {
         SectionLabel(title: Strings.text("Fit under"))
         FlowRow {
@@ -129,6 +134,12 @@ struct FitChips: View {
                     if model.card.fit == bytes { model.app.removeFit(model.card) } else { model.fit(under: bytes) }
                 }
                 .disabled(model.card.isWorking || model.card.fit == nil && (model.card.result?.bytesAfter ?? .max) <= bytes && model.card.result != nil)
+            }
+            // A kept custom fit is a chosen chip of its own with its value, and takes itself off as a
+            // preset's chip does.
+            if let fit = Self.custom(model.card.fit) {
+                Chip(title: Figures.bytes(fit), selected: true) { model.app.removeFit(model.card) }
+                    .disabled(model.card.isWorking)
             }
             Chip(title: Strings.text("Custom…"), selected: custom) { custom.toggle() }
         }
@@ -146,6 +157,8 @@ struct FitChips: View {
     private func applyCustom() {
         guard let kilobytes = Int(model.customFit.trimmingCharacters(in: .whitespaces)), kilobytes > 0 else { return }
         model.fit(under: kilobytes * 1000)
+        // Its chip shows the fit from now on.
+        custom = false
     }
 }
 

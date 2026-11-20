@@ -327,7 +327,7 @@ public final class AppModel {
         guard let result = row.result, row.canRestore else { return }
         row.restoreError = nil
         do {
-            try await putBack(result)
+            row.editInTrash = try await putBack(result)
             row.state = .restored(result)
         } catch is RestoreUnderWay {
             return
@@ -364,6 +364,13 @@ public final class AppModel {
         forget(result)
         noteWritten([result.source, result.output])
         return Self.editWentToTrash(trashed: outcome.movedToTrash?.count ?? 0, restoring: result)
+    }
+
+    /// Why a result with no backup has no original to put back.
+    static func noBackupMessage(for result: OptimisationResult) -> String {
+        result.output.standardizedFileURL != result.source.standardizedFileURL
+            ? Strings.text("The original was never changed. It is still where it was.")
+            : Strings.text("L’Esclop kept no copy of this original.")
     }
 
     /// The result's original is being put back already.
@@ -969,6 +976,12 @@ public final class AppModel {
     /// compresses the optimised file again).
     @discardableResult
     public func restore(_ result: OptimisationResult) async -> Bool {
+        guard result.backup != nil else {
+            // Nothing was replaced, so there is no original to put back (the service would only
+            // say no backup is kept).
+            notice(Strings.format("Could not restore %@", result.source.lastPathComponent), Self.noBackupMessage(for: result))
+            return false
+        }
         let shown = cards.first { $0.result?.id == result.id }
         do {
             let editInTrash = try await putBack(result)
