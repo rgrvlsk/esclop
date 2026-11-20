@@ -179,7 +179,8 @@ public enum WebDownload {
             throw limits.refusal ?? error
         }
         defer { try? FileManager.default.removeItem(at: temporary) }
-        if let refusal = limits.check(response, received: Self.size(of: temporary)) { throw refusal }
+        // A refused redirect can end the task with the redirect's own answer: its reason wins.
+        if let refusal = limits.refusal ?? limits.check(response, received: Self.size(of: temporary)) { throw refusal }
         let file = try Paths.ensure(folder.appendingPathComponent(String(UUID().uuidString.prefix(8)), isDirectory: true))
             .appendingPathComponent(name(for: url, response: response))
         try FileManager.default.moveItem(at: temporary, to: file)

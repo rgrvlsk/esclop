@@ -119,10 +119,11 @@ extension AppModel {
     /// A download or promised file that is not optimised after all goes at once: a download with
     /// its own folder. Only inside L'Esclop's temporary folder; anything else stays.
     nonisolated static func discardDownload(_ file: URL) {
-        let folder = file.deletingLastPathComponent().standardizedFileURL
-        if folder.deletingLastPathComponent().path == WebDownload.folder.standardizedFileURL.path {
+        // Resolved on both sides: a promise may name /private/var for /var.
+        let folder = file.deletingLastPathComponent().resolvingSymlinksInPath()
+        if folder.deletingLastPathComponent().path == WebDownload.folder.resolvingSymlinksInPath().path {
             try? FileManager.default.removeItem(at: folder)
-        } else if folder.path.hasPrefix(Paths.temporary.standardizedFileURL.path + "/") {
+        } else if folder.path.hasPrefix(Paths.temporary.resolvingSymlinksInPath().path + "/") {
             try? FileManager.default.removeItem(at: file)
         }
     }
