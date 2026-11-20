@@ -41,9 +41,10 @@ extension AppModel {
 
     /// A copied web address of media: downloaded (`WebDownload.fetch`, with its limits), then
     /// optimised as a copied file, so its result goes back on the clipboard while the clipboard
-    /// still holds the address. A refused download is a notice, as a refused drop is; the
-    /// watcher sees each copy once, so it is never tried again on its own. `automatic` (the
-    /// watcher's copy) applies a copied file's rules to the download: its kind, size and mark.
+    /// still holds the address. A refused download is a notice on the hotkey, as a refused drop
+    /// is, and silent for the watcher's copy (`automatic`), which nobody asked for; the watcher
+    /// sees each copy once, so it is never tried again on its own. `automatic` also applies a
+    /// copied file's rules to the download: its kind, size and mark.
     // ponytail: nothing shows while it downloads and it cannot be stopped; a large video (up to
     // `WebDownload.largest`) takes minutes. Show a working card from the start if people wait on one.
     func optimiseAddress(_ address: URL, aggressive: Bool, automatic: Bool = false, copy: ClipboardCopy, pipeline: @escaping (URL) -> Pipeline?) async {
@@ -51,6 +52,7 @@ extension AppModel {
         do {
             file = try await download(address)
         } catch {
+            guard !automatic else { return }
             return notice(Strings.text("Could not download the copied address"), CardPresentation.message(for: error))
         }
         if automatic, factory.automaticSkip(for: file) != nil { return }

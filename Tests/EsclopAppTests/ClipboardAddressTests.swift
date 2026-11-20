@@ -159,13 +159,26 @@ final class FakeDownload: @unchecked Sendable {
         #expect(harness.requests.requests.isEmpty)
     }
 
-    @Test func aRefusedDownloadIsANoticeOnce() async throws {
+    @Test func aRefusedDownloadIsSilentWhenCopied() async throws {
         let harness = Harness()
         let fake = FakeDownload(file: nil)
         harness.model.download = { try fake.fetch($0) }
         let address = try #require(URL(string: "https://example.com/cove.jpg"))
         harness.model.handleClipboard(.optimiseAddress(address, copy(address.absoluteString, on: harness)))
-        #expect(await eventually { harness.model.cards.contains { if case .notice = $0.phase { return true } else { return false } } })
+        #expect(await eventually { fake.addresses == [address] })
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(fake.addresses == [address], "tried once")
+        #expect(harness.model.cards.isEmpty, "no notice")
+        #expect(harness.model.recent.isEmpty)
+    }
+
+    @Test func aRefusedDownloadIsANoticeOnTheHotkey() async throws {
+        let harness = Harness()
+        let fake = FakeDownload(file: nil)
+        harness.model.download = { try fake.fetch($0) }
+        let address = try #require(URL(string: "https://example.com/cove.jpg"))
+        _ = copy(address.absoluteString, on: harness)
+        await harness.model.optimiseClipboard(aggressive: false)
         let notice = try #require(harness.model.cards.first)
         #expect(notice.presentation.capsule == .notice(
             title: "Could not download the copied address",
