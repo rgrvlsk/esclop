@@ -80,7 +80,8 @@ it. A click opens a 316 pt cream panel under it (`pr3-menu-panel`), with a notch
 glyph; a second click, a click anywhere else, Esc or a command closes it. It never activates
 the app, so the app in front keeps its windows, but it takes the keys, so ⌘O works.
 
-- **Header:** "Today" in the serif, and a round gear: Settings… ⌘, Pipelines…, Originals… (every
+- **Header:** "Today" in the serif, and a round gear: Pause L'Esclop ⌃⇧P (Resume L'Esclop while
+  paused), Settings… ⌘, Pipelines…, Originals… (every
   kept original, newest first, with its date, size, Restore and Show in Finder; the total and
   Remove All under them), Show Backups in Finder, Welcome to L'Esclop…, Check for Updates…, Quit
   L'Esclop ⌘Q.
@@ -104,9 +105,9 @@ the app, so the app in front keeps its windows, but it takes the keys, so ⌘O w
 - **Commands:** Optimise Files… ⌘O and Optimise Clipboard ⌃⇧C; with ⌥ held it is Optimise
   Clipboard Harder ⌃⇧A.
 
-Pausing is a setting (Settings, Shortcuts, `esclop settings set`); there is no pause hotkey and
-no paused state on the glyph. While it is on, the panel shows one line under Saved, "Paused ·
-Resume", and Resume turns the setting off (owner's decision, 2026-11-14).
+Pausing is a setting (the gear, the ⌃⇧P hotkey as in Clop, Settings, Shortcuts, `esclop settings
+set`); there is no paused state on the glyph. While it is on, the panel shows one line under
+Saved, "Paused · Resume", and Resume turns the setting off (owner's decision, 2026-11-14).
 
 ## Options popover
 Opens from the "…" button of the floating result, anchored to it with a popover arrow, and acts

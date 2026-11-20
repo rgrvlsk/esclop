@@ -187,6 +187,27 @@ public final class AppModel {
         pauseChanged(value)
     }
 
+    /// The gear's Pause L'Esclop / Resume L'Esclop and the ⌃⇧P hotkey.
+    public func togglePause() { setPaused(!paused) }
+
+    /// `showInScreenshots`: unless it is on, as in Clop, the cards, the drop zone and the menu bar
+    /// panel stay out of screenshots and screen recordings.
+    public var windowSharing: NSWindow.SharingType {
+        windowsForSnapshots || EsclopSettings.showInScreenshots.value(in: settings) ? .readOnly : .none
+    }
+    /// Set while the snapshot tool runs (ESCLOP_SNAPSHOT_DIR): `.none` leaves the app's own
+    /// pictures of its windows empty too.
+    @ObservationIgnored public var windowsForSnapshots = false
+    public var showsMenuBarIcon: Bool { EsclopSettings.showMenubarIcon.value(in: settings) }
+
+    /// After `showInScreenshots` changed: the floating windows on screen now. The others take it
+    /// when they come up.
+    public func applyWindowSharing() {
+        for window in NSApp.windows where window is FloatingPanel || window is MenuPanelWindow {
+            window.sharingType = windowSharing
+        }
+    }
+
     /// Called when the setting changed, here or in another process.
     public func pauseChanged(_ value: Bool) {
         paused = value

@@ -66,10 +66,10 @@ final class DropTargetView: NSView {
     }
 
     /// What the drop answers, from what the source allows: a copy where it can (the files stay
-    /// where they are), else generic, which is all ⌘ held leaves in the mask, so that drag is not
-    /// refused. Never a move: L'Esclop only reads a dropped file.
+    /// where they are), else generic, which is all ⌘ held leaves in the mask, else a link, which
+    /// is all ⌘⌥ leaves, so neither drag is refused. Never a move: L'Esclop only reads a dropped file.
     static func operation(for mask: NSDragOperation) -> NSDragOperation {
-        [.copy, .generic].first { mask.contains($0) } ?? []
+        [.copy, .generic, .link].first { mask.contains($0) } ?? []
     }
 }
 
@@ -112,7 +112,7 @@ final class DropZoneController {
             hosting.topAnchor.constraint(equalTo: target.topAnchor),
             hosting.bottomAnchor.constraint(equalTo: target.bottomAnchor),
         ])
-        panel = FloatingPanel(content: target)
+        panel = FloatingPanel(content: target) { [weak model] in model?.windowSharing ?? .none }
         panel.title = "L'Esclop drop zone"
         panel.level = .popUpMenu
         target.state = state

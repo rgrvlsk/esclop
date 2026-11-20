@@ -28,8 +28,7 @@ struct SettingRow: View {
             }
         }
         .disabled(!enabled)
-        .id(key)
-        .highlighted(model.highlighted == key)
+        .markable(key)
         .contextMenu {
             Button(Strings.text("Reset to Default")) { model.reset(key) }
                 .disabled(!model.isModified(key))

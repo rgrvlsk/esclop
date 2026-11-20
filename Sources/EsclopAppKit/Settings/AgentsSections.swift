@@ -127,8 +127,7 @@ struct AgentRow: View {
                 EmptyView()
             }
         }
-        .id(Self.rowID(row.agent))
-        .highlighted(model.highlighted == Self.rowID(row.agent))
+        .markable(Self.rowID(row.agent))
     }
 
     static func accessibilityLabel(name: String, state: String) -> String { "\(name): \(state)" }

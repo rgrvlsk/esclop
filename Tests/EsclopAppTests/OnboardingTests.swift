@@ -47,6 +47,32 @@ import Testing
         #expect(model.opensAtLogin && model.loginNeedsApproval)
     }
 
+    /// A refusal says which way it failed: switching off said "did not add" (council C7-F5).
+    @Test func aRefusedLoginItemSaysWhichWay() {
+        struct Refused: LocalizedError { var errorDescription: String? { "Operation not permitted" } }
+        let model = OnboardingModel(defaults: settings.store.defaults)
+        model.setLoginItem = { _ in throw Refused() }
+        model.opensAtLogin = true
+        #expect(model.loginError == Strings.format("macOS did not add L’Esclop to the login items: %@. Add it in System Settings › General › Login Items & Extensions.", "Operation not permitted"))
+        model.opensAtLogin = false
+        #expect(model.loginError == Strings.format("macOS did not remove L’Esclop from the login items: %@. Remove it in System Settings › General › Login Items & Extensions.", "Operation not permitted"))
+        model.setLoginItem = { _ in }
+        model.opensAtLogin = false
+        #expect(model.loginError == nil)
+        // In Settings it leads General, with the menu bar rows (council C7-F4).
+        #expect(SettingsPane.general.sections.first == .menuBar)
+    }
+
+    /// Screenshots saved outside the Desktop: the tour names that folder and offers to watch it,
+    /// as Settings › Images does (council C8-F1).
+    @Test func screenshotsElsewhereAreOfferedOnTheTour() {
+        #expect(!PermissionsPage.elsewhere("~/Desktop"))
+        #expect(!PermissionsPage.elsewhere(NSHomeDirectory() + "/Desktop"))
+        #expect(PermissionsPage.elsewhere("~/Pictures/Screenshots"))
+        #expect(FolderListEditor.unwatched("~/Pictures/Screenshots", in: ["~/Desktop"]) == "~/Pictures/Screenshots")
+        #expect(FolderListEditor.unwatched("~/Pictures/Screenshots", in: ["~/Desktop", "~/Pictures/Screenshots/"]) == nil, "watched already")
+    }
+
     /// 0 keeps backups for ever: "kept for 0 days" said the opposite, and 1 read "1 days".
     @Test func retentionIsForeverOneDayOrDays() {
         let en = Locale(identifier: "en")
@@ -114,6 +140,18 @@ import Testing
     static let appIcon = NSImage(contentsOf: URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         .appendingPathComponent("assets/AppIcon.png"))
+
+    /// The Permissions page when screenshots are saved in another folder (council C8-F1).
+    @Test(arguments: [ColorScheme.light, .dark])
+    func permissionsWithScreenshotsElsewhere(scheme: ColorScheme) async throws {
+        let viewModel = SettingsViewModel(provider: RegistrySettingsProvider(store: settings.store), extraRows: SettingsPaneView.extraRows)
+        let model = OnboardingModel(defaults: settings.store.defaults)
+        model.readDesktopAccess = { .allowed }
+        model.go(to: .permissions)
+        let view = OnboardingView(onboarding: model, settings: viewModel, agents: nil, actions: SettingsActions(), icon: Self.appIcon) {}
+            .environment(\.screenshotLocation, "~/Pictures/Screenshots")
+        try await SettingsRenderTests.renderWindow(view, size: CGSize(width: 640, height: 560), name: "onboarding-3-permissions-screenshots-elsewhere", scheme: scheme, settle: .milliseconds(600))
+    }
 
     func render(_ step: OnboardingModel.Step, scheme: ColorScheme) async throws {
         let viewModel = SettingsViewModel(provider: RegistrySettingsProvider(store: settings.store), extraRows: SettingsPaneView.extraRows)

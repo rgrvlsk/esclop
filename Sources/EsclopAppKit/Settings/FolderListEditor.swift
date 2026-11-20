@@ -26,8 +26,13 @@ struct FolderListEditor: View {
     /// Where macOS saves screenshots and screen recordings, when this list should offer it.
     var screenshotFolder: String? {
         guard descriptor.key == EsclopSettings.imageDirs.key || descriptor.key == EsclopSettings.videoDirs.key else { return nil }
+        return Self.unwatched(screenshotLocation, in: folders)
+    }
+
+    /// `location`, unless `folders` already has it.
+    static func unwatched(_ location: String, in folders: [String]) -> String? {
         let watched = folders.map { WatchPlan.canonical($0).path }
-        return watched.contains(WatchPlan.canonical(screenshotLocation).path) ? nil : screenshotLocation
+        return watched.contains(WatchPlan.canonical(location).path) ? nil : location
     }
 
     var body: some View {
@@ -42,17 +47,7 @@ struct FolderListEditor: View {
                 }
             }
             if let screenshotFolder {
-                HStack(spacing: 8) {
-                    Image(systemName: "camera.viewfinder").foregroundStyle(.secondary).frame(width: 18).accessibilityHidden(true)
-                    Text(Strings.format("Screenshots are saved in %@, which is not watched.", screenshotFolder))
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer()
-                    Button(Strings.text("Watch It")) { write(folders + [screenshotFolder]) }
-                        .controlSize(.small)
-                        .accessibilityLabel(Strings.format("Watch %@", screenshotFolder))
-                }
+                ScreenshotFolderRow(folder: screenshotFolder) { write(folders + [screenshotFolder]) }
             }
             Button(Strings.text("Add Folder…"), systemImage: "plus") { add() }
                 .buttonStyle(.borderless)
@@ -151,6 +146,27 @@ struct FolderRow: View {
     static func openPrivacySettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders") {
             NSWorkspace.shared.open(url)
+        }
+    }
+}
+
+/// The folder macOS saves screenshots to, not watched yet, with Watch It: in a folder list and
+/// on the tour's Permissions page.
+struct ScreenshotFolderRow: View {
+    let folder: String
+    let watch: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "camera.viewfinder").foregroundStyle(.secondary).frame(width: 18).accessibilityHidden(true)
+            Text(Strings.format("Screenshots are saved in %@, which is not watched.", folder))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
+            Button(Strings.text("Watch It"), action: watch)
+                .controlSize(.small)
+                .accessibilityLabel(Strings.format("Watch %@", folder))
         }
     }
 }

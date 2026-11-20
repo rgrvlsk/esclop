@@ -4601,6 +4601,16 @@
         }
       }
     },
+    "Menu bar": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barra de menús"
+          }
+        }
+      }
+    },
     "Missing `->` between steps. Write `step1 -> step2`, or put each step on its own line.": {
       "localizations": {
         "ca": {
@@ -6061,6 +6071,16 @@
         }
       }
     },
+    "Pause L'Esclop": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posa L’Esclop en pausa"
+          }
+        }
+      }
+    },
     "Pause automatic optimisation": {
       "localizations": {
         "ca": {
@@ -6097,6 +6117,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Posa en pausa o reprèn"
+          }
+        }
+      }
+    },
+    "Pause or resume automatic optimisation": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posa en pausa o reprèn l’optimització automàtica"
           }
         }
       }
@@ -6947,6 +6977,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reprèn"
+          }
+        }
+      }
+    },
+    "Resume L'Esclop": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprèn L’Esclop"
           }
         }
       }
@@ -10311,6 +10351,16 @@
         }
       }
     },
+    "macOS did not remove L’Esclop from the login items: %@. Remove it in System Settings › General › Login Items & Extensions.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El macOS no ha tret L’Esclop dels ítems d’inici de sessió: %@. Treu-lo a Configuració del Sistema › General › Ítems d’inici de sessió i extensions."
+          }
+        }
+      }
+    },
     "macOS does not let L’Esclop read this folder. Allow it in System Settings › Privacy & Security › Files & Folders.": {
       "localizations": {
         "ca": {
@@ -10327,6 +10377,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "El macOS espera que permetis L’Esclop a Ítems d’inici de sessió i extensions."
+          }
+        }
+      }
+    },
+    "macOS will ask to let L’Esclop see your Desktop, which it watches for new images. It asks again the first time L’Esclop replaces a file in Documents or Downloads. If you say no, the Desktop is left alone; Settings › Images shows how to allow it later.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El macOS et demanarà que deixis que L’Esclop vegi l’Escriptori, on vigila les imatges noves. Torna a preguntar la primera vegada que L’Esclop substitueix un fitxer de Documents o Baixades. Si dius que no, no es toca l’Escriptori; a Configuració › Imatges hi ha com permetre-ho més endavant."
           }
         }
       }
@@ -12017,6 +12077,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nom a la mateixa carpeta"
+          }
+        }
+      }
+    },
+    "setting.showInScreenshots.summary": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Si està desactivat, les targetes de resultat, la zona per deixar anar i el plafó de la barra de menús no surten a les captures ni a les gravacions de pantalla."
+          }
+        }
+      }
+    },
+    "setting.showInScreenshots.title": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra L’Esclop a les captures de pantalla"
+          }
+        }
+      }
+    },
+    "setting.showMenubarIcon.summary": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Si està desactivat, la icona no surt a la barra de menús. Torna a obrir L’Esclop des del Finder o des de Spotlight per arribar a la Configuració."
+          }
+        }
+      }
+    },
+    "setting.showMenubarIcon.title": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra la icona a la barra de menús"
           }
         }
       }

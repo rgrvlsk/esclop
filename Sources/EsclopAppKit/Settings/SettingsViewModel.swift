@@ -52,6 +52,8 @@ public final class SettingsViewModel {
     public var pane: SettingsPane = .general
     /// The row a deep link or a search result points at; the pane scrolls to it and marks it.
     public var highlighted: String?
+    /// The marked row, once it is in view; the pane scrolls until it is.
+    @ObservationIgnored var markInView: String?
     public private(set) var descriptors: [SettingDescriptor] = []
     /// The last refusal per key, shown under the control until the next good value.
     public private(set) var errors: [String: String] = [:]
@@ -182,6 +184,8 @@ public final class SettingsViewModel {
 
     public func open(_ route: SettingsRoute) {
         if let pane = route.pane { self.pane = pane }
+        // A row that left while marked (another pane) never said so: start the new link afresh.
+        markInView = nil
         highlighted = route.row
     }
 

@@ -28,7 +28,17 @@ public final class StatusItemController: NSObject {
             button.action = #selector(toggle)
             button.sendAction(on: [.leftMouseDown, .rightMouseDown])
         }
+        applyMenuBarIcon()
     }
+
+    /// Shows or hides the glyph (`showMenubarIcon`). Hidden, opening the app again from Finder or
+    /// Spotlight shows Settings (`AppServices.reopen`).
+    public func applyMenuBarIcon() {
+        item.isVisible = model.showsMenuBarIcon
+        if !item.isVisible { close() }
+    }
+
+    public var isIconVisible: Bool { item.isVisible }
 
     public var isOpen: Bool { panel?.isVisible ?? false }
 
@@ -37,7 +47,7 @@ public final class StatusItemController: NSObject {
     }
 
     public func open() {
-        guard let button = item.button, let buttonWindow = button.window else { return }
+        guard !isOpen, let button = item.button, let buttonWindow = button.window else { return }
         let glyph = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
         let screen = buttonWindow.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
         let host = NSHostingView(rootView: AnyView(EmptyView()))
@@ -50,6 +60,7 @@ public final class StatusItemController: NSObject {
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .transient, .ignoresCycle]
         panel.title = "L'Esclop"
+        panel.sharingType = model.windowSharing
         panel.contentView = host
 
         // Lay out once to learn the height, then place the panel under the glyph, inside the

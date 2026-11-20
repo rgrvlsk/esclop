@@ -26,7 +26,10 @@ import Testing
     /// Draws the view in a light and a dark window at once, so both share one wait; writes
     /// `<name>-light.png` and `<name>-dark.png` and returns the content sizes in points.
     @discardableResult
-    static func renderBoth(_ view: (ColorScheme) -> some View, size: CGSize, name: String, settle: Duration = .milliseconds(250)) async throws -> [CGSize] {
+    static func renderBoth(
+        _ view: (ColorScheme) -> some View, size: CGSize, name: String, settle: Duration = .milliseconds(250),
+        before: (() async throws -> Void)? = nil
+    ) async throws -> [CGSize] {
         _ = NSApplication.shared
         let schemes: [ColorScheme] = [.light, .dark]
         let windows = schemes.map { scheme in
@@ -43,6 +46,8 @@ import Testing
             return window
         }
         try await Task.sleep(for: settle)
+        // What happens in the open windows before the pictures.
+        try await before?()
         var sizes: [CGSize] = []
         for (scheme, window) in zip(schemes, windows) {
             window.contentView?.layoutSubtreeIfNeeded()
@@ -61,7 +66,10 @@ import Testing
 
     /// Draws `view` in a window of `size` with the scheme's appearance; returns the PNG's size in points.
     @discardableResult
-    static func renderWindow(_ view: some View, size: CGSize, name: String, scheme: ColorScheme, settle: Duration = .milliseconds(250)) async throws -> CGSize {
+    static func renderWindow(
+        _ view: some View, size: CGSize, name: String, scheme: ColorScheme, settle: Duration = .milliseconds(250),
+        before: (() async throws -> Void)? = nil
+    ) async throws -> CGSize {
         _ = NSApplication.shared
         // A fixed screenshot location: the machine's own stays out of the pictures.
         let host = NSHostingView(rootView: view.environment(\.screenshotLocation, "~/Desktop").environment(\.colorScheme, scheme))
@@ -77,6 +85,8 @@ import Testing
         // SwiftUI fills the AppKit controls in over a few run loop turns; sleeping on the main
         // actor lets the main run loop turn.
         try await Task.sleep(for: settle)
+        // What happens in the open window before the picture.
+        try await before?()
         host.layoutSubtreeIfNeeded()
         let bounds = host.bounds
         // A runner without a window server session gives no image: the layout still ran.
@@ -115,8 +125,40 @@ import Testing
     func updates(scheme: ColorScheme) async throws {
         let model = model(TestSettings())
         model.open(SettingsRoute(pane: .general, row: "installUpdatesAutomatically"))
-        let size = try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-updates", scheme: scheme, settle: .milliseconds(600))
+        let size = try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-updates", scheme: scheme, settle: .milliseconds(600)) {
+            // While the window is open: a closed one never reports the row (council C7-F1).
+            #expect(await eventually(.seconds(10)) { model.markInView == "installUpdatesAutomatically" }, "scrolled into view and marked")
+        }
         #expect(size.width > 0)
+    }
+
+    /// Search hits and links to rows low in General, with the window already open on another pane:
+    /// each row comes into view marked, however late the pane lays out (council C7-F1). The picture
+    /// is the last one, the pause hotkey.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func linksReachRowsLowInGeneral(scheme: ColorScheme) async throws {
+        let settings = TestSettings()
+        let model = model(settings)
+        model.login = OnboardingModel(defaults: settings.store.defaults)
+        model.pane = .images
+        let rows = [
+            "installUpdatesAutomatically", EsclopSettings.cardKeysUnderPointer.key, SettingsPaneView.openAtLoginRow,
+            // Twice: again after the pane was left while it was marked.
+            EsclopSettings.showInScreenshots.key, EsclopSettings.showInScreenshots.key, Hotkeys.rowID(.togglePause),
+        ]
+        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-link-low-row", scheme: scheme, settle: .milliseconds(400)) {
+            for row in rows {
+                // Away while the last row is still marked, as a person moving on would be.
+                model.pane = .images
+                try await Task.sleep(for: .milliseconds(150))
+                model.query = row
+                let hit = try #require(model.hits.first { $0.id == row }, "the search finds \(row)")
+                model.query = ""
+                model.open(hit)
+                #expect(model.markInView == nil, "\(row): a new link waits for its row to say it is in view")
+                #expect(await eventually(.seconds(10)) { model.markInView == row }, "\(row) in view and marked")
+            }
+        }
     }
 
     /// General › Keyboard shortcuts with the switch for the card keys under the pointer.
@@ -124,7 +166,9 @@ import Testing
     func keyboardShortcuts(scheme: ColorScheme) async throws {
         let model = model(TestSettings())
         model.open(SettingsRoute(pane: .general, row: EsclopSettings.cardKeysUnderPointer.key))
-        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-keyboard-shortcuts", scheme: scheme, settle: .milliseconds(600))
+        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-keyboard-shortcuts", scheme: scheme, settle: .milliseconds(600)) {
+            #expect(await eventually(.seconds(10)) { model.markInView == EsclopSettings.cardKeysUnderPointer.key }, "scrolled into view and marked")
+        }
     }
 
     /// Floating results › Preset zones: a saved pipeline and a template on, the rest off.

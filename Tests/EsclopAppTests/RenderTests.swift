@@ -333,10 +333,11 @@ import Testing
         try render(DropZoneView(state: DropZoneState(fileCount: 3)), name: "drop-zone", scheme: scheme)
         try render(DropZoneView(state: DropZoneState(fileCount: 3, hovering: true)), name: "drop-zone-hover", scheme: scheme)
         try render(DropZoneView(state: DropZoneState(fileCount: 1, hovering: true, harder: true)), name: "drop-zone-harder", scheme: scheme)
-        // Preset zones: four in the grid with one under the drag, and three on the other side.
+        // Preset zones: four in the grid with one under the drag, and three on the other side. A
+        // long name is cut in its middle.
         let zones = [
             PresetZone(name: "to WebP", icon: "photo", builtIn: true), PresetZone(name: "fit under 1 MB", icon: "arrow.down.circle", builtIn: true),
-            PresetZone(name: "Screenshots for the blog post", icon: "camera.viewfinder"), PresetZone(name: "Share", icon: "square.and.arrow.up"),
+            PresetZone(name: "Screenshots for the blog post header images", icon: "camera.viewfinder"), PresetZone(name: "Share", icon: "square.and.arrow.up"),
         ]
         let four = try render(DropZoneView(state: DropZoneState(fileCount: 2, zones: zones, hoveredZone: "fit under 1 MB")), name: "drop-zone-presets", scheme: scheme)
         #expect(four.width > DropTiles.plainWidth * 4, "the zones sit beside the plain target")
