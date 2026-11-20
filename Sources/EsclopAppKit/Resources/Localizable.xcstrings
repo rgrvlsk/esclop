@@ -2601,6 +2601,26 @@
         }
       }
     },
+    "Could not remove %d originals": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’han pogut eliminar %d originals"
+          }
+        }
+      }
+    },
+    "Could not remove 1 original": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha pogut eliminar 1 original"
+          }
+        }
+      }
+    },
     "Could not restore %@": {
       "localizations": {
         "ca": {
@@ -5571,6 +5591,16 @@
         }
       }
     },
+    "Optimise Again With": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Torna a optimitzar amb"
+          }
+        }
+      }
+    },
     "Optimise Clipboard": {
       "localizations": {
         "ca": {
@@ -6571,6 +6601,16 @@
         }
       }
     },
+    "Remove %d originals?": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vols eliminar %d originals?"
+          }
+        }
+      }
+    },
     "Remove All": {
       "localizations": {
         "ca": {
@@ -6721,12 +6761,32 @@
         }
       }
     },
+    "Remove this original?": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vols eliminar aquest original?"
+          }
+        }
+      }
+    },
     "Removed": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Eliminat"
+          }
+        }
+      }
+    },
+    "Remove…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elimina…"
           }
         }
       }
@@ -6861,6 +6921,16 @@
         }
       }
     },
+    "Restore %d originals": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaura %d originals"
+          }
+        }
+      }
+    },
     "Restore All": {
       "localizations": {
         "ca": {
@@ -6977,6 +7047,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Torna-ho a provar tot"
+          }
+        }
+      }
+    },
+    "Retry All Failed": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Torna a provar els errors"
           }
         }
       }

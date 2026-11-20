@@ -313,12 +313,15 @@ public final class AppModel {
             await self.process(source, job: single, executor: executor, card: nil, row: row, batch: batch, linksSince: linksSince, events: events, onResult: onResult)
         }
         row.cancel = { task.cancel() }
-        row.retry = { [weak self, weak row, weak batch] in
+        row.runAgain = { [weak self, weak row, weak batch] change in
             guard let self, let row, let batch, row.isFinished else { return }
             row.state = .waiting
             row.upload = nil
+            row.restoreError = nil
+            row.editInTrash = false
             var again = single
             again.request.id = UUID()
+            change(&again)
             _ = self.startRow(row, in: batch, job: again, executor: executor, linksSince: linksSince, events: { _ in }, onResult: onResult)
         }
         return task

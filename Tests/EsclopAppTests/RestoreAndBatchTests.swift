@@ -2,16 +2,19 @@
 //
 // One restore truth (HC-33): an original put back from one window is never put back again from
 // another, which would send it to the Trash as an "edit"; Originals judges a result rebuilt after
-// Recent › Clear by its real finish time; Clear forgets a finished batch.
+// Recent › Clear by its real finish time, follows backups added while open and names what it
+// could not remove; Clear forgets a finished batch; the batch window's selection runs again.
 
+import AppKit
 import EsclopCore
 import EsclopIPC
 @testable import EsclopAppKit
 import Foundation
+import SwiftUI
 import Testing
 
 @MainActor
-@Suite struct RestoreTruthTests {
+@Suite struct RestoreAndBatchTests {
     /// The backups the restore was asked to put back, in order. A second ask for one backup is
     /// the bug (it sends the original to the Trash as an edit): it fails instead and leaves the
     /// disk alone, so a regression never puts a test file in the real Trash.
@@ -114,7 +117,7 @@ import Testing
         let originals = OriginalsModel(app: harness.model)
         await originals.load()
         let item = try #require(originals.items.first { $0.entry.original.lastPathComponent == "photo 2.png" })
-        await originals.restore(item)
+        await originals.restore([item])
         #expect(originals.items.first { $0.id == item.id }?.inPlace == true)
         if cleared {
             #expect(harness.model.batch == nil, "Clear forgot the finished batch")
@@ -141,7 +144,7 @@ import Testing
         let item = try #require(OriginalsModel.items([entry], log: harness.model.service.results).first)
         #expect(abs(item.result.finishedAt.timeIntervalSince(logged.finishedAt)) < 2, "the cleared line's time")
 
-        await OriginalsModel(app: harness.model).restore(item)
+        await OriginalsModel(app: harness.model).restore([item])
         #expect(AppModel.size(of: file) == 100_000)
         #expect(harness.model.cards.last?.editInTrash == false, "the optimised file is not called an edit")
 
@@ -184,5 +187,92 @@ import Testing
         #expect(MenuPanel.item(after: .result(id), by: -1, results: [id], batch: true) == .batch)
         #expect(MenuPanel.item(after: .batch, by: -1, results: [id], batch: true) == .batch, "stops at the top")
         #expect(MenuPanel.item(after: nil, by: 1, results: [], batch: true) == .batch)
+    }
+
+    /// B4: the open window follows a backup made meanwhile, and Remove names what it could not
+    /// delete instead of failing silently.
+    @Test func originalsFollowNewBackupsAndNameFailedRemovals() async throws {
+        let harness = Harness()
+        _ = await harness.model.run(harness.job(harness.temp.file("First.png"), origin: .app))
+        let originals = OriginalsModel(app: harness.model)
+        await originals.load()
+        originals.watch()
+        defer { originals.stopWatching() }
+        #expect(originals.items.count == 1)
+        _ = await harness.model.run(harness.job(harness.temp.file("Second.png"), origin: .app))
+        #expect(await eventually(.seconds(20)) { originals.items.count == 2 }, "read again without reopening")
+
+        let first = try #require(originals.items.first { $0.entry.original.lastPathComponent == "First.png" })
+        let folder = first.entry.backup.deletingLastPathComponent()
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: folder.path)
+        await originals.remove([first])
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: folder.path)
+        #expect(originals.removalFailures == ["First.png"])
+        #expect(originals.items.count == 2, "nothing claimed removed")
+        await originals.removeAll()
+        #expect(originals.removalFailures.isEmpty)
+        #expect(originals.items.isEmpty)
+    }
+
+    /// B5: Optimise Again With on the selected rows runs each again from its original, in the
+    /// chosen format; the others stay as they are.
+    @Test func theSelectionRunsAgainFromItsOriginals() async throws {
+        let harness = Harness()
+        let (batch, restores) = try await batch(harness)
+        let selected = Array(batch.rows.prefix(2))
+        let untouched = try #require(batch.rows[3].result)
+        let before = harness.requests.requests.count
+        await harness.model.rerun(selected, as: .webp)
+        #expect(await eventually { selected.allSatisfy { $0.result != nil } && !batch.isRunning })
+        let again = harness.requests.requests.dropFirst(before)
+        #expect(again.count == 2)
+        #expect(again.allSatisfy { $0.format == .webp })
+        #expect(restores.backups.count == 2, "each original put back once, first")
+        #expect(selected.allSatisfy { $0.result?.bytesBefore == 100_000 }, "from the original, not the optimised file")
+        #expect(batch.rows[3].result?.id == untouched.id)
+        // Try again after a crop keeps the crop: the row runs as it last ran.
+        await harness.model.crop([selected[0]], to: .ratio(16, 9))
+        #expect(await eventually { selected[0].result != nil && !batch.isRunning })
+        #expect(harness.requests.requests.last?.crop?.aspectRatio == "16:9")
+        #expect(harness.requests.requests.last?.format == .webp)
+    }
+
+    /// B6: Retry All Failed runs every failed and stopped row again, and only those.
+    @Test func retryAllFailedRunsOnlyTheFailures() async throws {
+        let harness = Harness()
+        let (batch, _) = try await batch(harness)
+        batch.rows[1].state = .failed("x")
+        batch.rows[2].state = .cancelled
+        #expect(batch.retriable.count == 2)
+        let before = harness.requests.requests.count
+        harness.model.retryFailed(batch)
+        #expect(await eventually { !batch.isRunning })
+        #expect(harness.requests.requests.count == before + 2)
+        #expect(batch.failed == 0 && batch.cancelled == 0)
+    }
+
+    // MARK: Renders (ESCLOP_RENDER_DIR keeps them; ESCLOP_LANGUAGE=ca for Catalan)
+
+    /// B3/B4: two IMG_0001.jpg told apart by their folders, with thumbnails; two selected, with
+    /// Restore and Remove for them; and the empty window with its one retention sentence. The
+    /// batch window's selection renders with the others (`BatchRenderTests`).
+    @Test func originalsRenders() async throws {
+        let harness = Harness()
+        harness.model.loadsThumbnails = true
+        for name in ["Trips/IMG_0001.jpg", "Work/Receipts/IMG_0001.jpg", "Screenshot 2026-11-19 at 09.41.12.png"] {
+            let file = harness.temp.file(name)
+            let image = try #require(NSBitmapImageRep(data: pngData(width: 640, height: 480)))
+            try #require(image.representation(using: name.hasSuffix(".jpg") ? .jpeg : .png, properties: [:])).write(to: file)
+            _ = await harness.model.run(harness.job(file, origin: .app))
+        }
+        let originals = OriginalsModel(app: harness.model)
+        await originals.load()
+        #expect(originals.items.count == 3)
+        try await SettingsRenderTests.renderBoth({ _ in OriginalsView(model: originals) }, size: CGSize(width: 520, height: 360), name: "originals", settle: .seconds(1))
+        let two = Set(originals.items.prefix(2).map(\.id))
+        try await SettingsRenderTests.renderBoth({ _ in OriginalsView(model: originals, selection: two) }, size: CGSize(width: 520, height: 360), name: "originals-selection", settle: .seconds(1))
+        let empty = OriginalsModel(app: Harness().model)
+        await empty.load()
+        try await SettingsRenderTests.renderBoth({ _ in OriginalsView(model: empty) }, size: CGSize(width: 520, height: 360), name: "originals-empty")
     }
 }

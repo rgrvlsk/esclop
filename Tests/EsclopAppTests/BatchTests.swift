@@ -108,7 +108,7 @@ import Testing
         }
         let stopped = try #require(batch.rows.first { $0.state == .cancelled })
         #expect(AppModel.size(of: stopped.source) == 100_000, "the original is untouched")
-        stopped.retry?()
+        stopped.retry()
         #expect(await eventually { stopped.result != nil })
         #expect(BatchPresentation.status(of: stopped, locale: Locale(identifier: "en")) == "100\u{00A0}kB → 40\u{00A0}kB")
     }

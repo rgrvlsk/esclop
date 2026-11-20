@@ -50,7 +50,7 @@ import Testing
         #expect(!item.inPlace)
         #expect(item.result.id == harness.model.cards.first?.result?.id, "the logged result, so the restore judges the file by it")
 
-        await originals.restore(item)
+        await originals.restore([item])
         #expect(AppModel.size(of: file) == 100_000, "the original is back")
         #expect(originals.items.first?.inPlace == true, "nothing left to put back")
 
@@ -70,7 +70,7 @@ import Testing
         await originals.load()
         let item = try #require(originals.items.first)
         #expect(item.result.backup == item.entry.backup)
-        await originals.restore(item)
+        await originals.restore([item])
         #expect(AppModel.size(of: file) == 100_000)
         // A backup with no output named never matches the file there, which goes to the Trash.
         let bare = BackupEntry(id: UUID(), original: file, backup: harness.temp.url.appendingPathComponent("elsewhere.png"), output: nil, requestID: nil, createdAt: Date(), bytes: 100_000)

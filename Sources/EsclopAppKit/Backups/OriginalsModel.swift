@@ -25,7 +25,14 @@ struct OriginalItem: Identifiable, Sendable {
 final class OriginalsModel {
     private(set) var items: [OriginalItem] = []
     private(set) var loaded = false
+    /// The names of the originals the last removal could not delete; the window says so.
+    var removalFailures: [String] = []
     @ObservationIgnored let app: AppModel
+    /// Reads the list again when a backup is added or pruned while the window is open, by the
+    /// app, the CLI or an agent.
+    @ObservationIgnored private var watcher: FolderWatcher?
+    /// Counts the loads, so one that ends after a newer one does not put an older list back.
+    @ObservationIgnored private var loads = 0
 
     init(app: AppModel) {
         self.app = app
@@ -37,9 +44,28 @@ final class OriginalsModel {
 
     /// Reads the backups and the log off the main actor.
     func load() async {
-        let (store, log) = (store, app.service.results)
-        items = await Task.detached(priority: .userInitiated) { Self.items(store.entries(), log: log) }.value
+        loads += 1
+        let (store, log, load) = (store, app.service.results, loads)
+        let read = await Task.detached(priority: .userInitiated) { Self.items(store.entries(), log: log) }.value
+        guard load == loads else { return }
+        items = read
         loaded = true
+    }
+
+    /// While the window is open.
+    func watch() {
+        let root = store.root
+        _ = try? Paths.ensure(root)
+        let watcher = FolderWatcher(everyChange: true) { [weak self] _ in
+            Task { @MainActor in await self?.load() }
+        }
+        watcher.start([root])
+        self.watcher = watcher
+    }
+
+    func stopWatching() {
+        watcher?.stop()
+        watcher = nil
     }
 
     nonisolated static func items(_ entries: [BackupEntry], log: ResultsLog) -> [OriginalItem] {
@@ -87,18 +113,39 @@ final class OriginalsModel {
         return !fm.fileExists(atPath: output.path)
     }
 
-    func restore(_ item: OriginalItem) async {
-        if await app.restore(item.result) { await load() }
+    func restore(_ items: [OriginalItem]) async {
+        var restored = false
+        for item in items where !item.inPlace {
+            if await app.restore(item.result) { restored = true }
+        }
+        if restored { await load() }
     }
 
-    /// Deletes every kept original: none of these files can be restored afterwards.
-    func removeAll() async {
+    /// Deletes kept originals: they can no longer be restored. The ones that could not be
+    /// deleted are named in `removalFailures`.
+    func remove(_ items: [OriginalItem]) async {
         let (store, entries) = (store, items.map(\.entry))
-        await Task.detached(priority: .userInitiated) { for entry in entries { try? store.delete(entry) } }.value
+        removalFailures = await Task.detached(priority: .userInitiated) {
+            entries.compactMap { entry in
+                do {
+                    try store.delete(entry)
+                    return nil
+                } catch {
+                    return entry.original.lastPathComponent
+                }
+            }
+        }.value
         await load()
     }
 
-    func reveal(_ item: OriginalItem) {
-        app.reveal([item.entry.backup])
+    func removeAll() async { await remove(items) }
+
+    func reveal(_ items: [OriginalItem]) {
+        app.reveal(items.map(\.entry.backup))
+    }
+
+    /// The selected items, in the list's order.
+    func items(_ ids: Set<OriginalItem.ID>) -> [OriginalItem] {
+        items.filter { ids.contains($0.id) }
     }
 }

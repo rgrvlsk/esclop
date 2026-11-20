@@ -6,6 +6,7 @@
 // `AppModel.run` and work gate as single files.
 
 import EsclopCore
+import EsclopIPC
 import Foundation
 import Observation
 
@@ -43,8 +44,9 @@ public final class BatchRow: Identifiable {
     public var editInTrash = false
     /// An automatic upload of the row's result (`uploadAutomatically`).
     public var upload: ResultCard.UploadState?
-    /// Runs the file again (after an error or a cancel).
-    var retry: (() -> Void)?
+    /// Runs the file again from its original, as it last ran with the change made to its job (a
+    /// choice, a crop, a scale): Try again, and the selection's re-runs (`AppModel.rerun`).
+    var runAgain: (((inout OptimisationJob) -> Void) -> Void)?
     var cancel: (() -> Void)?
 
     init(source: URL, bytesBefore: Int) {
@@ -73,6 +75,17 @@ public final class BatchRow: Identifiable {
     }
 
     public var isRunning: Bool { !isFinished }
+
+    /// Failed or stopped: Try again runs it as it was.
+    public var canRetry: Bool {
+        switch state {
+        case .failed, .cancelled: return true
+        default: return false
+        }
+    }
+
+    /// Runs the file again as it last ran (after an error or a cancel).
+    func retry() { runAgain? { _ in } }
 
     /// The file the row stands for now: the result, the original once restored, else the source.
     public var shownFile: URL {
@@ -136,6 +149,8 @@ public final class Batch: Identifiable {
     public var failed: Int { rows.filter { if case .failed = $0.state { return true } else { return false } }.count }
     public var cancelled: Int { rows.filter { $0.state == .cancelled }.count }
     public var restorable: [BatchRow] { rows.filter(\.canRestore) }
+
+    public var retriable: [BatchRow] { rows.filter(\.canRetry) }
 
     public var restored: Int { rows.filter { if case .restored = $0.state { return true } else { return false } }.count }
 
