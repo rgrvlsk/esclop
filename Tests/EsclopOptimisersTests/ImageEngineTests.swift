@@ -452,11 +452,11 @@ import UniformTypeIdentifiers
         let video = VideoEngine(env: world.engine.env)
         let request = OptimisationRequest(sources: [], origin: .cli, videoEncoder: .h264Software)
         let stream = MediaInfo.Video(codec: "h264", width: 640, height: 480, fps: 30)
-        let codec = try await video.chooseCodec(container: .mp4, request: request, video: stream, keepHDR: true)
+        let codec = try await video.chooseCodec(container: .mp4, request: request, video: stream)
         let encoders = await FFmpegCapabilities.shared.encoders(tools: .shared)
         #expect(codec == (encoders.contains("libx264") ? .h264x264 : .h264VT))
         let hdr = MediaInfo.Video(codec: "hevc", width: 640, height: 480, fps: 30, colorTransfer: "smpte2084")
-        let hdrCodec = try await video.chooseCodec(container: .mp4, request: OptimisationRequest(sources: [], origin: .cli), video: hdr, keepHDR: true)
+        let hdrCodec = try await video.chooseCodec(container: .mp4, request: OptimisationRequest(sources: [], origin: .cli), video: hdr)
         #expect(hdrCodec == .hevcVT)
     }
 }
@@ -488,5 +488,115 @@ import UniformTypeIdentifiers
         await #expect(throws: EsclopError.notPermitted(ResultWriter.agentOverwriteMessage)) {
             try await world.engine.optimise(again, request: world.request(again, origin: .mcp, location: .path("%d/%f.%e")), progress: { _ in })
         }
+    }
+}
+
+/// What a re-encode carries over, through the Rust engine and ImageIO together.
+@Suite(.enabled(if: Harness.hasRealEngine)) struct MetadataCarryTests {
+    @Test func aConversionKeepsTheDensityOfAPNGWithoutEXIF() async throws {
+        let world = try await TestWorld(realEngine: true)
+        defer { Task { await world.finish() } }
+        let png = world.file("retina.png")
+        let image = try Fixture.gradient(width: 320, height: 240, deep: false, alpha: false)
+        try Fixture.write(image, to: png, type: .png, properties: [kCGImagePropertyDPIWidth: 144, kCGImagePropertyDPIHeight: 144])
+        // ImageIO also writes the density as EXIF; a screenshot has it in pHYs only.
+        let bytes = [UInt8](try Data(contentsOf: png))
+        var kept = Array(bytes[0 ..< 8])
+        var offset = 8
+        while offset + 12 <= bytes.count {
+            let length = bytes[offset ..< offset + 4].reduce(0) { $0 << 8 | Int($1) }
+            if bytes[offset + 4 ..< offset + 8] != [0x65, 0x58, 0x49, 0x66] { kept += bytes[offset ..< offset + 12 + length] } // eXIf
+            offset += 12 + length
+        }
+        try Data(kept).write(to: png)
+        #expect(abs((ImageInfo.probe(png)?.dpi ?? 0) - 144) < 0.5)
+        #expect(Data(kept).range(of: Data("eXIf".utf8)) == nil)
+        for format in [OutputFormat.webp, .avif] {
+            let result = try await world.engine.convert(png, to: format, request: world.request(png, location: .temporary), progress: { _ in })
+            #expect(abs((ImageInfo.probe(result.output)?.dpi ?? 0) - 144) < 0.5, "\(format)")
+        }
+    }
+
+    @Test func uprightPixelsKeepTheXMPWithItsOrientationRewritten() async throws {
+        let world = try await TestWorld(realEngine: true)
+        defer { Task { await world.finish() } }
+        try EsclopSettings.stripMetadata.set(false, in: world.settings)
+        let jpeg = world.file("rotated.jpg")
+        let metadata = CGImageMetadataCreateMutable()
+        CGImageMetadataSetValueWithPath(metadata, nil, "tiff:Orientation" as CFString, "6" as CFString)
+        CGImageMetadataSetValueWithPath(metadata, nil, "xmp:Label" as CFString, "Beach" as CFString)
+        let destination = try #require(CGImageDestinationCreateWithURL(jpeg as CFURL, UTType.jpeg.identifier as CFString, 1, nil))
+        CGImageDestinationAddImageAndMetadata(destination, try Fixture.gradient(width: 320, height: 240, deep: false, alpha: false), metadata, nil)
+        #expect(CGImageDestinationFinalize(destination))
+        #expect(ImageInfo.probe(jpeg)?.orientation == 6)
+
+        let result = try await world.engine.convert(jpeg, to: .webp, request: world.request(jpeg, location: .temporary), progress: { _ in })
+        let source = try #require(CGImageSourceCreateWithURL(result.output as CFURL, nil))
+        let carried = try #require(CGImageSourceCopyMetadataAtIndex(source, 0, nil))
+        #expect(CGImageMetadataCopyStringValueWithPath(carried, nil, "xmp:Label" as CFString) as String? == "Beach")
+        #expect(CGImageMetadataCopyStringValueWithPath(carried, nil, "tiff:Orientation" as CFString) as String? == "1")
+        #expect(Inspect.size(result.output)! == (240, 320))
+    }
+
+    @Test func aResizedJPEGKeepsItsIPTCBlock() async throws {
+        let world = try await TestWorld(realEngine: true)
+        defer { Task { await world.finish() } }
+        try EsclopSettings.stripMetadata.set(false, in: world.settings)
+        let jpeg = world.file("keywords.jpg")
+        // 300 dpi: the density repair after the resize rewrites the file through ImageIO too.
+        try Fixture.write(try Fixture.gradient(width: 640, height: 480, deep: false, alpha: false), to: jpeg, type: .jpeg, properties: [
+            kCGImagePropertyIPTCDictionary: [kCGImagePropertyIPTCKeywords: ["Holiday", "Sea"]],
+            kCGImagePropertyDPIWidth: 300, kCGImagePropertyDPIHeight: 300,
+        ])
+        let iptc = { (url: URL) -> Data? in
+            let data = try Data(contentsOf: url)
+            return ImageIOCodec.jpegHeaderSegments(data).first { $0.marker == 0xED }.map { data[$0.range] }
+        }
+        #expect(try iptc(jpeg)?.range(of: Data("Holiday".utf8)) != nil, "the fixture has an APP13 block")
+        // A thumbnail resource (0x040C) in the same block shows the uncropped picture: it stays behind.
+        var data = try Data(contentsOf: jpeg)
+        let block = try #require(ImageIOCodec.jpegHeaderSegments(data).first { $0.marker == 0xED })
+        let thumbnail: [UInt8] = Array("8BIM".utf8) + [0x04, 0x0C, 0, 0, 0, 0, 0, 6] + Array("THUMB!".utf8)
+        let length = block.range.count - 2 + thumbnail.count
+        data.replaceSubrange(block.range.lowerBound + 2 ..< block.range.lowerBound + 4, with: [UInt8(length >> 8), UInt8(length & 0xFF)])
+        data.insert(contentsOf: thumbnail, at: block.range.upperBound)
+        try data.write(to: jpeg)
+        #expect(try iptc(jpeg)?.range(of: Data("THUMB!".utf8)) != nil)
+        let result = try await world.engine.downscale(jpeg, factor: 0.5, request: world.request(jpeg, location: .temporary), progress: { _ in })
+        #expect(Inspect.size(result.output)! == (320, 240))
+        #expect(try iptc(result.output)?.range(of: Data("Holiday".utf8)) != nil)
+        #expect(try iptc(result.output)?.range(of: Data("THUMB!".utf8)) == nil)
+        #expect(abs((ImageInfo.probe(result.output)?.dpi ?? 0) - 300) < 0.5)
+    }
+
+    @Test func aLosslessPassSaysSo() async throws {
+        let world = try await TestWorld(realEngine: true)
+        defer { Task { await world.finish() } }
+        // A second pass over L'Esclop's own JPEG is under the quality ceiling: the engine only
+        // re-codes it without loss.
+        let jpeg = world.file("photo.jpg")
+        try Fixture.jpeg(jpeg, width: 640, height: 480)
+        let first = try await world.engine.optimise(jpeg, request: world.request(jpeg, location: .temporary), progress: { _ in })
+        #expect(first.steps.contains { $0.hasPrefix("Encoded JPEG at quality") })
+        let result = try await world.engine.optimise(first.output, request: world.request(first.output, location: .temporary), progress: { _ in })
+        #expect(result.steps.contains("Optimised without loss"), "\(result.steps)")
+        #expect(!result.steps.contains { $0.hasPrefix("Encoded JPEG") })
+    }
+
+    @Test func aNewImageIsOptimisedWhereItIs() async throws {
+        let world = try await TestWorld(realEngine: true)
+        defer { Task { await world.finish() } }
+        let png = world.file("page-1.png")
+        try Fixture.png(png, width: 640, height: 480)
+        // A page JPEG is named .jpg; the optimiser writes .jpeg.
+        let jpeg = world.file("page-2.jpg")
+        try Fixture.jpeg(jpeg, width: 640, height: 480)
+        for (page, type) in [(png, UTType.png), (jpeg, .jpeg)] {
+            let before = Inspect.bytes(page)
+            await world.engine.optimiseNewImage(page)
+            #expect(Inspect.bytes(page) < before, "\(page.lastPathComponent)")
+            #expect(Inspect.type(page) == type)
+        }
+        #expect(try FileManager.default.contentsOfDirectory(atPath: world.folder.path).filter { $0.hasPrefix("page-") }.sorted() == ["page-1.png", "page-2.jpg"])
     }
 }

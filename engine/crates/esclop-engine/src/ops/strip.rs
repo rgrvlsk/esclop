@@ -20,7 +20,7 @@ pub fn strip(req: &Request, ctx: &Ctx) -> Result<OpResult> {
             let parts = meta::JpegParts::parse(&bytes)?;
             let keep_icc = keep.contains(&Keep::Icc);
             let o = keep.contains(&Keep::Orientation).then(|| parts.orientation());
-            let extra: Vec<_> = meta::kept_exif(parts.exif(), o, keep_icc)
+            let extra: Vec<_> = meta::kept_exif(parts.exif(), o, keep_icc, None)
                 .map(|x| (meta::APP1, meta::exif_app1(&x)))
                 .into_iter()
                 .collect();

@@ -136,10 +136,7 @@ pub fn recompress(
         .and_then(|p| p.checked_add(stream.content.len().checked_mul(2)?));
     let Some(cost) = cost else { return Ok(None) };
     let Some(_hold) = budget.hold(cost)? else { return Ok(None) };
-    let scale = match (plan.dpi, plan.drawn_dpi) {
-        (Some(target), Some(drawn)) if drawn > target * DOWNSAMPLE_THRESHOLD => target / drawn,
-        _ => 1.0,
-    };
+    let scale = planned_scale(plan.dpi, plan.drawn_dpi);
 
     // JPEG in: re-encode when it is above the ceiling or needs downsampling, else optimise the
     // Huffman coding losslessly.
@@ -301,10 +298,7 @@ fn jpx_image(
     if !lossy_ok || smask_in_data || d.has(b"Decode") || !jpx_full_sampling(&stream.content) {
         return Ok(None);
     }
-    let scale = match (plan.dpi, plan.drawn_dpi) {
-        (Some(target), Some(drawn)) if drawn > target * DOWNSAMPLE_THRESHOLD => target / drawn,
-        _ => 1.0,
-    };
+    let scale = planned_scale(plan.dpi, plan.drawn_dpi);
     // Decode at the larger of the target and the 150 dpi view the fidelity check compares at.
     let view = plan.drawn_dpi.filter(|d| *d > 0.0).map_or(1.0, |d| (VIEW_DPI / d).min(1.0));
     let need = scale.max(view);
@@ -776,6 +770,15 @@ fn resample_with(
 /// saves little and changes how a viewer then resamples text edges (pdf.js issue17289: a page
 /// scored 0.970 while each step scored 0.98).
 const DOWNSAMPLE_THRESHOLD: f64 = 1.05;
+
+/// The scale downsampling plans for an image drawn at `drawn` dpi under a `target`: 1 when it
+/// is not denser than the target (by more than 5 %).
+pub fn planned_scale(target: Option<f64>, drawn: Option<f64>) -> f64 {
+    match (target, drawn) {
+        (Some(target), Some(drawn)) if drawn > target * DOWNSAMPLE_THRESHOLD => target / drawn,
+        _ => 1.0,
+    }
+}
 
 /// Resolution, in pixels per inch on the page, at which downsampling is judged: what the
 /// benchmark renders pages at, and about what a screen shows at 100 to 150 % zoom.
