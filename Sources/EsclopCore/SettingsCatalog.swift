@@ -36,6 +36,27 @@ public enum AudioCoverArt: String, CaseIterable, Codable, Sendable, SettingValue
 
 extension VideoEncoder: SettingValue {}
 
+/// What a copied web address of an image, video, PDF or audio file does.
+public enum CopiedAddressAction: String, CaseIterable, Codable, Sendable, SettingValue {
+    /// A brief card offers the download; nothing is fetched before its click.
+    case offer
+    /// Downloaded and optimised on its own, as a copied file.
+    case download
+    case ignore
+
+    /// Before 0.2 the setting was a switch: a stored true reads as `download`, false as `ignore`.
+    public init?(storedValue: Any) {
+        if let raw = storedValue as? String {
+            guard let value = Self(rawValue: raw) else { return nil }
+            self = value
+        } else if let flag = storedValue as? NSNumber {
+            self = flag.boolValue ? .download : .ignore
+        } else {
+            return nil
+        }
+    }
+}
+
 /// The screen corner where floating results stack.
 public enum ScreenCorner: String, CaseIterable, Codable, Sendable, SettingValue {
     case bottomRight, bottomLeft, topRight, topLeft
@@ -109,6 +130,11 @@ public enum EsclopSettings {
     public static let followCursorScreen = Setting<Bool>(
         "followCursorScreen", default: true, title: "Show results on the screen with the pointer",
         description: "Off shows them on the main screen.", section: .interface
+    )
+    public static let showFloatingResults = Setting<Bool>(
+        "showFloatingResults", default: true, title: "Show floating results",
+        description: "Off sends results only to Recent and the menu bar panel, as a pipeline that hides its result does.",
+        section: .interface
     )
     public static let autoHideFloatingResults = Setting<Bool>(
         "autoHideFloatingResults", default: true, title: "Hide results automatically",
@@ -201,6 +227,12 @@ public enum EsclopSettings {
         "minImageSizeKB", default: 50, title: "Smallest image to optimise automatically",
         description: "Images below this size in KB are skipped by automatic optimisation.",
         section: .images, minimum: 0, maximum: 100_000
+    )
+    /// Filled by the Crop tab's Crop; shown there as chips.
+    public static let cropSizes = Setting<[String]>(
+        "cropSizes", default: [], title: "Saved crop sizes",
+        description: "The last five sizes typed in the Crop tab, newest first, as width x height. They show there to use again.",
+        section: .images
     )
 
     // MARK: Video
@@ -431,9 +463,9 @@ public enum EsclopSettings {
         "optimiseImagePathClipboard", default: false, title: "Optimise copied image paths",
         description: "When a copied text is the path of an image file, optimise that file.", section: .clipboard
     )
-    public static let optimiseURLClipboard = Setting<Bool>(
-        "optimiseURLClipboard", default: true, title: "Download copied web addresses",
-        description: "When a copied text is the web address of an image, video, PDF or audio file, download and optimise it. Other links are never opened.",
+    public static let optimiseURLClipboard = Setting<CopiedAddressAction>(
+        "optimiseURLClipboard", default: .offer, title: "Copied web addresses",
+        description: "When you copy the web address of an image, video, PDF or audio file. An offer fetches nothing until you click it. Other links are never opened.",
         section: .clipboard
     )
     public static let clipboardIgnoredAppBundleIds = Setting<[String]>(
@@ -494,6 +526,12 @@ public enum EsclopSettings {
     public static let audioDirs = Setting<[String]>(
         "audioDirs", default: [], title: "Audio folders",
         description: "New audio files in these folders are optimised as they appear.", section: .audio
+    )
+    public static let watchedFolderRules = Setting<[String]>(
+        "watchedFolderRules", default: [], title: "Watched folder rules",
+        description: "What a watched folder leaves alone besides the size limits: formats to skip and, for images and videos, the smallest and largest size in pixels. An .esclopignore (or Clop's .clopignore) file in the folder skips the names its patterns match.",
+        section: .automation,
+        schema: ["x-details": "One JSON object per folder: folder (as in the folder lists), skipFormats (extensions), minPixels and maxPixels (the longer side; absent is no limit)."]
     )
 
     /// How many new files of a kind may appear in the watched folders at once (within a second)
@@ -570,12 +608,12 @@ public enum EsclopSettings {
 
     public static let all: [AnySetting] = [
         stripMetadata.erased, preserveDates.erased, keepHDR.erased, cardKeysUnderPointer.erased,
-        floatingResultsCorner.erased, followCursorScreen.erased, autoHideFloatingResults.erased,
+        floatingResultsCorner.erased, followCursorScreen.erased, showFloatingResults.erased, autoHideFloatingResults.erased,
         autoHideFloatingResultsAfter.erased, autoHideClipboardResultAfter.erased, batchWindowFrom.erased, enableDragAndDrop.erased, dropZoneOnlyWithOption.erased, presetZones.erased,
         imageCompression.erased, imageAggressiveCompression.erased,
         useAggressiveOptimisationJPEG.erased, useAggressiveOptimisationPNG.erased, useAggressiveOptimisationGIF.erased,
         adaptiveImageSize.erased, formatsToConvertToJPEG.erased, formatsToConvertToPNG.erased,
-        downscaleFactor.erased, downscaleRetinaImages.erased, maxImageSizeMB.erased, minImageSizeKB.erased,
+        downscaleFactor.erased, downscaleRetinaImages.erased, maxImageSizeMB.erased, minImageSizeKB.erased, cropSizes.erased,
         videoCompression.erased, videoAggressiveCompression.erased, videoEncoder.erased,
         useAggressiveOptimisationMP4.erased, formatsToConvertToMP4.erased, capVideoFPS.erased, targetVideoFPS.erased,
         minVideoFPS.erased, removeAudioFromVideos.erased, convertAudioToAAC.erased, playbackSpeedFrames.erased,
@@ -593,7 +631,7 @@ public enum EsclopSettings {
         clipboardIgnoredAppBundleIds.erased, clipboardRules.erased, autoCopyToClipboard.erased, appendClipboardResults.erased,
         pauseAutomaticOptimisations.erased, enableAutomaticImageOptimisations.erased,
         enableAutomaticVideoOptimisations.erased, enableAutomaticPDFOptimisations.erased,
-        enableAutomaticAudioOptimisations.erased, imageDirs.erased, videoDirs.erased, pdfDirs.erased, audioDirs.erased,
+        enableAutomaticAudioOptimisations.erased, imageDirs.erased, videoDirs.erased, pdfDirs.erased, audioDirs.erased, watchedFolderRules.erased,
         maxImageFileCount.erased, maxVideoFileCount.erased, maxPDFFileCount.erased, maxAudioFileCount.erased,
         allowOverwriteOriginals.erased, allowDeleteBackups.erased, allowRunScripts.erased, allowSettingsChanges.erased, allowUploads.erased,
         uploadTargets.erased, uploadTarget.erased, uploadAutomatically.erased,

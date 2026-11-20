@@ -159,6 +159,23 @@ import UniformTypeIdentifiers
         #expect(fractions.values.last == 1)
     }
 
+    /// The bundled ffmpeg has no x264 or x265 (LGPL build): a software choice runs on
+    /// VideoToolbox and a step names the encoder that ran.
+    @Test func aSoftwareEncoderChoiceNamesTheEncoderThatRan() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let mov = world.file("clip.mov")
+        try await Fixture.video(mov)
+        let missing = await EsclopEngine.missingVideoEncoders()
+        #expect(!missing.contains(.h264VideoToolbox))
+        var request = world.request(mov, location: .temporary)
+        request.videoEncoder = .h264Software
+        let result = try await world.engine.optimise(mov, request: request, progress: { _ in })
+        #expect(result.steps.contains("Used H.264 (VideoToolbox) instead of x264") == missing.contains(.h264Software))
+        let plain = try await world.engine.optimise(mov, request: world.request(mov, location: .temporary), progress: { _ in })
+        #expect(!plain.steps.contains { $0.hasSuffix("instead of x264") })
+    }
+
     @Test func watermarkAVideo() async throws {
         let world = try await TestWorld()
         defer { Task { await world.finish() } }
@@ -269,6 +286,24 @@ import UniformTypeIdentifiers
         #expect(PDFDocument(url: result.output) != nil)
     }
 
+    /// The pipelines' page export (`extractPDFPages`, which `esclop pdf pages` also uses)
+    /// optimises every page it writes: it used to leave them as rendered.
+    @Test func exportedPagesAreOptimised() async throws {
+        let world = try await TestWorld(realEngine: true)
+        defer { Task { await world.finish() } }
+        let pdf = world.file("doc.pdf")
+        try Fixture.pdf(pdf, pages: 2)
+        for format in [OutputFormat.png, .jpeg] {
+            let plain = try PDFEngine(env: world.engine.env).extractPages(pdf, format: format, dpi: 72, to: world.file("plain-\(format)"))
+            let pages = try await world.engine.extractPDFPages(pdf, format: format, dpi: 72, to: world.file("pages-\(format)"))
+            #expect(pages.map(\.lastPathComponent) == plain.map(\.lastPathComponent))
+            for (page, rendered) in zip(pages, plain) {
+                #expect(Inspect.bytes(page) < Inspect.bytes(rendered), "\(page.lastPathComponent)")
+                #expect(Inspect.type(page) == Inspect.type(rendered))
+            }
+        }
+    }
+
     @Test func dpiStopsAndAdaptiveChoice() {
         #expect(EsclopEngine.pdfDPIStops == [300, 250, 200, 150, 100, 72, 48])
         #expect(PDFResolution.stepDown(from: 300) == 250)
@@ -313,6 +348,48 @@ import UniformTypeIdentifiers
         let second = try engine.extractPages(pdf, format: .png, dpi: 18, to: folder)
         #expect(first.map(\.lastPathComponent) == ["doc-1.png", "doc-2.png", "doc-3.png"])
         #expect(second.map(\.lastPathComponent) == ["doc-1 2.png", "doc-2 2.png", "doc-3 2.png"])
+    }
+
+    /// Chosen pages only, at the asked resolution; a page outside the document fails.
+    @Test func exportsTheChosenPages() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let pdf = world.file("doc.pdf")
+        try Fixture.pdf(pdf, pages: 3)
+        let engine = PDFEngine(env: world.engine.env)
+        let written = try engine.extractPages(pdf, pages: [1, 3], format: .png, dpi: 144, to: world.file("pages"))
+        #expect(written.map(\.lastPathComponent) == ["doc-1.png", "doc-3.png"])
+        #expect(Inspect.size(written[0])! == (1224, 1584))
+        #expect(throws: EsclopError.self) { try engine.extractPages(pdf, pages: [9], format: .png, dpi: 72, to: world.folder) }
+    }
+
+    /// Without a format, a page that is one photo exports as JPEG (named .jpg) and others as PNG.
+    @Test func aPhotoPageExportsAsJPEG() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let pdf = world.file("scan.pdf")
+        var box = CGRect(x: 0, y: 0, width: 200, height: 100)
+        let context = try #require(CGContext(pdf as CFURL, mediaBox: &box, nil))
+        let photo = try #require(CGContext(
+            data: nil, width: 64, height: 32, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+        ))
+        photo.setFillColor(CGColor(red: 0.8, green: 0.3, blue: 0.1, alpha: 1))
+        photo.fill(CGRect(x: 0, y: 0, width: 32, height: 32))
+        let image = try #require(photo.makeImage())
+        context.beginPDFPage(nil)
+        context.draw(image, in: box)
+        context.endPDFPage()
+        context.beginPDFPage(nil)
+        context.setFillColor(CGColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1))
+        context.fill(box.insetBy(dx: 20, dy: 20))
+        context.endPDFPage()
+        context.closePDF()
+        let engine = PDFEngine(env: world.engine.env)
+        let written = try engine.extractPages(pdf, format: nil, dpi: 72, to: world.file("pages"))
+        #expect(written.map(\.lastPathComponent) == ["scan-1.jpg", "scan-2.png"])
+        let forced = try engine.extractPages(pdf, pages: [2], format: .jpeg, dpi: 72, to: world.file("jpeg"))
+        #expect(forced.map(\.lastPathComponent) == ["scan-2.jpg"])
     }
 }
 
@@ -632,6 +709,111 @@ import UniformTypeIdentifiers
         let bare = try await world.engine.stripMetadata(mp3, request: world.request(mp3, location: .temporary))
         #expect(bare.steps == ["Removed metadata and artwork"])
         #expect(try await !Inspect.media(bare.output).hasCoverArt)
+    }
+
+    /// Extract Cover writes the cover beside the song as it is held, under a free name, and
+    /// writes nothing for a song without one (HC-37, K3).
+    @Test func extractCoverWritesTheCoverBesideTheSong() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let noise = world.file("noise.wav")
+        try Fixture.noiseWAV(noise)
+        let song = world.file("song.mp3")
+        try await ProcessRunner.run(.ffmpeg, [
+            "-hide_banner", "-loglevel", "error", "-y", "-i", noise.path, "-f", "lavfi", "-i", "color=c=red:s=64x64:d=1",
+            "-map", "0:a", "-map", "1:v", "-frames:v", "1", "-c:v", "mjpeg", "-disposition:v", "attached_pic",
+            "-c:a", "libmp3lame", "-b:a", "128k", song.path,
+        ])
+        #expect(await world.engine.hasCoverArt(song))
+        let folder = world.file("covers")
+        let cover = try await world.engine.extractCover(song, to: folder)
+        #expect(cover.lastPathComponent == "song cover.jpg")
+        let image = try #require(CGImageSourceCreateWithURL(cover as CFURL, nil))
+        #expect(CGImageSourceGetType(image) as String? == "public.jpeg")
+        let again = try await world.engine.extractCover(song, to: folder, name: "Track")
+        #expect(again.lastPathComponent == "Track cover.jpg")
+        #expect(try await world.engine.extractCover(song, to: folder).lastPathComponent == "song cover 2.jpg", "never replaces a file")
+
+        let bare = world.file("bare.mp3")
+        try await ProcessRunner.run(.ffmpeg, ["-hide_banner", "-loglevel", "error", "-y", "-i", noise.path, "-c:a", "libmp3lame", bare.path])
+        #expect(await !world.engine.hasCoverArt(bare))
+        await #expect(throws: EsclopError.self) { try await world.engine.extractCover(bare, to: folder) }
+        #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path).sorted() == ["Track cover.jpg", "song cover 2.jpg", "song cover.jpg"])
+    }
+
+    /// An audiobook stays an `.m4b`, in place and elsewhere: it used to become `book.m4a`, and in
+    /// place the `.m4b` was removed.
+    @Test func anAudiobookKeepsItsExtension() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let noise = world.file("noise.wav")
+        try Fixture.noiseWAV(noise)
+        let book = world.file("book.m4b")
+        try await ProcessRunner.run(.ffmpeg, ["-hide_banner", "-loglevel", "error", "-y", "-i", noise.path, "-c:a", "aac", "-b:a", "256k", book.path])
+        let elsewhere = try await world.engine.optimise(book, request: world.request(book, location: .temporary), progress: { _ in })
+        #expect(elsewhere.output.pathExtension == "m4b")
+        let inPlace = try await world.engine.optimise(book, request: world.request(book), progress: { _ in })
+        #expect(inPlace.output == book)
+        #expect(try await Inspect.media(book).audio?.codec == "aac")
+        #expect(!FileManager.default.fileExists(atPath: world.file("book.m4a").path))
+    }
+
+    /// An audio speed change leaves the chapters out, as a video's does: their times would not
+    /// follow, and a step says so.
+    @Test func anAudioSpeedChangeLeavesOutTheChaptersAndSaysSo() async throws {
+        guard let ffmpeg = await Fixture.richFFmpeg() else { return }
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let chapters = world.file("chapters.txt")
+        try ";FFMETADATA1\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=0\nEND=1000\ntitle=Intro\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=1000\nEND=3000\ntitle=Main\n"
+            .write(to: chapters, atomically: true, encoding: .utf8)
+        let noise = world.file("noise.wav")
+        try Fixture.noiseWAV(noise)
+        let book = world.file("book.m4b")
+        try await ProcessRunner.run(executable: ffmpeg, arguments: [
+            "-hide_banner", "-loglevel", "error", "-y", "-i", noise.path, "-i", chapters.path, "-map", "0:a", "-map_chapters", "1",
+            "-c:a", "aac", "-b:a", "128k", book.path,
+        ])
+        try #require(chapterTitles(try await ffprobe(book)) == ["Intro", "Main"])
+        let same = try await world.engine.optimise(book, request: world.request(book, location: .temporary), progress: { _ in })
+        #expect(chapterTitles(try await ffprobe(same.output)) == ["Intro", "Main"])
+        let fast = try await world.engine.changeSpeed(book, factor: 2, request: world.request(book, location: .temporary), progress: { _ in })
+        #expect(chapterTitles(try await ffprobe(fast.output)).isEmpty)
+        #expect(fast.steps.contains("Left out 2 chapters: their times do not follow a speed change"))
+    }
+
+    /// ffmpeg cannot copy an iPhone's location and camera keys in a form macOS reads, so with
+    /// strip off a step says they were not kept, instead of losing them silently.
+    @Test func aVideoSaysItsLocationWasNotKept() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let mov = world.file("iphone.mov")
+        try await ProcessRunner.run(.ffmpeg, [
+            "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=d=1:s=320x240:r=30",
+            "-c:v", "mjpeg", "-q:v", "2", "-pix_fmt", "yuvj420p", "-movflags", "use_metadata_tags",
+            "-metadata", "com.apple.quicktime.location.ISO6709=+41.3800+002.1700/", "-metadata", "com.apple.quicktime.make=Apple", mov.path,
+        ])
+        try #require(try await Inspect.media(mov).hasAppleLocationOrCamera)
+        var keep = world.request(mov, location: .temporary)
+        keep.stripMetadata = false
+        let kept = try await world.engine.optimise(mov, request: keep, progress: { _ in })
+        #expect(kept.steps.contains("Location and camera were not kept"))
+        let stripped = try await world.engine.optimise(mov, request: world.request(mov, location: .temporary), progress: { _ in })
+        #expect(!stripped.steps.contains("Location and camera were not kept"))
+        #expect(stripped.steps.contains("Removed metadata"))
+    }
+
+    /// Remove audio keeps the subtitles (it used to map only the video, dropping them silently).
+    @Test func removingTheAudioKeepsTheSubtitles() async throws {
+        guard let ffmpeg = await Fixture.richFFmpeg() else { return }
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let mkv = try await richMKV(world, ffmpeg: ffmpeg)
+        let result = try await world.engine.removeAudio(mkv, request: world.request(mkv, location: .temporary))
+        let json = try await ffprobe(result.output)
+        #expect(languages(json, "audio").isEmpty)
+        #expect(languages(json, "subtitle") == ["cat", "spa"])
+        #expect(!result.steps.contains { $0.hasPrefix("Left out") })
     }
 
     /// Audio downscale scales the source's bitrate (it used to ignore the factor).

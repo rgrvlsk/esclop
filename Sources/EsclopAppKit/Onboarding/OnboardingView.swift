@@ -267,7 +267,7 @@ struct PermissionsPage: View {
         VStack(spacing: 0) {
             PageHeading(
                 title: Strings.text("What macOS will ask"),
-                summary: Strings.text("Files are optimised on this Mac, with no account. They leave it only when you upload them or set up automatic uploads. L’Esclop needs no Accessibility, Screen Recording or Full Disk Access.")
+                summary: Strings.text("Files are optimised on this Mac, with no account. They leave it only when you upload them or set up automatic uploads. A copied media link is only offered for download: nothing is fetched until you click. L’Esclop needs no Accessibility, Screen Recording or Full Disk Access.")
             )
             Form {
                 Section {
@@ -435,8 +435,8 @@ struct DonePage: View {
                                     .font(.title3.weight(.medium))
                                     .monospacedDigit()
                             } else {
-                                // "Go to the newest result" has no key until one is set: this
-                                // opens its row in Settings, so the keyboard alone finds it.
+                                // A hotkey with no key ("Show the last result", or one cleared):
+                                // this opens its row in Settings, so the keyboard alone finds it.
                                 Button(Strings.text("Set…")) { setShortcut(hotkey.name) }
                             }
                         }

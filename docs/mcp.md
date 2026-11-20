@@ -48,11 +48,13 @@ run; `--command <path>` installs a different `esclop` binary.
 | pi | `pi` | `~/.pi/agent/mcp.json` | JSON |
 | Goose | `goose` | `~/.config/goose/config.yaml` (`extensions`) | YAML |
 | VS Code | `vscode` | `~/Library/Application Support/Code/User/mcp.json` (`servers`) | JSON |
+| VS Code Insiders | `vscode-insiders` | `~/Library/Application Support/Code - Insiders/User/mcp.json` (`servers`) | JSON |
 | Amp | `amp` | `~/.config/amp/settings.json` (`amp.mcpServers`) | JSON |
 | Factory Droid | `droid` | `~/.factory/mcp.json` | JSON |
 | Qwen Code | `qwen` | `~/.qwen/settings.json` | JSON |
 | Antigravity (app and `agy` CLI) | `antigravity` | `~/.gemini/config/mcp_config.json` (as Clop uses; some guides name `~/.gemini/antigravity/mcp_config.json`, so check Antigravity → Settings → Open MCP Config if it does not load) | JSON |
 | Kimi Code | `kimi` | `~/.kimi-code/mcp.json` | JSON |
+| Crush | `crush` | `~/.config/crush/crush.json` (`mcp`; Crush merges it with its newer `crushrc`) | JSON |
 | Warp | `warp` | none: Warp → Settings → AI → MCP Servers → Add, paste the JSON `esclop mcp install warp` prints | manual |
 
 For manual setup, use the installed CLI path. Replace `/path/to/esclop` below with its

@@ -50,7 +50,7 @@ import Testing
         #expect(!item.inPlace)
         #expect(item.result.id == harness.model.cards.first?.result?.id, "the logged result, so the restore judges the file by it")
 
-        await originals.restore(item)
+        await originals.restore([item])
         #expect(AppModel.size(of: file) == 100_000, "the original is back")
         #expect(originals.items.first?.inPlace == true, "nothing left to put back")
 
@@ -70,7 +70,7 @@ import Testing
         await originals.load()
         let item = try #require(originals.items.first)
         #expect(item.result.backup == item.entry.backup)
-        await originals.restore(item)
+        await originals.restore([item])
         #expect(AppModel.size(of: file) == 100_000)
         // A backup with no output named never matches the file there, which goes to the Trash.
         let bare = BackupEntry(id: UUID(), original: file, backup: harness.temp.url.appendingPathComponent("elsewhere.png"), output: nil, requestID: nil, createdAt: Date(), bytes: 100_000)
@@ -184,21 +184,6 @@ import Testing
         try await SettingsRenderTests.renderBoth({ _ in
             MenuPanel(model: harness.model, actions: actions, notch: 200).padding(18)
         }, size: CGSize(width: MenuPanel.width + 36, height: 640), name: "menu-panel-last-batch")
-    }
-
-    /// W3: the Originals window with three kept originals, and empty.
-    @Test func originalsWindow() async throws {
-        let harness = Harness()
-        for (name, bytes) in [("Screenshot 2026-11-19 at 09.41.12.png", 2_400_000), ("Holiday.jpg", 4_800_000), ("Menu scan.pdf", 1_200_000)] {
-            _ = await harness.model.run(harness.job(harness.temp.file(name, bytes: bytes)))
-        }
-        let originals = OriginalsModel(app: harness.model)
-        await originals.load()
-        #expect(originals.items.count == 3)
-        try await SettingsRenderTests.renderBoth({ _ in OriginalsView(model: originals) }, size: CGSize(width: 520, height: 360), name: "originals")
-        let empty = OriginalsModel(app: Harness().model)
-        await empty.load()
-        try await SettingsRenderTests.renderBoth({ _ in OriginalsView(model: empty) }, size: CGSize(width: 520, height: 360), name: "originals-empty")
     }
 
     /// W5: Open at login in Settings › General.

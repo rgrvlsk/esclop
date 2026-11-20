@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import CoreServices
 import EsclopCore
 import EsclopIPC
 import EsclopPipelines
@@ -52,6 +53,53 @@ import Testing
         #expect(decide("a.png", size: 0) == .skip(.empty))
         #expect(decide("a.png", size: 500) == .skip(.tooSmall))
         #expect(decide("a.png", size: 20_000_000) == .skip(.tooLarge))
+    }
+
+    /// G5: a folder's formats to skip and its ignore file leave files alone, pipelines' too.
+    @Test func aFolderSkipsItsFormatsAndWhatItsIgnoreFileNames() {
+        let ruled = [WatchTarget(folder: folder, kinds: [.image, .video], pipeline: "web", pipelineKinds: [.video], rules: FolderRules(folder: "/watched", skipFormats: ["GIF", ".heic"]))]
+        #expect(decide("a.gif", in: ruled) == .skip(.skippedFormat))
+        #expect(decide("a.HEIC", in: ruled) == .skip(.skippedFormat))
+        #expect(decide("a.png", in: ruled) == .optimise(.image))
+        let jpegs = [WatchTarget(folder: folder, kinds: [.image], rules: FolderRules(folder: "/watched", skipFormats: ["jpg"]))]
+        #expect(decide("a.jpeg", in: jpegs) == .skip(.skippedFormat), "jpg names the type")
+        #expect(WatchPlan.decide(folder.appendingPathComponent("a.mov"), targets: ruled, size: 100_000, isMarked: false, justWritten: false, ignored: true, limits: limits) == .skip(.ignored))
+    }
+
+    @Test func ignorePatternsWorkAsGitignoreDoes() {
+        let patterns = ["# exports", "", "*.tmp.png", "draft-*", "!draft-final.png", "/Screen Recording*", "**/raw?.mov", "build/"]
+        for name in ["a.tmp.png", "draft-1.png", "DRAFT-2.PNG", "Screen Recording 2026.mov", "raw1.mov"] {
+            #expect(IgnoreFile.ignores(name, patterns: patterns), "\(name)")
+        }
+        for name in ["a.png", "draft-final.png", "raw12.mov", "build"] {
+            #expect(!IgnoreFile.ignores(name, patterns: patterns), "\(name)")
+        }
+    }
+
+    @Test func pixelLimitsUseTheLongerSide() {
+        let rules = FolderRules(folder: "/watched", minPixels: 200, maxPixels: 4000)
+        #expect(rules.skip(longerSide: 64) == .tooFewPixels)
+        #expect(rules.skip(longerSide: 5000) == .tooManyPixels)
+        #expect(rules.skip(longerSide: 1920) == nil)
+        #expect(rules.skip(longerSide: nil) == nil, "an unknown size passes")
+        #expect(FolderRules(folder: "/watched").skip(longerSide: 1) == nil)
+    }
+
+    /// The setting holds one JSON object per folder; an edit replaces that folder's entry, an
+    /// emptied one goes, and the targets carry each folder's rules.
+    @Test func rulesAreStoredPerFolder() throws {
+        let settings = TestSettings()
+        var list = FolderRules.replacing(FolderRules(folder: "~/Desktop", skipFormats: ["gif"]), in: ["not json"])
+        list = FolderRules.replacing(FolderRules(folder: "/watched", minPixels: 100), in: list)
+        list = FolderRules.replacing(FolderRules(folder: "~/Desktop", maxPixels: 900), in: list)
+        #expect(list.count == 3 && list[0] == "not json")
+        try EsclopSettings.watchedFolderRules.set(list, in: settings.store)
+        #expect(FolderRules.all(in: settings.store) == [FolderRules(folder: "/watched", minPixels: 100), FolderRules(folder: "~/Desktop", maxPixels: 900)])
+        #expect(FolderRules.replacing(FolderRules(folder: "/watched"), in: list).count == 2, "an empty entry goes")
+        try EsclopSettings.imageDirs.set(["/watched"], in: settings.store)
+        try EsclopSettings.enableAutomaticImageOptimisations.set(true, in: settings.store)
+        let target = try #require(WatchPlan.targets(settings: settings.store, pipelines: []).first { $0.folder == WatchPlan.canonical("/watched") })
+        #expect(target.rules?.minPixels == 100)
     }
 
     @Test func aPipelineRunsInsteadForTheKindsItHasStepsFor() {
@@ -138,6 +186,78 @@ import Testing
         try await writer.value
     }
 
+    /// A network copy that stalls for 0.7 s between writes is not taken for a finished file.
+    @Test func aCopyThatStallsIsStillWaitedFor() async throws {
+        let temp = TempDir()
+        let file = temp.file("export.mov", bytes: 1000)
+        let finished = Flag()
+        let writer = Task.detached {
+            try await Task.sleep(for: .milliseconds(700))
+            let handle = try FileHandle(forWritingTo: file)
+            try handle.seekToEnd()
+            try handle.write(contentsOf: Data(repeating: 0x41, count: 1000))
+            try handle.close()
+            finished.set()
+        }
+        // Two still checks 150 ms apart would take the stall for the end.
+        let settled = await FileSettle.wait(for: file, interval: .milliseconds(150))
+        #expect(settled == .steady)
+        #expect(finished.isSet, "the wait outlasted the stall")
+        #expect(FileSettle.snapshot(file)?.size == 2000)
+        try await writer.value
+    }
+
+    /// A file moved in with an old date is complete: the checks alone settle it.
+    @Test func aFileThatArrivesCompleteTakesTheChecksAlone() async throws {
+        let temp = TempDir()
+        let file = temp.file("moved.png")
+        try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(-3600)], ofItemAtPath: file.path)
+        #expect(await FileSettle.wait(for: file, interval: .milliseconds(20), quiet: 600) == .steady)
+    }
+
+    /// A clock that moves only when the wait sleeps.
+    final class FakeClock: @unchecked Sendable {
+        private let lock = NSLock()
+        private var time: Date
+        init(_ start: Date) { time = start }
+        var now: Date { lock.withLock { time } }
+        func sleep(_ duration: Duration) { lock.withLock { time += Double(duration.components.seconds) + Double(duration.components.attoseconds) / 1e18 } }
+    }
+
+    /// G6b on a fake clock: a file that arrived whole settles after the two checks (0.6 s, as
+    /// before the quiet time came in); one written a moment ago waits until it is 1.5 s old
+    /// (the next check after, 1.8 s, when the float sum falls just short).
+    @Test func aWholeFileTakesTheChecksAndAGrowingOneWaitsForQuiet() async throws {
+        let temp = TempDir()
+        let start = Date(timeIntervalSince1970: 2_000_000_000)
+        for (whole, expected) in [(true, 0.59 ... 0.61), (false, 1.49 ... 1.81)] {
+            let file = temp.file("shot-\(whole).png")
+            try FileManager.default.setAttributes([.modificationDate: start], ofItemAtPath: file.path)
+            let clock = FakeClock(start)
+            let settled = await FileSettle.wait(for: file, quiet: whole ? 0 : FileSettle.quiet, now: { clock.now }, sleep: { clock.sleep($0) })
+            #expect(settled == .steady)
+            #expect(expected.contains(clock.now.timeIntervalSince(start)), "whole \(whole): \(clock.now.timeIntervalSince(start)) s")
+        }
+    }
+
+    /// What counts as arriving whole, on fixed times.
+    @Test func arrivingWholeIsARenameAScreenshotOrAnOldDate() {
+        let seen = Date(timeIntervalSince1970: 2_000_000_000)
+        #expect(FileSettle.arrivedWhole(renamed: true, isScreenshot: false, modified: seen, firstSeen: seen), "renamed into place")
+        #expect(FileSettle.arrivedWhole(renamed: false, isScreenshot: true, modified: seen, firstSeen: seen), "a screenshot by folder and name")
+        #expect(FileSettle.arrivedWhole(renamed: false, isScreenshot: false, modified: seen - 1, firstSeen: seen), "a second old when first seen")
+        #expect(!FileSettle.arrivedWhole(renamed: false, isScreenshot: false, modified: seen - 0.3, firstSeen: seen), "written a moment ago")
+        #expect(!FileSettle.arrivedWhole(renamed: false, isScreenshot: false, modified: nil, firstSeen: seen))
+        let created = FSEventStreamEventFlags(kFSEventStreamEventFlagItemIsFile | kFSEventStreamEventFlagItemCreated | kFSEventStreamEventFlagItemModified)
+        #expect(!FolderWatcher.isRenamedIntoPlace(created))
+        #expect(FolderWatcher.isRenamedIntoPlace(FSEventStreamEventFlags(kFSEventStreamEventFlagItemIsFile | kFSEventStreamEventFlagItemRenamed)))
+        #expect(!FolderWatcher.isRenamedIntoPlace(created | FSEventStreamEventFlags(kFSEventStreamEventFlagItemRenamed)), "renamed, then written")
+        // The screenshot rule: an image named as macOS names them, in its screenshot folder.
+        #expect(WatchedFolders.isScreenshot(URL(fileURLWithPath: "/shots/Screenshot 2026-11-20 at 18.00.00.png"), kind: .image, folder: "/shots", screenshots: "/shots"))
+        #expect(!WatchedFolders.isScreenshot(URL(fileURLWithPath: "/shots/export.png"), kind: .image, folder: "/shots", screenshots: "/shots"))
+        #expect(!WatchedFolders.isScreenshot(URL(fileURLWithPath: "/elsewhere/Screenshot 1.png"), kind: .image, folder: "/elsewhere", screenshots: "/shots"))
+    }
+
     @Test func aFileThatGoesAwayDoesNotSettle() async {
         let temp = TempDir()
         let file = temp.file("a.png")
@@ -196,7 +316,7 @@ final class Flag: @unchecked Sendable {
             let store = store
             folders = WatchedFolders(model: harness.model, pipelines: { (try? store.list()) ?? [] })
             folders.burstWindow = .milliseconds(300)
-            folders.settle = { await FileSettle.wait(for: $0, interval: .milliseconds(100)) }
+            folders.settle = { await FileSettle.wait(for: $0, interval: .milliseconds(100), quiet: $1 ? 0 : FileSettle.quiet) }
             folders.refresh()
         }
 
@@ -236,6 +356,26 @@ final class Flag: @unchecked Sendable {
         #expect(await eventually { rig.harness.model.recent.count == 1 })
         try await Task.sleep(for: .seconds(1))
         #expect(rig.harness.requests.requests.map { $0.sources.first?.lastPathComponent } == [other.lastPathComponent])
+        rig.folders.stop()
+    }
+
+    /// G5 end to end: the ignore file, a skipped format and the pixel limits leave their files
+    /// alone; the file that passes them all is optimised.
+    @Test func aFoldersRulesLeaveTheirFilesAlone() async throws {
+        let rig = try Rig()
+        let rules = FolderRules(folder: rig.folder.path, skipFormats: ["gif"], minPixels: 100)
+        // Real PNGs of a few hundred bytes: the size limit would leave them alone first.
+        try EsclopSettings.minImageSizeKB.set(0, in: rig.harness.settings.store)
+        try EsclopSettings.watchedFolderRules.set([String(decoding: try JSONEncoder().encode(rules), as: UTF8.self)], in: rig.harness.settings.store)
+        try "# test\nignored-*\n".write(to: rig.folder.appendingPathComponent(".esclopignore"), atomically: true, encoding: .utf8)
+        rig.folders.refresh()
+        try pngData(width: 64, height: 64).write(to: rig.folder.appendingPathComponent("tiny.png"), options: .atomic)
+        _ = rig.land("ignored-shot.png")
+        _ = rig.land("anim.gif")
+        try pngData(width: 300, height: 200).write(to: rig.folder.appendingPathComponent("wide.png"), options: .atomic)
+        #expect(await eventually { rig.harness.model.recent.count == 1 })
+        try await Task.sleep(for: .seconds(2))
+        #expect(rig.harness.requests.requests.map { $0.sources.first?.lastPathComponent } == ["wide.png"])
         rig.folders.stop()
     }
 
@@ -357,7 +497,7 @@ final class Flag: @unchecked Sendable {
         #expect(rig.folders.statuses[WatchPlan.canonical(rig.folder.path)] == .notWatching)
         #expect(rig.harness.model.watchedFolderCount == 0)
         #expect(FolderRow.problem(.notWatching) != nil, "the Settings row says so")
-        #expect(FolderWatcher { _ in }.start([URL(fileURLWithPath: tooLong)]) == false)
+        #expect(FolderWatcher { _, _ in }.start([URL(fileURLWithPath: tooLong)]) == false)
     }
 
     /// W4: events for a file that is already on its way, while its job runs, start nothing more.
@@ -423,7 +563,7 @@ final class Flag: @unchecked Sendable {
         // In one go: under load FSEvents reported part of a burst after the window closed, so
         // neither part was too large.
         rig.folders.received(landed)
-        func actions() -> [ResultCard] { rig.harness.model.cards.filter { $0.optimiseAnyway != nil } }
+        func actions() -> [ResultCard] { rig.harness.model.cards.filter { $0.noticeAction != nil } }
         #expect(await eventually { actions().count == 2 })
         rig.harness.model.notice("Paused", "Press again to resume.")
         #expect(actions().count == 2, "a plain notice leaves them")
@@ -460,6 +600,17 @@ final class Flag: @unchecked Sendable {
         rig.folders.stop()
     }
 
+    /// "Show floating results" off: a batch-sized burst goes to Recent only, with no batch window.
+    @Test func aBurstOpensNoBatchWithFloatingResultsOff() async throws {
+        let rig = try Rig()
+        try EsclopSettings.showFloatingResults.set(false, in: rig.harness.settings.store)
+        let landed = (1 ... rig.harness.model.batchThreshold).map { rig.land("q \($0).png") }
+        rig.folders.received(landed)
+        #expect(await eventually { rig.harness.model.recent.count == landed.count })
+        #expect(rig.harness.model.batch == nil && rig.harness.model.cards.isEmpty)
+        rig.folders.stop()
+    }
+
     @Test func savingAPipelineWithAFolderTriggerStartsWatchingIt() throws {
         let rig = try Rig()
         let other = TempDir()
@@ -492,7 +643,7 @@ final class Flag: @unchecked Sendable {
         // the calls below hand the file over.
         rig.folders.stop()
         let seen = Flag()
-        let witness = FolderWatcher { files in
+        let witness = FolderWatcher { files, _ in
             if files.contains(where: { $0.lastPathComponent == "shot.png" }) { seen.set() }
         }
         witness.start([rig.folder])

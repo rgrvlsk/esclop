@@ -57,7 +57,7 @@ public struct UploadTarget: Codable, Hashable, Identifiable, Sendable {
         if path.trimmingCharacters(in: .whitespaces).isEmpty { return Strings.text("A target needs a path, such as %f.%e.") }
         // Without {path} every upload would copy the same address.
         if !publicURL.isEmpty, !publicURL.contains("{path}") || URL(string: publicURL.replacingOccurrences(of: "{path}", with: "x"))?.scheme == nil {
-            return Strings.text("The public link is an address with {path} where the file's path goes.")
+            return Strings.text("The public link is an address with {path} where the file’s path goes.")
         }
         return nil
     }

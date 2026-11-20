@@ -289,20 +289,19 @@ enum ImageIOCodec {
                 properties[kCGImagePropertyIPTCDictionary] = kCFNull
                 properties[kCGImagePropertyOrientation] = original?[kCGImagePropertyOrientation] ?? 1
             }
-            if type == .tiff {
-                var tiff = original?[kCGImagePropertyTIFFDictionary] as? [CFString: Any] ?? [:]
-                tiff[kCGImagePropertyTIFFCompression] = 5 // LZW
-                if strip {
-                    // ponytail: TIFF text tags only; an XMP packet in a multi-page TIFF may stay.
-                    // Rewrite with CGImageDestinationCopyImageSource (as `stripMetadata`) if one does.
-                    for tag in [
-                        kCGImagePropertyTIFFArtist, kCGImagePropertyTIFFCopyright, kCGImagePropertyTIFFDateTime,
-                        kCGImagePropertyTIFFDocumentName, kCGImagePropertyTIFFHostComputer, kCGImagePropertyTIFFImageDescription,
-                        kCGImagePropertyTIFFMake, kCGImagePropertyTIFFModel, kCGImagePropertyTIFFSoftware,
-                    ] { tiff[tag] = kCFNull }
-                }
-                properties[kCGImagePropertyTIFFDictionary] = tiff
+            var tiff = original?[kCGImagePropertyTIFFDictionary] as? [CFString: Any] ?? [:]
+            if type == .tiff { tiff[kCGImagePropertyTIFFCompression] = 5 } // LZW
+            if strip {
+                // The camera and author tags of every type (HEIC and JPEG carry them too).
+                // ponytail: TIFF text tags only; an XMP packet may stay. Rewrite with
+                // CGImageDestinationCopyImageSource (as `stripMetadata`) if one does.
+                for tag in [
+                    kCGImagePropertyTIFFArtist, kCGImagePropertyTIFFCopyright, kCGImagePropertyTIFFDateTime,
+                    kCGImagePropertyTIFFDocumentName, kCGImagePropertyTIFFHostComputer, kCGImagePropertyTIFFImageDescription,
+                    kCGImagePropertyTIFFMake, kCGImagePropertyTIFFModel, kCGImagePropertyTIFFSoftware,
+                ] { tiff[tag] = kCFNull }
             }
+            if type == .tiff || strip { properties[kCGImagePropertyTIFFDictionary] = tiff }
             CGImageDestinationAddImageFromSource(destination, source, index, properties as CFDictionary)
         }
         if keepGainMap, let auxType = gainMapType(source), let aux = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, auxType) {
@@ -314,10 +313,18 @@ enum ImageIOCodec {
     }
 
     /// Crops and scales an HDR photo and writes it with a gain map rebuilt from the HDR pixels.
+    /// Core Image writes the source's metadata as it comes: GPS, EXIF and camera tags go unless
+    /// `strip` says otherwise; the pixels are upright, so the orientation is 1.
     @available(macOS 15, *)
-    static func renderHDR(_ url: URL, crop: CGRect?, width: Int, height: Int, to output: URL, type: UTType, quality: Double) throws {
+    static func renderHDR(_ url: URL, crop: CGRect?, width: Int, height: Int, to output: URL, type: UTType, quality: Double, strip: Bool) throws {
         guard var hdr = CIImage(contentsOf: url, options: [.expandToHDR: true, .applyOrientationProperty: true]) else {
             throw EsclopError.unsupportedFile(url.lastPathComponent)
+        }
+        var properties = strip ? [:] : hdr.properties
+        properties[kCGImagePropertyOrientation as String] = 1
+        if var tiff = properties[kCGImagePropertyTIFFDictionary as String] as? [String: Any] {
+            tiff[kCGImagePropertyTIFFOrientation as String] = 1
+            properties[kCGImagePropertyTIFFDictionary as String] = tiff
         }
         if let crop {
             // Core Image's origin is bottom-left.
@@ -328,7 +335,7 @@ enum ImageIOCodec {
         let sy = Double(height) / hdr.extent.height
         hdr = hdr.applyingFilter("CILanczosScaleTransform", parameters: [kCIInputScaleKey: sy, kCIInputAspectRatioKey: sx / sy])
         hdr = hdr.cropped(to: CGRect(x: 0, y: 0, width: width, height: height))
-        let sdr = hdr.applyingFilter("CIToneMapHeadroom", parameters: ["inputTargetHeadroom": 1.0])
+        let sdr = hdr.applyingFilter("CIToneMapHeadroom", parameters: ["inputTargetHeadroom": 1.0]).settingProperties(properties)
         let context = CIContext()
         let space = CGColorSpace(name: CGColorSpace.displayP3) ?? CGColorSpaceCreateDeviceRGB()
         let options: [CIImageRepresentationOption: Any] = [

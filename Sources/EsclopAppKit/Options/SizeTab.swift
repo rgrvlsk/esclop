@@ -135,13 +135,22 @@ struct FitChips: View {
                 }
                 .disabled(model.card.isWorking || model.card.fit == nil && (model.card.result?.bytesAfter ?? .max) <= bytes && model.card.result != nil)
             }
-            // A kept custom fit is a chosen chip of its own with its value, and takes itself off as a
-            // preset's chip does.
+            // A kept custom fit takes the place of Custom…, with its value: a click opens its field
+            // to change it, a click with the field open takes the fit off, as a preset's chip does.
             if let fit = Self.custom(model.card.fit) {
-                Chip(title: Figures.bytes(fit), selected: true) { model.app.removeFit(model.card) }
-                    .disabled(model.card.isWorking)
+                Chip(title: Figures.bytes(fit), selected: true) {
+                    if custom {
+                        custom = false
+                        model.app.removeFit(model.card)
+                    } else {
+                        model.customFit = String(fit / 1000)
+                        custom = true
+                    }
+                }
+                .disabled(model.card.isWorking)
+            } else {
+                Chip(title: Strings.text("Custom…"), selected: custom) { custom.toggle() }
             }
-            Chip(title: Strings.text("Custom…"), selected: custom) { custom.toggle() }
         }
         if custom {
             HStack {
@@ -181,15 +190,54 @@ struct CropSection: View {
         }
         FlowRow {
             ForEach(CropAspect.presets) { aspect in
-                Chip(title: aspect.title, selected: model.cropping && model.crop?.aspect == aspect) {
-                    if model.kind == .pdf {
-                        if let ratio = aspect.value { model.app.cropPDF(model.card, aspect: ratio) }
-                    } else {
-                        model.startCrop(aspect: aspect)
+                Chip(title: aspect.title, selected: model.cropping && model.crop?.aspect == aspect) { choose(aspect) }
+                    .disabled(model.card.isWorking || model.kind == .pdf && aspect == .free)
+            }
+            // The paper size or device chosen in Paper and devices, so the row says which.
+            if let aspect = model.crop?.aspect, case .preset = aspect, model.cropping, model.crop?.typed == nil {
+                Chip(title: aspect.title, selected: true) { choose(aspect) }
+            }
+            // Sizes typed before (pixels: not for a PDF's pages).
+            if model.kind != .pdf {
+                ForEach(Array(model.savedSizes.enumerated()), id: \.offset) { _, size in
+                    Chip(title: "\(size.width) × \(size.height)", selected: isChosen(size)) {
+                        model.useSavedSize(width: size.width, height: size.height)
+                    }
+                    .disabled(model.card.isWorking)
+                }
+            }
+            // The CLI's --paper-size and --for-device list, portrait as it takes them.
+            Menu(Strings.text("Paper and devices")) {
+                Section(Strings.text("Paper")) {
+                    ForEach(AspectRatio.paperSizes.map { $0.name }, id: \.self) { name in
+                        Button(name) { choose(.preset(name)) }
                     }
                 }
-                .disabled(model.card.isWorking || model.kind == .pdf && aspect == .free)
+                Section(Strings.text("Devices")) {
+                    ForEach(AspectRatio.devices.map { $0.name }, id: \.self) { name in
+                        Button(name) { choose(.preset(name)) }
+                    }
+                }
             }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .font(OptionsType.body)
+            .padding(.leading, 4)
+            .frame(height: 26)
+            .disabled(model.card.isWorking)
+        }
+        if model.offersFraming {
+            HStack(spacing: 6) {
+                Text(Strings.text("Framing")).sectionLabel()
+                Spacer(minLength: 6)
+                Chip(title: Strings.text("Centre"), selected: model.framing == .centre) { Task { await model.setFraming(.centre) } }
+                    .fixedSize()
+                    .help(Strings.text("Put the frame in the middle"))
+                Chip(title: Strings.text("Smart"), selected: model.framing == .smart) { Task { await model.setFraming(.smart) } }
+                    .fixedSize()
+                    .help(Strings.text("Put the frame on what stands out"))
+            }
+            .disabled(model.card.isWorking)
         }
         // The picture is always there with its frame (owner's request: a crop needs to be seen):
         // the tab opens on the whole picture, a ratio chip or a handle frames it.
@@ -200,6 +248,20 @@ struct CropSection: View {
                 Color.clear.frame(height: 1).onAppear { model.startCrop(aspect: .free) }
             }
         }
+    }
+
+    /// A shape for the picture, or a PDF's pages cropped to it at once.
+    private func choose(_ aspect: CropAspect) {
+        if model.kind == .pdf {
+            if let ratio = aspect.value { model.app.cropPDF(model.card, aspect: ratio) }
+        } else {
+            model.startCrop(aspect: aspect)
+        }
+    }
+
+    private func isChosen(_ size: (width: Int, height: Int)) -> Bool {
+        guard model.cropping, let typed = model.crop?.typed else { return false }
+        return typed == size
     }
 }
 
@@ -310,7 +372,7 @@ struct CropEditor: View {
 
     private func applySize() {
         guard let width = Int(widthText), let height = Int(heightText) else { return syncFields() }
-        model.crop?.setOutput(width: width, height: height)
+        model.setSize(width: width, height: height)
         syncFields()
     }
 }

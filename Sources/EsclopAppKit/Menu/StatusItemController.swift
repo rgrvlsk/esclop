@@ -23,7 +23,7 @@ public final class StatusItemController: NSObject {
         super.init()
         if let button = item.button {
             button.image = MenuBarLabel.customGlyph ?? NSImage(systemSymbolName: "arrow.down.right.and.arrow.up.left", accessibilityDescription: nil)
-            button.setAccessibilityLabel("L'Esclop")
+            button.setAccessibilityLabel("L’Esclop")
             button.target = self
             button.action = #selector(toggle)
             button.sendAction(on: [.leftMouseDown, .rightMouseDown])
@@ -59,7 +59,7 @@ public final class StatusItemController: NSObject {
         panel.hasShadow = false
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .transient, .ignoresCycle]
-        panel.title = "L'Esclop"
+        panel.title = "L’Esclop"
         panel.sharingType = model.windowSharing
         panel.contentView = host
 

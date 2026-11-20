@@ -207,6 +207,7 @@ Swift code reads typed values: `EsclopSettings.stripMetadata.value` (or `.value(
 | `downscaleRetinaImages` | Bool | `false` | images | Downscale Retina screenshots |
 | `maxImageSizeMB` | Int | `50` | images | Largest image to optimise automatically |
 | `minImageSizeKB` | Int | `50` | images | Smallest image to optimise automatically |
+| `cropSizes` | [String] | `[]` | images | Saved crop sizes |
 | `videoCompression` | Int | `50` | video | Video compression |
 | `videoAggressiveCompression` | Int | `70` | video | Aggressive video compression |
 | `videoEncoder` | VideoEncoder | `h264_videotoolbox` | video | Video encoder |
@@ -248,7 +249,7 @@ Swift code reads typed values: `EsclopSettings.stripMetadata.value` (or `.value(
 | `optimisePDFClipboard` | Bool | `false` | clipboard | Optimise copied PDFs |
 | `optimiseAudioClipboard` | Bool | `false` | clipboard | Optimise copied audio |
 | `optimiseImagePathClipboard` | Bool | `false` | clipboard | Optimise copied image paths |
-| `optimiseURLClipboard` | Bool | `true` | clipboard | Download copied web addresses |
+| `optimiseURLClipboard` | CopiedAddressAction | `.offer` | clipboard | Copied web addresses |
 | `clipboardIgnoredAppBundleIds` | [String] | `[]` | clipboard | Ignored apps |
 | `clipboardRules` | [String] | `[]` | clipboard | Clipboard rules |
 | `autoCopyToClipboard` | Bool | `true` | clipboard | Copy results to the clipboard |

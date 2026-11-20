@@ -25,8 +25,12 @@ system screenshot thumbnail. The look follows [docs/design/targets](docs/design/
    dimensions, the saving at the next size up, and the actions as 1 + 2 + "…": the most likely
    action in charcoal with what it acts on (Show in Finder and the folder, or Copy for a copied
    screenshot), up to two round buttons (Copy, Undo), and "…" for the rest: Convert… (the
-   options: format, size, crop), Compare where there is an original, Share…, then Save as… for a
-   copied image or Move to Trash for a file of the person's. × sits in its own band above the
+   options: format, size, crop), Compare where there is an original, Pages as Images for a PDF
+   and Extract Cover for audio with cover art (a file of the person's only), Share…, then Save
+   as… for a copied image or Move to Trash for a file of the person's. Pages as Images writes the
+   optimised pages into a new "<name> pages" folder beside the PDF and shows a card that stands
+   for the folder ("28 pages"); Extract Cover writes the cover beside the file and optimises it
+   as a result of its own. × sits in its own band above the
    picture; × and Esc close it. The picture is fitted whole, 120 to 200 pt tall.
    In a right-hand corner the row runs the other way, so "…" faces the screen.
 3. **"…" menu.** A panel in the card's fill outside the card, on the screen side, joined to "…"
@@ -72,6 +76,11 @@ stays while one failure is left, headed with the single card's words ("Not optim
 failure under the pointer, focused or open stays its own card until it is left, so nothing
 changes under the pointer. Failures never hide on their own.
 Dismissal pauses while the object is hovered, focused, dragged or open.
+A copied web address of media is offered, never fetched on its own (owner's decision,
+2026-11-20): a cream notice with the file name, its host and "Download and optimise" in charcoal,
+for 4 s, once per address a session, with no sound and no focus. Its click, like any download,
+shows the aqua working card from the start ("Downloading…", the share received, Stop), which
+gives its place to the file's own card when the file arrives.
 
 ## Menu bar panel
 
@@ -144,8 +153,12 @@ on that one file. It replaces a long context menu. It is not the menu-bar menu. 
   for VoiceOver). Custom: width × height that keep the aspect ratio, Return applies; "Never enlarges. Keeps
   the aspect ratio." Then Fit under 500 kB · 1 · 2 · 5 MB · Custom…. A PDF has Fit under only.
 - **Crop:** its own tab, opening on the picture itself with its frame (owner's request: a crop
-  must be seen), the aspect chips over it and the size in pixels under it, Reset and Crop. A PDF
-  crops each page's box to a ratio. Chips are cream, the chosen one charcoal.
+  must be seen), the aspect chips over it and the size in pixels under it, Reset and Crop. After
+  the ratios: the chosen paper size or device, the last five typed sizes (`cropSizes`), and
+  "Paper and devices", the CLI's `--paper-size`/`--for-device` list, portrait. A picture also
+  has Framing, Centre or Smart: Smart moves the frame onto what the engine's smart crop finds,
+  so the frame shown is the one cut. A PDF crops each page's box to a ratio, paper size or
+  device. Chips are cream, the chosen one charcoal.
 - A crop and a scale stay with the file, as Clop keeps its steps: every other choice runs them
   again from the original, until Original (both) or Reset (the crop) takes them off.
 - **Actions:** rows, each with a round symbol, what it does and what it gives, and a play button:
@@ -280,25 +293,33 @@ system backgrounds with a contrasting border.
 ## Accessibility
 Every hover action is also reachable by keyboard and VoiceOver as a named action. The popover
 supports arrow keys, Return, Escape and the listed ⌘ shortcuts. VoiceOver announces each result
-once ("Optimised, 612 kB, 75 % smaller").
+once ("Optimised, 612 kB, 75 % smaller"). While VoiceOver is on, or a card has the keyboard
+focus, results do not hide on a timer. With Differentiate without colour on, work in progress
+(aqua) and a decision to make (amber) also carry a symbol.
 
 ## Keys
 A result takes Clop's keys, with Clop's modifiers, where it has the action: on the card the
 pointer moved onto and rests on (after 200 ms, with no click, and the app in front keeps its
 window; a card that appears or moves under a still pointer waits for it to move), and on the
-card with the keys (a click, or the "Go to the newest result" hotkey, unset by default, in
-Settings › General, with a Set… link on the last onboarding page). The hotkey lends the keys:
+card with the keys (a click, or the "Go to the newest result" hotkey, ⌃⇧N by default, in
+Settings › General and on the last onboarding page). "Show the last result" (unset by default)
+brings back the newest result that is not on screen. The hotkey lends the keys:
 Esc on the card, or Undo, Copy or Save (by key or by click), gives them back to the app in
 front and the card stays. Space alone: Quick Look (again to close). With ⌘: ⌘Z Undo · ⌘C Copy ·
-⌘F Show in Finder · ⌘D Compare · ⌘K Crop · ⌘S Save · ⌘⌫ Dismiss (the file stays) · ⌘− smaller
+⌘R or ⌘F Show in Finder (⌘R, Finder's own, is the one shown) · ⌘D Compare · ⌘K Crop · ⌘S Save ·
+⌘A Optimise harder · ⌘O Open · ⌘U Upload (Settings › Uploads while there is no target) · ⌘X the
+playback speed, in the options (video and audio) · ⌘⌫ Dismiss (the file stays) · ⌘− smaller
 (75 %, 50 %, then a tenth at a time to 10 %) · ⌘1–⌘9 that size (10 %–90 %), each from the
-original. Letters never go alone: a pointer resting on a card must not take what the person
+original. Clop's ⌘R Rename and ⌘E Edit are not taken: ⌘R is Show in Finder, and there is no
+editor setting. A card key that does nothing on the card with the keys, or in its options (⌘S
+with no Save), beeps. Letters never go alone: a pointer resting on a card must not take what the person
 types into the app in front. While it rests there, ⌘Z, ⌘C, ⌘S and the rest act on the card,
-not on that app. On the card with the keys also Return (detail, then its charcoal button), Esc
-(innermost first) and ⌘R (Show in Finder). The resting pointer holds no key while any card's
+not on that app. On the card with the keys also Return (detail, then its charcoal button) and Esc
+(innermost first). The resting pointer holds no key while any card's
 menu, options, name, loupe or drag has the keys, or while a field of L'Esclop is being typed
 in. The "…" menu shows a row's key at its end (Compare ⌘D), and a button's tooltip names its key
-("Undo  ⌘Z"). Quick Look is also a VoiceOver action, and Space on a Recent row in the menu bar
+("Undo  ⌘Z"); a control in the options whose key works on the result says so ("(⌘A on the
+result)"). Quick Look is also a VoiceOver action, and Space on a Recent row in the menu bar
 panel is Quick Look too. The hover keys are Carbon hotkeys
 held only while the pointer rests, so they need no permission; a key the layout types only with
 Shift or Option (the digits on AZERTY) is skipped.

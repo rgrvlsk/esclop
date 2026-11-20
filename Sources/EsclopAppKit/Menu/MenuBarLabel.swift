@@ -30,7 +30,7 @@ public struct MenuBarLabel: View {
                 Image(systemName: "arrow.down.right.and.arrow.up.left")
             }
         }
-        .accessibilityLabel("L'Esclop")
+        .accessibilityLabel("L’Esclop")
 
     }
 }

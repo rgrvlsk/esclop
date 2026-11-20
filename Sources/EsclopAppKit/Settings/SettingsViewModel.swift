@@ -55,6 +55,11 @@ public final class SettingsViewModel {
     /// The marked row, once it is in view; the pane scrolls until it is.
     @ObservationIgnored var markInView: String?
     public private(set) var descriptors: [SettingDescriptor] = []
+    /// Choices the pickers leave out, by key: the video encoders this ffmpeg lacks. The value
+    /// stays valid (the CLI and agents may set it); the engine says which encoder ran instead.
+    public var hiddenChoices: [String: Set<String>] = [:] {
+        didSet { reload() }
+    }
     /// The last refusal per key, shown under the control until the next good value.
     public private(set) var errors: [String: String] = [:]
 
@@ -96,7 +101,13 @@ public final class SettingsViewModel {
 
     public func reload() {
         // In the app's language; the registry and the CLI stay English.
-        descriptors = provider.descriptors().map { SettingWords.localised($0, locale: locale) }
+        descriptors = provider.descriptors().map { descriptor in
+            var descriptor = SettingWords.localised(descriptor, locale: locale)
+            // The saved value stays listed, so the picker never shows another choice as selected.
+            let saved = descriptor.value?.stringValue
+            if let hidden = hiddenChoices[descriptor.key] { descriptor.choices?.removeAll { hidden.contains($0) && $0 != saved } }
+            return descriptor
+        }
     }
 
     /// Picks up one key's new value, written here or by another process.
@@ -155,6 +166,10 @@ public final class SettingsViewModel {
 
     // MARK: Search
 
+    /// Registry settings edited in another setting's rows, by that setting: each watched folder's
+    /// rules sit under it in the folder lists.
+    static let editedIn = [EsclopSettings.watchedFolderRules.key: EsclopSettings.imageDirs.key]
+
     /// Every row matching all the words of the query, in pane order.
     public var hits: [Hit] {
         // Accents fold on both sides: "copia" finds "Còpies", "cópia" finds "copies".
@@ -169,7 +184,11 @@ public final class SettingsViewModel {
         for pane in SettingsPane.allCases {
             for group in groups(in: pane) {
                 for setting in group.settings where matches([setting.key, setting.title, setting.summary, pane.title, pane.englishTitle, group.heading ?? ""] + setting.keywords) {
-                    found.append(Hit(id: setting.key, title: setting.title, summary: setting.summary, pane: pane))
+                    // A setting edited in another's rows is found there.
+                    let host = Self.editedIn[setting.key]
+                    let id = host ?? setting.key
+                    guard !found.contains(where: { $0.id == id }) else { continue }
+                    found.append(Hit(id: id, title: setting.title, summary: setting.summary, pane: host.flatMap { self.pane(of: $0) } ?? pane))
                 }
             }
             for row in extraRows where row.pane == pane && matches([row.id, row.title, row.summary, pane.title, pane.englishTitle] + row.keywords) {

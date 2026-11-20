@@ -2,8 +2,10 @@
 //
 // A watched-folder list in its kind's pane: each folder as a row with its icon and path, what
 // is wrong with it when something is (gone, or macOS keeps L'Esclop out), Show in Finder and
-// Stop watching; Add Folder… with an open panel; and, for screenshots and screen recordings, the
-// folder macOS saves them to when it is not watched yet. Values go through the settings model.
+// Stop watching; under each folder what it leaves alone (formats, and pixel sizes for images
+// and videos: `watchedFolderRules`); Add Folder… with an open panel; and, for screenshots and
+// screen recordings, the folder macOS saves them to when it is not watched yet. Values go
+// through the settings model.
 
 import AppKit
 import EsclopCore
@@ -44,7 +46,16 @@ struct FolderListEditor: View {
             ForEach(folders, id: \.self) { folder in
                 FolderRow(folder: folder, status: status(of: folder)) {
                     write(folders.filter { $0 != folder })
+                    forgetRules(of: folder)
                 }
+                FolderRulesRow(folder: folder, pixels: descriptor.key == EsclopSettings.imageDirs.key || descriptor.key == EsclopSettings.videoDirs.key, model: model)
+                    .padding(.leading, 26)
+            }
+            if !folders.isEmpty {
+                Text(Strings.text("An .esclopignore file in a folder skips the names it lists, as .gitignore does; Clop’s .clopignore works too."))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if let screenshotFolder {
                 ScreenshotFolderRow(folder: screenshotFolder) { write(folders + [screenshotFolder]) }
@@ -65,6 +76,17 @@ struct FolderListEditor: View {
 
     func write(_ list: [String]) {
         model.set(descriptor.key, to: .array(list.map(JSONValue.string)))
+    }
+
+    /// A folder no list watches any more takes its rules with it: added again later, it starts clean.
+    func forgetRules(of folder: String) {
+        let canonical = WatchPlan.canonical(folder)
+        let lists = WatchPlan.lists.map(\.2.key).compactMap { model.descriptor($0)?.value?.arrayValue?.compactMap(\.stringValue) }
+        guard !lists.joined().contains(where: { WatchPlan.canonical($0) == canonical }),
+              let rules = model.descriptor(EsclopSettings.watchedFolderRules.key)?.value?.arrayValue?.compactMap(\.stringValue)
+        else { return }
+        let kept = FolderRules.replacing(FolderRules(folder: folder), in: rules)
+        if kept != rules { model.set(EsclopSettings.watchedFolderRules.key, to: .array(kept.map(JSONValue.string))) }
     }
 
     func add() {
@@ -168,5 +190,74 @@ struct ScreenshotFolderRow: View {
                 .controlSize(.small)
                 .accessibilityLabel(Strings.format("Watch %@", folder))
         }
+    }
+}
+
+/// What one watched folder leaves alone: formats, and for images and videos the longer side's
+/// smallest and largest size in pixels. Written to `watchedFolderRules` on Return or when a
+/// field loses focus.
+struct FolderRulesRow: View {
+    let folder: String
+    let pixels: Bool
+    let model: SettingsViewModel
+
+    @State private var formats = ""
+    @State private var minPixels = ""
+    @State private var maxPixels = ""
+    @FocusState private var focused: Bool
+
+    var list: [String] { model.descriptor(EsclopSettings.watchedFolderRules.key)?.value?.arrayValue?.compactMap(\.stringValue) ?? [] }
+
+    var rules: FolderRules {
+        let folder = WatchPlan.canonical(self.folder)
+        return list.compactMap { try? JSONDecoder().decode(FolderRules.self, from: Data($0.utf8)) }
+            .first { WatchPlan.canonical($0.folder) == folder } ?? FolderRules(folder: self.folder)
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(Strings.text("Skip")).foregroundStyle(.secondary)
+            field(Strings.text("Formats"), text: $formats, width: 110, label: Strings.format("Formats %@ skips", folder))
+            if pixels {
+                Text(Strings.text("Pixels")).foregroundStyle(.secondary).padding(.leading, 6)
+                field(Strings.text("Smallest"), text: $minPixels, width: 70, label: Strings.format("Smallest images and videos %@ takes, in pixels", folder))
+                Text(verbatim: "–").foregroundStyle(.secondary)
+                field(Strings.text("Largest"), text: $maxPixels, width: 70, label: Strings.format("Largest images and videos %@ takes, in pixels", folder))
+            }
+        }
+        .font(.callout)
+        .controlSize(.small)
+        .onAppear(perform: load)
+        .onChange(of: focused) { if !focused { commit() } }
+    }
+
+    private func field(_ prompt: String, text: Binding<String>, width: CGFloat, label: String) -> some View {
+        TextField(label, text: text, prompt: Text(prompt))
+            .labelsHidden()
+            .textFieldStyle(.roundedBorder)
+            .frame(width: width)
+            .focused($focused)
+            .onSubmit(commit)
+            .accessibilityLabel(label)
+    }
+
+    private func load() {
+        let rules = rules
+        formats = (rules.skipFormats ?? []).joined(separator: ", ")
+        minPixels = rules.minPixels.map(String.init) ?? ""
+        maxPixels = rules.maxPixels.map(String.init) ?? ""
+    }
+
+    private func commit() {
+        let skip = formats.split(whereSeparator: { $0 == "," || $0 == " " })
+            .map { $0.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: ".")) }.filter { !$0.isEmpty }
+        let updated = FolderRules(
+            folder: folder, skipFormats: skip.isEmpty ? nil : skip,
+            minPixels: Int(minPixels.trimmingCharacters(in: .whitespaces)).flatMap { $0 > 0 ? $0 : nil },
+            maxPixels: Int(maxPixels.trimmingCharacters(in: .whitespaces)).flatMap { $0 > 0 ? $0 : nil }
+        )
+        guard updated != rules, !(updated.isEmpty && rules.isEmpty) else { return load() }
+        model.set(EsclopSettings.watchedFolderRules.key, to: .array(FolderRules.replacing(updated, in: list).map(JSONValue.string)))
+        load()
     }
 }

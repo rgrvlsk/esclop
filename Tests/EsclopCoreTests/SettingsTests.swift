@@ -240,3 +240,43 @@ final class KeyWatcher: NSObject, @unchecked Sendable {
         #expect(decoded.sources == request.sources)
     }
 }
+
+/// `esclop settings export|import` and Settings › General: the settings the person changed, to
+/// carry to another Mac.
+@Suite struct SettingsFileTests {
+    @Test func exportHoldsOnlyWhatWasSetAndImportBringsItBack() throws {
+        let from = scratchStore(), to = scratchStore()
+        try EsclopSettings.batchWindowFrom.set(9, in: from)
+        try EsclopSettings.imageDirs.set(["~/Pictures/Shots"], in: from)
+        try EsclopSettings.enableAutomaticPDFOptimisations.set(true, in: from)
+        let data = try SettingsFile.export(from: from)
+        let read = try SettingsFile.read(data)
+        #expect(Set(read.values.keys) == ["batchWindowFrom", "imageDirs", "enableAutomaticPDFOptimisations"], "defaults are not written")
+        try EsclopSettings.batchWindowFrom.set(3, in: to)
+        try EsclopSettings.minImageSizeKB.set(7, in: to)
+        let imported = try SettingsFile.import(data, into: to)
+        #expect(imported.unknown.isEmpty)
+        #expect(EsclopSettings.batchWindowFrom.value(in: to) == 9)
+        #expect(EsclopSettings.imageDirs.value(in: to) == ["~/Pictures/Shots"])
+        #expect(EsclopSettings.enableAutomaticPDFOptimisations.value(in: to))
+        #expect(EsclopSettings.minImageSizeKB.value(in: to) == 7, "a key the file does not hold stays")
+    }
+
+    @Test func unknownKeysAreSkippedAndNamed() throws {
+        let store = scratchStore()
+        let data = Data(#"{"format": "esclop-settings", "version": 2, "settings": {"batchWindowFrom": 6, "fromTheFuture": true}}"#.utf8)
+        let imported = try SettingsFile.import(data, into: store)
+        #expect(imported.unknown == ["fromTheFuture"])
+        #expect(EsclopSettings.batchWindowFrom.value(in: store) == 6)
+    }
+
+    /// A bad file changes nothing: not JSON, another format, or one value a setting does not take.
+    @Test func aBadFileIsRefusedWhole() throws {
+        let store = scratchStore()
+        for text in ["not json", #"{"format": "clop", "version": 1, "settings": {}}"#, #"{"settings": {"batchWindowFrom": 6}}"#,
+                     #"{"format": "esclop-settings", "version": 1, "settings": {"batchWindowFrom": 6, "imageDirs": 12}}"#] {
+            #expect(throws: EsclopError.self, "\(text)") { try SettingsFile.import(Data(text.utf8), into: store) }
+        }
+        #expect(!EsclopSettings.batchWindowFrom.isSet(in: store), "nothing was written")
+    }
+}

@@ -73,7 +73,7 @@ public final class CompareModel {
 
     public var sides: CompareSides {
         guard let result else { return .gone }
-        let restored = restoredHere.contains(result.id) || app.restoredIDs.contains(result.id)
+        let restored = restoredHere.contains(result.id) || app.isRestored(result)
             || { if case .restored = card?.phase { return true } else { return false } }()
         return CompareSides.resolve(result, restored: restored)
     }

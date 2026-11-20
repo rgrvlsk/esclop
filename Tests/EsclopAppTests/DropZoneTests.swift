@@ -95,7 +95,8 @@ final class FakeDrag: NSObject, NSDraggingInfo {
         #expect(intake.remoteMedia.count == 3 && intake.remoteMedia.kinds == [.image, .video])
         let downloads = temp.url.appendingPathComponent("downloads")
         let handed = Handed()
-        intake.resolve(into: temp.url, gather: .seconds(30), download: { address in
+        // The function `resolve` returns stops it; these drops run to the end.
+        _ = intake.resolve(into: temp.url, gather: .seconds(30), download: { address in
             let file = try Paths.ensure(downloads).appendingPathComponent(address.lastPathComponent)
             try pngData().write(to: file)
             return file
@@ -106,13 +107,13 @@ final class FakeDrag: NSObject, NSDraggingInfo {
         #expect(handed.batches[0].files.allSatisfy { FileManager.default.fileExists(atPath: $0.path) })
         // A failed download leaves the others to go ahead.
         let failing = Handed()
-        DropIntake(promises: [FakePromise(names: ["b.png"])], addresses: [URL(string: "https://example.com/c.jpg")!])
+        _ = DropIntake(promises: [FakePromise(names: ["b.png"])], addresses: [URL(string: "https://example.com/c.jpg")!])
             .resolve(into: temp.url, gather: .seconds(30), download: { _ in throw EsclopError.other("offline") }, deliver: failing.take)
         #expect(await eventually { failing.batches.count == 1 })
         #expect(failing.batches[0].files.map(\.lastPathComponent) == ["b.png"] && failing.batches[0].failures == 1)
         // A promise never kept holds back nothing: the dropped file goes after the pause.
         let stuck = Handed()
-        DropIntake(files: [temp.file("here.png")], promises: [FakePromise(names: ["never.png"], delivers: false)])
+        _ = DropIntake(files: [temp.file("here.png")], promises: [FakePromise(names: ["never.png"], delivers: false)])
             .resolve(into: temp.url, gather: .milliseconds(100), deliver: stuck.take)
         #expect(await eventually { stuck.batches.count == 1 })
         #expect(stuck.batches[0].files.map(\.lastPathComponent) == ["here.png"])
@@ -279,5 +280,21 @@ struct FakePromise: FilePromise {
                 }
             }
         }
+    }
+}
+
+@MainActor @Suite struct OpenWithTests {
+    /// Open With and a drop on the app's icon reach `open` as file URLs: they go the drop zone's
+    /// way (here a file it does not handle, so nothing runs and the drop's notice says why).
+    @Test func openedFilesAreADrop() async throws {
+        let services = AppServices(settings: TestSettings().store)
+        let temp = TempDir()
+        // Before launch finishes (Open With on a closed app) the files wait for `start`.
+        services.open([temp.file("notes.txt", bytes: 10)])
+        #expect(services.model.cards.isEmpty)
+        services.releaseHeldFiles()
+        #expect(services.model.cards.last?.presentation.capsule == .notice(title: "Nothing to optimise", detail: "Drop images, videos, PDFs or audio files."))
+        services.open([temp.file("more.txt", bytes: 10)])
+        #expect(services.model.cards.count == 1, "once started, files go at once")
     }
 }

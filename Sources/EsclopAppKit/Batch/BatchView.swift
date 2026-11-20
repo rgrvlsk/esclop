@@ -14,7 +14,10 @@ public struct BatchView: View {
     let batch: Batch
     let app: AppModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// The row under the pointer: Space shows it in Quick Look, as in Finder and the menu.
+    /// The rows chosen with a click, ⌘-click, shift-click, ⌘A or the arrows: the context menu acts
+    /// on them all, and they drag out together.
+    @State private var selection = Set<BatchRow.ID>()
+    /// The row under the pointer: Space shows it in Quick Look when nothing is selected.
     /// ponytail: set by hover, so a wheel scroll under a still pointer keeps the row it left until
     /// the pointer moves; clear it on scroll if that misleads.
     @State private var pointed: BatchRow.ID?
@@ -25,36 +28,48 @@ public struct BatchView: View {
         self.app = app
     }
 
+    /// Opens with rows selected, for the renders.
+    init(batch: Batch, app: AppModel, selection: Set<BatchRow.ID>) {
+        self.init(batch: batch, app: app)
+        _selection = State(initialValue: selection)
+    }
+
     public var body: some View {
         let info = BatchPresentation(batch: batch)
         VStack(spacing: 0) {
             BatchHeader(batch: batch, app: app, info: info)
             Divider()
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(batch.rows) { row in
-                        BatchRowView(row: row, batch: batch, app: app) { inside in
-                            if inside { pointed = row.id } else if pointed == row.id { pointed = nil }
-                        }
-                        Divider().padding(.leading, 64)
+            // A native list: the selection, ⌘A and the arrows work as in Finder.
+            List(selection: $selection) {
+                ForEach(batch.rows) { row in
+                    BatchRowView(row: row, batch: batch, app: app) { inside in
+                        if inside { pointed = row.id } else if pointed == row.id { pointed = nil }
                     }
+                    .listRowInsets(EdgeInsets())
+                    // A selected row drags out with the others selected.
+                    .itemProvider { row.isFinished ? BatchRowView.provider(for: row.shownFile) : nil }
                 }
             }
+            .listStyle(.plain)
+            // The keys work at once, before any click: Space on the row under the pointer.
+            .focused($focused)
+            .defaultFocus($focused, true)
+            .contextMenu(forSelectionType: BatchRow.ID.self) { ids in
+                BatchSelectionMenu(rows: batch.rows.filter { ids.contains($0.id) }, batch: batch, app: app)
+            }
+            .onKeyPress(.space) { quickLook() }
+            .onChange(of: batch.rows.map(\.id)) { _, ids in selection.formIntersection(ids) }
         }
-        // One stop for the keys, as the menu panel is; no focus ring.
-        .focusable()
-        .focused($focused)
-        .focusEffectDisabled()
-        .defaultFocus($focused, true)
-        .onKeyPress(.space) { quickLook() }
         .frame(minWidth: 520, idealWidth: 560, minHeight: 360, idealHeight: 520)
         .background(Color(nsColor: .windowBackgroundColor))
         .animation(reduceMotion ? nil : Motion.bar, value: info.barEnd)
         .designTint()
     }
 
+    /// The selected row, else the one under the pointer.
     private func quickLook() -> KeyPress.Result {
-        guard let row = batch.rows.first(where: { $0.id == pointed }), row.isFinished,
+        let shown = batch.rows.first { selection.contains($0.id) } ?? batch.rows.first { $0.id == pointed }
+        guard let row = shown, row.isFinished,
               FileManager.default.fileExists(atPath: row.shownFile.path) else { return .ignored }
         QuickLookPresenter.shared.toggle(row.shownFile)
         return .handled
@@ -110,6 +125,13 @@ struct BatchHeader: View {
                     Button(Strings.text("Cancel"), role: .cancel) {}
                 } message: {
                     if batch.isRunning { Text(Strings.text("Files still to go are stopped first.")) }
+                }
+                if batch.failed > 0 {
+                    Button {
+                        app.retryFailed(batch)
+                    } label: {
+                        Label(Strings.text("Retry All Failed"), systemImage: "arrow.clockwise")
+                    }
                 }
                 Spacer()
                 Button {
@@ -168,9 +190,7 @@ struct BatchRowView: View {
         .contentShape(Rectangle())
         .onHover { hovering = $0; point($0) }
         .animation(Motion.hover, value: hovering)
-        // The file drags out as it is now, once the row is done with it.
-        .modifier(DragOut(file: row.isFinished ? row.shownFile : nil))
-        .contextMenu { menu }
+        .help(row.isFinished ? Strings.text("Drag the file into another app") : "")
         .accessibilityElement(children: .ignore)
         .accessibilityLabel([row.source.lastPathComponent, BatchPresentation.status(of: row), row.restoreError].compactMap(\.self).joined(separator: ", "))
         .accessibilityValue(BatchPresentation.figure(of: row) ?? "")
@@ -219,8 +239,8 @@ struct BatchRowView: View {
             if row.canRestore {
                 RowButton(symbol: "arrow.uturn.backward", title: Strings.text("Restore the original")) { Task { await app.restore(row) } }
             }
-            if canRetry {
-                RowButton(symbol: "arrow.clockwise", title: Strings.text("Try again")) { row.retry?() }
+            if row.canRetry {
+                RowButton(symbol: "arrow.clockwise", title: Strings.text("Try again")) { row.retry() }
             }
             if row.isRunning {
                 RowButton(symbol: "stop.fill", title: Strings.text("Stop")) { row.cancel?() }
@@ -231,32 +251,27 @@ struct BatchRowView: View {
         }
     }
 
-    private var canRetry: Bool {
-        switch row.state {
-        case .failed, .cancelled: return true
-        default: return false
-        }
-    }
-
+    /// The row's VoiceOver actions: the context menu's buttons for this row, without its submenus.
     @ViewBuilder private var menu: some View {
         if let result = row.result {
-            // Its floating result, with the options popover's every choice.
             Button(Strings.text("Show as Result")) { app.show(result) }
             Button(Strings.text("Compare with the original…")) { app.onCompare?(result) }
         }
         if row.canRestore {
             Button(Strings.text("Restore the original")) { Task { await app.restore(row) } }
         }
-
-        if canRetry { Button(Strings.text("Try again")) { row.retry?() } }
+        if row.canRetry { Button(Strings.text("Try again")) { row.retry() } }
         if row.isRunning { Button(Strings.text("Stop")) { row.cancel?() } }
         Button(Strings.text("Show in Finder")) { app.reveal([row.shownFile]) }
         Button(Strings.text("Copy")) { app.writeClipboard(files: [row.shownFile]) }
         if row.isFinished {
             Button(Strings.text("Quick Look")) { QuickLookPresenter.shared.show(row.shownFile) }
-            Divider()
             Button(Strings.text("Remove from the List")) { batch.remove(row) }
         }
+    }
+
+    static func provider(for file: URL) -> NSItemProvider {
+        NSItemProvider(contentsOf: file) ?? NSItemProvider(object: file as NSURL)
     }
 
     static func symbol(for kind: MediaKind?) -> String {
@@ -266,6 +281,84 @@ struct BatchRowView: View {
         case .audio: return "waveform"
         case .image, nil: return "photo"
         }
+    }
+}
+
+/// The context menu for the selected rows (or the row clicked outside the selection), and a
+/// row's VoiceOver actions: every action applies to each row it fits.
+struct BatchSelectionMenu: View {
+    let rows: [BatchRow]
+    let batch: Batch
+    let app: AppModel
+
+    var body: some View {
+        // Right-clicking the empty area below the rows selects nothing: no menu.
+        if !rows.isEmpty { menu }
+    }
+
+    @ViewBuilder private var menu: some View {
+        let finished = rows.filter(\.isFinished)
+        let restorable = rows.filter(\.canRestore)
+        let failed = rows.filter(\.canRetry)
+        let kinds = Set(finished.map { MediaKind.of($0.source) })
+        if rows.count == 1, let result = rows[0].result {
+            // Its floating result, with the options popover's every choice.
+            Button(Strings.text("Show as Result")) { app.show(result) }
+            Button(Strings.text("Compare with the original…")) { app.onCompare?(result) }
+            Divider()
+        }
+        if !finished.isEmpty {
+            Menu(Strings.text("Optimise Again With")) {
+                if kinds.count == 1, let kind = kinds.first, !OptionsModel.formats(for: kind).isEmpty {
+                    Section(Strings.text("Format")) {
+                        ForEach(OptionsModel.formats(for: kind), id: \.self) { format in
+                            Button(format.displayName) { run { await app.rerun(finished, as: format) } }
+                        }
+                    }
+                }
+                Section(Strings.text("Compression")) {
+                    ForEach(OptimiseChoice.Compression.allCases, id: \.self) { compression in
+                        Button(compression.title) { run { await app.rerun(finished, compression: compression) } }
+                    }
+                }
+            }
+            // Pixels to crop and scale: images and videos, as the card's Size and Crop tabs.
+            if kinds.isSubset(of: [.image, .video]) {
+                Menu(Strings.text("Crop")) {
+                    ForEach(CropAspect.presets.filter { $0 != .free }) { aspect in
+                        Button(aspect.title) { run { await app.crop(finished, to: aspect) } }
+                    }
+                }
+                Menu(Strings.text("Downscale")) {
+                    ForEach([2000, 1280], id: \.self) { side in
+                        Button("\(side)\u{00A0}px") { run { await app.downscale(finished, longSide: side) } }
+                    }
+                    Button(Strings.text("Half")) { run { await app.downscale(finished, longSide: nil) } }
+                }
+            }
+        }
+        if !restorable.isEmpty {
+            Button(restorable.count == 1 ? Strings.text("Restore the original") : Strings.format("Restore %d originals", restorable.count)) {
+                run { for row in restorable { await app.restore(row) } }
+            }
+        }
+        if !failed.isEmpty { Button(Strings.text("Try again")) { failed.forEach { $0.retry() } } }
+        let running = rows.filter(\.isRunning)
+        if !running.isEmpty { Button(Strings.text("Stop")) { running.forEach { $0.cancel?() } } }
+        Divider()
+        Button(Strings.text("Show in Finder")) { app.reveal(rows.map(\.shownFile)) }
+        Button(Strings.text("Copy")) { app.writeClipboard(files: rows.map(\.shownFile)) }
+        if finished.count == 1 {
+            Button(Strings.text("Quick Look")) { QuickLookPresenter.shared.show(finished[0].shownFile) }
+        }
+        if !finished.isEmpty {
+            Divider()
+            Button(Strings.text("Remove from the List")) { finished.forEach(batch.remove) }
+        }
+    }
+
+    private func run(_ work: @escaping @MainActor () async -> Void) {
+        Task { await work() }
     }
 }
 
@@ -307,6 +400,11 @@ final class BatchWindowController {
         window.title = Strings.text("Batch")
         if !window.isVisible { window.center() }
         window.orderFrontRegardless()
+    }
+
+    func close() {
+        window?.close()
+        window?.contentView = nil
     }
 
     private func makeWindow() -> NSWindow {

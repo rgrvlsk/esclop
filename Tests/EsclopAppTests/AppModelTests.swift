@@ -316,6 +316,28 @@ import Testing
         #expect(first.machine.level == .thumbnail, "details never stack")
     }
 
+    /// With VoiceOver on, a result never hides on a timer: VoiceOver reaches it at its own pace.
+    @Test func noAutoHideUnderVoiceOver() async throws {
+        let harness = Harness()
+        var clock = Date(timeIntervalSinceReferenceDate: 800_000_000)
+        harness.model.now = { clock }
+        harness.model.voiceOverRunning = { true }
+        _ = await harness.model.run(harness.job(harness.temp.file("a.png")))
+        let card = try #require(harness.model.cards.first)
+        #expect(card.machine.hideDeadline == nil)
+        clock += 3600
+        harness.model.advance(card)
+        #expect(harness.model.cards.count == 1)
+        // A card with the keyboard focus waits too, VoiceOver or not.
+        harness.model.voiceOverRunning = { false }
+        _ = await harness.model.run(harness.job(harness.temp.file("b.png")))
+        let focused = try #require(harness.model.cards.last)
+        harness.model.interact(focused, .focus(true))
+        clock += 3600
+        harness.model.advance(focused)
+        #expect(harness.model.cards.contains { $0 === focused })
+    }
+
     @Test func anOpenDetailHidesOnTheModelsClockOnceClosed() async throws {
         let harness = Harness()
         var clock = Date(timeIntervalSinceReferenceDate: 800_000_000)

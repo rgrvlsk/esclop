@@ -112,8 +112,9 @@ public struct MenuPanel: View {
         _highlighted = State(initialValue: highlighted)
     }
 
-    /// What the arrows move through: the recent results, then the two commands.
-    enum Item: Hashable { case result(UUID), optimiseFiles, optimiseClipboard }
+    /// What the arrows move through, top to bottom: Resume, the batch tile, the recent results,
+    /// then the two commands.
+    enum Item: Hashable { case resume, batch, result(UUID), optimiseFiles, optimiseClipboard }
 
     public static let width: CGFloat = 316
 
@@ -122,8 +123,8 @@ public struct MenuPanel: View {
             VStack(alignment: .leading, spacing: 10) {
                 header
                 saved
-                if model.paused { PausedLine { model.setPaused(false) } }
-                if let batch = model.batch, !batch.rows.isEmpty { batchRow(batch) }
+                if model.paused { PausedLine(highlighted: highlighted == .resume, hover: { hover(.resume, $0) }, resume: resume) }
+                if let batch = shownBatch { batchRow(batch) }
                 recent
                 commands
             }
@@ -180,13 +181,13 @@ public struct MenuPanel: View {
                 }
                 Button(Strings.text("Show Backups in Finder"), action: run { model.reveal([model.service.context.locations.backups]) })
                 if let welcome = actions.welcome {
-                    Button(Strings.text("Welcome to L'Esclop…"), action: run(welcome))
+                    Button(Strings.text("Welcome to L’Esclop…"), action: run(welcome))
                 }
                 if let check = actions.checkForUpdates {
                     Button(Strings.text("Check for Updates…"), action: run(check))
                 }
                 Divider()
-                Button(Strings.text("Quit L'Esclop"), action: actions.quit).keyboardShortcut("q")
+                Button(Strings.text("Quit L’Esclop"), action: actions.quit).keyboardShortcut("q")
             } label: {
                 PillButton.face("gearshape", size: 30, glyph: 0.5)
             }
@@ -285,7 +286,7 @@ public struct MenuPanel: View {
     private func batchRow(_ batch: Batch) -> some View {
         let running = batch.isRunning
         let info = BatchPresentation(batch: batch)
-        return Button { actions.close(); model.showBatch() } label: {
+        return Button(action: showBatch) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 14) {
                     if running {
@@ -326,11 +327,17 @@ public struct MenuPanel: View {
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous).fill(running ? Surface.progress : Surface.tile))
+            .overlay(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous).fill(Ink.text.opacity(highlighted == .batch ? 0.06 : 0)))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { hover(.batch, $0) }
         .help(Strings.text("Show Batch Window"))
     }
+
+    private var shownBatch: Batch? { model.batch.flatMap { $0.rows.isEmpty ? nil : $0 } }
+    private func showBatch() { actions.close(); model.showBatch() }
+    private func resume() { model.setPaused(false) }
 
     // MARK: Recent
 
@@ -382,17 +389,17 @@ public struct MenuPanel: View {
     }
 
     private func move(_ step: Int, _ proxy: ScrollViewProxy) -> KeyPress.Result {
-        let next = Self.item(after: highlighted, by: step, results: results.map(\.id))
+        let next = Self.item(after: highlighted, by: step, results: results.map(\.id), resume: model.paused, batch: shownBatch != nil)
         highlighted = next
         keyedAt = NSEvent.mouseLocation
         if case let .result(id) = next { proxy.scrollTo(id) }
         return .handled
     }
 
-    /// The row an arrow moves to: through the recent results, then the two commands, stopping at
-    /// either end; from no row, the first (down) or the last (up).
-    static func item(after current: Item?, by step: Int, results: [UUID]) -> Item {
-        let items = results.map(Item.result) + [.optimiseFiles, .optimiseClipboard]
+    /// The row an arrow moves to: Resume and the batch tile when shown, the recent results, then
+    /// the two commands, stopping at either end; from no row, the first (down) or the last (up).
+    static func item(after current: Item?, by step: Int, results: [UUID], resume: Bool = false, batch: Bool = false) -> Item {
+        let items = (resume ? [Item.resume] : []) + (batch ? [Item.batch] : []) + results.map(Item.result) + [.optimiseFiles, .optimiseClipboard]
         let index = current.flatMap(items.firstIndex).map { min(max($0 + step, 0), items.count - 1) } ?? (step > 0 ? 0 : items.count - 1)
         return items[index]
     }
@@ -403,6 +410,8 @@ public struct MenuPanel: View {
             guard let result = results.first(where: { $0.id == id }) else { return .ignored }
             actions.close()
             model.show(result)
+        case .resume: resume()
+        case .batch: showBatch()
         case .optimiseFiles: optimiseFiles()
         case .optimiseClipboard: optimiseClipboard()
         case nil: return .ignored
@@ -452,6 +461,9 @@ public struct MenuPanel: View {
 
 /// "Paused · Resume": automatic optimisation is off; Resume turns the setting off again.
 struct PausedLine: View {
+    /// The arrows are on it: Return resumes.
+    var highlighted = false
+    var hover: (Bool) -> Void = { _ in }
     let resume: () -> Void
 
     var body: some View {
@@ -474,6 +486,8 @@ struct PausedLine: View {
         .padding(.horizontal, 14)
         .frame(height: 40)
         .background(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous).fill(Surface.tile))
+        .overlay(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous).fill(Ink.text.opacity(highlighted ? 0.06 : 0)).allowsHitTesting(false))
+        .onHover(perform: hover)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Strings.text("Paused"))
     }
@@ -503,11 +517,14 @@ struct WorkingRow: View {
         let fraction: Double = if case let .working(value) = card.phase { max(0, value) } else { 0 }
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 5) {
-                Text(card.displayName ?? card.source.lastPathComponent)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Ink.text)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                HStack(spacing: 5) {
+                    StateMark(meaning: .working).font(.system(size: 12, weight: .semibold))
+                    Text(card.displayName ?? card.source.lastPathComponent)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Ink.text)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
                 ProgressBar(fraction: fraction)
             }
             Text(Strings.format("%d %%", Int((fraction * 100).rounded())))

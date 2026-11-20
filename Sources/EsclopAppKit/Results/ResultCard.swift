@@ -83,6 +83,10 @@ public final class ResultCard: Identifiable {
     /// The card has the keys the hotkey lent it: Esc, or Undo, Copy or Save, gives them back to
     /// the app in front.
     public var lentKeys = false
+    /// An audio file whose original carries cover art: "…" offers Extract Cover.
+    public var hasCoverArt = false
+    /// A PDF's pages saved as images: the card stands for their folder, with this many pages.
+    public var pages: Int?
     /// The detail's picture is a loupe (Compare); nil when it is not.
     public var loupe: LoupeState?
     /// The row of the detail's "…" menu under the pointer or the arrow keys.
@@ -94,8 +98,21 @@ public final class ResultCard: Identifiable {
     var uploadTask: Task<Void, Never>?
     /// Runs the job again after an error.
     var retry: (() -> Void)?
-    /// A notice's "Optimise Them Anyway": the files it left alone go ahead after all.
-    var optimiseAnyway: (() -> Void)?
+    /// A notice's one action and what it runs: a watched folder's "Optimise Them Anyway", a
+    /// copied address's "Download and optimise".
+    var noticeAction: (action: CardPresentation.Action, run: () -> Void)?
+    /// The work is a download: the card says "Downloading…" until the file arrives.
+    public var downloading = false
+
+    /// Shows a download's share received, from any thread; a late report never moves it back.
+    nonisolated var downloadProgress: @Sendable (Double) -> Void {
+        { [weak self] fraction in
+            Task { @MainActor in
+                guard let self, case let .working(shown) = self.phase, fraction > shown else { return }
+                self.phase = .working(fraction: fraction)
+            }
+        }
+    }
     var cancelWork: (() -> Void)?
     var timer: Task<Void, Never>?
 

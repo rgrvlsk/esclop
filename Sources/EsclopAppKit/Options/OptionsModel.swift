@@ -6,6 +6,7 @@
 
 import AppKit
 import EsclopCore
+import EsclopOptimisers
 import Foundation
 import ImageIO
 import Observation
@@ -98,6 +99,16 @@ public final class OptionsModel {
     public var customFit = ""
     public var cropping = false
     public var crop: CropGeometry?
+    /// Where a shape's frame lands; Smart waits for `focus` before it moves the frame.
+    public private(set) var framing = CropFraming.centre
+    /// What Vision finds salient in the original, once Smart asked for it.
+    @ObservationIgnored private var focus: CGPoint?
+    /// Vision looked once; it is not asked again while the popover is open.
+    @ObservationIgnored private var looked = false
+    /// Finds `focus` off the main actor: the engine's smart crop. A seam for tests.
+    @ObservationIgnored var findFocus: @Sendable (URL) async -> CGPoint? = { url in
+        await Task.detached { EsclopEngine.salientCentre(of: url) }.value
+    }
     public var drill: Drill?
     /// A video's format tile, chosen and waiting for Convert.
     public var armed: OutputFormat?
@@ -231,7 +242,10 @@ public final class OptionsModel {
 
     /// Original, 2000 px and 1280 px when the picture is larger and not nearly half, and Half
     /// (docs/design/targets: pr4-options-popover-size-actions). Nothing that would enlarge it.
-    public var sizePresets: [SizePreset] {
+    public var sizePresets: [SizePreset] { Self.sizePresets(for: facts) }
+
+    /// The batch window offers the same for each selected file.
+    static func sizePresets(for facts: FileFacts) -> [SizePreset] {
         guard let width = facts.width, let height = facts.height, width > 0, height > 0 else { return [] }
         let long = Double(max(width, height))
         var presets = [SizePreset(title: Strings.text("Original"), factor: 1, spoken: Strings.text("Original"))]
@@ -313,10 +327,7 @@ public final class OptionsModel {
     }
 
     public func choose(compression: OptimiseChoice.Compression) {
-        var choice = card.choice
-        choice.compression = compression
-        choice.quality = nil
-        apply(choice)
+        apply(card.choice.with(compression: compression))
     }
 
     public func commitQuality() {
@@ -350,15 +361,78 @@ public final class OptionsModel {
 
     public func startCrop(aspect: CropAspect) {
         guard let width = facts.width, let height = facts.height else { return }
-        if var crop {
-            crop.setAspect(aspect)
-            self.crop = crop
-        } else {
-            var geometry = CropGeometry(imageWidth: width, imageHeight: height)
-            geometry.setAspect(aspect)
-            crop = geometry
-        }
+        var geometry = crop ?? CropGeometry(imageWidth: width, imageHeight: height)
+        geometry.setAspect(aspect, focus: framedOn)
+        crop = geometry
         cropping = true
+    }
+
+    /// The point a new shape centres on: the middle, or the salient point with Smart. Nil keeps
+    /// it where the person left the frame (Smart while Vision is still looking).
+    private var framedOn: CGPoint? {
+        switch framing {
+        case .centre: return nil
+        case .smart: return focus
+        }
+    }
+
+    /// Smart framing only where the engine crops smartly: pictures.
+    public var offersFraming: Bool { kind == .image }
+
+    /// Centre puts the frame in the middle again; Smart moves it onto what Vision finds salient,
+    /// the same point the engine's smart crop uses (the CLI's `--smart`, Shortcuts, pipelines).
+    public func setFraming(_ framing: CropFraming) async {
+        self.framing = framing
+        if framing == .centre {
+            reframe(on: CGPoint(x: 0.5, y: 0.5))
+            return
+        }
+        if !looked {
+            looked = true
+            focus = await findFocus(original ?? card.shownFile)
+        }
+        // Another choice may have come while Vision looked.
+        guard self.framing == .smart else { return }
+        if let focus { reframe(on: focus) } else { self.framing = .centre }
+    }
+
+    /// Moves the frame, as it is, so its centre is on `point` (0 to 1), staying in the picture.
+    private func reframe(on point: CGPoint) {
+        guard var geometry = crop else { return }
+        geometry.move(by: CGSize(
+            width: point.x * CGFloat(geometry.imageWidth) - geometry.rect.midX,
+            height: point.y * CGFloat(geometry.imageHeight) - geometry.rect.midY
+        ))
+        crop = geometry
+    }
+
+    /// A size typed under the picture: its shape, placed as the framing says, and that size.
+    public func setSize(width: Int, height: Int) {
+        crop?.setOutput(width: width, height: height, focus: framedOn)
+    }
+
+    /// The sizes typed in the Crop tab before, newest first (`cropSizes`).
+    public var savedSizes: [(width: Int, height: Int)] {
+        EsclopSettings.cropSizes.value(in: app.settings).compactMap(Self.size)
+    }
+
+    /// One of the saved sizes: its shape and that size, as if typed.
+    public func useSavedSize(width: Int, height: Int) {
+        startCrop(aspect: .free)
+        setSize(width: width, height: height)
+    }
+
+    static func size(_ text: String) -> (width: Int, height: Int)? {
+        let parts = text.lowercased().split(separator: "x").compactMap { Int($0) }
+        guard parts.count == 2, parts[0] > 0, parts[1] > 0 else { return nil }
+        return (parts[0], parts[1])
+    }
+
+    /// Keeps a typed size first in `cropSizes`, five at most.
+    private func save(width: Int, height: Int) {
+        let text = "\(width)x\(height)"
+        let sizes = [text] + EsclopSettings.cropSizes.value(in: app.settings).filter { $0 != text }
+        try? EsclopSettings.cropSizes.set(Array(sizes.prefix(5)), in: app.settings)
     }
 
     /// The whole picture again, free: the Crop tab's preview with no frame drawn in. A file the
@@ -371,7 +445,8 @@ public final class OptionsModel {
     }
 
     public func applyCrop() {
-        guard let size = crop?.cropSize else { return }
+        guard let crop, let size = crop.cropSize else { return }
+        if let typed = crop.typed { save(width: typed.width, height: typed.height) }
         app.crop(card, to: size)
     }
 
