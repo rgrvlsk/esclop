@@ -55,7 +55,8 @@ public final class AppServices {
             // On the clipboard queue, marked as L'Esclop's own write, so the watcher leaves it alone.
             copy: { [weak model] text in Task { await model?.copyToClipboard(text: text) } },
             supportFolder: model.service.context.locations.support,
-            openPipelines: { [weak model] in model?.onOpenPipelines?(nil) }
+            openPipelines: { [weak model] in model?.onOpenPipelines?(nil) },
+            settingsStore: settings
         ))
         let pipelinesWindow = PipelineEditorWindowController(model: PipelineEditorModel(
             store: model.service.context.pipelines, app: model

@@ -25,3 +25,16 @@ esclop convert -t m4a song.wav --bitrate 128
 `--bitrate <kbps>` (optimise and convert) sets the video stream's bitrate for videos and the
 audio bitrate for audio files. When one command has both, it sets the videos' only: give audio
 files a command of their own. The encoder follows the settings.
+
+## Settings on another Mac
+
+```sh
+esclop settings export ~/esclop-settings.json   # standard output without a file
+esclop settings import ~/esclop-settings.json
+```
+
+The file holds only the settings you set, as JSON (`{"format": "esclop-settings", "version": 1,
+"settings": {...}}`), so the other Mac keeps its own defaults for the rest. Import checks every
+value first: one that its setting does not take changes nothing. Keys this version does not know
+are skipped and named. Hotkeys and upload keys are not settings and stay where they are.
+Settings › General › Export… and Import… do the same.

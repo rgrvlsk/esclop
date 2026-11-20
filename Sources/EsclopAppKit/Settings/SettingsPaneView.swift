@@ -4,11 +4,13 @@
 // settings (hotkeys in General, maintenance in Advanced). Scrolls to the row a deep link or a
 // search result names and marks it for a moment.
 
+import AppKit
 import EsclopCore
 import EsclopIPC
 import EsclopMCP
 import KeyboardShortcuts
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsPaneView: View {
     let pane: SettingsPane
@@ -93,6 +95,23 @@ struct SettingsPaneView: View {
                     if let setting = model.descriptor(key) { SettingRow(descriptor: setting, model: model, actions: actions) }
                 }
             }
+            if let store = actions.settingsStore {
+                Section {
+                    LabeledContent {
+                        HStack {
+                            Button(Strings.text("Export…")) { SettingsFilePanels.export(store) }
+                            Button(Strings.text("Import…")) { SettingsFilePanels.import(into: store) }
+                        }
+                    } label: {
+                        SettingLabel(
+                            title: Strings.text("Settings on another Mac"),
+                            summary: Strings.text("Export saves the settings you changed as a file; Import reads it on the other Mac. Hotkeys and upload keys stay.")
+                        )
+                    }
+                    .id(Self.settingsFileRow)
+                    .highlighted(model.highlighted == Self.settingsFileRow)
+                }
+            }
         case .advanced:
             Section(Strings.text("Maintenance")) {
                 LabeledContent {
@@ -138,6 +157,7 @@ struct SettingsPaneView: View {
     }
 
     static let resetAllRow = "advanced.resetAll"
+    static let settingsFileRow = "general.settingsFile"
     static let openAtLoginRow = "general.openAtLogin"
 
     /// The rows the search finds that are not registry settings.
@@ -161,6 +181,10 @@ struct SettingsPaneView: View {
             SettingsViewModel.ExtraRow(
                 id: AgentsTestSection.rowID, title: Strings.text("Test the MCP server"), summary: Strings.text("Start esclop mcp serve and ask for its tools."),
                 pane: .agents, keywords: ["mcp", "smoke", "handshake", "check", "test the mcp server"]
+            ),
+            SettingsViewModel.ExtraRow(
+                id: settingsFileRow, title: Strings.text("Settings on another Mac"), summary: Strings.text("Export and import the settings you changed."),
+                pane: .general, keywords: ["export", "import", "backup", "sync", "transfer", "json"]
             ),
             SettingsViewModel.ExtraRow(
                 id: resetAllRow, title: Strings.text("Reset every setting"), summary: Strings.text("Puts every setting back to its default."),
@@ -202,5 +226,45 @@ extension View {
                 .allowsHitTesting(false)
         }
         .accessibilityAddTraits(on ? .isSelected : [])
+    }
+}
+
+/// Export… and Import… in Settings › General: the panels and what they say afterwards.
+@MainActor
+enum SettingsFilePanels {
+    static func export(_ store: SettingsStore) {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = Strings.text("L’Esclop settings") + ".json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try SettingsFile.export(from: store).write(to: url, options: .atomic)
+        } catch {
+            tell(Strings.text("Could not export the settings"), error.localizedDescription)
+        }
+    }
+
+    static func `import`(into store: SettingsStore) {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.prompt = Strings.text("Import")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let read = try SettingsFile.import(Data(contentsOf: url), into: store)
+            let title = read.values.count == 1 ? Strings.text("Imported 1 setting") : Strings.format("Imported %d settings", read.values.count)
+            let skipped = read.unknown.isEmpty ? "" : Strings.format("Skipped what this version does not know: %@.", read.unknown.joined(separator: ", "))
+            tell(title, skipped)
+        } catch EsclopError.invalidArgument {
+            tell(Strings.text("Could not import the settings"), Strings.text("The file is not one L’Esclop exported, or a value in it is not one its setting takes. Nothing was changed."))
+        } catch {
+            tell(Strings.text("Could not import the settings"), error.localizedDescription)
+        }
+    }
+
+    private static func tell(_ title: String, _ detail: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = detail
+        alert.runModal()
     }
 }

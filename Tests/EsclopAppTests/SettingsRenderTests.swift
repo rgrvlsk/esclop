@@ -127,6 +127,16 @@ import Testing
         try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-keyboard-shortcuts", scheme: scheme, settle: .milliseconds(600))
     }
 
+    /// General › Settings on another Mac: Export… and Import…, reached by its search row.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func settingsFile(scheme: ColorScheme) async throws {
+        let settings = TestSettings()
+        let model = model(settings)
+        model.open(SettingsRoute(pane: .general, row: SettingsPaneView.settingsFileRow))
+        let view = SettingsView(model: model, actions: SettingsActions(settingsStore: settings.store))
+        try await Self.renderWindow(view, size: CGSize(width: 800, height: 620), name: "settings-export-import", scheme: scheme, settle: .milliseconds(600))
+    }
+
     /// Floating results › Preset zones: a saved pipeline and a template on, the rest off.
     @Test(arguments: [ColorScheme.light, .dark])
     func presetZones(scheme: ColorScheme) async throws {

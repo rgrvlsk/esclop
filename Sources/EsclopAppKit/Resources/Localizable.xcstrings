@@ -2581,12 +2581,32 @@
         }
       }
     },
+    "Could not export the settings": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha pogut exportar la configuració"
+          }
+        }
+      }
+    },
     "Could not get the dropped file": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "No s’ha pogut obtenir el fitxer deixat anar"
+          }
+        }
+      }
+    },
+    "Could not import the settings": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha pogut importar la configuració"
           }
         }
       }
@@ -3311,12 +3331,42 @@
         }
       }
     },
+    "Export and import the settings you changed.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exporta i importa les opcions que has canviat."
+          }
+        }
+      }
+    },
+    "Export saves the settings you changed as a file; Import reads it on the other Mac. Hotkeys and upload keys stay.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exporta desa en un fitxer les opcions que has canviat, i Importa el llegeix a l’altre Mac. Les dreceres de teclat i les claus de pujada no hi van."
+          }
+        }
+      }
+    },
     "Exported document": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Document exportat"
+          }
+        }
+      }
+    },
+    "Export…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exporta…"
           }
         }
       }
@@ -4001,6 +4051,46 @@
         }
       }
     },
+    "Import": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importa"
+          }
+        }
+      }
+    },
+    "Imported %d settings": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’han importat %d opcions"
+          }
+        }
+      }
+    },
+    "Imported 1 setting": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’ha importat 1 opció"
+          }
+        }
+      }
+    },
+    "Import…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importa…"
+          }
+        }
+      }
+    },
     "In Finder, under Quick Actions › Run a Pipeline with L’Esclop…": {
       "localizations": {
         "ca": {
@@ -4567,6 +4657,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "L’Esclop optimitza el que copies tan bon punt ho copies. Els originals es conserven durant %@ i es poden restaurar des del menú."
+          }
+        }
+      }
+    },
+    "L’Esclop settings": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configuració de L’Esclop"
           }
         }
       }
@@ -7501,6 +7601,16 @@
         }
       }
     },
+    "Settings on another Mac": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La configuració en un altre Mac"
+          }
+        }
+      }
+    },
     "Settings…": {
       "localizations": {
         "ca": {
@@ -7797,6 +7907,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Saltat"
+          }
+        }
+      }
+    },
+    "Skipped what this version does not know: %@.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’ha deixat de banda el que aquesta versió no coneix: %@."
           }
         }
       }
@@ -8387,6 +8507,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "El fitxer no és text UTF-8."
+          }
+        }
+      }
+    },
+    "The file is not one L’Esclop exported, or a value in it is not one its setting takes. Nothing was changed.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquest fitxer no és una exportació de L’Esclop, o algun valor no és vàlid per a la seva opció. No s’ha canviat res."
           }
         }
       }

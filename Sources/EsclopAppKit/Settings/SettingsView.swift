@@ -41,15 +41,18 @@ public struct SettingsActions {
     public var supportFolder: URL?
     /// Opens the pipeline editor (the Advanced pane's Pipelines row).
     public var openPipelines: (@MainActor () -> Void)?
+    /// The settings General's Export… and Import… carry (`SettingsFile`).
+    public var settingsStore: SettingsStore?
 
     public init(
         reveal: @escaping @MainActor (URL) -> Void = { _ in }, copy: @escaping @MainActor (String) -> Void = { _ in },
-        supportFolder: URL? = nil, openPipelines: (@MainActor () -> Void)? = nil
+        supportFolder: URL? = nil, openPipelines: (@MainActor () -> Void)? = nil, settingsStore: SettingsStore? = nil
     ) {
         self.reveal = reveal
         self.copy = copy
         self.supportFolder = supportFolder
         self.openPipelines = openPipelines
+        self.settingsStore = settingsStore
     }
 }
 
