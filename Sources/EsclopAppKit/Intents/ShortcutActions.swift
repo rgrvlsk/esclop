@@ -87,7 +87,7 @@ public enum ShortcutActions {
         for file in files { batch?.add(file, bytes: AppModel.size(of: file)) }
         let reports = await withTaskGroup(of: (Int, JobReport).self) { group in
             for (index, job) in jobs.enumerated() {
-                group.addTask { @MainActor in (index, await model.run(job, batch: batch)) }
+                group.addTask { (index, await model.run(job, batch: batch)) }
             }
             var reports = [JobReport?](repeating: nil, count: jobs.count)
             for await (index, report) in group { reports[index] = report }

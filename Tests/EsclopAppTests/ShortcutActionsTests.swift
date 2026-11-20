@@ -186,7 +186,7 @@ import Testing
         let page = try #require(CGPDFDocument(outputs[0] as CFURL)?.page(at: 1))
         let crop = page.getBoxRect(.cropBox)
         #expect(abs(crop.width / crop.height - 0.75) < 0.01, "cropped to 3:4: \(crop)")
-        await withModel(harness) {
+        _ = await withModel(harness) {
             await #expect(throws: ShortcutActions.Failure.self) { try await ShortcutActions.run(.cropPDF(spec), on: [harness.temp.file("a.png")]) }
         }
     }
