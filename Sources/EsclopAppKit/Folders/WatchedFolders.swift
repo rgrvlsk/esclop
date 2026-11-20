@@ -214,7 +214,7 @@ public final class WatchedFolders {
         model.notice(
             Self.tooManyTitle(key.kind, count: burst.limit),
             Strings.format("They appeared together in %@, so L’Esclop left them alone.", PathInput.abbreviate(key.folder)),
-            optimiseAnyway: { [weak self] in self?.optimiseAnyway(burst.files) }
+            action: (.optimiseAnyway, { [weak self] in self?.optimiseAnyway(burst.files) })
         )
     }
 
@@ -264,7 +264,8 @@ public final class WatchedFolders {
         }
         switch decision {
         case .optimise:
-            await model.run(model.factory.job(for: file, origin: .watchedFolder), batch: shared())
+            let job = model.factory.job(for: file, origin: .watchedFolder)
+            await model.run(job, batch: job.request.showResultUI ? shared() : nil)
         case let .pipeline(name, _): await model.runPipeline(name, onWatched: file, batch: shared)
         case .skip: return
         }

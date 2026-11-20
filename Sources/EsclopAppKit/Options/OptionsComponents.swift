@@ -106,8 +106,7 @@ struct FormatTile: View {
             .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
             .overlay(alignment: .topTrailing) {
                 if suggested {
-                    Circle().fill(Ink.warm).frame(width: 6, height: 6).padding(7)
-                        .accessibilityLabel(Strings.text("Suggested"))
+                    SuggestedMark().accessibilityLabel(Strings.text("Suggested"))
                 }
             }
             .contentShape(Rectangle())
@@ -371,5 +370,18 @@ struct CharcoalButton: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(PressScale())
+    }
+}
+
+/// The amber dot on the suggested tile; with "Differentiate without colour" on, a symbol.
+private struct SuggestedMark: View {
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiate
+
+    var body: some View {
+        if differentiate {
+            StateMark(meaning: .decision).font(.system(size: 10, weight: .semibold)).padding(5)
+        } else {
+            Circle().fill(Ink.warm).frame(width: 6, height: 6).padding(7)
+        }
     }
 }

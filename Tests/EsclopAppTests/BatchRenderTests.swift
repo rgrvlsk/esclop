@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Renders the batch window's content, running and finished, light and dark, through the same
-// NSHostingView snapshot as the options popover (AppKit buttons and the scroll view draw there,
-// not in ImageRenderer). Set ESCLOP_RENDER_DIR to keep the PNGs.
+// Renders the batch window's content, running and finished, light and dark, in a window: its
+// rows are a native list, which draws only there. Set ESCLOP_RENDER_DIR to keep the PNGs.
 
 import AppKit
 import EsclopCore
@@ -12,8 +11,6 @@ import Testing
 
 @MainActor
 @Suite struct BatchRenderTests {
-    let snapshots = OptionsRenderTests()
-
     /// A backup that exists, so Restore shows as it would.
     static let backup: URL = {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-render-backup")
@@ -49,11 +46,14 @@ import Testing
         return batch
     }
 
-    @Test(arguments: [ColorScheme.light, .dark])
-    func batchWindow(scheme: ColorScheme) async throws {
+    /// In a window: the rows are a native list, which draws only there.
+    func render(_ batch: Batch, _ app: AppModel, height: CGFloat = 520, selection: Set<BatchRow.ID> = [], name: String) async throws {
+        try await SettingsRenderTests.renderBoth({ _ in BatchView(batch: batch, app: app, selection: selection) }, size: CGSize(width: 560, height: height), name: name)
+    }
+
+    @Test func batchWindow() async throws {
         let harness = Harness()
-        let running = BatchView(batch: batch(running: true), app: harness.model).frame(width: 560, height: 560)
-        try await snapshots.snapshot(running, name: "batch-running", scheme: scheme)
+        try await render(batch(running: true), harness.model, height: 560, name: "batch-running")
         let paused = batch(running: true)
         paused.pause()
         let pausedInfo = BatchPresentation(batch: paused, locale: Locale(identifier: "en"))
@@ -63,18 +63,20 @@ import Testing
         #expect(done.counts == "5 optimised · 1 already optimised · 1 failed")
         let restored = batch(running: false)
         for row in restored.rows { if let result = row.result { row.state = .restored(result) } else { row.state = .cancelled } }
-        try await snapshots.snapshot(BatchView(batch: restored, app: harness.model).frame(width: 560, height: 420), name: "batch-restored", scheme: scheme)
-        let finished = BatchView(batch: batch(running: false), app: harness.model).frame(width: 560, height: 520)
-        try await snapshots.snapshot(finished, name: "batch-finished", scheme: scheme)
+        try await render(restored, harness.model, height: 420, name: "batch-restored")
+        try await render(batch(running: false), harness.model, name: "batch-finished")
         // A Restore that failed: the row keeps its saving and says why.
         let failedRestore = batch(running: false)
         failedRestore.rows[0].restoreError = CardPresentation.message(for: EsclopError.backupRemoved(file: "/tmp/Holiday/Beach 01.jpg", afterDays: 7))
-        try await snapshots.snapshot(BatchView(batch: failedRestore, app: harness.model).frame(width: 560, height: 520), name: "batch-restore-failed", scheme: scheme)
+        try await render(failedRestore, harness.model, name: "batch-restore-failed")
         // Automatic uploads: each row says how its upload goes, the saving stays in the figure.
         let uploading = batch(running: false)
         uploading.rows[0].upload = .uploaded(URL(string: "https://files.example.com/Beach%2001.jpg")!)
         uploading.rows[1].upload = .uploading(fraction: 0.4)
         uploading.rows[2].upload = .failed(Strings.text("The upload target did not answer."))
-        try await snapshots.snapshot(BatchView(batch: uploading, app: harness.model).frame(width: 560, height: 520), name: "batch-uploads", scheme: scheme)
+        try await render(uploading, harness.model, name: "batch-uploads")
+        // Three rows selected for the context menu's actions, and Retry All Failed (HC-33).
+        let selected = batch(running: false)
+        try await render(selected, harness.model, selection: Set(selected.rows.prefix(3).map(\.id)), name: "batch-selection")
     }
 }

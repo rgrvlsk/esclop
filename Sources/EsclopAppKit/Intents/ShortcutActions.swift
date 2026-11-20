@@ -82,7 +82,7 @@ public enum ShortcutActions {
         let model = try await ready()
         try check(operation, files, options: options)
         let jobs = files.map { job(operation, for: $0, options: options, factory: model.factory) }
-        let batch = !options.hideResult && jobs.count >= model.batchThreshold ? model.openBatch(origin: .shortcuts) : nil
+        let batch = jobs.allSatisfy(\.request.showResultUI) && jobs.count >= model.batchThreshold ? model.openBatch(origin: .shortcuts) : nil
         // Every file shows in the window at once, waiting, before its job starts.
         for file in files { batch?.add(file, bytes: AppModel.size(of: file)) }
         let reports = await withTaskGroup(of: (Int, JobReport).self) { group in
@@ -196,7 +196,7 @@ public enum ShortcutActions {
         }
         var job = factory.job(for: file, origin: .shortcuts, aggressive: operation == .optimise(harder: true), location: location)
         if let compression = options.compression { job.request.quality = compression.quality }
-        job.request.showResultUI = !options.hideResult
+        if options.hideResult { job.request.showResultUI = false }
         job.request.removeAudio = options.removeAudio && MediaKind.of(file) == .video
         switch operation {
         case .optimise: break

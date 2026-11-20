@@ -29,6 +29,8 @@ public final class AppServices {
     private var volumeObservers: [NSObjectProtocol] = []
     private var isStarted = false
     private var heldFiles: [URL] = []
+    /// The hourly sweep of old backups and temporary files (`BackupPruner.prune`).
+    private var sweep: Task<Void, Never>?
     let watcher: ClipboardWatcher
     let server: AppServer
     /// Pictures of the app's windows on request; only with ESCLOP_SNAPSHOT_DIR set.
@@ -50,6 +52,10 @@ public final class AppServices {
             if key == EsclopSettings.pauseAutomaticOptimisations.key { model?.pauseChanged(value.boolValue ?? false) }
         }
         self.settingsModel = settingsModel
+        Task { @MainActor [weak settingsModel] in
+            let missing = await EsclopEngine.missingVideoEncoders()
+            settingsModel?.hiddenChoices[EsclopSettings.videoEncoder.key] = Set(missing.map(\.rawValue))
+        }
         settingsModel.pipelines = model.service.context.pipelines
         settingsModel.uploads = .live()
         settingsWindow = SettingsWindowController(model: settingsModel, agents: AgentsModel(), actions: SettingsActions(
@@ -89,6 +95,7 @@ public final class AppServices {
         let batchWindow = BatchWindowController(model: model)
         self.batchWindow = batchWindow
         model.onBatch = { [weak batchWindow] batch in batchWindow?.show(batch) }
+        model.onBatchForgotten = { [weak batchWindow] in batchWindow?.close() }
         originalsWindow = OriginalsWindowController(model: OriginalsModel(app: model))
         let store = model.service.context.pipelines
         finderServices = FinderServices(model: model, pipelines: { (try? store.list()) ?? [] })
@@ -144,9 +151,14 @@ public final class AppServices {
             folders.refresh()
         }
         PipelineEditorModel.removeLeftovers()
-        let retention = EsclopSettings.backupRetentionDays.value(in: model.settings)
         let backups = BackupStore(root: model.service.context.locations.backups)
-        Task.detached(priority: .utility) { BackupPruner.pruneAtLaunch(days: retention, backups: backups) }
+        let settings = model.settings
+        sweep = Task.detached(priority: .utility) {
+            while !Task.isCancelled {
+                BackupPruner.prune(days: EsclopSettings.backupRetentionDays.value(in: settings), backups: backups)
+                try? await Task.sleep(for: .seconds(3600))
+            }
+        }
         try? FileManager.default.createDirectory(at: model.service.context.pipelines.directory, withIntermediateDirectories: true)
         pipelineFiles?.start([model.service.context.pipelines.directory])
         let workspace = NSWorkspace.shared.notificationCenter
@@ -192,6 +204,7 @@ public final class AppServices {
 
     public func stop() {
         server.stop()
+        sweep?.cancel()
         watcher.stop()
         dropZone.stop()
         folders.stop()

@@ -42,6 +42,25 @@ import Testing
         #expect(Self.catalan[CardPresentation.message(for: EsclopError.alreadySmaller)] != nil)
     }
 
+    /// A fit that found nothing says both sizes on a card, in the person's language; the CLI and
+    /// agents keep the message, code and exit code they had as a plain message.
+    @Test func fitFailuresOnACardHaveCatalan() {
+        let missed = EsclopError.cannotFit(underBytes: 1_000_000, smallest: 1_400_000)
+        #expect(CardPresentation.message(for: missed) == "Could not fit under 1\u{00A0}MB. The smallest attempt was 1.4\u{00A0}MB.")
+        // ByteCountFormatter, in the Mac's own format, as before the case existed.
+        #expect(missed.description.hasPrefix("Could not fit under 1") && missed.description.contains("; the smallest attempt was 1"))
+        #expect(EsclopError.cannotFit(underBytes: 1_000_000, smallest: nil).description.hasSuffix("the smallest attempt was nothing smaller than the original"))
+        #expect(missed.code == "other")
+        let lossless = EsclopError.losslessCannotFit(format: "FLAC")
+        #expect(lossless.description == "FLAC is lossless and cannot be fitted to a size")
+        #expect(lossless.code == "invalidArgument")
+        for key in ["Could not fit under %@. The smallest attempt was %@.", "Could not fit under %@. No attempt came out smaller than the original.",
+                    "%@ is lossless, so it cannot be fitted to a size.", "Fit dropped"] {
+            #expect(Self.catalan[key] != nil, "\(key)")
+        }
+        #expect(Strings.format("Could not fit under %@. The smallest attempt was %@.", "1 MB", "1,4 MB", locale: ca) == "No s’ha pogut deixar per sota de 1 MB. L’intent més petit feia 1,4 MB.")
+    }
+
     /// A built-in template's name is shown translated (preset zones); the name the CLI runs stays.
     @Test func everyBuiltInTemplateNameHasCatalan() {
         for preset in PipelineStore.presets {
@@ -138,9 +157,27 @@ import Testing
         let summaries = Self.catalan.filter { $0.key.hasPrefix("setting.") && $0.key.hasSuffix(".summary") }
         let misleading = summaries.filter { ["Segons que", "Dies que", "Mida que", "Com de fort"].contains(where: $0.value.hasPrefix) }
         #expect(misleading.isEmpty, "\(misleading.keys.sorted())")
-        for status in ["Watching the clipboard", "Watching 1 folder", "Optimising 1 file", "Testing…"] {
+        for status in ["Watching the clipboard", "Watching 1 folder", "Optimising 1 file", "Testing…", "Uploading…", "Uploading… %d %%"] {
             #expect(Self.catalan[status]?.hasPrefix("S’està") == true, "\(status)")
         }
+    }
+
+    /// One word for each thing (council round 4, D3): the Trash is «la Paperera», Custom is
+    /// «A mida», Skip is «Omet», Fit under is «Per sota de»; no «…de les quals» relative clauses.
+    /// English shows the typographic apostrophe, except in engine messages matched as written.
+    @Test func oneCatalanWordForEachThing() {
+        #expect(!Self.catalan.values.contains { $0.contains("paperera") }, "the Trash is «la Paperera»")
+        #expect(!Self.catalan.values.contains { $0.contains("de les quals") })
+        #expect(Self.catalan["Fit under"] == "Per sota de")
+        #expect(Self.catalan["Custom"] == "A mida" && Self.catalan["Custom…"] == "A mida…")
+        #expect(Self.catalan["Skip"] == "Omet" && Self.catalan["Skip if"] == "Omet si")
+        #expect(Self.catalan["Working"] == "En curs")
+        #expect(Self.catalan["Run a Shortcut"] == "Executa una drecera")
+        let straight = Self.catalan.keys.filter { $0.contains("'") && !$0.hasPrefix("L'Esclop") }
+        #expect(Set(straight) == [
+            "This script uses Clop's variables. In esclop they are `$ESCLOP_BIN` and `$ESCLOP_INPUT_FILE`.",
+            "running scripts is turned off; allow it in esclop's settings",
+        ], "only the engine's own messages keep a straight apostrophe")
     }
 
     @Test func theMenuAndTheTourSpeakCatalan() {

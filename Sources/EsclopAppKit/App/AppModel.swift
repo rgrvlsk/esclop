@@ -27,9 +27,14 @@ public final class AppModel {
     /// Every pasteboard read and write for results, and what the clipboard holds.
     @ObservationIgnored let clipboard: ClipboardKeeper
     /// Fetches a copied web address (`WebDownload.fetch`); a fake in tests.
-    @ObservationIgnored var download: @Sendable (URL) async throws -> URL = { try await WebDownload.fetch($0) }
+    @ObservationIgnored var download: @Sendable (URL, WebDownload.Terms) async throws -> URL = { try await WebDownload.fetch($0, terms: $1) }
+    /// Copied addresses offered this session: each is offered once.
+    @ObservationIgnored var offeredAddresses: Set<URL> = []
     /// Shows the batch window when a batch starts.
     @ObservationIgnored var onBatch: ((Batch) -> Void)?
+
+    /// Closes the batch window once Recent › Clear forgot its batch.
+    @ObservationIgnored var onBatchForgotten: (() -> Void)?
 
     /// Opens the batch window on the latest batch again (the menu).
     public func showBatch() {
@@ -61,6 +66,12 @@ public final class AppModel {
     @ObservationIgnored var onCardsChange: (() -> Void)?
     /// Replaces the auto-hide delays from the settings (tests).
     @ObservationIgnored public var hideDelayOverride: Duration?
+    /// VoiceOver is on: results wait for the person, they never hide on a timer (tests set it).
+    @ObservationIgnored var voiceOverRunning: () -> Bool = { NSWorkspace.shared.isVoiceOverEnabled }
+    /// A key that does nothing where it was pressed (tests count them).
+    @ObservationIgnored var beep: () -> Void = { NSSound.beep() }
+    /// Opens a file in its default app (tests record it).
+    @ObservationIgnored var openFile: (URL) -> Void = { NSWorkspace.shared.open($0) }
     @ObservationIgnored public var loadsThumbnails = true
     /// The clock the floating results run on (tests move it by hand).
     @ObservationIgnored public var now: () -> Date = Date.init
@@ -210,7 +221,7 @@ public final class AppModel {
     /// Results whose original can still be put back.
     public var restorable: [OptimisationResult] {
         recent.filter { result in
-            guard let backup = result.backup, !restoredIDs.contains(result.id) else { return false }
+            guard let backup = result.backup, !isRestored(result) else { return false }
             return FileManager.default.fileExists(atPath: backup.path)
         }
     }
@@ -310,12 +321,15 @@ public final class AppModel {
             await self.process(source, job: single, executor: executor, card: nil, row: row, batch: batch, linksSince: linksSince, events: events, onResult: onResult)
         }
         row.cancel = { task.cancel() }
-        row.retry = { [weak self, weak row, weak batch] in
+        row.runAgain = { [weak self, weak row, weak batch] change in
             guard let self, let row, let batch, row.isFinished else { return }
             row.state = .waiting
             row.upload = nil
+            row.restoreError = nil
+            row.editInTrash = false
             var again = single
             again.request.id = UUID()
+            change(&again)
             _ = self.startRow(row, in: batch, job: again, executor: executor, linksSince: linksSince, events: { _ in }, onResult: onResult)
         }
         return task
@@ -327,6 +341,7 @@ public final class AppModel {
         guard let result = row.result, row.canRestore else { return }
         row.restoreError = nil
         do {
+            // `putBack` marks the latest batch's rows; this one may be from a batch Clear forgot.
             row.editInTrash = try await putBack(result)
             row.state = .restored(result)
         } catch is RestoreUnderWay {
@@ -352,18 +367,49 @@ public final class AppModel {
     /// result for the same file would get the newer original), with the copying off the main actor.
     /// One at a time per result, whichever window asks (a double click in Recent, the card's Undo,
     /// Compare's Restore Original): a second would put the original back twice and send it to the
-    /// Trash as an edit, so it throws `RestoreUnderWay`. True when a version edited after
-    /// optimising went to the Trash on the way.
+    /// Trash as an edit, so it throws `RestoreUnderWay`. Nor is an original put back again while
+    /// it is still in place: that too would send it to the Trash as an edit. True when a version
+    /// edited after optimising went to the Trash on the way. The current batch's rows with the
+    /// result show it restored, whichever window restored it.
     @discardableResult
     private func putBack(_ result: OptimisationResult) async throws -> Bool {
-        guard restoringIDs.insert(result.id).inserted else { throw RestoreUnderWay() }
-        defer { restoringIDs.remove(result.id) }
+        let keys = Self.restoreKeys(of: result)
+        if !restoredIDs.isDisjoint(with: keys),
+           OriginalsModel.isInPlace(original: result.source, bytes: result.bytesBefore, output: result.output) {
+            return false
+        }
+        guard restoringIDs.isDisjoint(with: keys) else { throw RestoreUnderWay() }
+        restoringIDs.formUnion(keys)
+        defer { restoringIDs.subtract(keys) }
         let (service, restoreBackup) = (service, restoreBackup)
         let outcome = try await Task.detached { try await restoreBackup(service, result) }.value
-        restoredIDs.insert(result.id)
+        restoredIDs.formUnion(keys)
         forget(result)
         noteWritten([result.source, result.output])
-        return Self.editWentToTrash(trashed: outcome.movedToTrash?.count ?? 0, restoring: result)
+        let editInTrash = Self.editWentToTrash(trashed: outcome.movedToTrash?.count ?? 0, restoring: result)
+        markRestored(result, editInTrash: editInTrash)
+        return editInTrash
+    }
+
+    /// The original of `result` is back (`putBack`).
+    func isRestored(_ result: OptimisationResult) -> Bool {
+        !restoredIDs.isDisjoint(with: Self.restoreKeys(of: result))
+    }
+
+    /// The result's id and its backup's (the folder's name): Originals rebuilds a result the log
+    /// no longer names with the backup's id, and it is the same original.
+    nonisolated static func restoreKeys(of result: OptimisationResult) -> Set<UUID> {
+        let backup = result.backup.flatMap { UUID(uuidString: $0.deletingLastPathComponent().lastPathComponent) }
+        return Set([result.id] + (backup.map { [$0] } ?? []))
+    }
+
+    private func markRestored(_ result: OptimisationResult, editInTrash: Bool) {
+        let keys = Self.restoreKeys(of: result)
+        for row in batch?.rows ?? [] {
+            guard let done = row.result, !keys.isDisjoint(with: Self.restoreKeys(of: done)) else { continue }
+            row.editInTrash = editInTrash
+            row.state = .restored(done)
+        }
     }
 
     /// Why a result with no backup has no original to put back.
@@ -554,13 +600,18 @@ public final class AppModel {
     }
 
     /// Recent's Clear (privacy): the names go from the panel and from the shared log, which the
-    /// CLI and MCP server read too; the sizes stay, so the saving still counts them. The files,
-    /// their backups and the cards on screen are not touched.
+    /// CLI and MCP server read too; the sizes stay, so the saving still counts them. A finished
+    /// batch goes too, with the menu's Last batch tile and its window: they list the names. The
+    /// files, their backups and the cards on screen are not touched.
     public func clearRecent() {
         do {
             try service.results.redactAll()
             loadingRecent?.cancel()
             recent = []
+            if let batch, !batch.isRunning {
+                self.batch = nil
+                onBatchForgotten?()
+            }
         } catch {
             // The names are still on disk: the list stays, so the panel does not claim otherwise.
             NSSound.beep()
@@ -635,13 +686,16 @@ public final class AppModel {
         for card in cards where ids.contains(card.jobID) { dismiss(card) }
     }
 
-    /// A short message with no file. It replaces the last plain one. With `optimiseAnyway` it
-    /// offers that action, stays long enough to reach it, and no later notice takes its place.
-    public func notice(_ title: String, _ detail: String, optimiseAnyway: (() -> Void)? = nil) {
-        cards.filter { if case .notice = $0.phase { return $0.optimiseAnyway == nil } else { return false } }.forEach(dismiss)
+    /// A short message with no file. It replaces the last plain one. With an `action` it offers
+    /// that action, stays `hideAfter` seconds (8 by default) so it can be reached, and no later
+    /// notice takes its place.
+    public func notice(
+        _ title: String, _ detail: String, action: (action: CardPresentation.Action, run: () -> Void)? = nil, hideAfter: TimeInterval? = nil
+    ) {
+        cards.filter { if case .notice = $0.phase { return $0.noticeAction == nil } else { return false } }.forEach(dismiss)
         let card = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/"), origin: .app, bytesBefore: 0, phase: .notice(title: title, detail: detail))
-        card.optimiseAnyway = optimiseAnyway
-        card.machine.notice(at: now(), hideAfter: hideDelayOverride.map(Self.seconds) ?? (optimiseAnyway == nil ? 3 : 8))
+        card.noticeAction = action
+        card.machine.notice(at: now(), hideAfter: hideDelayOverride.map(Self.seconds) ?? hideAfter ?? (action == nil ? 3 : 8))
         add(card)
     }
 
@@ -664,6 +718,8 @@ public final class AppModel {
         case .pointerEntered: card.machine.pointerEntered(at: time)
         case .pointerExited: card.machine.pointerExited(at: time)
         case .openDetail:
+            // A download has no file to show yet.
+            guard !card.downloading else { return }
             // The options popover belongs to the card; the detail opens without it, and without
             // its "…" menu open.
             card.machine.setMenuOpen(false, at: time)
@@ -763,7 +819,7 @@ public final class AppModel {
     }
 
     private func hideDelay(for card: ResultCard) -> Duration? {
-        guard EsclopSettings.autoHideFloatingResults.value(in: settings) else { return nil }
+        guard EsclopSettings.autoHideFloatingResults.value(in: settings), !voiceOverRunning() else { return nil }
         if let hideDelayOverride { return hideDelayOverride }
         let seconds = card.origin == .clipboard
             ? EsclopSettings.autoHideClipboardResultAfter.value(in: settings)
@@ -867,8 +923,8 @@ public final class AppModel {
             openOptions(card)
         case .trash:
             trash(card)
-        case .optimiseAnyway:
-            card.optimiseAnyway?()
+        case .optimiseAnyway, .download:
+            card.noticeAction?.run()
             dismiss(card)
         case .save:
             save(card)
@@ -936,6 +992,8 @@ public final class AppModel {
             }
             card.loupe = nil
             var job = factory.job(for: source, origin: origin, location: wasClipboardImage ? .inPlace : nil)
+            // Its card is on screen, whatever "Show floating results" says; Retry shows it too.
+            job.request.showResultUI = true
             if besideOriginal, job.request.location == .inPlace { job.request.location = .sameFolder }
             choice.apply(to: &job.request)
             job.request.crop = kept.crop
@@ -950,17 +1008,38 @@ public final class AppModel {
             card.adjusted = job.request.crop != nil || job.request.downscale != nil || job.operation != plain
             let copyBack = origin == .clipboard && EsclopSettings.autoCopyToClipboard.value(in: settings)
             card.restoring = false
-            await run(job, displayName: displayName, context: context, reusing: card, onResult: { result in
+            let onResult = { (result: OptimisationResult) in
                 if let replaced {
                     self.forget(replaced)
                     self.service.results.append([], withdrawing: [replaced], wait: false)
                 }
                 guard copyBack else { return }
                 Task { await self.putBackOnClipboard(shown.map { ($0, result.output) }) }
-            })
+            }
+            let report = await run(job, displayName: displayName, context: context, reusing: card, onResult: onResult)
+            // A kept fit the new choice cannot make (FLAC is lossless, nothing came under the
+            // size): the choice runs once more without it, and a notice says the fit went.
+            if case let .fit(bytes) = job.operation, bytes == kept.fit, let error = report.failures.first?.error, Self.isFitFailure(error) {
+                job.operation = plain
+                card.fit = nil
+                card.adjusted = job.request.crop != nil || job.request.downscale != nil
+                // ponytail: this notice replaces an "edited version is in the Trash" one shown just
+                // before (`notice` keeps one plain notice); the restored card said it too. Trigger:
+                // someone missing it; then join the two sentences in one notice.
+                notice(Strings.text("Fit dropped"), CardPresentation.message(for: error))
+                await run(job, displayName: displayName, context: context, reusing: card, onResult: onResult)
+            }
             // A failed card has no "…": the popover closes so the failure and its Retry show,
             // instead of controls that can no longer run anything.
             if case .failed = card.phase, card.machine.menuOpen { interact(card, .menu(false)) }
+        }
+    }
+
+    /// The engine found no way to make the fit, as opposed to failing to optimise at all.
+    nonisolated static func isFitFailure(_ error: EsclopError) -> Bool {
+        switch error {
+        case .cannotFit, .losslessCannotFit: return true
+        default: return false
         }
     }
 

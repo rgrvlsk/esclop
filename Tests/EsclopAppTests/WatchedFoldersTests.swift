@@ -563,7 +563,7 @@ final class Flag: @unchecked Sendable {
         // In one go: under load FSEvents reported part of a burst after the window closed, so
         // neither part was too large.
         rig.folders.received(landed)
-        func actions() -> [ResultCard] { rig.harness.model.cards.filter { $0.optimiseAnyway != nil } }
+        func actions() -> [ResultCard] { rig.harness.model.cards.filter { $0.noticeAction != nil } }
         #expect(await eventually { actions().count == 2 })
         rig.harness.model.notice("Paused", "Press again to resume.")
         #expect(actions().count == 2, "a plain notice leaves them")
@@ -597,6 +597,17 @@ final class Flag: @unchecked Sendable {
         rig.folders.received(landed)
         #expect(await eventually { rig.harness.model.batch?.rows.count == 8 }, "two bursts at once, one batch")
         rig.harness.model.batch?.cancelAll()
+        rig.folders.stop()
+    }
+
+    /// "Show floating results" off: a batch-sized burst goes to Recent only, with no batch window.
+    @Test func aBurstOpensNoBatchWithFloatingResultsOff() async throws {
+        let rig = try Rig()
+        try EsclopSettings.showFloatingResults.set(false, in: rig.harness.settings.store)
+        let landed = (1 ... rig.harness.model.batchThreshold).map { rig.land("q \($0).png") }
+        rig.folders.received(landed)
+        #expect(await eventually { rig.harness.model.recent.count == landed.count })
+        #expect(rig.harness.model.batch == nil && rig.harness.model.cards.isEmpty)
         rig.folders.stop()
     }
 

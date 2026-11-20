@@ -34,6 +34,8 @@ extension AppModel {
         // ponytail: `.path` expands %f, %e and %d, so a folder or name holding one of them lands
         // wrong; add an exact-file location case if someone hits it.
         var job = factory.job(for: original, origin: .app, location: .path(target.path))
+        // Asked for on a card on screen: the copy shows, whatever "Show floating results" says.
+        job.request.showResultUI = true
         var choice = card.choice
         choice.format = format
         choice.apply(to: &job.request)
@@ -300,6 +302,8 @@ extension AppModel {
     public func runPipeline(_ name: String, on card: ResultCard) {
         var job = factory.job(for: card.shownFile, origin: .app)
         job.operation = .pipeline(name)
+        // Asked for on a card on screen: its result shows, whatever "Show floating results" says.
+        job.request.showResultUI = true
         Task { await run(job) }
     }
 }

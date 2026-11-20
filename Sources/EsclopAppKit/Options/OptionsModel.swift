@@ -231,7 +231,10 @@ public final class OptionsModel {
 
     /// Original, 2000 px and 1280 px when the picture is larger and not nearly half, and Half
     /// (docs/design/targets: pr4-options-popover-size-actions). Nothing that would enlarge it.
-    public var sizePresets: [SizePreset] {
+    public var sizePresets: [SizePreset] { Self.sizePresets(for: facts) }
+
+    /// The batch window offers the same for each selected file.
+    static func sizePresets(for facts: FileFacts) -> [SizePreset] {
         guard let width = facts.width, let height = facts.height, width > 0, height > 0 else { return [] }
         let long = Double(max(width, height))
         var presets = [SizePreset(title: Strings.text("Original"), factor: 1, spoken: Strings.text("Original"))]
@@ -313,10 +316,7 @@ public final class OptionsModel {
     }
 
     public func choose(compression: OptimiseChoice.Compression) {
-        var choice = card.choice
-        choice.compression = compression
-        choice.quality = nil
-        apply(choice)
+        apply(card.choice.with(compression: compression))
     }
 
     public func commitQuality() {
