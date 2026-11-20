@@ -254,7 +254,7 @@ struct PermissionsPage: View {
         VStack(spacing: 0) {
             PageHeading(
                 title: Strings.text("What macOS will ask"),
-                summary: Strings.text("Files are optimised on this Mac, with no account. They leave it only when you upload them or set up automatic uploads. L’Esclop needs no Accessibility, Screen Recording or Full Disk Access.")
+                summary: Strings.text("Files are optimised on this Mac, with no account. They leave it only when you upload them or set up automatic uploads. A copied media link is only offered for download: nothing is fetched until you click. L’Esclop needs no Accessibility, Screen Recording or Full Disk Access.")
             )
             Form {
                 Section {

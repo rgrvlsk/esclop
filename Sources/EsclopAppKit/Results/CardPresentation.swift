@@ -46,6 +46,8 @@ public struct CardPresentation: Equatable, Sendable {
         case convertOptions
         /// A watched-folder notice about too many files at once: optimise them after all.
         case optimiseAnyway
+        /// The offer of a copied web address of media: download it, then optimise it.
+        case download
 
         /// The label on a button in the detail card.
         public var title: String {
@@ -74,6 +76,7 @@ public struct CardPresentation: Equatable, Sendable {
             case .trash: return Strings.text("Move to Trash")
             case .convertOptions: return Strings.text("Convert…")
             case .optimiseAnyway: return Strings.text("Optimise Them Anyway")
+            case .download: return Strings.text("Download and optimise")
             }
         }
 
@@ -119,6 +122,7 @@ public struct CardPresentation: Equatable, Sendable {
             case .share: return "square.and.arrow.up"
             case .trash: return "trash"
             case .optimiseAnyway: return "arrow.forward"
+            case .download: return "arrow.down"
             }
         }
     }
@@ -201,8 +205,8 @@ public struct CardPresentation: Equatable, Sendable {
         switch card.phase {
         case let .working(fraction):
             isWorking = true
-            capsule = .working(card.aggressive ? t("Optimising harder…") : t("Optimising…"))
-            headline = card.aggressive ? t("Optimising harder…") : t("Optimising…")
+            headline = card.downloading ? t("Downloading…") : card.aggressive ? t("Optimising harder…") : t("Optimising…")
+            capsule = .working(headline)
             caption = name
             progress = fraction >= 0 ? min(1, fraction) : nil
             // The buttons only show while the options popover is open; "…" must stay so the
@@ -211,7 +215,7 @@ public struct CardPresentation: Equatable, Sendable {
             actions = [.stop]
             // A detail left open while the file runs again stops it with its charcoal button.
             primary = .stop
-            accessibilityLabel = f("%@, optimising, %@", name, Figures.bytes(card.bytesBefore, locale: locale))
+            accessibilityLabel = card.downloading ? f("%@, downloading", name) : f("%@, optimising, %@", name, Figures.bytes(card.bytesBefore, locale: locale))
         case let .done(result):
             fileName = card.displayName ?? result.output.lastPathComponent
             if Figures.isNoSaving(before: result.bytesBefore, after: result.bytesAfter) {
@@ -290,7 +294,7 @@ public struct CardPresentation: Equatable, Sendable {
             fileName = ""
             capsule = .notice(title: title, detail: message)
             tone = .neutral
-            actions = card.optimiseAnyway == nil ? [.dismiss] : [.optimiseAnyway, .dismiss]
+            actions = (card.noticeAction.map { [$0.action] } ?? []) + [.dismiss]
             accessibilityLabel = "\(title). \(message)"
         }
         applyUpload(card, name: fileName, t: t, f: f)
@@ -465,6 +469,7 @@ public struct CardPresentation: Equatable, Sendable {
 
     /// A readable message for an engine error: what went wrong and what to do.
     public static func message(for error: Error) -> String {
+        if let refusal = error as? WebDownload.Refusal { return message(refusal: refusal) }
         switch EsclopError.wrap(error) {
         case let .toolMissing(tool):
             return Strings.format("%@ is missing. Reinstall L’Esclop or run Scripts/build-tools.sh.", tool)
@@ -500,6 +505,16 @@ public struct CardPresentation: Equatable, Sendable {
             return Strings.text(message)
         case let other:
             return other.description
+        }
+    }
+
+    /// Why a download was refused, without the address: the card names the file.
+    static func message(refusal: WebDownload.Refusal, locale: Locale = Strings.locale) -> String {
+        switch refusal {
+        case let .status(_, code): return Strings.format("The server answered with error %d.", code, locale: locale)
+        case let .tooLarge(_, largest): return Strings.format("It is larger than %@.", Figures.bytes(largest, locale: locale), locale: locale)
+        case .notMedia: return Strings.text("It is not an image, video, PDF or audio file.", locale: locale)
+        case .local: return Strings.text("It is on this Mac or the local network: download it with Optimise Clipboard.", locale: locale)
         }
     }
 

@@ -184,7 +184,7 @@ import Testing
             title: WatchedFolders.tooManyTitle(.image, count: 4),
             detail: Strings.format("They appeared together in %@, so L’Esclop left them alone.", "~/Downloads")
         ))
-        tooMany.optimiseAnyway = {}
+        tooMany.noticeAction = (.optimiseAnyway, {})
         try render(object(tooMany), name: "result-notice-action", scheme: scheme)
     }
 
@@ -201,9 +201,21 @@ import Testing
         try render(object(detail), name: "result-address-detail", scheme: scheme)
         let refused = card(.notice(
             title: Strings.text("Could not download the copied address"),
-            detail: CardPresentation.message(for: EsclopError.other("https://example.com/cove.jpg is not an image, video, PDF or audio file (text/html)"))
+            detail: CardPresentation.message(for: WebDownload.Refusal.notMedia(URL(string: "https://example.com/cove.jpg")!, type: "text/html"))
         ))
         try render(object(refused), name: "result-address-refused", scheme: scheme)
+        // The offer of a copied address: its name, its host and the one action.
+        let offer = card(.notice(title: "cove.jpg", detail: "images.example.com"))
+        offer.noticeAction = (.download, {})
+        try render(object(offer), name: "result-address-offer", scheme: scheme)
+        // The download itself, from its first byte: aqua, the name, the share received, Stop.
+        let downloading = card(.working(fraction: 0.4), source: URL(fileURLWithPath: "/cove.jpg"), bytes: 0)
+        downloading.downloading = true
+        downloading.displayName = "cove.jpg"
+        // Nothing has arrived yet to make a picture from.
+        downloading.thumbnail = nil
+        downloading.originalThumbnail = nil
+        try render(object(downloading), name: "result-address-downloading", scheme: scheme)
     }
 
     /// The detail (pr2-detail-card): a dropped photo shows its folder, a copied screenshot goes back

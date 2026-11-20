@@ -13,13 +13,25 @@ import Testing
 final class LocalServer: @unchecked Sendable {
     private let listener: NWListener
     let port: UInt16
+    private let connected = Counter()
+    /// How many connections it took.
+    var connections: Int { connected.value }
+
+    final class Counter: @unchecked Sendable {
+        private let lock = NSLock()
+        private var count = 0
+        var value: Int { lock.withLock { count } }
+        func add() { lock.withLock { count += 1 } }
+    }
 
     init(status: Int = 200, contentType: String, body: Data, announcesLength: Bool = true, holdsOpen: Bool = false) async throws {
         let parameters = NWParameters.tcp
         parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
         let listener = try NWListener(using: parameters)
         self.listener = listener
+        let connected = connected
         listener.newConnectionHandler = { connection in
+            connected.add()
             connection.start(queue: .global())
             connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { _, _, _, _ in
                 let length = announcesLength ? "Content-Length: \(body.count)\r\n" : ""
@@ -85,7 +97,7 @@ final class LocalServer: @unchecked Sendable {
             let server = try await LocalServer(contentType: "image/png", body: Self.png + Data(count: 4096), announcesLength: announces, holdsOpen: stream)
             defer { server.stop() }
             let address = URL(string: "http://127.0.0.1:\(server.port)/big.png")!
-            await #expect(throws: EsclopError.other("\(address.absoluteString) is larger than 1.0 KB, the most L'Esclop downloads"), "announced: \(announces), stream: \(stream)") {
+            await #expect(throws: WebDownload.Refusal.tooLarge(address, largest: 1000), "announced: \(announces), stream: \(stream)") {
                 try await WebDownload.fetch(address, into: folder, largest: 1000)
             }
         }
@@ -93,7 +105,7 @@ final class LocalServer: @unchecked Sendable {
         defer { page.stop() }
         for path in ["gallery", "photo.jpg"] {
             let address = URL(string: "http://127.0.0.1:\(page.port)/\(path)")!
-            await #expect(throws: EsclopError.other("\(address.absoluteString) is not an image, video, PDF or audio file (text/html)")) {
+            await #expect(throws: WebDownload.Refusal.notMedia(address, type: "text/html")) {
                 try await WebDownload.fetch(address, into: folder)
             }
         }
@@ -106,6 +118,27 @@ final class LocalServer: @unchecked Sendable {
         #expect(WebDownload.isInsecure(URL(string: "http://example.com/a.png")!))
         #expect(!WebDownload.isInsecure(URL(string: "http://localhost:8080/a.png")!))
         #expect(!WebDownload.isInsecure(URL(string: "https://example.com/a.png")!))
+    }
+
+    /// A download L'Esclop starts on its own never reaches this Mac or the local network: it is
+    /// refused before any connection. Asked for, the same address downloads. Its session sends
+    /// and keeps no cookies and stays off Low Data Mode.
+    @Test func anAutomaticDownloadNeverReachesThisMac() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-downloads-\(UUID().uuidString.prefix(8))", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let server = try await LocalServer(contentType: "image/png", body: Self.png)
+        defer { server.stop() }
+        let address = URL(string: "http://127.0.0.1:\(server.port)/pixel.png")!
+        await #expect(throws: WebDownload.Refusal.local(address)) {
+            try await WebDownload.fetch(address, terms: WebDownload.Terms(automatic: true), into: folder)
+        }
+        #expect(server.connections == 0)
+        let file = try await WebDownload.fetch(address, terms: WebDownload.Terms(), into: folder)
+        #expect(try Data(contentsOf: file) == Self.png)
+        #expect(server.connections == 1)
+        let automatic = WebDownload.automaticSession.configuration
+        #expect(!automatic.allowsConstrainedNetworkAccess)
+        #expect(automatic.httpCookieStorage !== HTTPCookieStorage.shared && automatic.urlCache !== URLCache.shared, "ephemeral")
     }
 
     /// `esclop optimise <address>` writes the result into the working directory, under a name

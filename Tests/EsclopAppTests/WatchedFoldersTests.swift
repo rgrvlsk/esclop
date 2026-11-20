@@ -423,7 +423,7 @@ final class Flag: @unchecked Sendable {
         // In one go: under load FSEvents reported part of a burst after the window closed, so
         // neither part was too large.
         rig.folders.received(landed)
-        func actions() -> [ResultCard] { rig.harness.model.cards.filter { $0.optimiseAnyway != nil } }
+        func actions() -> [ResultCard] { rig.harness.model.cards.filter { $0.noticeAction != nil } }
         #expect(await eventually { actions().count == 2 })
         rig.harness.model.notice("Paused", "Press again to resume.")
         #expect(actions().count == 2, "a plain notice leaves them")

@@ -46,9 +46,10 @@ hoc. Windows and Linux are out of scope.
 
 ## Constraints
 
-- No telemetry or licence checks. Network operations require a user request. One exception:
-  copying the web address of a media file downloads it, which Settings › Clipboard › Download
-  copied web addresses turns off.
+- No telemetry or licence checks. Network operations require a user request. Two exceptions:
+  the update check, from the first launch (Settings › Updates turns it off), and copying the web
+  address of a media file when Settings › Clipboard › Copied web addresses is "Download and
+  optimise". By default a copied media link is only offered: nothing is fetched until the click.
 - Reused Clop code comes only from commit `4be5106` or earlier, keeps its original header,
   includes a dated modification notice and is listed in [Attribution](docs/ATTRIBUTION.md).
   Excluded sources are Lowtech*, Paddle, swift-ignore, WarpDrop, `required.swift` and

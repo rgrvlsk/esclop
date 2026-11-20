@@ -72,6 +72,11 @@ stays while one failure is left, headed with the single card's words ("Not optim
 failure under the pointer, focused or open stays its own card until it is left, so nothing
 changes under the pointer. Failures never hide on their own.
 Dismissal pauses while the object is hovered, focused, dragged or open.
+A copied web address of media is offered, never fetched on its own (owner's decision,
+2026-11-20): a cream notice with the file name, its host and "Download and optimise" in charcoal,
+for 4 s, once per address a session, with no sound and no focus. Its click, like any download,
+shows the aqua working card from the start ("Downloading…", the share received, Stop), which
+gives its place to the file's own card when the file arrives.
 
 ## Menu bar panel
 
