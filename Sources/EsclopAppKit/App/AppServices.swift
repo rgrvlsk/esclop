@@ -48,6 +48,10 @@ public final class AppServices {
             if key == EsclopSettings.pauseAutomaticOptimisations.key { model?.pauseChanged(value.boolValue ?? false) }
         }
         self.settingsModel = settingsModel
+        Task { @MainActor [weak settingsModel] in
+            let missing = await EsclopEngine.missingVideoEncoders()
+            settingsModel?.hiddenChoices[EsclopSettings.videoEncoder.key] = Set(missing.map(\.rawValue))
+        }
         settingsModel.pipelines = model.service.context.pipelines
         settingsModel.uploads = .live()
         settingsWindow = SettingsWindowController(model: settingsModel, agents: AgentsModel(), actions: SettingsActions(

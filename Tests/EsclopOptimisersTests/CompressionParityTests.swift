@@ -155,6 +155,24 @@ extension Inspect {
         #expect(Inspect.type(kept.output) == .png)
     }
 
+    /// A photo PNG the PNG path cannot shrink (it was optimised already) still becomes the JPEG:
+    /// the alternative used to be tried only after the PNG encode succeeded.
+    @Test func adaptiveTriesTheJPEGWhenThePNGCannotShrink() async throws {
+        let world = try await TestWorld(realEngine: true)
+        defer { Task { await world.finish() } }
+        let photo = world.file("photo.png")
+        try Fixture.write(Fixture.rgba(width: 1200, height: 900, noise: false), to: photo, type: .png, properties: [:])
+        let once = try await world.engine.optimise(photo, request: Self.request(world, photo), progress: { _ in })
+        let png = world.file("optimised.png")
+        try FileManager.default.copyItem(at: once.output, to: png)
+        await #expect(throws: EsclopError.alreadySmaller) {
+            try await world.engine.optimise(png, request: Self.request(world, png), progress: { _ in })
+        }
+        let result = try await world.engine.optimise(png, request: Self.request(world, png, adaptive: true), progress: { _ in })
+        #expect(Inspect.type(result.output) == .jpeg)
+        #expect(result.steps.contains("JPEG was smaller than PNG, kept JPEG"))
+    }
+
     /// An explicit `.png` output keeps the PNG instead of failing after the work.
     @Test func adaptiveKeepsTheFormatAnOutputPathNames() async throws {
         let world = try await TestWorld(realEngine: true)
