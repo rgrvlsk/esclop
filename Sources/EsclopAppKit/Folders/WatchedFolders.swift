@@ -127,7 +127,8 @@ public final class WatchedFolders {
     }
 
     /// The settings that change what is watched.
-    public static let settingKeys: [String] = WatchPlan.lists.flatMap { [$0.1.key, $0.2.key] } + [EsclopSettings.pauseAutomaticOptimisations.key]
+    public static let settingKeys: [String] = WatchPlan.lists.flatMap { [$0.1.key, $0.2.key] }
+        + [EsclopSettings.pauseAutomaticOptimisations.key, EsclopSettings.watchedFolderRules.key]
 
     // MARK: Events
 
@@ -150,7 +151,8 @@ public final class WatchedFolders {
             }
             let decision = WatchPlan.decide(
                 file, targets: targets, size: size, isMarked: OptimisedMark.isMarked(file),
-                justWritten: model.wasJustWritten(file), limits: { self.model.factory.sizeLimits(for: $0) }
+                justWritten: model.wasJustWritten(file), ignored: Self.isIgnored(file),
+                limits: { self.model.factory.sizeLimits(for: $0) }
             )
             guard let kind = decision.kind else { continue }
             inFlight.insert(file.path)
@@ -226,10 +228,18 @@ public final class WatchedFolders {
             )
         }
         guard settled == .steady else { return }
-        let decision = WatchPlan.decide(
+        var decision = WatchPlan.decide(
             file, targets: targets, size: Self.size(of: file), isMarked: OptimisedMark.isMarked(file),
-            justWritten: model.wasJustWritten(file), limits: { self.model.factory.sizeLimits(for: $0) }
+            justWritten: model.wasJustWritten(file), ignored: Self.isIgnored(file),
+            limits: { self.model.factory.sizeLimits(for: $0) }
         )
+        // Pixels are read once the file is whole, and only for a folder with pixel limits.
+        if let kind = decision.kind, kind == .image || kind == .video,
+           let rules = targets.first(where: { $0.folder.path == file.deletingLastPathComponent().path })?.rules,
+           rules.minPixels != nil || rules.maxPixels != nil,
+           let skip = rules.skip(longerSide: await SystemMediaInspector().pixelSize(file).map { max($0.width, $0.height) }) {
+            decision = .skip(skip)
+        }
         // The burst's batch, opened by its first file to start.
         func shared() -> Batch? {
             if let batch, batch.batch == nil { batch.batch = model.openBatch(origin: .watchedFolder) }
@@ -250,6 +260,11 @@ public final class WatchedFolders {
         case .pdf: return Strings.format("More than %d new PDFs at once", count)
         case .audio: return Strings.format("More than %d new audio files at once", count)
         }
+    }
+
+    /// The folder's `.esclopignore` or `.clopignore` matches the file's name.
+    nonisolated static func isIgnored(_ file: URL) -> Bool {
+        IgnoreFile.ignores(file.lastPathComponent, patterns: IgnoreFile.patterns(in: file.deletingLastPathComponent()))
     }
 
     nonisolated static func size(of url: URL) -> Int {

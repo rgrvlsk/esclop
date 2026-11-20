@@ -8,7 +8,9 @@
 //
 // What counts as a new file follows Clop 3.5: not hidden, a kind L'Esclop handles, not already
 // optimised (the `dev.esclop.optimised` mark), not one L'Esclop wrote in the last three seconds,
-// within the per-kind size limits, and not part of a burst larger than the per-kind count.
+// within the per-kind size limits, and not part of a burst larger than the per-kind count. Each
+// folder can also skip formats and pixel sizes (`watchedFolderRules`) and names its
+// `.esclopignore` or `.clopignore` file matches.
 
 import EsclopCore
 import EsclopPipelines
@@ -25,12 +27,99 @@ public struct WatchTarget: Equatable, Sendable {
     public var pipeline: String?
     /// The kinds the pipeline handles.
     public var pipelineKinds: Set<MediaKind>
+    /// What the folder leaves alone besides the size limits.
+    public var rules: FolderRules?
 
-    public init(folder: URL, kinds: Set<MediaKind> = [], pipeline: String? = nil, pipelineKinds: Set<MediaKind> = []) {
+    public init(folder: URL, kinds: Set<MediaKind> = [], pipeline: String? = nil, pipelineKinds: Set<MediaKind> = [], rules: FolderRules? = nil) {
         self.folder = folder
         self.kinds = kinds
         self.pipeline = pipeline
         self.pipelineKinds = pipelineKinds
+        self.rules = rules
+    }
+}
+
+/// One folder's entry in `watchedFolderRules`: formats to skip and, for images and videos, the
+/// longer side's smallest and largest size in pixels.
+public struct FolderRules: Codable, Equatable, Sendable {
+    /// As the folder lists write it (`~/Desktop`).
+    public var folder: String
+    /// Extensions, without the dot.
+    public var skipFormats: [String]?
+    public var minPixels: Int?
+    public var maxPixels: Int?
+
+    public init(folder: String, skipFormats: [String]? = nil, minPixels: Int? = nil, maxPixels: Int? = nil) {
+        self.folder = folder
+        self.skipFormats = skipFormats
+        self.minPixels = minPixels
+        self.maxPixels = maxPixels
+    }
+
+    /// Nothing to skip: the entry can go.
+    public var isEmpty: Bool { (skipFormats ?? []).isEmpty && minPixels == nil && maxPixels == nil }
+
+    public func skips(_ file: URL) -> Bool {
+        let format = file.pathExtension.lowercased()
+        return (skipFormats ?? []).contains { $0.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: ". ")) == format }
+    }
+
+    /// Outside the pixel limits, by the longer side. Unknown sizes pass.
+    public func skip(longerSide: Int?) -> WatchSkip? {
+        guard let longerSide else { return nil }
+        if let minPixels, longerSide < minPixels { return .tooFewPixels }
+        if let maxPixels, longerSide > maxPixels { return .tooManyPixels }
+        return nil
+    }
+
+    /// The entries of `watchedFolderRules`; one that does not parse is left out.
+    public static func all(in settings: SettingsStore) -> [FolderRules] {
+        EsclopSettings.watchedFolderRules.value(in: settings).compactMap { try? JSONDecoder().decode(FolderRules.self, from: Data($0.utf8)) }
+    }
+
+    /// The setting's list with `rules` in place of the folder's entry (none when it is empty).
+    public static func replacing(_ rules: FolderRules, in list: [String]) -> [String] {
+        let folder = WatchPlan.canonical(rules.folder)
+        var kept = list.filter { entry in
+            guard let other = try? JSONDecoder().decode(FolderRules.self, from: Data(entry.utf8)) else { return true }
+            return WatchPlan.canonical(other.folder) != folder
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        if !rules.isEmpty, let data = try? encoder.encode(rules) { kept.append(String(decoding: data, as: UTF8.self)) }
+        return kept
+    }
+}
+
+/// A watched folder's `.esclopignore`, or Clop's `.clopignore`: gitignore-style patterns for
+/// names to leave alone, one per line. `#` starts a comment, `!` takes a name back, the last
+/// pattern that matches wins, and case does not matter, as on a Mac disk. Only files directly in
+/// the folder are watched, so a pattern matches the name; a leading `/` is allowed.
+public enum IgnoreFile {
+    public static let names = [".esclopignore", ".clopignore"]
+
+    /// The patterns of both files in `folder`, in order. Read at each new file: they are small.
+    public static func patterns(in folder: URL) -> [String] {
+        names.flatMap { name -> [String] in
+            guard let text = try? String(contentsOf: folder.appendingPathComponent(name), encoding: .utf8) else { return [] }
+            return text.components(separatedBy: .newlines)
+        }
+    }
+
+    public static func ignores(_ name: String, patterns: [String]) -> Bool {
+        var ignored = false
+        for line in patterns {
+            var pattern = line.trimmingCharacters(in: .whitespaces)
+            guard !pattern.isEmpty, !pattern.hasPrefix("#"), !pattern.hasSuffix("/") else { continue }
+            let negated = pattern.hasPrefix("!")
+            if negated { pattern.removeFirst() }
+            if pattern.hasPrefix("\\") { pattern.removeFirst() }
+            // `**/x` and `/x` both mean x in the folder itself.
+            while pattern.hasPrefix("**/") { pattern.removeFirst(3) }
+            if pattern.hasPrefix("/") { pattern.removeFirst() }
+            if fnmatch(pattern, name, FNM_CASEFOLD) == 0 { ignored = !negated }
+        }
+        return ignored
     }
 }
 
@@ -50,6 +139,8 @@ public enum WatchDecision: Equatable, Sendable {
 
 public enum WatchSkip: Equatable, Sendable {
     case hidden, unsupported, notWatched, alreadyOptimised, justWritten, tooSmall, tooLarge, empty, insideBackups
+    /// The folder's rules or ignore file leave it alone.
+    case skippedFormat, ignored, tooFewPixels, tooManyPixels
 }
 
 public enum WatchPlan {
@@ -95,12 +186,20 @@ public enum WatchPlan {
                 byFolder[folder] = entry
             }
         }
-        return order.compactMap { byFolder[$0] }
+        let rules = FolderRules.all(in: settings)
+        return order.compactMap { folder in
+            byFolder[folder].map { target in
+                var target = target
+                target.rules = rules.first { canonical($0.folder) == folder }
+                return target
+            }
+        }
     }
 
-    /// What a file gets, from cheap facts about it. `size` and `isMarked` are read by the caller.
+    /// What a file gets, from cheap facts about it. `size`, `isMarked` and `ignored` (the
+    /// folder's ignore file matches it) are read by the caller.
     public static func decide(
-        _ file: URL, targets: [WatchTarget], size: Int, isMarked: Bool, justWritten: Bool,
+        _ file: URL, targets: [WatchTarget], size: Int, isMarked: Bool, justWritten: Bool, ignored: Bool = false,
         limits: (MediaKind) -> (min: Int, max: Int)
     ) -> WatchDecision {
         let name = file.lastPathComponent
@@ -117,6 +216,8 @@ public enum WatchPlan {
         }
         let byPipeline = target.pipeline != nil && target.pipelineKinds.contains(kind)
         guard byPipeline || target.kinds.contains(kind) else { return .skip(.notWatched) }
+        if ignored { return .skip(.ignored) }
+        if target.rules?.skips(file) == true { return .skip(.skippedFormat) }
         if justWritten { return .skip(.justWritten) }
         if isMarked { return .skip(.alreadyOptimised) }
         if size <= 0 { return .skip(.empty) }

@@ -37,7 +37,7 @@ struct SettingsPaneView: View {
                 }
                 ForEach(model.groups(in: pane)) { group in
                     Section {
-                        ForEach(group.settings.filter { !Self.besideHotkeys.contains($0.key) }, id: \.key) { setting in
+                        ForEach(group.settings.filter { !Self.besideHotkeys.contains($0.key) && !Self.inFolderRows.contains($0.key) }, id: \.key) { setting in
                             SettingRow(descriptor: setting, model: model, actions: actions)
                         }
                     } header: {
@@ -72,6 +72,8 @@ struct SettingsPaneView: View {
 
     /// Registry settings shown with the keyboard shortcuts instead of their section's group.
     static let besideHotkeys = [EsclopSettings.cardKeysUnderPointer.key]
+    /// Registry settings edited in each watched folder's rows (`FolderRulesRow`).
+    static let inFolderRows = [EsclopSettings.watchedFolderRules.key]
 
     static var intro: [SettingsPane: String] {
         [.agents: Strings.text("AI agents such as Claude, Codex and Cursor use L’Esclop through its MCP server: they can optimise, convert and crop files, and write pipelines. Connect an agent here, then restart it.")]

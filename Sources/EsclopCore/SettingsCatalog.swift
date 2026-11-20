@@ -481,6 +481,12 @@ public enum EsclopSettings {
         "audioDirs", default: [], title: "Audio folders",
         description: "New audio files in these folders are optimised as they appear.", section: .audio
     )
+    public static let watchedFolderRules = Setting<[String]>(
+        "watchedFolderRules", default: [], title: "Watched folder rules",
+        description: "What a watched folder leaves alone besides the size limits: formats to skip and, for images and videos, the smallest and largest size in pixels. An .esclopignore (or Clop's .clopignore) file in the folder skips the names its patterns match.",
+        section: .automation,
+        schema: ["x-details": "One JSON object per folder: folder (as in the folder lists), skipFormats (extensions), minPixels and maxPixels (the longer side; absent is no limit)."]
+    )
 
     /// How many new files of a kind may appear in the watched folders at once (within a second)
     /// before L'Esclop leaves them all alone and says so: Clop's limits.
@@ -579,7 +585,7 @@ public enum EsclopSettings {
         clipboardIgnoredAppBundleIds.erased, clipboardRules.erased, autoCopyToClipboard.erased, appendClipboardResults.erased,
         pauseAutomaticOptimisations.erased, enableAutomaticImageOptimisations.erased,
         enableAutomaticVideoOptimisations.erased, enableAutomaticPDFOptimisations.erased,
-        enableAutomaticAudioOptimisations.erased, imageDirs.erased, videoDirs.erased, pdfDirs.erased, audioDirs.erased,
+        enableAutomaticAudioOptimisations.erased, imageDirs.erased, videoDirs.erased, pdfDirs.erased, audioDirs.erased, watchedFolderRules.erased,
         maxImageFileCount.erased, maxVideoFileCount.erased, maxPDFFileCount.erased, maxAudioFileCount.erased,
         allowOverwriteOriginals.erased, allowDeleteBackups.erased, allowRunScripts.erased, allowSettingsChanges.erased, allowUploads.erased,
         uploadTargets.erased, uploadTarget.erased, uploadAutomatically.erased,

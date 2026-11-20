@@ -54,6 +54,51 @@ import Testing
         #expect(decide("a.png", size: 20_000_000) == .skip(.tooLarge))
     }
 
+    /// G5: a folder's formats to skip and its ignore file leave files alone, pipelines' too.
+    @Test func aFolderSkipsItsFormatsAndWhatItsIgnoreFileNames() {
+        let ruled = [WatchTarget(folder: folder, kinds: [.image, .video], pipeline: "web", pipelineKinds: [.video], rules: FolderRules(folder: "/watched", skipFormats: ["GIF", ".heic"]))]
+        #expect(decide("a.gif", in: ruled) == .skip(.skippedFormat))
+        #expect(decide("a.HEIC", in: ruled) == .skip(.skippedFormat))
+        #expect(decide("a.png", in: ruled) == .optimise(.image))
+        #expect(WatchPlan.decide(folder.appendingPathComponent("a.mov"), targets: ruled, size: 100_000, isMarked: false, justWritten: false, ignored: true, limits: limits) == .skip(.ignored))
+    }
+
+    @Test func ignorePatternsWorkAsGitignoreDoes() {
+        let patterns = ["# exports", "", "*.tmp.png", "draft-*", "!draft-final.png", "/Screen Recording*", "**/raw?.mov", "build/"]
+        for name in ["a.tmp.png", "draft-1.png", "DRAFT-2.PNG", "Screen Recording 2026.mov", "raw1.mov"] {
+            #expect(IgnoreFile.ignores(name, patterns: patterns), "\(name)")
+        }
+        for name in ["a.png", "draft-final.png", "raw12.mov", "build"] {
+            #expect(!IgnoreFile.ignores(name, patterns: patterns), "\(name)")
+        }
+    }
+
+    @Test func pixelLimitsUseTheLongerSide() {
+        let rules = FolderRules(folder: "/watched", minPixels: 200, maxPixels: 4000)
+        #expect(rules.skip(longerSide: 64) == .tooFewPixels)
+        #expect(rules.skip(longerSide: 5000) == .tooManyPixels)
+        #expect(rules.skip(longerSide: 1920) == nil)
+        #expect(rules.skip(longerSide: nil) == nil, "an unknown size passes")
+        #expect(FolderRules(folder: "/watched").skip(longerSide: 1) == nil)
+    }
+
+    /// The setting holds one JSON object per folder; an edit replaces that folder's entry, an
+    /// emptied one goes, and the targets carry each folder's rules.
+    @Test func rulesAreStoredPerFolder() throws {
+        let settings = TestSettings()
+        var list = FolderRules.replacing(FolderRules(folder: "~/Desktop", skipFormats: ["gif"]), in: ["not json"])
+        list = FolderRules.replacing(FolderRules(folder: "/watched", minPixels: 100), in: list)
+        list = FolderRules.replacing(FolderRules(folder: "~/Desktop", maxPixels: 900), in: list)
+        #expect(list.count == 3 && list[0] == "not json")
+        try EsclopSettings.watchedFolderRules.set(list, in: settings.store)
+        #expect(FolderRules.all(in: settings.store) == [FolderRules(folder: "/watched", minPixels: 100), FolderRules(folder: "~/Desktop", maxPixels: 900)])
+        #expect(FolderRules.replacing(FolderRules(folder: "/watched"), in: list).count == 2, "an empty entry goes")
+        try EsclopSettings.imageDirs.set(["/watched"], in: settings.store)
+        try EsclopSettings.enableAutomaticImageOptimisations.set(true, in: settings.store)
+        let target = try #require(WatchPlan.targets(settings: settings.store, pipelines: []).first { $0.folder == WatchPlan.canonical("/watched") })
+        #expect(target.rules?.minPixels == 100)
+    }
+
     @Test func aPipelineRunsInsteadForTheKindsItHasStepsFor() {
         let target = WatchTarget(folder: folder, kinds: [.image, .video], pipeline: "web", pipelineKinds: [.image])
         #expect(decide("a.png", in: [target]) == .pipeline("web", .image))
@@ -265,6 +310,26 @@ final class Flag: @unchecked Sendable {
         #expect(await eventually { rig.harness.model.recent.count == 1 })
         try await Task.sleep(for: .seconds(1))
         #expect(rig.harness.requests.requests.map { $0.sources.first?.lastPathComponent } == [other.lastPathComponent])
+        rig.folders.stop()
+    }
+
+    /// G5 end to end: the ignore file, a skipped format and the pixel limits leave their files
+    /// alone; the file that passes them all is optimised.
+    @Test func aFoldersRulesLeaveTheirFilesAlone() async throws {
+        let rig = try Rig()
+        let rules = FolderRules(folder: rig.folder.path, skipFormats: ["gif"], minPixels: 100)
+        // Real PNGs of a few hundred bytes: the size limit would leave them alone first.
+        try EsclopSettings.minImageSizeKB.set(0, in: rig.harness.settings.store)
+        try EsclopSettings.watchedFolderRules.set([String(decoding: try JSONEncoder().encode(rules), as: UTF8.self)], in: rig.harness.settings.store)
+        try "# test\nignored-*\n".write(to: rig.folder.appendingPathComponent(".esclopignore"), atomically: true, encoding: .utf8)
+        rig.folders.refresh()
+        try pngData(width: 64, height: 64).write(to: rig.folder.appendingPathComponent("tiny.png"), options: .atomic)
+        _ = rig.land("ignored-shot.png")
+        _ = rig.land("anim.gif")
+        try pngData(width: 300, height: 200).write(to: rig.folder.appendingPathComponent("wide.png"), options: .atomic)
+        #expect(await eventually { rig.harness.model.recent.count == 1 })
+        try await Task.sleep(for: .seconds(2))
+        #expect(rig.harness.requests.requests.map { $0.sources.first?.lastPathComponent } == ["wide.png"])
         rig.folders.stop()
     }
 

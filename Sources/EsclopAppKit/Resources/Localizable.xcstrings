@@ -1411,6 +1411,16 @@
         }
       }
     },
+    "An .esclopignore file in a folder skips the names it lists, as .gitignore does; Clop’s .clopignore works too.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un fitxer .esclopignore en una carpeta fa que s’ometin els noms que hi consten, com fa .gitignore; el .clopignore del Clop també funciona."
+          }
+        }
+      }
+    },
     "Animated GIF": {
       "localizations": {
         "ca": {
@@ -3711,6 +3721,26 @@
         }
       }
     },
+    "Formats": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Formats"
+          }
+        }
+      }
+    },
+    "Formats %@ skips": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Formats que %@ omet"
+          }
+        }
+      }
+    },
     "Frames": {
       "localizations": {
         "ca": {
@@ -4367,6 +4397,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Més gran que (bytes)"
+          }
+        }
+      }
+    },
+    "Largest": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Màxim"
+          }
+        }
+      }
+    },
+    "Largest images and videos %@ takes, in pixels": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mida màxima, en píxels, de les imatges i els vídeos que %@ admet"
           }
         }
       }
@@ -6351,6 +6401,16 @@
         }
       }
     },
+    "Pixels": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Píxels"
+          }
+        }
+      }
+    },
     "Place": {
       "localizations": {
         "ca": {
@@ -7937,6 +7997,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Més petit que (bytes)"
+          }
+        }
+      }
+    },
+    "Smallest": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mínim"
+          }
+        }
+      }
+    },
+    "Smallest images and videos %@ takes, in pixels": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mida mínima, en píxels, de les imatges i els vídeos que %@ admet"
           }
         }
       }
@@ -12527,6 +12607,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Codificador de vídeo"
+          }
+        }
+      }
+    },
+    "setting.watchedFolderRules.summary": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Què deixa de banda una carpeta vigilada, a més dels límits de mida: formats que s’ometen i, per a imatges i vídeos, la mida mínima i màxima en píxels. Un fitxer .esclopignore (o el .clopignore del Clop) a la carpeta fa que s’ometin els noms que coincideixen amb els seus patrons."
+          }
+        }
+      }
+    },
+    "setting.watchedFolderRules.title": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regles de les carpetes vigilades"
           }
         }
       }
