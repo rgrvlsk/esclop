@@ -97,11 +97,11 @@ struct VideoEngine: Sendable {
         }
     }
 
-    /// Shown as the message (and translated); see Localizable.xcstrings.
     /// Not stripping still loses QuickTime keys (com.apple.quicktime.location.ISO6709, make,
     /// model): ffmpeg's `use_metadata_tags` writes them in a form AVFoundation cannot read and
     /// hides the ordinary tags (title, artist) from it too. Keeping them needs a copy outside ffmpeg.
     static let locationNotKept = "Location and camera were not kept"
+    /// Shown as the message (and translated); see Localizable.xcstrings.
     static let subtitlesReason = "Videos with subtitles this format cannot keep are left as they are."
 
     func changesFormat(_ source: URL, to container: OutputFormat) -> Bool {
@@ -141,12 +141,10 @@ struct VideoEngine: Sendable {
         let factor = plan.factor(for: .video, format: container, env: env)
         let codec = try await chooseCodec(container: container, request: request, video: video)
         // The bundled ffmpeg is LGPL, without x264 or x265: say which encoder ran instead.
-        let asked = request.videoEncoder ?? env.value(EsclopSettings.videoEncoder)
-        if let name = [VideoEncoder.h264Software: "x264", .hevcSoftware: "x265"][asked],
-           [.mp4, .mov, .mkv].contains(container) || container == .hevc && asked == .hevcSoftware,
-           await !FFmpegCapabilities.shared.encoders(tools: env.tools).contains(asked.rawValue)
+        if let name = [VideoEncoder.h264Software: "x264", .hevcSoftware: "x265"][request.videoEncoder ?? env.value(EsclopSettings.videoEncoder)],
+           codec == .h264VT || codec == .hevcVT
         {
-            steps.append("This ffmpeg has no \(name); used \(codec.label)")
+            steps.append("Used \(codec.label) instead of \(name)")
         }
         // ponytail: the bundled ffmpeg has no zscale or tonemap filter, and an 8-bit encode of HDR
         // keeps its HDR tags, so players still treat it as HDR. HDR video stays HDR until a build
@@ -564,7 +562,8 @@ struct VideoEngine: Sendable {
             steps.append("Left out \(dropped) subtitle track\(dropped == 1 ? "" : "s")")
         }
         args += ["-c", "copy"]
-        // As in `arguments`: stripping keeps the track languages.
+        // As in `arguments` (see its ponytail on other per-stream tags): stripping keeps the
+        // track languages.
         args += plan.strip ? ["-map_metadata:g", "-1", "-metadata:s", "creation_time="] : ["-map_metadata", "0"]
         if ["mp4", "mov", "m4v"].contains(source.pathExtension.lowercased()) { args += ["-movflags", "+faststart"] }
         args += ["-progress", "pipe:1", "-nostats", output.path]

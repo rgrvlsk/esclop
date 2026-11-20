@@ -101,7 +101,9 @@ public final class SettingsViewModel {
         // In the app's language; the registry and the CLI stay English.
         descriptors = provider.descriptors().map { descriptor in
             var descriptor = SettingWords.localised(descriptor, locale: locale)
-            if let hidden = hiddenChoices[descriptor.key] { descriptor.choices?.removeAll { hidden.contains($0) } }
+            // The saved value stays listed, so the picker never shows another choice as selected.
+            let saved = descriptor.value?.stringValue
+            if let hidden = hiddenChoices[descriptor.key] { descriptor.choices?.removeAll { hidden.contains($0) && $0 != saved } }
             return descriptor
         }
     }

@@ -177,7 +177,6 @@ struct PDFEngine: Sendable {
         guard dpi >= 18, dpi <= 1200 else { throw EsclopError.invalidArgument("DPI must be between 18 and 1200") }
         guard FileManager.default.fileExists(atPath: source.path) else { throw EsclopError.fileNotFound(source.path) }
         let document = try document(source)
-        guard !document.isLocked else { throw EsclopError.notPermitted("\(source.lastPathComponent) is password protected") }
         var seen = Set<Int>()
         let wanted = (pages ?? Array(1 ... document.pageCount)).filter { seen.insert($0).inserted }
         if let bad = wanted.first(where: { $0 < 1 || $0 > document.pageCount }) {

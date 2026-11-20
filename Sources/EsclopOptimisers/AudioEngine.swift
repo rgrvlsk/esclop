@@ -84,7 +84,8 @@ struct AudioEngine: Sendable {
             steps.append("Reduced to 24 bits")
         }
 
-        // MPEG-4 audio keeps its own name: an audiobook stays `.m4b`.
+        // MPEG-4 audio keeps its own name: an audiobook stays `.m4b`, also when converted to
+        // AAC or fitted, since the container does not change.
         let sourceExtension = source.pathExtension.lowercased()
         let ext = codec == .aac && ["m4a", "m4b"].contains(sourceExtension) ? sourceExtension : codec.fileExtension
         let output = work.file(stem: "encoded", ext: ext)

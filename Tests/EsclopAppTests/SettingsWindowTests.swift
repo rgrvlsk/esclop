@@ -81,6 +81,10 @@ import Testing
         #expect(!encoders().contains("libx264") && !encoders().contains("libx265"))
         #expect(encoders().contains("h264_videotoolbox"))
         #expect(model.provider.descriptors().first { $0.key == "videoEncoder" }?.choices?.contains("libx264") == true)
+        // A saved hidden choice stays listed, so the picker shows what is saved.
+        model.set("videoEncoder", to: .string("libx265"))
+        model.reload()
+        #expect(encoders().contains("libx265") && !encoders().contains("libx264"))
     }
 
     @Test func choicesReadAsWords() {
