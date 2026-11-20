@@ -83,7 +83,7 @@ struct AudioEngine: Sendable {
         do {
             try await ProcessRunner.run(.ffmpeg, arguments(appleAAC: true), options: options, locator: env.tools)
         } catch let error as EsclopError where codec == .aac && error != .cancelled {
-            Log.audio.info("AudioToolbox AAC failed, using ffmpeg's AAC: \(error.description, privacy: .public)")
+            Log.audio.info("AudioToolbox AAC failed, using ffmpeg's AAC: \(error.description, privacy: .private)")
             try await ProcessRunner.run(.ffmpeg, arguments(appleAAC: false), options: options, locator: env.tools)
         }
         if let speed { steps.append("Changed speed to \(String(format: "%g", speed))x") }

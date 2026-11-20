@@ -157,7 +157,7 @@ public final class AppServices {
     public func open(_ urls: [URL]) {
         for url in urls where !settingsWindow.open(url) && !pipelinesWindow.open(url) && !compareWindow.open(url) && !dropZone.open(url) {
 
-            log.info("Ignored a link L'Esclop does not handle: \(url.absoluteString, privacy: .public)")
+            log.info("Ignored a link L'Esclop does not handle: \(url.absoluteString, privacy: .private)")
         }
     }
 

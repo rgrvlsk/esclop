@@ -312,8 +312,9 @@ public final class AppModel {
     /// result for the same file would get the newer original), with the copying off the main actor.
     private func putBack(_ result: OptimisationResult) async throws {
         let service = service
-        _ = try await Task.detached { try service.restoreBackup(of: result, deleteBackup: false) }.value
+        _ = try await Task.detached { try await service.restoreBackup(of: result, deleteBackup: false) }.value
         restoredIDs.insert(result.id)
+        forget(result)
         noteWritten([result.source, result.output])
     }
 
@@ -364,17 +365,19 @@ public final class AppModel {
         } else {
             let cardID = card?.id
             do {
-                let result = try await executor.process(source, job: job) { [weak self, weak row] progress in
+                var result = try await executor.process(source, job: job) { [weak self, weak row] progress in
                     Task { @MainActor in
                         if let cardID { self?.progress(progress.fraction, cardID: cardID) }
                         if let row, case let .working(current) = row.state, progress.fraction > current { row.state = .working(progress.fraction) }
                     }
                 }
+                result.origin = job.request.origin
                 outcome = .success(result)
             } catch let failed as PipelineStepFailure {
                 // Earlier steps changed the file: keep that in Recent, where its backup restores.
                 partial = failed.partial
-                if let partial = failed.partial {
+                partial?.origin = job.request.origin
+                if let partial {
                     events(.result(partial))
                     noteWritten([partial.output, partial.source] + [partial.backup].compactMap { $0 })
                     record(partial)
@@ -485,8 +488,15 @@ public final class AppModel {
         recent.removeAll { $0.id == result.id }
         recent.insert(result, at: 0)
         if recent.count > Self.recentLimit { recent.removeLast(recent.count - Self.recentLimit) }
-        // The CLI and MCP server read the same log (`esclop_recent_results`, restore).
-        service.results.append([result])
+        // The CLI and MCP server read the same log (`esclop_recent_results`, restore). Written
+        // off the main actor, in order with every other read and write of the log.
+        service.results.append([result], wait: false)
+    }
+
+    /// Results that no longer stand (their original is back, or a re-run replaced them) leave
+    /// Recent here; `EsclopService.restoreBackup` withdraws a restored one from the shared log.
+    func forget(_ result: OptimisationResult) {
+        recent.removeAll { $0.id == result.id }
     }
 
     // MARK: Cards
@@ -793,15 +803,19 @@ public final class AppModel {
         let context = CardContext(origin: card.fileOrigin ?? .unknown, inputType: card.inputType, choice: choice, rule: rule)
         Task {
             var source = card.source
+            // A result kept beside its original: the re-run's result replaces it.
+            var replaced: OptimisationResult?
             // The files this card may have on the clipboard, which the new result replaces there.
             var shown = [card.source]
             switch card.phase {
             case let .done(result):
                 source = result.source
                 shown = [result.output, result.source]
-                // A failed restore shows a notice and the card keeps its result as it was; encoding
-                // the optimised file again would not start from the original.
-                if result.backup != nil, !(await restore(result)) {
+                if result.backup == nil {
+                    replaced = result
+                } else if !(await restore(result)) {
+                    // A failed restore shows a notice and the card keeps its result as it was;
+                    // encoding the optimised file again would not start from the original.
                     card.downscale = keptScale
                     return
                 }
@@ -822,6 +836,10 @@ public final class AppModel {
             card.downscale = job.request.downscale ?? 1
             let copyBack = origin == .clipboard && EsclopSettings.autoCopyToClipboard.value(in: settings)
             await run(job, displayName: displayName, context: context, reusing: card, onResult: { result in
+                if let replaced {
+                    self.forget(replaced)
+                    self.service.results.append([], withdrawing: [replaced], wait: false)
+                }
                 guard copyBack else { return }
                 Task { await self.putBackOnClipboard(shown.map { ($0, result.output) }) }
             })

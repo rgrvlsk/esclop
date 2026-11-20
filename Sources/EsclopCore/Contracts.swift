@@ -256,11 +256,14 @@ public struct OptimisationResult: Codable, Identifiable, Sendable {
     public var steps: [String]             // human-readable log of what was applied
     /// Where the file can be fetched after an upload (its public link).
     public var link: URL?
+    /// Where the request came from (a copied image, a dropped file, a watched folder, an agent),
+    /// as the app and the CLI record it in the shared log; nil in lines written before 0.2.
+    public var origin: RequestOrigin?
 
     public init(
         id: UUID = UUID(), source: URL, output: URL, backup: URL? = nil, kind: MediaKind,
         bytesBefore: Int, bytesAfter: Int, width: Int? = nil, height: Int? = nil, duration: TimeInterval? = nil,
-        startedAt: Date, finishedAt: Date, steps: [String] = [], link: URL? = nil
+        startedAt: Date, finishedAt: Date, steps: [String] = [], link: URL? = nil, origin: RequestOrigin? = nil
     ) {
         self.id = id
         self.source = source
@@ -276,6 +279,7 @@ public struct OptimisationResult: Codable, Identifiable, Sendable {
         self.finishedAt = finishedAt
         self.steps = steps
         self.link = link
+        self.origin = origin
     }
 
     public var savedBytes: Int { bytesBefore - bytesAfter }
