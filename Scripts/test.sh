@@ -21,6 +21,9 @@ if [ -f Binaries/esclop-engine ] && [ -z "${CI:-}" ] && [ "${ESCLOP_ALLOW_STALE_
         exit 1
     fi
 fi
+# PNG folders that render tests of earlier runs left in the temporary folder; they write none
+# now unless ESCLOP_RENDER_DIR names one. Remove this line once 0.2 has shipped.
+find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'esclop-renders-*' -mmin +60 -exec rm -rf {} + 2>/dev/null || true
 # The MCP conformance test drives the real `esclop mcp serve` binary over stdio.
 swift build --product esclop >&2
 ESCLOP_TEST_BINARY="$(swift build --show-bin-path)/esclop"

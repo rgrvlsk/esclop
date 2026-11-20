@@ -16,13 +16,6 @@ import Testing
 
 @MainActor
 @Suite(.serialized) struct SettingsRenderTests {
-    static let folder: URL = {
-        if let path = ProcessInfo.processInfo.environment["ESCLOP_RENDER_DIR"], !path.isEmpty {
-            return URL(fileURLWithPath: path, isDirectory: true)
-        }
-        return FileManager.default.temporaryDirectory.appendingPathComponent("esclop-renders-\(UUID().uuidString)", isDirectory: true)
-    }()
-
     /// Draws the view in a light and a dark window at once, so both share one wait; writes
     /// `<name>-light.png` and `<name>-dark.png` and returns the content sizes in points.
     @discardableResult
@@ -57,9 +50,7 @@ import Testing
                 window.close()
             }
             guard let image = WindowSnapshots.image(of: window) else { continue }
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            let data = try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
-            try data.write(to: folder.appendingPathComponent("\(name)-\(scheme == .dark ? "dark" : "light").png"))
+            try keepRender(NSBitmapImageRep(cgImage: image), name: name, scheme: scheme)
         }
         return sizes
     }
@@ -98,10 +89,25 @@ import Testing
         let rep = NSBitmapImageRep(cgImage: image)
         window.orderOut(nil)
         window.close()
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let data = try #require(rep.representation(using: .png, properties: [:]))
-        try data.write(to: folder.appendingPathComponent("\(name)-\(scheme == .dark ? "dark" : "light").png"))
+        try keepRender(rep, name: name, scheme: scheme)
         return bounds.size
+    }
+
+    /// Without ESCLOP_RENDER_DIR a render writes nothing: test runs left a folder of PNGs in the
+    /// temporary folder each time, 2.4 GB over a day of runs on one Mac.
+    @Test func aRenderWithoutTheFolderLeavesNothing() async throws {
+        let temp = FileManager.default.temporaryDirectory
+        func entries() -> Set<String> { Set((try? FileManager.default.contentsOfDirectory(atPath: temp.path)) ?? []) }
+        let rep = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 2, pixelsHigh: 2, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        let before = entries()
+        #expect(try keepRender(rep, name: "probe", scheme: .light, in: nil) == nil)
+        if renderFolder == nil {
+            try await Self.renderWindow(Text(verbatim: "probe"), size: CGSize(width: 80, height: 40), name: "probe", scheme: .light)
+        }
+        #expect(entries().subtracting(before).filter { $0.hasPrefix("esclop-render") }.isEmpty)
+        // With a folder, the PNG lands there under its name.
+        let folder = TempDir()
+        #expect(try keepRender(rep, name: "probe", scheme: .dark, in: folder.url)?.lastPathComponent == "probe-dark.png")
     }
 
     func model(_ settings: TestSettings) -> SettingsViewModel {

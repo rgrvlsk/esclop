@@ -341,9 +341,7 @@ enum SurfaceRender {
         }
         guard let image = capture?.image else { return }
         lastImage = image
-        try FileManager.default.createDirectory(at: RenderTests.folder, withIntermediateDirectories: true)
-        let data = try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
-        try data.write(to: RenderTests.folder.appendingPathComponent("\(name)-\(scheme == .dark ? "dark" : "light").png"))
+        try keepRender(NSBitmapImageRep(cgImage: image), name: name, scheme: scheme)
     }
 
     /// Whether every pixel of a capture has the colour of the first one.
