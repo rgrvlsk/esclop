@@ -98,6 +98,10 @@ struct VideoEngine: Sendable {
     }
 
     /// Shown as the message (and translated); see Localizable.xcstrings.
+    /// Not stripping still loses QuickTime keys (com.apple.quicktime.location.ISO6709, make,
+    /// model): ffmpeg's `use_metadata_tags` writes them in a form AVFoundation cannot read and
+    /// hides the ordinary tags (title, artist) from it too. Keeping them needs a copy outside ffmpeg.
+    static let locationNotKept = "Location and camera were not kept"
     static let subtitlesReason = "Videos with subtitles this format cannot keep are left as they are."
 
     func changesFormat(_ source: URL, to container: OutputFormat) -> Bool {
@@ -243,7 +247,7 @@ struct VideoEngine: Sendable {
         let reencodeAudio = !removeAudio && (speed != nil || loudness != nil || container == .webm || request.audioBitrateKbps != nil
             || env.value(EsclopSettings.convertAudioToAAC) || !info.streams("audio").allSatisfy { audioFits($0.codec, in: container) })
         if let kbps = request.videoBitrateKbps { steps.append("Video bitrate \(kbps) kbit/s") }
-        if plan.strip { steps.append("Removed metadata") }
+        if plan.strip { steps.append("Removed metadata") } else if info.hasAppleLocationOrCamera { steps.append(Self.locationNotKept) }
 
         return EncodeSettings(
             container: container, codec: codec, factor: factor, videoBitrate: request.videoBitrateKbps,
@@ -425,9 +429,7 @@ struct VideoEngine: Sendable {
         // track title, mkvmerge's statistics date) stay too; list them here if one proves personal.
         args += settings.strip ? ["-map_metadata:g", "-1", "-metadata:s", "creation_time="] : ["-map_metadata", "0"]
         args += ["-map_chapters", settings.speed == nil ? "0" : "-1"]
-        // Not stripping still loses QuickTime keys (com.apple.quicktime.location.ISO6709, make,
-        // model): ffmpeg's `use_metadata_tags` writes them in a form AVFoundation cannot read and
-        // hides the ordinary tags (title, artist) from it too. Keeping them needs a copy outside ffmpeg.
+        // Not stripping still loses the QuickTime keys; see `locationNotKept`.
         if [.mp4, .mov, .hevc, .av1].contains(settings.container) { args += ["-movflags", "+faststart"] }
         args += ["-progress", "pipe:1", "-nostats", output.path]
         return args
@@ -544,6 +546,7 @@ struct VideoEngine: Sendable {
         // MOV/MP4. Subtitles go along when the container takes them as a copy.
         var args = ["-hide_banner", "-nostdin", "-y", "-i", source.path, "-map", "0:v"]
         var steps = ["Removed audio"]
+        if !plan.strip, info.hasAppleLocationOrCamera { steps.append(Self.locationNotKept) }
         let container = OutputFormat.of(url: output) ?? .mp4
         let subtitles = info.streams("subtitle").map(\.codec)
         let kept = subtitles.indices.filter { subtitleFits(subtitles[$0], in: container) }

@@ -675,6 +675,27 @@ import UniformTypeIdentifiers
         #expect(fast.steps.contains("Left out 2 chapters: their times do not follow a speed change"))
     }
 
+    /// ffmpeg cannot copy an iPhone's location and camera keys in a form macOS reads, so with
+    /// strip off a step says they were not kept, instead of losing them silently.
+    @Test func aVideoSaysItsLocationWasNotKept() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let mov = world.file("iphone.mov")
+        try await ProcessRunner.run(.ffmpeg, [
+            "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=d=1:s=320x240:r=30",
+            "-c:v", "mjpeg", "-q:v", "2", "-pix_fmt", "yuvj420p", "-movflags", "use_metadata_tags",
+            "-metadata", "com.apple.quicktime.location.ISO6709=+41.3800+002.1700/", "-metadata", "com.apple.quicktime.make=Apple", mov.path,
+        ])
+        try #require(try await Inspect.media(mov).hasAppleLocationOrCamera)
+        var keep = world.request(mov, location: .temporary)
+        keep.stripMetadata = false
+        let kept = try await world.engine.optimise(mov, request: keep, progress: { _ in })
+        #expect(kept.steps.contains("Location and camera were not kept"))
+        let stripped = try await world.engine.optimise(mov, request: world.request(mov, location: .temporary), progress: { _ in })
+        #expect(!stripped.steps.contains("Location and camera were not kept"))
+        #expect(stripped.steps.contains("Removed metadata"))
+    }
+
     /// Remove audio keeps the subtitles (it used to map only the video, dropping them silently).
     @Test func removingTheAudioKeepsTheSubtitles() async throws {
         guard let ffmpeg = await Fixture.richFFmpeg() else { return }

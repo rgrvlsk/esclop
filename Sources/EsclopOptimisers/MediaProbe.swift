@@ -47,6 +47,8 @@ struct MediaInfo: Sendable {
     /// Every stream, in file order.
     var streams: [Stream] = []
     var chapterCount = 0
+    /// iPhone location, make or model (`com.apple.quicktime.*` keys), which ffmpeg cannot copy.
+    var hasAppleLocationOrCamera = false
 
     var hasCoverArt: Bool { streams.contains { $0.type == "video" && $0.attachedPicture } }
 
@@ -86,6 +88,9 @@ struct MediaInfo: Sendable {
             video: nil, audio: nil
         )
         info.chapterCount = json["chapters"]?.arrayValue?.count ?? 0
+        info.hasAppleLocationOrCamera = (format["tags"]?.objectValue ?? [:]).keys.contains { key in
+            ["location", "make", "model"].contains { key.hasPrefix("com.apple.quicktime.\($0)") }
+        }
         for stream in streams {
             let type = stream["codec_type"]?.stringValue
             let attached = stream["disposition"]?["attached_pic"]?.intValue == 1
