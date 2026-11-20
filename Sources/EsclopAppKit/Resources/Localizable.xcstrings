@@ -2451,6 +2451,26 @@
         }
       }
     },
+    "Could not copy %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha pogut copiar %@"
+          }
+        }
+      }
+    },
+    "Could not get the dropped file": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha pogut obtenir el fitxer deixat anar"
+          }
+        }
+      }
+    },
     "Could not reach %@: %@": {
       "localizations": {
         "ca": {
@@ -2847,6 +2867,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Deixa anar per optimitzar més"
+          }
+        }
+      }
+    },
+    "Drop to run “%@”": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deixa anar per executar «%@»"
           }
         }
       }
@@ -7641,6 +7671,16 @@
         }
       }
     },
+    "Tap ⌥ to hide": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca ⌥ per amagar-la"
+          }
+        }
+      }
+    },
     "Templates": {
       "localizations": {
         "ca": {
@@ -7967,6 +8007,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "L’original es va eliminar al cap d’un dia."
+          }
+        }
+      }
+    },
+    "The originals stay as they are": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els originals queden tal com són"
           }
         }
       }
@@ -10347,6 +10397,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Redueix les captures Retina"
+          }
+        }
+      }
+    },
+    "setting.dropZoneOnlyWithOption.summary": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mentre arrossegues, la zona per deixar anar queda amagada fins que toques Opció; llavors s’obre sota el punter. Torna a tocar Opció per amagar-la."
+          }
+        }
+      }
+    },
+    "setting.dropZoneOnlyWithOption.title": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra la zona per deixar anar només després de tocar ⌥"
           }
         }
       }

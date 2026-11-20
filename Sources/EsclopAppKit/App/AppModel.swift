@@ -822,10 +822,13 @@ public final class AppModel {
             var replaced: OptimisationResult?
             // The files this card may have on the clipboard, which the new result replaces there.
             var shown = [card.source]
+            // A result written beside its original (⌥ at the drop) runs again beside it, not over it.
+            var besideOriginal = false
             switch card.phase {
             case let .done(result):
                 source = result.source
                 shown = [result.output, result.source]
+                besideOriginal = result.backup == nil && result.output.standardizedFileURL != result.source.standardizedFileURL
                 if result.backup == nil {
                     replaced = result
                 } else if !(await restore(result)) {
@@ -837,6 +840,7 @@ public final class AppModel {
             case let .restored(result):
                 source = result.source
                 shown = [result.source]
+                besideOriginal = result.backup == nil && result.output.standardizedFileURL != result.source.standardizedFileURL
             case .working, .failed, .notice:
                 return
             case .unchanged:
@@ -845,6 +849,7 @@ public final class AppModel {
             card.adjusted = adjust != nil
             card.loupe = nil
             var job = factory.job(for: source, origin: origin, location: wasClipboardImage ? .inPlace : nil)
+            if besideOriginal, job.request.location == .inPlace { job.request.location = .sameFolder }
             choice.apply(to: &job.request)
             adjust?(&job)
             // The Size tab's chosen tile follows the run that starts, from a tile or the hover button.
