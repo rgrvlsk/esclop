@@ -2,6 +2,7 @@
 
 import EsclopCore
 import EsclopIPC
+import EsclopPipelines
 @testable import EsclopMCP
 import Foundation
 import MCP
@@ -297,4 +298,61 @@ final class SentProgress: @unchecked Sendable {
     private var list: [Double] = []
     func append(_ value: Double) { lock.lock(); list.append(value); lock.unlock() }
     var values: [Double] { lock.lock(); defer { lock.unlock() }; return list }
+}
+
+// MARK: - Cancellation
+
+/// An app stand-in whose job holds until it is stopped, as a long ffmpeg run does.
+final class HoldingApp: AppRequestHandler, @unchecked Sendable {
+    private let lock = NSLock()
+    private var started: [UUID] = []
+    private var stopped: [UUID] = []
+
+    var startedJobs: [UUID] { lock.withLock { started } }
+    var stoppedJobs: [UUID] { lock.withLock { stopped } }
+
+    func perform(_ job: OptimisationJob, events: @escaping @Sendable (JobEvent) -> Void) async throws {
+        lock.withLock { started.append(job.id) }
+        while !lock.withLock({ stopped.contains(job.id) }) {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+    }
+
+    func stop(_ request: StopRequest) async { lock.withLock { stopped += request.ids } }
+    func settings(_ command: SettingsCommand, origin: RequestOrigin) async throws -> SettingsReply { throw EsclopError.other("unused") }
+    func status() async -> AppStatus { AppStatus(version: "test", pid: getpid(), activeJobs: 0) }
+    func recentResults(limit: Int) async -> [OptimisationResult] { [] }
+    func quit() async {}
+}
+
+@Suite struct ToolCancellation {
+    /// A client that cancels a tool call (notifications/cancelled) stops the job the app runs for it.
+    @Test func aCancelledCallStopsTheAppsJob() async throws {
+        let temp = TempDir()
+        let ports = IPCPorts(prefix: "dev.esclop.test.cancel.\(UUID().uuidString.prefix(6))")
+        let app = HoldingApp()
+        let appServer = AppServer(handler: app, ports: ports)
+        try appServer.start()
+        defer { appServer.stop() }
+        let locations = EsclopLocations(support: temp.url.appendingPathComponent("support", isDirectory: true))
+        let service = EsclopService(ServiceContext(
+            origin: .mcp, engine: FakeEngine(), engineName: "fake", settings: InMemorySettingsProvider(),
+            pipelines: PipelineStore(directory: locations.pipelines, useTrash: false), locations: locations,
+            app: AppClient(ports: ports), useApp: true
+        ))
+        let (clientTransport, serverTransport) = await InMemoryTransport.createConnectedPair()
+        let server = try await EsclopMCPServer(service: service).start(transport: serverTransport)
+        let client = Client(name: "esclop-tests", version: "1")
+        _ = try await client.connect(transport: clientTransport)
+        defer { Task { await client.disconnect(); await server.stop() } }
+
+        let file = temp.file("long.mov")
+        let call = try await client.send(CallTool.request(.init(name: "esclop_optimise", arguments: ["paths": .array([.string(file.path)])])))
+        let deadline = Date().addingTimeInterval(60)
+        while app.startedJobs.isEmpty, Date() < deadline { try await Task.sleep(nanoseconds: 20_000_000) }
+        let job = try #require(app.startedJobs.first)
+        try await client.cancelRequest(call.requestID, reason: "the person stopped it")
+        while !app.stoppedJobs.contains(job), Date() < deadline { try await Task.sleep(nanoseconds: 20_000_000) }
+        #expect(app.stoppedJobs == [job])
+    }
 }
