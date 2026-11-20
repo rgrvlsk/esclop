@@ -52,7 +52,9 @@ final class OriginalsModel {
         loaded = true
     }
 
-    /// While the window is open.
+    /// While the window is open. ponytail: each burst of events (0.3 s apart) reads every
+    /// manifest and the log again, and a big batch with the window open overlaps loads (`loads`
+    /// drops the stale ones). Skip a load while one runs, then run one more, if that shows.
     func watch() {
         let root = store.root
         _ = try? Paths.ensure(root)
@@ -107,9 +109,14 @@ final class OriginalsModel {
     /// The file at the original's path is the original again: its size, and no converted output
     /// beside it. ponytail: size only, as `holdsOutput` judges by size and date.
     nonisolated static func isInPlace(_ entry: BackupEntry) -> Bool {
+        isInPlace(original: entry.original, bytes: entry.bytes, output: entry.output)
+    }
+
+    /// The same for a result: `AppModel.putBack` skips an original already back.
+    nonisolated static func isInPlace(original: URL, bytes: Int, output: URL?) -> Bool {
         let fm = FileManager.default
-        guard fm.fileExists(atPath: entry.original.path), AppModel.size(of: entry.original) == entry.bytes else { return false }
-        guard let output = entry.output, output.standardizedFileURL != entry.original.standardizedFileURL else { return true }
+        guard fm.fileExists(atPath: original.path), AppModel.size(of: original) == bytes else { return false }
+        guard let output, output.standardizedFileURL != original.standardizedFileURL else { return true }
         return !fm.fileExists(atPath: output.path)
     }
 

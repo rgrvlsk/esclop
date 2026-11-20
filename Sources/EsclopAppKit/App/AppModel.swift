@@ -359,15 +359,15 @@ public final class AppModel {
     /// result for the same file would get the newer original), with the copying off the main actor.
     /// One at a time per result, whichever window asks (a double click in Recent, the card's Undo,
     /// Compare's Restore Original): a second would put the original back twice and send it to the
-    /// Trash as an edit, so it throws `RestoreUnderWay`. True when a version edited after
-    /// optimising went to the Trash on the way.
-    /// Once back, the original is never put back again: that would send it to the Trash as an
-    /// edit. The batch rows with the result show it restored, whichever window restored it.
+    /// Trash as an edit, so it throws `RestoreUnderWay`. Nor is an original put back again while
+    /// it is still in place: that too would send it to the Trash as an edit. True when a version
+    /// edited after optimising went to the Trash on the way. The current batch's rows with the
+    /// result show it restored, whichever window restored it.
     @discardableResult
     private func putBack(_ result: OptimisationResult) async throws -> Bool {
         let keys = Self.restoreKeys(of: result)
-        guard restoredIDs.isDisjoint(with: keys) else {
-            markRestored(result, editInTrash: false)
+        if !restoredIDs.isDisjoint(with: keys),
+           OriginalsModel.isInPlace(original: result.source, bytes: result.bytesBefore, output: result.output) {
             return false
         }
         guard restoringIDs.isDisjoint(with: keys) else { throw RestoreUnderWay() }

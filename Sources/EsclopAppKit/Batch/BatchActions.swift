@@ -10,11 +10,12 @@ import Foundation
 
 extension AppModel {
     /// Runs the rows again from their originals, each with the change `change` gives for its
-    /// original (nil leaves that row as it is). A row's result is put back first, so nothing is
-    /// compressed twice; a row whose restore fails keeps its result and says why. Rows at work
-    /// are left alone.
+    /// original (the backup while a result stands; nil leaves that row as it is). A row's result
+    /// is put back first, so nothing is compressed twice; a row whose restore fails keeps its
+    /// result and says why. Rows at work are left alone.
     public func rerun(_ rows: [BatchRow], _ change: @escaping (_ original: URL) async -> ((inout OptimisationJob) -> Void)?) async {
         for row in rows where row.isFinished {
+            guard let change = await change(row.result?.backup ?? row.source) else { continue }
             if case let .done(result) = row.state {
                 if result.backup != nil {
                     await restore(row)
@@ -26,7 +27,6 @@ extension AppModel {
                     service.results.append([], withdrawing: [result], wait: false)
                 }
             }
-            guard let change = await change(row.source) else { continue }
             row.runAgain?(change)
         }
     }

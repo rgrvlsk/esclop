@@ -21,6 +21,7 @@ public struct BatchView: View {
     /// ponytail: set by hover, so a wheel scroll under a still pointer keeps the row it left until
     /// the pointer moves; clear it on scroll if that misleads.
     @State private var pointed: BatchRow.ID?
+    @FocusState private var focused: Bool
 
     public init(batch: Batch, app: AppModel) {
         self.batch = batch
@@ -50,6 +51,9 @@ public struct BatchView: View {
                 }
             }
             .listStyle(.plain)
+            // The keys work at once, before any click: Space on the row under the pointer.
+            .focused($focused)
+            .defaultFocus($focused, true)
             .contextMenu(forSelectionType: BatchRow.ID.self) { ids in
                 BatchSelectionMenu(rows: batch.rows.filter { ids.contains($0.id) }, batch: batch, app: app)
             }
@@ -288,6 +292,11 @@ struct BatchSelectionMenu: View {
     let app: AppModel
 
     var body: some View {
+        // Right-clicking the empty area below the rows selects nothing: no menu.
+        if !rows.isEmpty { menu }
+    }
+
+    @ViewBuilder private var menu: some View {
         let finished = rows.filter(\.isFinished)
         let restorable = rows.filter(\.canRestore)
         let failed = rows.filter(\.canRetry)

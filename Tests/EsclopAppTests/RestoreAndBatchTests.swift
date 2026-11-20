@@ -8,6 +8,7 @@
 import AppKit
 import EsclopCore
 import EsclopIPC
+import EsclopMCP
 @testable import EsclopAppKit
 import Foundation
 import SwiftUI
@@ -252,8 +253,46 @@ import Testing
         #expect(batch.failed == 0 && batch.cancelled == 0)
     }
 
-    // MARK: Renders (ESCLOP_RENDER_DIR keeps them; ESCLOP_LANGUAGE=ca for Catalan)
+    /// An original back in place is not put back again, but one that changed since (optimised
+    /// again here) is: the old result's Restore still works.
+    @Test func anOldResultRestoresAfterANewOptimisation() async throws {
+        let harness = Harness()
+        let restores = Restores()
+        harness.model.restoreBackup = { service, result in
+            // The second put-back would send the new result to the real Trash: recorded only.
+            guard restores.add(result.backup?.path ?? "") else {
+                return try JSONDecoder().decode(RestoreOutcome.self, from: Data(#"{"restored":"","from":"","backupDeleted":false}"#.utf8))
+            }
+            return try await service.restoreBackup(of: result, deleteBackup: false)
+        }
+        let file = harness.temp.file("Again.png")
+        _ = await harness.model.run(harness.job(file, origin: .app))
+        let first = try #require(harness.model.cards.first?.result)
+        #expect(await harness.model.restore(first))
+        #expect(await harness.model.restore(first), "in place: nothing to do")
+        #expect(restores.backups.count == 1)
+        _ = await harness.model.run(harness.job(file, origin: .app))
+        #expect(AppModel.size(of: file) == 40_000)
+        #expect(await harness.model.restore(first))
+        #expect(restores.backups.count == 2, "put back again, not skipped")
+    }
 
+    /// A row the chosen size would not make smaller stays as it was: not restored, not run.
+    @Test func aRowTheSizeDoesNotFitStaysOptimised() async throws {
+        let harness = Harness()
+        let (batch, restores) = try await batch(harness)
+        let before = harness.requests.requests.count
+        // The fake engine's files are no pictures: the card would offer no size for them.
+        await harness.model.downscale(Array(batch.rows.prefix(2)), longSide: 2000)
+        #expect(restores.backups.isEmpty)
+        #expect(batch.optimised == 4)
+        #expect(harness.requests.requests.count == before)
+    }
+}
+
+/// Window renders, in a suite CI runs with the other renders (`--filter RenderTests`).
+@MainActor
+@Suite struct RestoreAndBatchRenderTests {
     /// B3/B4: two IMG_0001.jpg told apart by their folders, with thumbnails; two selected, with
     /// Restore and Remove for them; and the empty window with its one retention sentence. The
     /// batch window's selection renders with the others (`BatchRenderTests`).
