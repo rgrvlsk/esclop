@@ -195,11 +195,13 @@ import Testing
         let client = try await client()
         defer { Task { await client.shutdown() } }
         _ = try await client.capabilities()
-        // The crash takes the sleeper down twice, so each goes on alone. ponytail: the 1 s wait
-        // below assumes both crashes and restarts are over by then, inside the sleeper's 3 s.
+        // The crash takes the sleeper down twice, so each goes on alone. The new crash is sent
+        // once a lone attempt runs: a fixed wait lost that race under a loaded CI runner.
         async let sleeper = client.call("sleep", params: ["seconds": 3.0])
         async let crasher: Void = { _ = try? await client.call("crash") }()
-        try await Task.sleep(nanoseconds: 1_000_000_000)
+        let deadline = ContinuousClock.now + .seconds(30)
+        while await !client.isLonely, ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(await client.isLonely, "a lone attempt started")
         await #expect(throws: EsclopError.self) { try await client.call("crash") }
         #expect(try await sleeper.raw["slept"] != nil, "the lone sleeper finished")
         await crasher
