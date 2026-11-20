@@ -141,6 +141,18 @@ final class LocalServer: @unchecked Sendable {
         #expect(automatic.httpCookieStorage !== HTTPCookieStorage.shared && automatic.urlCache !== URLCache.shared, "ephemeral")
     }
 
+    /// A server may send an automatic download elsewhere: never to this Mac or the local network.
+    @Test func anAutomaticDownloadFollowsNoRedirectHome() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [RedirectHome.self]
+        let session = URLSession(configuration: configuration)
+        let address = URL(string: "https://media.example.com/a.jpg")!
+        await #expect(throws: WebDownload.Refusal.local(RedirectHome.home)) {
+            try await WebDownload.fetch(address, terms: WebDownload.Terms(automatic: true), session: session)
+        }
+        #expect(!RedirectHome.reachedHome)
+    }
+
     /// `esclop optimise <address>` writes the result into the working directory, under a name
     /// nothing there has, and prints where it is; with -o or --behaviour temp it goes there.
     @Test func aDownloadedResultLandsInTheWorkingDirectory() async throws {
@@ -179,4 +191,26 @@ final class LocalServer: @unchecked Sendable {
         #expect(try WebDownload.address("file:///tmp/a.png") == nil)
         #expect(try WebDownload.address("HTTPS://example.com/a.png") != nil)
     }
+}
+
+/// Answers every request for a public address with a redirect to a router on the local network,
+/// and notes whether the router was asked.
+final class RedirectHome: URLProtocol, @unchecked Sendable {
+    static let home = URL(string: "http://192.168.1.1/reboot.jpg")!
+    nonisolated(unsafe) static var reachedHome = false
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard request.url?.host() != Self.home.host() else {
+            Self.reachedHome = true
+            client?.urlProtocol(self, didFailWithError: URLError(.cannotConnectToHost))
+            return
+        }
+        let redirect = HTTPURLResponse(url: request.url!, statusCode: 302, httpVersion: "HTTP/1.1", headerFields: ["Location": Self.home.absoluteString])!
+        client?.urlProtocol(self, wasRedirectedTo: URLRequest(url: Self.home), redirectResponse: redirect)
+    }
+
+    override func stopLoading() {}
 }

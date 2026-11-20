@@ -669,6 +669,8 @@ public final class AppModel {
         case .pointerEntered: card.machine.pointerEntered(at: time)
         case .pointerExited: card.machine.pointerExited(at: time)
         case .openDetail:
+            // A download has no file to show yet.
+            guard !card.downloading else { return }
             // The options popover belongs to the card; the detail opens without it, and without
             // its "…" menu open.
             card.machine.setMenuOpen(false, at: time)

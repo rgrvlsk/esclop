@@ -73,9 +73,7 @@ extension AppModel {
     func optimiseAddress(_ address: URL, as request: AddressRequest, aggressive: Bool = false, copy: ClipboardCopy, pipeline: @escaping (URL) -> Pipeline?) async {
         let largest = request == .asked ? WebDownload.largest : MediaKind.of(address).map { factory.sizeLimits(for: $0).max } ?? WebDownload.largest
         let card = downloadCard(named: address.lastPathComponent, origin: .clipboard)
-        let terms = WebDownload.Terms(largest: largest, automatic: request != .asked) { fraction in
-            Task { @MainActor in if card.isWorking { card.phase = .working(fraction: fraction) } }
-        }
+        let terms = WebDownload.Terms(largest: largest, automatic: request != .asked, progress: card.downloadProgress)
         let download = download
         let transfer = Task { try await download(address, terms) }
         card.cancelWork = { transfer.cancel() }
@@ -118,11 +116,15 @@ extension AppModel {
         return true
     }
 
-    /// A download that is not optimised after all goes at once, with its own folder.
+    /// A download or promised file that is not optimised after all goes at once: a download with
+    /// its own folder. Only inside L'Esclop's temporary folder; anything else stays.
     nonisolated static func discardDownload(_ file: URL) {
-        let folder = file.deletingLastPathComponent()
-        let own = folder.deletingLastPathComponent().standardizedFileURL.path == WebDownload.folder.standardizedFileURL.path
-        try? FileManager.default.removeItem(at: own ? folder : file)
+        let folder = file.deletingLastPathComponent().standardizedFileURL
+        if folder.deletingLastPathComponent().path == WebDownload.folder.standardizedFileURL.path {
+            try? FileManager.default.removeItem(at: folder)
+        } else if folder.path.hasPrefix(Paths.temporary.standardizedFileURL.path + "/") {
+            try? FileManager.default.removeItem(at: file)
+        }
     }
 
     /// Origin, format and rule for a copied file, read before it is optimised (stripping
@@ -366,10 +368,16 @@ extension AppModel {
 
     /// A drop on the zone: on the plain tile (`zone` nil) or on a preset zone. Promised and
     /// downloaded files go ahead as they arrive (the promises are asked for now, during the drop).
-    func takeDrop(_ intake: DropIntake, harder: Bool, keepOriginals: Bool, zone: String?, download: @escaping @Sendable (URL) async throws -> URL = { try await WebDownload.fetch($0) }) {
+    func takeDrop(
+        _ intake: DropIntake, harder: Bool, keepOriginals: Bool, zone: String?,
+        download: @escaping @Sendable (URL, WebDownload.Terms) async throws -> URL = { try await WebDownload.fetch($0, terms: $1) }
+    ) {
         // Promised and web files show a working card until the last one arrives; Stop stops them.
+        // A lone address shows its share received.
         let card = intake.remoteCount > 0 ? downloadCard(named: intake.remoteName, origin: .dropZone) : nil
-        let stop = intake.resolve(download: download, waiting: { [weak self] left in
+        let progress: @Sendable (Double) -> Void = (intake.remoteCount == 1 ? card?.downloadProgress : nil) ?? { _ in }
+        let terms = WebDownload.Terms(progress: progress)
+        let stop = intake.resolve(download: { try await download($0, terms) }, waiting: { [weak self] left in
             if left == 0, let card { self?.downloaded(card) }
         }) { [self] files, failures in
             if let failure = failures.first {

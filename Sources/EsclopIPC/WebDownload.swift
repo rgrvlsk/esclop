@@ -87,8 +87,9 @@ public enum WebDownload {
         host = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]."))
         if host == "localhost" || (!host.contains(".") && !host.contains(":")) { return true }
         if [".localhost", ".local", ".home.arpa", ".internal", ".lan"].contains(where: host.hasSuffix) { return true }
+        // inet_aton reads every form the resolver takes: 127.1, 0x7f.0.0.1, 0177.0.0.1.
         var v4 = in_addr()
-        if inet_pton(AF_INET, host, &v4) == 1 {
+        if inet_aton(host, &v4) == 1 {
             let a = withUnsafeBytes(of: &v4) { Array($0) }
             return a[0] == 0 || a[0] == 10 || a[0] == 127 || (a[0] == 169 && a[1] == 254) || (a[0] == 172 && (16 ... 31).contains(a[1]))
                 || (a[0] == 192 && a[1] == 168) || (a[0] == 100 && (64 ... 127).contains(a[1]))
@@ -170,7 +171,7 @@ public enum WebDownload {
     }
 
     private static func transfer(_ url: URL, terms: Terms, into folder: URL, session: URLSession) async throws -> URL {
-        let limits = Limits(url: url, largest: terms.largest, progress: terms.progress)
+        let limits = Limits(url: url, largest: terms.largest, automatic: terms.automatic, progress: terms.progress)
         let temporary: URL, response: URLResponse
         do {
             (temporary, response) = try await session.download(from: url, delegate: limits)
@@ -193,15 +194,28 @@ public enum WebDownload {
     private final class Limits: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
         let url: URL
         let largest: Int
+        let automatic: Bool
         let progress: @Sendable (Double) -> Void
         private let lock = NSLock()
         private var observation: NSKeyValueObservation?
         private var stoppedFor: Refusal?
 
-        init(url: URL, largest: Int, progress: @escaping @Sendable (Double) -> Void) {
+        init(url: URL, largest: Int, automatic: Bool, progress: @escaping @Sendable (Double) -> Void) {
             self.url = url
             self.largest = largest
+            self.automatic = automatic
             self.progress = progress
+        }
+
+        /// An automatic download follows no redirect to this Mac or the local network.
+        func urlSession(
+            _ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+            newRequest request: URLRequest, completionHandler: @escaping @Sendable (URLRequest?) -> Void
+        ) {
+            guard automatic, let target = request.url, WebDownload.isLocal(target) else { return completionHandler(request) }
+            lock.withLock { if stoppedFor == nil { stoppedFor = .local(target) } }
+            completionHandler(nil)
+            task.cancel()
         }
 
         /// Why the download was stopped, if it was.

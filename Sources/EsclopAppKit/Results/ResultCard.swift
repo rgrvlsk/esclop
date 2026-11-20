@@ -99,6 +99,16 @@ public final class ResultCard: Identifiable {
     var noticeAction: (action: CardPresentation.Action, run: () -> Void)?
     /// The work is a download: the card says "Downloading…" until the file arrives.
     public var downloading = false
+
+    /// Shows a download's share received, from any thread; a late report never moves it back.
+    nonisolated var downloadProgress: @Sendable (Double) -> Void {
+        { [weak self] fraction in
+            Task { @MainActor in
+                guard let self, case let .working(shown) = self.phase, fraction > shown else { return }
+                self.phase = .working(fraction: fraction)
+            }
+        }
+    }
     var cancelWork: (() -> Void)?
     var timer: Task<Void, Never>?
 

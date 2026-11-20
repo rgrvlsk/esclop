@@ -99,6 +99,7 @@ final class EndlessDownload: @unchecked Sendable {
             "http://127.0.0.1:8080/a.png", "http://localhost/a.png", "http://192.168.1.4/a.png", "http://10.0.0.2/a.png",
             "http://172.20.0.1/a.png", "http://169.254.1.1/a.png", "http://100.64.0.1/a.png", "http://[::1]/a.png",
             "http://[fe80::1]/a.png", "http://[fd00::2]/a.png", "http://[::ffff:192.168.0.1]/a.png", "http://nas.local/a.png", "http://printer/a.png",
+            "http://127.1/a.png", "http://0x7f.0.0.1/a.png", "http://0177.0.0.1/a.png",
         ] {
             let url = try #require(URL(string: local))
             #expect(WebDownload.isLocal(url), "\(local)")
@@ -223,17 +224,18 @@ final class EndlessDownload: @unchecked Sendable {
         let endless = EndlessDownload()
         harness.model.takeDrop(
             DropIntake(addresses: [URL(string: "https://example.com/cove.jpg")!]), harder: false, keepOriginals: false, zone: nil,
-            download: { _ in try await endless.fetch() }
+            download: { _, terms in try await endless.fetch(terms) }
         )
         let card = try #require(harness.model.cards.first)
         #expect(card.presentation.headline == "Downloading…" && card.presentation.caption == "cove.jpg")
+        #expect(await eventually { card.presentation.progress == 0.4 }, "a lone address shows its share received")
         harness.model.perform(.stop, on: card)
         #expect(await eventually { endless.stopped })
         try await Task.sleep(for: .milliseconds(200))
         #expect(harness.model.cards.isEmpty)
         // One that arrives gives its place to the file's own card.
         let file = harness.temp.png("arrived.png")
-        harness.model.takeDrop(DropIntake(addresses: [URL(string: "https://example.com/arrived.png")!]), harder: false, keepOriginals: false, zone: nil, download: { _ in file })
+        harness.model.takeDrop(DropIntake(addresses: [URL(string: "https://example.com/arrived.png")!]), harder: false, keepOriginals: false, zone: nil, download: { _, _ in file })
         #expect(await eventually { harness.model.cards.count == 1 && harness.model.cards[0].result != nil })
     }
 
@@ -272,15 +274,20 @@ final class EndlessDownload: @unchecked Sendable {
 
     @Test func aDownloadFollowsACopiedFilesRules() async throws {
         let harness = Harness()
-        // Below `minImageSizeKB`, and a PDF the address did not name (`Content-Disposition`).
-        for file in [harness.temp.file("icon.png", bytes: 5_000), harness.temp.file("report.pdf")] {
+        // Below `minImageSizeKB`, and a PDF the address did not name (`Content-Disposition`),
+        // each in its own folder under the downloads, as `WebDownload.fetch` leaves them.
+        for (name, bytes) in [("icon.png", 5_000), ("report.pdf", 64)] {
+            let folder = try Paths.ensure(WebDownload.folder.appendingPathComponent("test-\(UUID().uuidString.prefix(8))", isDirectory: true))
+            let file = folder.appendingPathComponent(name)
+            try Data(count: bytes).write(to: file)
+            defer { try? FileManager.default.removeItem(at: folder) }
             let fake = FakeDownload(file: file)
             harness.model.download = { try fake.fetch($0, $1) }
             let address = try #require(URL(string: "https://example.com/photo.png"))
             await harness.model.optimiseAddress(address, as: .automatic, copy: copy(address.absoluteString, on: harness), pipeline: { _ in nil })
             #expect(fake.addresses == [address])
             #expect(fake.terms.first?.largest == EsclopSettings.maxImageSizeMB.value(in: harness.settings.store) * 1_000_000)
-            #expect(!FileManager.default.fileExists(atPath: file.path), "a refused download goes at once")
+            #expect(!FileManager.default.fileExists(atPath: folder.path), "a refused download goes at once, with its folder")
         }
         try await Task.sleep(for: .milliseconds(200))
         #expect(harness.model.cards.isEmpty)

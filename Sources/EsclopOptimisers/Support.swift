@@ -332,14 +332,15 @@ public enum BackupPruner {
 
     /// The temporary folder's own limit, in days: it goes after this long even when backups are
     /// kept for ever.
+    // ponytail: a copied file's result lives there; Undo of a copy older than a week finds its
+    // place gone while its backup lasts. Follow the backups' days if people undo older copies.
     public static let temporaryDays = 7
 
     /// The app's sweep, at launch and hourly, so old originals go even when no new in-place job
     /// runs: backups older than `days` (0 keeps them), and whatever L'Esclop left in its temporary
     /// folder (copied images, optimised copies, downloads, dropped files, work and estimate
     /// folders, a pipeline's or a Shortcut's files) not touched for `days`, or `temporaryDays`
-    /// when that is shorter or backups are kept for ever: a restore may need a copy there while
-    /// its backup lasts. A folder that holds only folders (`clipboard`, `results`, `downloads` …)
+    /// when that is shorter or backups are kept for ever. A folder that holds only folders (`clipboard`, `results`, `downloads` …)
     /// holds one per item: each goes on its own date. Anything else goes on its own. Blocks;
     /// call it off the main actor.
     public static func prune(days: Int, backups: BackupStore, temporary: URL = Paths.temporary, now: Date = Date()) {

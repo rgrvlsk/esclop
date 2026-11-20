@@ -149,7 +149,7 @@ struct DropIntake {
             for await result in results {
                 left -= 1
                 if batch.stopped {
-                    if case let .success(url) = result { try? FileManager.default.removeItem(at: url) }
+                    if case let .success(url) = result { AppModel.discardDownload(url) }
                 } else {
                     switch result {
                     case let .success(url): batch.files.append(url)
@@ -168,7 +168,7 @@ struct DropIntake {
             batch.stopped = true
             batch.flush?.cancel()
             downloads.forEach { $0.cancel() }
-            for file in batch.files where !local.contains(file) { try? FileManager.default.removeItem(at: file) }
+            for file in batch.files where !local.contains(file) { AppModel.discardDownload(file) }
             batch.files.removeAll { !local.contains($0) }
             batch.failures = []
             batch.hand(to: deliver)
