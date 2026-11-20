@@ -130,7 +130,7 @@ import UniformTypeIdentifiers
         #expect(harness.model.batch == nil && harness.model.cards.isEmpty)
         // A watched folder's run is quiet too.
         try save("---\ntriggers: folder(\"~/Nowhere\")\nhideResult: true\n---\noptimise", name: "Folder", in: harness)
-        harness.model.runPipeline("Folder", onWatched: harness.temp.png("new.png"))
+        await harness.model.runPipeline("Folder", onWatched: harness.temp.png("new.png"))
         #expect(await eventually { harness.model.recent.count == 5 })
         #expect(harness.model.cards.isEmpty)
     }

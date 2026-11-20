@@ -48,7 +48,7 @@ public struct FloatingResultView: View {
         let info = card.presentation
         Group {
             if case .notice = card.phase {
-                NoticeCapsule(info: info)
+                NoticeCapsule(info: info, perform: perform)
             } else if card.machine.level == .detail {
                 DetailCard(card: card, info: info, corner: corner, perform: perform, interact: interact)
                     .transition(reduceMotion ? .opacity : .scale(scale: 0.62, anchor: anchor).combined(with: .opacity))
@@ -190,6 +190,7 @@ public struct FloatingResultView: View {
     /// open it belongs to the popover. Space is Quick Look (`CardKeys`), as in Finder and Clop.
     private func enter(_ info: CardPresentation) -> KeyPress.Result {
         if card.machine.menuOpen { return .ignored }
+        if case .notice = card.phase { return run(.optimiseAnyway, in: info) }
         guard card.machine.level == .detail else { return run(.openDetail, in: info) }
         return info.primary.map { run($0, in: info) } ?? .ignored
     }
@@ -270,15 +271,31 @@ struct Picture: View {
     }
 }
 
-/// The pause hotkey's messages: a cream capsule with no picture.
+/// The pause hotkey's messages: a cream capsule with no picture. A watched folder's "too many
+/// at once" adds its one action under the words.
 struct NoticeCapsule: View {
     let info: CardPresentation
+    var perform: (CardPresentation.Action) -> Void = { _ in }
 
     var body: some View {
         if case let .notice(title, detail) = info.capsule {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.callout.weight(.semibold))
                 Text(detail).font(.subheadline).foregroundStyle(Ink.secondary)
+                if info.actions.contains(.optimiseAnyway) {
+                    // The most likely action, in charcoal, as the detail card's is.
+                    Button { perform(.optimiseAnyway) } label: {
+                        Text(CardPresentation.Action.optimiseAnyway.title)
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(Ink.onCharcoal)
+                            .padding(.horizontal, 12)
+                            .frame(minHeight: 28)
+                            .background(Capsule().fill(Ink.charcoal))
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(PressScale())
+                    .padding(.top, 8)
+                }
             }
             .foregroundStyle(Ink.text)
             .padding(.horizontal, 14)

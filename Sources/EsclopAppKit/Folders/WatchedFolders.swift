@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Watches the folders `WatchPlan` lists and hands new files to the app model: files of one kind
-// that appear within a second form a burst, a burst larger than the kind's count is left alone
-// with a notice (Clop's rule), and every other file waits until it stops changing before it is
-// optimised or its folder's pipeline runs. Pause stops the stream; the settings, the pipelines
-// and the pause all restart it.
+// that appear in one folder within a second form a burst, a burst larger than the kind's count
+// is left alone with a notice (Clop's rule) that can optimise them anyway, and every other file
+// goes on as soon as it stops changing: it is optimised or its folder's pipeline runs. Pause
+// stops the stream; the settings, the pipelines, the pause and a watched folder that appears,
+// moves or goes away all restart it.
 
 import AppKit
 import EsclopCore
@@ -20,6 +21,8 @@ public enum FolderStatus: Equatable, Sendable {
     case missing
     /// macOS keeps L'Esclop out (Files and Folders privacy): the person has to allow it.
     case unreadable
+    /// FSEvents refused the stream, so nothing is watched until the next restart.
+    case notWatching
 
     /// Whether the folder is there, without reading inside it. Reading a protected folder
     /// (Desktop, Documents, Downloads) makes macOS ask for access, so the watcher only looks at
@@ -54,15 +57,29 @@ public final class WatchedFolders {
     @ObservationIgnored let model: AppModel
     @ObservationIgnored let pipelines: () -> [Pipeline]
     @ObservationIgnored private var watcher: FolderWatcher?
-    @ObservationIgnored private var bursts: [MediaKind: [URL]] = [:]
-    @ObservationIgnored private var burstTasks: [MediaKind: Task<Void, Never>] = [:]
-    /// Files picked up and not finished yet: one event per file is enough.
-    @ObservationIgnored private var inFlight = Set<String>()
+    @ObservationIgnored private var bursts: [BurstKey: [URL]] = [:]
+    @ObservationIgnored private var burstTasks: [BurstKey: Task<Void, Never>] = [:]
+    /// Files picked up and not finished yet, held until their job is done: one file runs once,
+    /// however many events it brings while it settles and is optimised.
+    @ObservationIgnored private(set) var inFlight = Set<String>()
     /// Folders macOS kept L'Esclop out of.
     @ObservationIgnored private(set) var denied = Set<URL>()
     /// How long files of one kind gather into a burst.
     @ObservationIgnored var burstWindow: Duration = .seconds(1)
-    @ObservationIgnored var settle: @Sendable (URL) async -> Bool = { await FileSettle.wait(for: $0) }
+    @ObservationIgnored var settle: @Sendable (URL) async -> FileSettle.Outcome = { await FileSettle.wait(for: $0) }
+
+    /// Files of one kind that arrive in one folder: a burst in Downloads leaves a Desktop
+    /// screenshot alone.
+    private struct BurstKey: Hashable {
+        let folder: URL
+        let kind: MediaKind
+    }
+
+    /// The batch a burst's files share, opened by its first file that is optimised: a burst
+    /// that goes to a pipeline or is skipped opens no window.
+    private final class BurstBatch {
+        var batch: Batch?
+    }
 
     public init(model: AppModel, pipelines: @escaping () -> [Pipeline]) {
         self.model = model
@@ -81,19 +98,26 @@ public final class WatchedFolders {
         statuses = Dictionary(targets.map { target in
             (target.folder, denied.contains(target.folder) ? .unreadable : FolderStatus.presence(target.folder))
         }, uniquingKeysWith: { first, _ in first })
-        let folders = targets.map(\.folder).filter { statuses[$0] == .watching }
+        // Missing folders too: the stream reports them when they appear.
+        // ponytail: one missing path FSEvents refuses (over 1 KB long) stops the whole stream and
+        // every row says not watching; retry with the existing folders only if that is ever seen.
+        let folders = targets.map(\.folder).filter { statuses[$0] != .unreadable }
         watcher?.stop()
         defer { model.watchedFolderCount = watchedCount }
         guard !model.paused, !folders.isEmpty else {
             isWatching = false
             return
         }
-        let watcher = watcher ?? FolderWatcher { [weak self] files in
+        let watcher = watcher ?? FolderWatcher(rootChanged: { [weak self] in
+            Task { @MainActor in self?.refresh() }
+        }) { [weak self] files in
             Task { @MainActor in self?.received(files) }
         }
-        watcher.start(folders)
         self.watcher = watcher
-        isWatching = true
+        isWatching = watcher.start(folders)
+        if !isWatching {
+            for (folder, status) in statuses where status == .watching { statuses[folder] = .notWatching }
+        }
     }
 
     public func stop() {
@@ -111,7 +135,10 @@ public final class WatchedFolders {
     /// arrive together join the same burst.
     func received(_ files: [URL]) {
         guard isWatching, !model.paused else { return }
-        for file in files where !inFlight.contains(file.path) {
+        // One spelling per file (/var or /private/var), whoever reports it.
+        // ponytail: a file replaced while its job runs is not looked at again; queue one more pass
+        // for files with events during their job if that is ever seen.
+        for file in files.map({ $0.resolvingSymlinksInPath() }) where !inFlight.contains(file.path) {
             let folder = WatchPlan.canonical(file.deletingLastPathComponent().path)
             guard !denied.contains(folder) else { continue }
             let size: Int
@@ -127,7 +154,7 @@ public final class WatchedFolders {
             )
             guard let kind = decision.kind else { continue }
             inFlight.insert(file.path)
-            add(file, kind: kind)
+            add(file, to: BurstKey(folder: folder, kind: kind))
         }
     }
 
@@ -147,44 +174,69 @@ public final class WatchedFolders {
         return false
     }
 
-    private func add(_ file: URL, kind: MediaKind) {
-        bursts[kind, default: []].append(file)
-        guard burstTasks[kind] == nil else { return }
-        burstTasks[kind] = Task { [weak self] in
+    private func add(_ file: URL, to key: BurstKey) {
+        bursts[key, default: []].append(file)
+        guard burstTasks[key] == nil else { return }
+        burstTasks[key] = Task { [weak self] in
             guard let self else { return }
             try? await Task.sleep(for: burstWindow)
-            await close(kind)
+            close(key)
         }
     }
 
-    /// The burst of `kind` is complete: too many files are left alone, the rest go on once they
-    /// stop changing.
-    private func close(_ kind: MediaKind) async {
-        let burst = Burst(kind: kind, files: bursts[kind] ?? [], limit: WatchPlan.countLimit(kind, settings: model.settings))
-        bursts[kind] = nil
-        burstTasks[kind] = nil
-        if burst.isTooLarge {
-            let folder = burst.files.first.map { PathInput.abbreviate($0.deletingLastPathComponent()) } ?? ""
-            model.notice(Self.tooManyTitle(kind, count: burst.limit), Strings.format("They appeared together in %@, so L’Esclop left them alone.", folder))
-            burst.files.forEach { inFlight.remove($0.path) }
-            return
+    /// The burst is complete: too many files are left alone, with a notice that can optimise
+    /// them anyway; the rest go on.
+    private func close(_ key: BurstKey) {
+        let burst = Burst(kind: key.kind, files: bursts[key] ?? [], limit: WatchPlan.countLimit(key.kind, settings: model.settings))
+        bursts[key] = nil
+        burstTasks[key] = nil
+        guard burst.isTooLarge else { return start(burst.files) }
+        burst.files.forEach { inFlight.remove($0.path) }
+        model.notice(
+            Self.tooManyTitle(key.kind, count: burst.limit),
+            Strings.format("They appeared together in %@, so L’Esclop left them alone.", PathInput.abbreviate(key.folder)),
+            optimiseAnyway: { [weak self] in self?.optimiseAnyway(burst.files) }
+        )
+    }
+
+    /// The notice's action: the files it left alone, unless they are already on their way.
+    func optimiseAnyway(_ files: [URL]) {
+        start(files.filter { inFlight.insert($0.path).inserted })
+    }
+
+    /// Each file waits for itself alone: one still being written holds no other. A burst the
+    /// size of a batch shares one batch window, as dropped files do; rows join as files start.
+    private func start(_ files: [URL]) {
+        let batch = files.count >= model.batchThreshold ? BurstBatch() : nil
+        for file in files {
+            Task { [weak self] in await self?.process(file, batch: batch) }
         }
-        var plain: [URL] = []
-        for file in burst.files {
-            defer { inFlight.remove(file.path) }
-            guard await settle(file), !model.paused else { continue }
-            // Decided again: the file may have been optimised or replaced while it settled.
-            let decision = WatchPlan.decide(
-                file, targets: targets, size: Self.size(of: file), isMarked: OptimisedMark.isMarked(file),
-                justWritten: model.wasJustWritten(file), limits: { self.model.factory.sizeLimits(for: $0) }
+    }
+
+    /// Settles one file, decides it again (it may have been optimised or replaced meanwhile) and
+    /// runs its job; the file stays in flight until the job is done.
+    private func process(_ file: URL, batch: BurstBatch?) async {
+        defer { inFlight.remove(file.path) }
+        let settled = await settle(file)
+        guard !model.paused else { return }
+        if settled == .unreadable {
+            return model.notice(
+                Strings.format("Could not read %@", file.lastPathComponent),
+                Strings.text("L’Esclop is not allowed to open it, so it left it alone.")
             )
-            switch decision {
-            case .optimise: plain.append(file)
-            case let .pipeline(name, _): model.runPipeline(name, onWatched: file)
-            case .skip: continue
-            }
         }
-        if !plain.isEmpty { model.optimise(plain, origin: .watchedFolder) }
+        guard settled == .steady else { return }
+        let decision = WatchPlan.decide(
+            file, targets: targets, size: Self.size(of: file), isMarked: OptimisedMark.isMarked(file),
+            justWritten: model.wasJustWritten(file), limits: { self.model.factory.sizeLimits(for: $0) }
+        )
+        switch decision {
+        case .optimise:
+            if let batch, batch.batch == nil { batch.batch = model.openBatch(origin: .watchedFolder) }
+            await model.run(model.factory.job(for: file, origin: .watchedFolder), batch: batch?.batch)
+        case let .pipeline(name, _): await model.runPipeline(name, onWatched: file)
+        case .skip: return
+        }
     }
 
     static func tooManyTitle(_ kind: MediaKind, count: Int) -> String {

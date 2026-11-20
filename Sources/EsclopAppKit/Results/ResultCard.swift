@@ -84,6 +84,8 @@ public final class ResultCard: Identifiable {
     var uploadTask: Task<Void, Never>?
     /// Runs the job again after an error.
     var retry: (() -> Void)?
+    /// A notice's "Optimise Them Anyway": the files it left alone go ahead after all.
+    var optimiseAnyway: (() -> Void)?
     var cancelWork: (() -> Void)?
     var timer: Task<Void, Never>?
 

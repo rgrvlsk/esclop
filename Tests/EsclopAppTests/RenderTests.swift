@@ -171,6 +171,13 @@ import Testing
         }
         // One the app shows: ⌃⇧C with nothing copied.
         try render(object(card(.notice(title: Strings.text("Nothing to optimise"), detail: Strings.text("Copy an image or a file first.")))), name: "result-notice", scheme: scheme)
+        // A watched folder's burst, with its one action.
+        let tooMany = card(.notice(
+            title: WatchedFolders.tooManyTitle(.image, count: 4),
+            detail: Strings.format("They appeared together in %@, so L’Esclop left them alone.", "~/Downloads")
+        ))
+        tooMany.optimiseAnyway = {}
+        try render(object(tooMany), name: "result-notice-action", scheme: scheme)
     }
 
     /// The detail (pr2-detail-card): a dropped photo shows its folder, a copied screenshot goes back

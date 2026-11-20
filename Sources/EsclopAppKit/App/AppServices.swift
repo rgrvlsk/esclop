@@ -92,6 +92,7 @@ public final class AppServices {
         }
         let folders = WatchedFolders(model: model, pipelines: { (try? store.list()) ?? [] })
         self.folders = folders
+        settingsModel.watchedFolders = folders
         model.onPauseChange = { [weak folders] in folders?.refresh() }
         // Folder lists changed here or by `esclop settings set` in another process.
         folderSettings = DefaultsObserver(defaults: settings.defaults, keys: WatchedFolders.settingKeys) { [weak folders] _ in

@@ -449,11 +449,11 @@ public final class AppModel {
     }
 
     /// A new file in a folder a pipeline watches: the pipeline runs on it.
-    public func runPipeline(_ name: String, onWatched file: URL) {
+    public func runPipeline(_ name: String, onWatched file: URL) async {
         var job = factory.job(for: file, origin: .watchedFolder)
         job.operation = .pipeline(name)
         if let pipeline = try? service.context.pipelines.resolve(name) { Self.use(pipeline, in: &job) }
-        Task { await run(job) }
+        await run(job)
     }
 
     /// A pipeline that runs on its own: its operation, and no floating result when it says so.
@@ -554,10 +554,13 @@ public final class AppModel {
         for card in cards where ids.contains(card.jobID) { dismiss(card) }
     }
 
-    public func notice(_ title: String, _ detail: String) {
-        cards.filter { if case .notice = $0.phase { return true } else { return false } }.forEach(dismiss)
+    /// A short message with no file. It replaces the last plain one. With `optimiseAnyway` it
+    /// offers that action, stays long enough to reach it, and no later notice takes its place.
+    public func notice(_ title: String, _ detail: String, optimiseAnyway: (() -> Void)? = nil) {
+        cards.filter { if case .notice = $0.phase { return $0.optimiseAnyway == nil } else { return false } }.forEach(dismiss)
         let card = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/"), origin: .app, bytesBefore: 0, phase: .notice(title: title, detail: detail))
-        card.machine.notice(at: now(), hideAfter: hideDelayOverride.map(Self.seconds) ?? 3)
+        card.optimiseAnyway = optimiseAnyway
+        card.machine.notice(at: now(), hideAfter: hideDelayOverride.map(Self.seconds) ?? (optimiseAnyway == nil ? 3 : 8))
         add(card)
     }
 
@@ -783,6 +786,9 @@ public final class AppModel {
             openOptions(card)
         case .trash:
             trash(card)
+        case .optimiseAnyway:
+            card.optimiseAnyway?()
+            dismiss(card)
         case .save:
             save(card)
         case .saveAs:

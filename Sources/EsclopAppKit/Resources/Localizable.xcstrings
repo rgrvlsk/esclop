@@ -2461,6 +2461,16 @@
         }
       }
     },
+    "Could not read %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha pogut llegir %@"
+          }
+        }
+      }
+    },
     "Could not read the copied image": {
       "localizations": {
         "ca": {
@@ -4171,6 +4181,16 @@
         }
       }
     },
+    "L’Esclop could not start watching this folder. It tries again when the folder lists change, or the next time L’Esclop opens.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’Esclop no ha pogut començar a vigilar aquesta carpeta. Ho tornarà a provar quan canviïn les llistes de carpetes o la propera vegada que s’obri L’Esclop."
+          }
+        }
+      }
+    },
     "L’Esclop created %@ when it connected, and the file holds nothing else, so it will be removed.": {
       "localizations": {
         "ca": {
@@ -4207,6 +4227,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "L’Esclop és a la barra de menús"
+          }
+        }
+      }
+    },
+    "L’Esclop is not allowed to open it, so it left it alone.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’Esclop no té permís per obrir-lo, així que no l’ha tocat."
           }
         }
       }
@@ -5277,6 +5307,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Optimitza fitxers…"
+          }
+        }
+      }
+    },
+    "Optimise Them Anyway": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optimitza-ho igualment"
           }
         }
       }
