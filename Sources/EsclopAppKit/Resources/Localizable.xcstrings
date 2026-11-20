@@ -391,6 +391,16 @@
         }
       }
     },
+    "%@, uploaded, the link is ready to copy": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, pujat; l’enllaç és a punt per copiar"
+          }
+        }
+      }
+    },
     "%@, uploading": {
       "localizations": {
         "ca": {
@@ -4227,6 +4237,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "L’enllaç caduca al cap de"
+          }
+        }
+      }
+    },
+    "Link ready": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enllaç a punt"
           }
         }
       }
@@ -9017,6 +9037,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pujat · enllaç copiat"
+          }
+        }
+      }
+    },
+    "Uploaded · link ready": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pujat · enllaç a punt"
           }
         }
       }

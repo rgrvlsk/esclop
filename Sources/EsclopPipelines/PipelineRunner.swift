@@ -285,7 +285,7 @@ struct FileRun {
 
         switch step {
         case let .optimise(encoder, adaptive, dpi, location, compression):
-            var note: String?
+            // `compression: adaptive` is the regular quality: `options.quality` stays.
             var quality = options.quality
             switch (compression, encoder) {
             case let (.factor(n)?, _): quality = CompressionQuality(tier: .custom, factor: n)
@@ -293,13 +293,12 @@ struct FileRun {
             case (_, .lossless), (_, .visuallyLossless): quality = CompressionQuality(tier: .custom, factor: 0)
             default: break
             }
-            if compression == .adaptive { note = "adaptive compression is not available yet; used the regular settings" }
             let videoEncoder: VideoEncoder? = switch encoder {
             case .fast: .h264VideoToolbox
             case .slowHighQuality, .visuallyLossless: .h264Software
             default: nil
             }
-            return try await engineStep(location, note: note, adjust: {
+            return try await engineStep(location, adjust: {
                 $0.quality = quality
                 $0.videoEncoder = videoEncoder
                 $0.pdfDPI = dpi
@@ -467,7 +466,7 @@ struct FileRun {
 
     /// Runs an engine call with the step's location resolved, and makes its output the current file.
     mutating func engineStep(
-        _ location: OutputLocation, newExtension: String? = nil, note: String? = nil,
+        _ location: OutputLocation, newExtension: String? = nil,
         adjust: (inout OptimisationRequest) -> Void = { _ in },
         _ call: (URL, OptimisationRequest) async throws -> OptimisationResult
     ) async throws -> StepOutcome {
@@ -477,7 +476,7 @@ struct FileRun {
         report.results.append(result)
         current = result.output
         let saved = result.bytesBefore > 0 ? " (\(Int((result.savedFraction * 100).rounded()))% smaller)" : ""
-        return (.done, ([note, "\(result.output.lastPathComponent)\(saved)"].compactMap { $0 }).joined(separator: "; "))
+        return (.done, "\(result.output.lastPathComponent)\(saved)")
     }
 
     /// Turns a step's location into what the engine gets: `.inPlace` and `.temporary` as they are,

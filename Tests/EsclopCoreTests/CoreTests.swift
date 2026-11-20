@@ -398,6 +398,26 @@ final class LockedArray: @unchecked Sendable {
 }
 
 @Suite struct OutputLocationTests {
+    /// A crash in the middle of a swap leaves a hidden staged file beside the target: it goes
+    /// once a day old by its status change date, never while a swap may still use it, whatever
+    /// old modification date it kept from its source.
+    @Test func stagingLeftoversGoOnlyOnceADayOld() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-leftovers-\(UUID().uuidString.prefix(8))", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let staged = folder.appendingPathComponent(".photo.jpg.esclop-1A2B3C4D")
+        let mine = folder.appendingPathComponent(".photo.jpg.mine")
+        for file in [staged, mine] {
+            try Data("x".utf8).write(to: file)
+            try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSince1970: 0)], ofItemAtPath: file.path)
+        }
+        StagedFiles.removeLeftovers(in: folder)
+        #expect(FileManager.default.fileExists(atPath: staged.path), "staged just now: a swap may be using it")
+        StagedFiles.removeLeftovers(in: folder, now: Date().addingTimeInterval(2 * 86400))
+        #expect(!FileManager.default.fileExists(atPath: staged.path))
+        #expect(FileManager.default.fileExists(atPath: mine.path), "not L'Esclop's")
+    }
+
     let source = URL(fileURLWithPath: "/Volumes/Media/Pictures/shot.png")
 
     @Test func inPlaceKeepsTheFolder() {

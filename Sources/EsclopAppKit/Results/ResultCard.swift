@@ -127,14 +127,16 @@ public final class ResultCard: Identifiable {
 
     public enum UploadState: Equatable, Sendable {
         case uploading(fraction: Double)
-        case uploaded(URL)
+        /// `copied`: the link went on the clipboard. An automatic upload's stays off it when
+        /// something was copied after the job started.
+        case uploaded(URL, copied: Bool = true)
         /// The file stays where it is; the message says why the upload did not go through.
         case failed(String)
     }
 
     /// The link to copy: this card's upload, or a result that was an upload (`esclop upload`).
     public var link: URL? {
-        if case let .uploaded(link) = upload { return link }
+        if case let .uploaded(link, _) = upload { return link }
         return result?.link
     }
 

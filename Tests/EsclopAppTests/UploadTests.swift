@@ -245,7 +245,7 @@ struct SilentServer {
         #expect(harness.model.cards.isEmpty)
         #expect(BatchPresentation.status(of: batch.rows[0]) == Strings.text("Uploaded · link copied"))
         // Every link at once, one per line in row order, not only the last one.
-        let links = batch.rows.compactMap { row -> String? in if case let .uploaded(link) = row.upload { link.absoluteString } else { nil } }
+        let links = batch.rows.compactMap { row -> String? in if case let .uploaded(link, _) = row.upload { link.absoluteString } else { nil } }
         #expect(await eventually { harness.pasteboard.string(forType: .string) == links.joined(separator: "\n") })
     }
 
@@ -394,6 +394,65 @@ struct SilentServer {
         let batch = try #require(harness.model.batch)
         #expect(await eventually { batch.rows.count == 3 && batch.rows.allSatisfy { if case .uploading = $0.upload { false } else { $0.upload != nil } } })
         #expect(await eventually { harness.pasteboard.string(forType: .string) == "https://files.example.com/a.png\nhttps://files.example.com/b.png" })
+    }
+
+    /// A copy made while the file was being optimised stays: the automatic link is measured
+    /// against the clipboard as the job started, and the card says the link is ready, not copied.
+    @Test func anAutomaticLinkKeepsACopyMadeDuringTheJob() async throws {
+        let gate = WorkGate(limit: 1)
+        let harness = Harness(gate: gate)
+        try EsclopSettings.uploadTargets.set(UploadTarget.encode([UploadTarget(name: "Fake", endpoint: "https://s3.example.invalid", bucket: "b")]), in: harness.settings.store)
+        try EsclopSettings.uploadAutomatically.set(["dropZone"], in: harness.settings.store)
+        harness.model.uploader = SlowLastUploader()
+        await gate.acquire()
+        let job = Task { await harness.model.run(harness.job(harness.temp.png("video.png"))) }
+        #expect(await eventually { harness.model.cards.count == 1 })
+        // The job has read the clipboard and waits for its turn; the person copies some text.
+        try await Task.sleep(for: .milliseconds(200))
+        await harness.clipboardSettles()
+        harness.pasteboard.clearContents()
+        harness.pasteboard.setString("mine", forType: .string)
+        await gate.release()
+        _ = await job.value
+        let card = try #require(harness.model.cards.first)
+        #expect(await eventually { if case .uploaded = card.upload { true } else { false } })
+        #expect(harness.pasteboard.string(forType: .string) == "mine")
+        #expect(card.presentation.capsule == .status(symbol: "link", text: Strings.text("Uploaded · link ready")))
+        #expect(card.presentation.headline == Strings.text("Link ready"))
+        // Nothing copied during the next one: its link goes on the clipboard.
+        await harness.model.run(harness.job(harness.temp.png("next.png")))
+        let next = try #require(harness.model.cards.last)
+        #expect(await eventually { if case .uploaded = next.upload { true } else { false } })
+        #expect(harness.pasteboard.string(forType: .string) == "https://files.example.com/next.png")
+        #expect(next.presentation.capsule == .status(symbol: "link", text: Strings.text("Uploaded · link copied")))
+    }
+
+    /// The pipeline editor's Run on several files is one batch; its pipeline's upload steps put
+    /// their links on the clipboard together when it ends, and never over a newer copy.
+    @Test func aPipelinesLinksGoTogetherAndNeverOverANewerCopy() async throws {
+        let gate = WorkGate(limit: 1)
+        let harness = Harness(gate: gate)
+        harness.model.uploader = SlowLastUploader()
+        try EsclopSettings.batchWindowFrom.set(2, in: harness.settings.store)
+        try harness.model.service.context.pipelines.save(PipelineParser.parse("upload(to: \"Fake\")", name: "Share"))
+        harness.model.runPipeline("Share", on: ["a.png", "b.png", "c.png"].map(harness.temp.png))
+        let batch = try #require(harness.model.batch)
+        #expect(await eventually { batch.rows.count == 3 && !batch.isRunning })
+        #expect(harness.model.cards.isEmpty, "one batch, not a card per file")
+        let expected = Set(["a", "b", "c"].map { "https://files.example.com/\($0).png" })
+        #expect(await eventually { Set(harness.pasteboard.string(forType: .string)?.split(separator: "\n").map(String.init) ?? []) == expected })
+        // A copy made while the next file waits keeps its place.
+        await gate.acquire()
+        harness.model.runPipeline("Share", on: [harness.temp.png("d.png")])
+        #expect(await eventually { harness.model.cards.count == 1 })
+        try await Task.sleep(for: .milliseconds(200))
+        await harness.clipboardSettles()
+        harness.pasteboard.clearContents()
+        harness.pasteboard.setString("mine", forType: .string)
+        await gate.release()
+        #expect(await eventually { harness.model.cards.first?.result != nil })
+        await harness.clipboardSettles()
+        #expect(harness.pasteboard.string(forType: .string) == "mine")
     }
 
     /// Uploads at once, except `last.png`, which fails after the others are done.

@@ -36,8 +36,11 @@ struct Optimise: AsyncParsableCommand {
     @Option(name: .customLong("playback-speed-factor"), help: "Videos and audio: speed factor, 2 is twice as fast.")
     var playbackSpeedFactor: Double?
 
-    @Flag(help: "Also optimise files L'Esclop already optimised (each pass may lose more quality).")
+    @Flag(help: "Also optimise files L'Esclop already optimised (each pass may lose more quality). -a, or a --compression above \(CompressionQuality.normal.factor), implies it.")
     var force = false
+
+    @Flag(inversion: .prefixedNo, help: "Images: also try a PNG without transparency as JPEG and keep the JPEG when it is much smaller. Without either flag the \"adaptive image format\" setting decides.")
+    var adaptive: Bool?
 
     func validate() throws {
         if let downscaleFactor, !(0.05 ... 1).contains(downscaleFactor) { throw ValidationError("--downscale-factor is between 0.05 and 1.") }
@@ -47,8 +50,11 @@ struct Optimise: AsyncParsableCommand {
 
     func run() async throws {
         let crop = try self.crop.map(parseCrop)
-        try await runFileJob(.optimise, files: files, global: global, skipOptimised: !force) { request in
+        // A stronger level than the regular one is a request to optimise again.
+        let again = force || quality.quality.factor > CompressionQuality.normal.factor
+        try await runFileJob(.optimise, files: files, global: global, skipOptimised: !again) { request in
             request.quality = quality.quality
+            request.adaptiveImageFormat = adaptive
             request.stripMetadata = quality.stripMetadata ? true : nil
             request.downscale = downscaleFactor
             request.crop = crop

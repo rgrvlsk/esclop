@@ -321,7 +321,7 @@ struct Status: AsyncParsableCommand {
 struct Recent: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "The most recent results, newest first, with their backups.",
-        discussion: "Results cleared from the menu bar panel (Recent › Clear) are not listed. `esclop restore <file>` puts back the original of one optimised in place."
+        discussion: "Each line ends with where the job came from (`origin` in JSON): app, clipboard, dropZone, watchedFolder, hotkey, finder, cli, mcp or shortcuts. Results cleared from the menu bar panel (Recent › Clear) are not listed. `esclop restore <file>` puts back the original of one optimised in place."
     )
     @Option(help: "At most this many results.") var limit = 20
     @OptionGroup var global: GlobalOptions
@@ -337,7 +337,8 @@ struct Recent: AsyncParsableCommand {
             let t = global.terminal
             if results.isEmpty { print("No recent results.") }
             for result in results {
-                print(t.line(result, fullPath: true) + (result.backup == nil ? "" : t.dim("  (backup kept)")))
+                let origin = result.origin.map { t.dim("  \($0)") } ?? ""
+                print(t.line(result, fullPath: true) + origin + (result.backup == nil ? "" : t.dim("  (backup kept)")))
             }
             return 0
         }

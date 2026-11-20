@@ -24,6 +24,8 @@ public final class ClipboardWatcher: @unchecked Sendable {
     private let frontmostApp: @Sendable () -> String?
     private let onAction: @Sendable (ClipboardAction) -> Void
     private let onPauseChange: @Sendable (Bool) -> Void
+    /// Every copy, on the queue, before the decision: a pipeline hotkey run later names its app.
+    private let onCopy: @Sendable (ClipboardCopy) -> Void
 
     static let pausedInterval: TimeInterval = 2
 
@@ -32,6 +34,7 @@ public final class ClipboardWatcher: @unchecked Sendable {
         policy: ClipboardPolicy,
         frontmostApp: @escaping @Sendable () -> String? = { NSWorkspace.shared.frontmostApplication?.bundleIdentifier },
         onPauseChange: @escaping @Sendable (Bool) -> Void = { _ in },
+        onCopy: @escaping @Sendable (ClipboardCopy) -> Void = { _ in },
         onAction: @escaping @Sendable (ClipboardAction) -> Void
     ) {
         self.pasteboard = pasteboard
@@ -39,6 +42,7 @@ public final class ClipboardWatcher: @unchecked Sendable {
         self.frontmostApp = frontmostApp
         self.onAction = onAction
         self.onPauseChange = onPauseChange
+        self.onCopy = onCopy
         lastChangeCount = pasteboard.changeCount
     }
 
@@ -91,6 +95,7 @@ public final class ClipboardWatcher: @unchecked Sendable {
         guard count != lastChangeCount else { return nil }
         lastChangeCount = count
         let copy = ClipboardCopy(changeCount: count, app: app, types: Set((pasteboard.types ?? []).map(\.rawValue)))
+        onCopy(copy)
         let pasteboard = pasteboard
         let readsText = policy.readsText
         let action = policy.decide(copy, appBefore: appBefore == app ? nil : appBefore) {

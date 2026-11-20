@@ -307,15 +307,16 @@ public struct CardPresentation: Equatable, Sendable {
             promote(.cancelUpload)
             actions = [.cancelUpload] + actions.filter { $0 != .dismiss } + [.dismiss]
             accessibilityLabel = f("%@, uploading", name)
-        case .uploaded:
-            capsule = .status(symbol: "link", text: t("Uploaded · link copied"))
-            headline = t("Link copied")
+        case let .uploaded(_, copied):
+            // Kept off the clipboard (something was copied meanwhile): ready for Copy Link.
+            capsule = .status(symbol: "link", text: copied ? t("Uploaded · link copied") : t("Uploaded · link ready"))
+            headline = copied ? t("Link copied") : t("Link ready")
             caption = name
             tone = .saving
             tools = [.copyLink, .more]
             promote(.copyLink)
             actions = [.copyLink] + actions
-            accessibilityLabel = f("%@, uploaded, the link is on the clipboard", name)
+            accessibilityLabel = copied ? f("%@, uploaded, the link is on the clipboard", name) : f("%@, uploaded, the link is ready to copy", name)
         case let .failed(message):
             capsule = .error(title: t("Not uploaded"), message: message)
             headline = t("Not uploaded")

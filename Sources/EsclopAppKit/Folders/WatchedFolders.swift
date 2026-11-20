@@ -230,11 +230,15 @@ public final class WatchedFolders {
             file, targets: targets, size: Self.size(of: file), isMarked: OptimisedMark.isMarked(file),
             justWritten: model.wasJustWritten(file), limits: { self.model.factory.sizeLimits(for: $0) }
         )
+        // The burst's batch, opened by its first file to start.
+        func shared() -> Batch? {
+            if let batch, batch.batch == nil { batch.batch = model.openBatch(origin: .watchedFolder) }
+            return batch?.batch
+        }
         switch decision {
         case .optimise:
-            if let batch, batch.batch == nil { batch.batch = model.openBatch(origin: .watchedFolder) }
-            await model.run(model.factory.job(for: file, origin: .watchedFolder), batch: batch?.batch)
-        case let .pipeline(name, _): await model.runPipeline(name, onWatched: file)
+            await model.run(model.factory.job(for: file, origin: .watchedFolder), batch: shared())
+        case let .pipeline(name, _): await model.runPipeline(name, onWatched: file, batch: shared)
         case .skip: return
         }
     }

@@ -116,16 +116,19 @@ import Testing
         FloatingResultView(card: card) { _ in }
     }
 
-    /// A result's upload: going, done with the link copied, and refused with the reason.
+    /// A result's upload: going, done with the link copied, done with the link kept off the
+    /// clipboard (something was copied meanwhile), and refused with the reason.
     @Test(arguments: [ColorScheme.light, .dark])
     func uploadStates(scheme: ColorScheme) throws {
         let uploading = card(.done(saved()))
         uploading.upload = .uploading(fraction: 0.4)
         let uploaded = card(.done(saved()))
         uploaded.upload = .uploaded(URL(string: "https://files.example.com/2026/11/photo.png")!)
+        let ready = card(.done(saved()))
+        ready.upload = .uploaded(URL(string: "https://files.example.com/2026/11/photo.png")!, copied: false)
         let failed = card(.done(saved()))
         failed.upload = .failed(Strings.format("The upload target refused the file (%d): %@.", 403, "AccessDenied, Access Denied"))
-        for (name, card) in [("result-uploading", uploading), ("result-uploaded", uploaded), ("result-upload-failed", failed)] {
+        for (name, card) in [("result-uploading", uploading), ("result-uploaded", uploaded), ("result-upload-ready", ready), ("result-upload-failed", failed)] {
             #expect(try render(object(card), name: name, scheme: scheme).width == Metrics.thumbnailWidth, "\(name) is a 208 pt card")
         }
     }

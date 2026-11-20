@@ -40,7 +40,7 @@ import UniformTypeIdentifiers
         #expect(optimised.status == 0, "\(optimised.output)")
         #expect(try Data(contentsOf: photo) != original)
 
-        struct Row: Decodable { var id: String; var source: String; var backup: String? }
+        struct Row: Decodable { var id: String; var source: String; var backup: String?; var origin: String? }
         func recent() throws -> [Row] {
             let recent = try run(["recent", "--json", "--limit", "5"])
             #expect(recent.status == 0, "\(recent.output)")
@@ -49,6 +49,8 @@ import UniformTypeIdentifiers
         let rows = try recent()
         #expect(Set(rows.map { URL(fileURLWithPath: $0.source).lastPathComponent }) == ["photo.heic", "other.heic"])
         #expect(Set(rows.map(\.id)).count == 2)
+        #expect(rows.allSatisfy { $0.origin == "cli" }, "recent says where each came from")
+        #expect(try run(["recent", "--no-color"]).output.contains("  cli"))
         let backup = try #require(rows.first { $0.source.hasSuffix("/photo.heic") }?.backup)
         #expect(URL(fileURLWithPath: backup).resolvingSymlinksInPath().path.hasPrefix(support.resolvingSymlinksInPath().path + "/"))
 

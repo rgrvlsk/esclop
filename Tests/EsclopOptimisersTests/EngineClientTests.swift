@@ -189,6 +189,24 @@ import Testing
         #expect(try await second.raw["slept"] != nil)
     }
 
+    /// A request that arrives while another has its last, lone go waits for it: sent to that
+    /// child, a file that crashes the engine would make the lone one fail as the culprit.
+    @Test func aLoneAttemptRunsAloneAndANewRequestWaits() async throws {
+        let client = try await client()
+        defer { Task { await client.shutdown() } }
+        _ = try await client.capabilities()
+        // The crash takes the sleeper down twice, so each goes on alone. The new crash is sent
+        // once a lone attempt runs: a fixed wait lost that race under a loaded CI runner.
+        async let sleeper = client.call("sleep", params: ["seconds": 3.0])
+        async let crasher: Void = { _ = try? await client.call("crash") }()
+        let deadline = ContinuousClock.now + .seconds(30)
+        while await !client.isLonely, ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(await client.isLonely, "a lone attempt started")
+        await #expect(throws: EsclopError.self) { try await client.call("crash") }
+        #expect(try await sleeper.raw["slept"] != nil, "the lone sleeper finished")
+        await crasher
+    }
+
     /// Two files that crash the engine, one after the other, each fail on their own; their crashes
     /// are not a crash loop, so the next file still runs.
     @Test func twoCrashingFilesDoNotHoldBackTheNext() async throws {

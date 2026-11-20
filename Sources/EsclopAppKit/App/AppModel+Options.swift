@@ -277,13 +277,12 @@ extension AppModel {
         return pipelines.filter { pipeline in kind.map { pipeline.kinds.contains($0) } ?? true }.map(\.name)
     }
 
-    /// Runs a saved pipeline on files the person chose (the pipeline editor's Run).
+    /// Runs a saved pipeline on files the person chose (the pipeline editor's Run), as Finder's
+    /// "Run a Pipeline…" does: floating results, or one batch window from `batchWindowFrom` files.
+    /// A pipeline that cannot be read fails on each file's card, saying why.
     public func runPipeline(_ name: String, on files: [URL]) {
-        for file in files {
-            var job = factory.job(for: file, origin: .app)
-            job.operation = .pipeline(name)
-            Task { await run(job) }
-        }
+        let pipeline = try? service.context.pipelines.resolve(name)
+        optimise(files, origin: .app, copy: nil, adjust: { $0.operation = .pipeline(name) }, pipeline: { _ in pipeline })
     }
 
     public func runPipeline(_ name: String, on card: ResultCard) {

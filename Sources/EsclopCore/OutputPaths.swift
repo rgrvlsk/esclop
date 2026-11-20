@@ -106,11 +106,12 @@ public enum StagedFiles {
     /// Calls `write` once per name with a path in a hidden folder inside `folder`, then moves
     /// each file to its name there, or to the next free one (`name 2.png`), so nothing that
     /// exists is replaced. A throw, or a name `write` did not fill, leaves nothing behind.
-    /// ponytail: the staging folder sits in `folder` so the moves stay on one volume; a crash in
-    /// the middle leaves it there (hidden). Trigger: a report of leftovers; then sweep `.esclop-*`.
+    /// The staging folder sits in `folder` so the moves stay on one volume; one a crash left
+    /// there goes with `removeLeftovers`.
     public static func publish(_ names: [String], into folder: URL, write: (Int, URL) throws -> Void) throws -> [URL] {
         let fm = FileManager.default
         try Paths.ensure(folder)
+        removeLeftovers(in: folder)
         let staging = folder.appendingPathComponent(".esclop-\(UUID().uuidString.prefix(8))", isDirectory: true)
         try fm.createDirectory(at: staging, withIntermediateDirectories: false)
         defer { try? fm.removeItem(at: staging) }
@@ -132,6 +133,34 @@ public enum StagedFiles {
             throw error
         }
         return published
+    }
+}
+
+public extension StagedFiles {
+    /// Removes what a kill in the middle of a swap left in `folder`: the hidden files and folders
+    /// L'Esclop stages beside a target (`.photo.jpg.esclop-1A2B3C4D`, `.esclop-1A2B3C4D`,
+    /// `.photo.jpg.esclop-restore-1A2B3C4D`), once a day old. The engines' writes and
+    /// `publish` call it first; the other stagers (restore, a pipeline's move, Save) leave theirs
+    /// for the next of those in the folder.
+    /// The age is the status change date: a staged file keeps its source's modification date
+    /// (dates are preserved), but on APFS and HFS+ a move or a copy sets that one to now.
+    // ponytail: a day old, so a swap still copying to a slow disk is never taken; lists the
+    // folder on every write. Keep a list of swept folders if a huge folder makes that show.
+    // A file system without a separate status change date (exFAT, FAT32, some network volumes)
+    // reports the preserved date instead: there a staged old file can go in the instant
+    // between its staging and its swap, if another job writes into the same folder then. Stage
+    // without the preserved dates, and set them after the swap, if that is ever seen.
+    static func removeLeftovers(in folder: URL, now: Date = Date()) {
+        let fm = FileManager.default
+        guard let names = try? fm.contentsOfDirectory(atPath: folder.path) else { return }
+        // A local regex: a static one is not Sendable, which the strict concurrency check rejects.
+        let leftover = #/\.(.+\.)?esclop-(restore-)?[0-9A-F]{8}/#
+        for name in names where name.hasPrefix(".") && name.wholeMatch(of: leftover) != nil {
+            let url = folder.appendingPathComponent(name)
+            guard let changed = (try? url.resourceValues(forKeys: [.attributeModificationDateKey]))?.attributeModificationDate,
+                  now.timeIntervalSince(changed) > 86400 else { continue }
+            try? fm.removeItem(at: url)
+        }
     }
 }
 
