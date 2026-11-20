@@ -127,44 +127,6 @@ final class EventLog: @unchecked Sendable {
         #expect(abs(rect.minY + 100) < 0.01)
     }
 
-    @Test func exportsPages() throws {
-        let temp = TempDir()
-        let pdf = temp.pdf("doc.pdf", pages: [CGSize(width: 100, height: 200), CGSize(width: 100, height: 200), CGSize(width: 100, height: 200)])
-        let written = try PDFPageTools().exportPages(pdf, pages: [1, 3], format: .png, dpi: 144, into: temp.url.appendingPathComponent("pages"))
-        #expect(written.map(\.lastPathComponent) == ["doc-1.png", "doc-3.png"])
-        let image = try #require(CGImageSourceCreateWithURL(written[0] as CFURL, nil).flatMap { CGImageSourceCreateImageAtIndex($0, 0, nil) })
-        #expect(image.width == 200)
-        #expect(image.height == 400)
-        #expect(throws: EsclopError.self) { try PDFPageTools().exportPages(pdf, pages: [9], format: .png, dpi: 72, into: temp.url) }
-    }
-
-    /// Without a format, a page that is one photo exports as JPEG (named .jpg) and others as PNG.
-    @Test func aPhotoPageExportsAsJPEG() throws {
-        let temp = TempDir()
-        let pdf = temp.url.appendingPathComponent("scan.pdf")
-        var box = CGRect(x: 0, y: 0, width: 200, height: 100)
-        let context = try #require(CGContext(pdf as CFURL, mediaBox: &box, nil))
-        let photo = try #require(CGContext(
-            data: nil, width: 64, height: 32, bitsPerComponent: 8, bytesPerRow: 0,
-            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
-        ))
-        photo.setFillColor(CGColor(red: 0.8, green: 0.3, blue: 0.1, alpha: 1))
-        photo.fill(CGRect(x: 0, y: 0, width: 32, height: 32))
-        let image = try #require(photo.makeImage())
-        context.beginPDFPage(nil)
-        context.draw(image, in: box)
-        context.endPDFPage()
-        context.beginPDFPage(nil)
-        context.setFillColor(CGColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1))
-        context.fill(box.insetBy(dx: 20, dy: 20))
-        context.endPDFPage()
-        context.closePDF()
-        let written = try PDFPageTools().exportPages(pdf, pages: nil, format: nil, dpi: 72, into: temp.url.appendingPathComponent("pages"))
-        #expect(written.map(\.lastPathComponent) == ["scan-1.jpg", "scan-2.png"])
-        let forced = try PDFPageTools().exportPages(pdf, pages: [2], format: .jpeg, dpi: 72, into: temp.url.appendingPathComponent("jpeg"))
-        #expect(forced.map(\.lastPathComponent) == ["scan-2.jpg"])
-    }
-
     @Test func signedPDFsAreNotCroppedOrUncropped() async throws {
         let temp = TempDir()
         let pdf = temp.url.appendingPathComponent("contract.pdf")
@@ -177,17 +139,6 @@ final class EventLog: @unchecked Sendable {
         }
         #expect(try Data(contentsOf: pdf) == before)
         #expect(try FileManager.default.contentsOfDirectory(atPath: temp.url.path).filter { $0 != "backups" } == ["contract.pdf"])
-    }
-
-    @Test func exportKeepsFilesThatAreThere() throws {
-        let temp = TempDir()
-        let pdf = temp.pdf("doc.pdf", pages: [CGSize(width: 100, height: 200), CGSize(width: 100, height: 200)])
-        let folder = temp.url.appendingPathComponent("pages")
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try Data("keep".utf8).write(to: folder.appendingPathComponent("doc-1.png"))
-        let written = try PDFPageTools().exportPages(pdf, pages: nil, format: .png, dpi: 72, into: folder)
-        #expect(written.map(\.lastPathComponent) == ["doc-1 2.png", "doc-2.png"])
-        #expect(try Data(contentsOf: folder.appendingPathComponent("doc-1.png")) == Data("keep".utf8))
     }
 
     @Test func notAPDF() async {

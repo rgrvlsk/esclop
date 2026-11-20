@@ -54,7 +54,9 @@ esclop restore photo.png                    # puts the original back
 
 - The beta is signed ad hoc and not notarised: macOS asks for **Open Anyway** once (Install).
 - JPEG XL is read but not written: macOS cannot write it, so it is not offered as an output.
-- A speed change leaves out a video's chapters, because their times would not follow.
+- A speed change leaves out the chapters of a video or audiobook, because their times would not follow.
+- A re-encoded or muted iPhone video loses its location and camera, even with stripping off: the
+  bundled ffmpeg cannot copy them in a form macOS reads. The details say so.
 - No secure send link and no iCloud settings sync yet; both are planned for 0.3.
 
 ## Build

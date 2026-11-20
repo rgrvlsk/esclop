@@ -336,11 +336,9 @@ struct PDF: AsyncParsableCommand {
                 let source = try PathInput.url(pdf)
                 let folder = try output.map { try PathInput.url($0) }
                     ?? source.deletingLastPathComponent().appendingPathComponent(source.deletingPathExtension().lastPathComponent + " pages", isDirectory: true)
-                let written = try PDFPageTools().exportPages(
-                    source, pages: try pages.map(Self.parsePages), format: format.map { $0 == .jpeg ? .jpeg : .png }, dpi: dpi, into: folder
+                let written = try await EsclopEngine().extractPDFPages(
+                    source, pages: try pages.map(Self.parsePages), format: format.map { $0 == .jpeg ? .jpeg : .png }, dpi: dpi, to: folder
                 )
-                let engine = EsclopEngine()
-                for page in written { await engine.optimiseNewImage(page) }
                 let bytes = written.reduce(0) { $0 + PageExport.size(of: $1) }
                 if global.json {
                     Output.json(PageExport(source: source.path, pages: written.map(\.path), bytes: bytes))
