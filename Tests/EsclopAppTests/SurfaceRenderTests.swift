@@ -11,7 +11,7 @@ import Testing
 
 @MainActor
 @Suite(.serialized) struct SurfaceRenderTests {
-    static let schemes: [ColorScheme] = [.light, .dark]
+    nonisolated static let schemes: [ColorScheme] = [.light, .dark]
 
     /// One probe: a fill inside the floating surface (or the surface itself), and the inks set
     /// on it with the contrast each must hold.
@@ -321,18 +321,42 @@ enum SurfaceRender {
         window.contentView = host
         window.setFrameOrigin(NSPoint(x: 40, y: 40))
         window.orderFrontRegardless()
-        try await Task.sleep(for: .milliseconds(450))
         host.layoutSubtreeIfNeeded()
+        window.displayIfNeeded()
         defer {
             window.orderOut(nil)
             window.close()
         }
-        // A runner without a window server session gives no image: the layout still ran.
-        guard let image = WindowSnapshots.image(of: window) else { return }
+        // The window server shows the window some frames after it is ordered front, and a capture
+        // before that has one colour everywhere. Take the first capture that shows something and
+        // matches the one before it.
+        try await Task.sleep(for: .milliseconds(450))
+        var capture: (image: CGImage, pixels: Data)?
+        for _ in 0..<100 {
+            // A runner without a window server session gives no image: the layout still ran.
+            guard let image = WindowSnapshots.image(of: window), let pixels = image.dataProvider?.data as Data? else { return }
+            if let capture, capture.pixels == pixels, !isBlank(image, pixels) { break }
+            capture = (image, pixels)
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        guard let image = capture?.image else { return }
         lastImage = image
         try FileManager.default.createDirectory(at: RenderTests.folder, withIntermediateDirectories: true)
         let data = try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
         try data.write(to: RenderTests.folder.appendingPathComponent("\(name)-\(scheme == .dark ? "dark" : "light").png"))
+    }
+
+    /// Whether every pixel of a capture has the colour of the first one.
+    private static func isBlank(_ image: CGImage, _ pixels: Data) -> Bool {
+        let step = image.bitsPerPixel / 8
+        let first = pixels.prefix(step)
+        for row in 0..<image.height {
+            let start = row * image.bytesPerRow
+            for x in stride(from: start, to: start + image.width * step, by: step) where pixels[x..<x + step] != first {
+                return false
+            }
+        }
+        return true
     }
 }
 

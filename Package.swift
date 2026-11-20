@@ -25,7 +25,6 @@ let appDependencies: [Package.Dependency] = buildApp
         // Updates: an appcast and EdDSA-signed DMGs (docs/release.md › Updates).
         .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.1"),
     ] : []
-let appSwiftSettings: [SwiftSetting] = [.enableExperimentalFeature("StrictConcurrency")]
 let appTargets: [Target] = buildApp ? [
     // Menu bar app: clipboard watcher, floating results, drop zone, hotkeys, IPC server side.
     // Everything but the entry point lives in EsclopAppKit so tests and renders can reach it.
@@ -37,15 +36,14 @@ let appTargets: [Target] = buildApp ? [
             .product(name: "Sparkle", package: "Sparkle"),
         ],
         // MenuBarIcon.pdf: the menu bar glyph, generated from assets/menubar.svg (make icons).
-        resources: [.process("Resources")],
-        swiftSettings: appSwiftSettings
+        resources: [.process("Resources")]
     ),
     .executableTarget(
-        name: "EsclopApp", dependencies: ["EsclopAppKit"], swiftSettings: appSwiftSettings,
+        name: "EsclopApp", dependencies: ["EsclopAppKit"],
         // Sparkle.framework sits in Contents/Frameworks of the bundle (Scripts/bundle-app.sh).
         linkerSettings: [.unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"])]
     ),
-    .testTarget(name: "EsclopAppTests", dependencies: ["EsclopAppKit"], swiftSettings: appSwiftSettings),
+    .testTarget(name: "EsclopAppTests", dependencies: ["EsclopAppKit"]),
 ] : []
 
 let package = Package(
@@ -107,3 +105,8 @@ let package = Package(
         .testTarget(name: "esclopTests", dependencies: ["esclop", "EsclopIPC", "EsclopMCP"]),
     ] + appTargets
 )
+
+// Full concurrency checking in every target of the package (dependencies keep their own).
+for target in package.targets {
+    target.swiftSettings = (target.swiftSettings ?? []) + [.enableExperimentalFeature("StrictConcurrency")]
+}

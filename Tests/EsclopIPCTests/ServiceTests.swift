@@ -138,6 +138,33 @@ final class EventLog: @unchecked Sendable {
         #expect(throws: EsclopError.self) { try PDFPageTools().exportPages(pdf, pages: [9], format: .png, dpi: 72, into: temp.url) }
     }
 
+    /// Without a format, a page that is one photo exports as JPEG (named .jpg) and others as PNG.
+    @Test func aPhotoPageExportsAsJPEG() throws {
+        let temp = TempDir()
+        let pdf = temp.url.appendingPathComponent("scan.pdf")
+        var box = CGRect(x: 0, y: 0, width: 200, height: 100)
+        let context = try #require(CGContext(pdf as CFURL, mediaBox: &box, nil))
+        let photo = try #require(CGContext(
+            data: nil, width: 64, height: 32, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+        ))
+        photo.setFillColor(CGColor(red: 0.8, green: 0.3, blue: 0.1, alpha: 1))
+        photo.fill(CGRect(x: 0, y: 0, width: 32, height: 32))
+        let image = try #require(photo.makeImage())
+        context.beginPDFPage(nil)
+        context.draw(image, in: box)
+        context.endPDFPage()
+        context.beginPDFPage(nil)
+        context.setFillColor(CGColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1))
+        context.fill(box.insetBy(dx: 20, dy: 20))
+        context.endPDFPage()
+        context.closePDF()
+        let written = try PDFPageTools().exportPages(pdf, pages: nil, format: nil, dpi: 72, into: temp.url.appendingPathComponent("pages"))
+        #expect(written.map(\.lastPathComponent) == ["scan-1.jpg", "scan-2.png"])
+        let forced = try PDFPageTools().exportPages(pdf, pages: [2], format: .jpeg, dpi: 72, into: temp.url.appendingPathComponent("jpeg"))
+        #expect(forced.map(\.lastPathComponent) == ["scan-2.jpg"])
+    }
+
     @Test func signedPDFsAreNotCroppedOrUncropped() async throws {
         let temp = TempDir()
         let pdf = temp.url.appendingPathComponent("contract.pdf")
@@ -313,7 +340,7 @@ final class EventLog: @unchecked Sendable {
     }
 
     @Test func registryProviderUsesTheRegistry() throws {
-        let store = SettingsStore(suiteName: FileManager.default.temporaryDirectory.appendingPathComponent("esclop-settings-\(UUID().uuidString)").path)
+        let store = SettingsStore(suiteName: "dev.esclop.tests.\(UUID().uuidString)")
         defer { store.removeAll() }
         let provider = RegistrySettingsProvider(store: store)
         #expect(!provider.isAllowed(.allowSettingsChanges))

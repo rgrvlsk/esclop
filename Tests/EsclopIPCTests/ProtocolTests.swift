@@ -130,7 +130,20 @@ final class FakeHandler: AppRequestHandler, @unchecked Sendable {
     enum Speed { case fast, slowCancellable, slowStubborn }
     let speed: Speed
 
+    /// A stubborn job holds until the test lets it go.
+    private var held: [CheckedContinuation<Void, Never>] = []
+    private var released = false
+
     init(speed: Speed = .fast) { self.speed = speed }
+
+    func release() {
+        lock.lock()
+        let waiting = held
+        held = []
+        released = true
+        lock.unlock()
+        waiting.forEach { $0.resume() }
+    }
 
     func perform(_ job: OptimisationJob, events: @escaping @Sendable (JobEvent) -> Void) async throws {
         if job.request.origin == .mcp, job.request.location == .inPlace {
@@ -141,8 +154,12 @@ final class FakeHandler: AppRequestHandler, @unchecked Sendable {
             case .fast: break
             case .slowCancellable: try await Task.sleep(nanoseconds: 5_000_000_000)
             case .slowStubborn:
-                // Like a crashed app: no cancellation, no reply.
-                await withCheckedContinuation { done in DispatchQueue.global().asyncAfter(deadline: .now() + 5) { done.resume() } }
+                // Like a crashed app: it said it started, then no cancellation and no reply.
+                events(.progress(OptimisationProgress(requestID: job.id, source: source, fraction: 0)))
+                await withCheckedContinuation { done in
+                    lock.lock()
+                    if released { lock.unlock(); done.resume() } else { held.append(done); lock.unlock() }
+                }
             }
             events(.progress(OptimisationProgress(requestID: job.id, source: source, fraction: 0.5)))
             if source.lastPathComponent.hasPrefix("missing") {
@@ -154,7 +171,7 @@ final class FakeHandler: AppRequestHandler, @unchecked Sendable {
     }
 
     func stop(_ request: StopRequest) async {
-        lock.lock(); stopped += request.ids; lock.unlock()
+        lock.withLock { stopped += request.ids }
     }
 
     func settings(_ command: SettingsCommand, origin: RequestOrigin) async throws -> SettingsReply {
@@ -169,7 +186,7 @@ final class FakeHandler: AppRequestHandler, @unchecked Sendable {
 
     func status() async -> AppStatus { AppStatus(version: "test", pid: getpid(), activeJobs: 0) }
     func recentResults(limit: Int) async -> [OptimisationResult] { Array([sampleResult("a.png"), sampleResult("b.png")].prefix(limit)) }
-    func quit() async { lock.lock(); quitCalled = true; lock.unlock() }
+    func quit() async { lock.withLock { quitCalled = true } }
 }
 
 @Suite(.serialized) struct LiveIPC {
@@ -248,18 +265,24 @@ final class FakeHandler: AppRequestHandler, @unchecked Sendable {
         #expect(Date().timeIntervalSince(started) < 4, "the job's task was cancelled")
         #expect(report.results.isEmpty)
         try await Task.sleep(nanoseconds: 200_000_000)
-        handler.lock.lock(); defer { handler.lock.unlock() }
-        #expect(handler.stopped == [job.id])
+        #expect(handler.lock.withLock { handler.stopped } == [job.id])
     }
 
     @Test func vanishedAppIsDetected() async throws {
         let ports = ports()
-        let server = AppServer(handler: FakeHandler(speed: .slowStubborn), ports: ports)
+        let handler = FakeHandler(speed: .slowStubborn)
+        defer { handler.release() }
+        let server = AppServer(handler: handler, ports: ports)
         try server.start()
         let client = AppClient(ports: ports)
         let job = OptimisationJob(request: OptimisationRequest(sources: [URL(fileURLWithPath: "/tmp/slow.png")], origin: .cli), operation: .optimise)
-        let task = Task { try await client.perform(job) }
-        try await Task.sleep(nanoseconds: 300_000_000)
+        let (working, signal) = AsyncStream<Void>.makeStream()
+        let task = Task {
+            defer { signal.finish() }
+            return try await client.perform(job) { _ in signal.yield() }
+        }
+        // The app accepted the job and works on it: its first progress reached the client.
+        for await _ in working { break }
         server.stop()
         // Accepted before it vanished: reported, and not mistaken for "never started".
         do {
@@ -343,10 +366,12 @@ final class FakeHandler: AppRequestHandler, @unchecked Sendable {
         let client = AppClient(ports: ports)
         // The fake does not exit, so stop the ports as the app would on terminate.
         let stopper = Task { try await Task.sleep(nanoseconds: 300_000_000); server.stop() }
-        try await client.quit(timeout: 5)
+        // The ports' end shows up to the client after a delay that reached 2 s on a CI runner
+        // when the test passed, and more than 5 s four times.
+        // ponytail: a margin, not a cause. If it fails again at 30 s, a stopped port stays listed.
+        try await client.quit(timeout: 30)
         _ = try await stopper.value
-        handler.lock.lock(); defer { handler.lock.unlock() }
-        #expect(handler.quitCalled)
+        #expect(handler.lock.withLock { handler.quitCalled })
         #expect(!client.isAppRunning)
     }
 }

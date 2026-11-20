@@ -176,6 +176,7 @@ import UniformTypeIdentifiers
 }
 
 /// The app host's steps, each through a fake desktop.
+@MainActor
 @Suite struct AppPipelineHostTests {
     final class FakeDesktop: PipelineDesktop {
         struct Calls { var texts: [String] = []; var images: [UTType] = []; var opened: [(URL, URL)] = []; var forks: [URL] = [] }

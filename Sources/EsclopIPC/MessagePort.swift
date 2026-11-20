@@ -6,8 +6,10 @@
 import CoreFoundation
 import EsclopCore
 import Foundation
+import os
 
 /// A named port this process listens on.
+/// Sendable by hand: `port` is behind `lock`; the rest is immutable.
 public final class LocalMessagePort: @unchecked Sendable {
     public let name: String
     fileprivate let onMessage: @Sendable (Data) -> Void
@@ -18,8 +20,7 @@ public final class LocalMessagePort: @unchecked Sendable {
     /// Names this process listens on. CoreFoundation hands back the existing port for a name
     /// already taken in the same process, so a second owner is refused here.
     private static let queueKey = DispatchSpecificKey<String>()
-    private static let ownedLock = NSLock()
-    private static var owned = Set<String>()
+    private static let owned = OSAllocatedUnfairLock(initialState: Set<String>())
 
     /// Throws `.other` when this or another process already owns the name.
     public init(name: String, onMessage: @escaping @Sendable (Data) -> Void) throws {
@@ -28,9 +29,7 @@ public final class LocalMessagePort: @unchecked Sendable {
         self.queue = DispatchQueue(label: "esclop.port.\(name)")
         queue.setSpecific(key: Self.queueKey, value: name)
 
-        Self.ownedLock.lock()
-        let fresh = Self.owned.insert(name).inserted
-        Self.ownedLock.unlock()
+        let fresh = Self.owned.withLock { $0.insert(name).inserted }
         guard fresh else { throw EsclopError.other("The message port \(name) is already in use in this process") }
 
         var context = CFMessagePortContext(
@@ -67,9 +66,7 @@ public final class LocalMessagePort: @unchecked Sendable {
     }
 
     private static func release(_ name: String) {
-        ownedLock.lock()
-        owned.remove(name)
-        ownedLock.unlock()
+        _ = owned.withLock { $0.remove(name) }
     }
 
     deinit { invalidate() }

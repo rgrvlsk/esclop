@@ -266,6 +266,7 @@ func withTimeout<T: Sendable>(_ seconds: TimeInterval, _ operation: @escaping @S
 }
 
 /// Resumes a continuation at most once, whichever side gets there first.
+/// Sendable by hand: `continuation` is behind `lock`.
 final class ResumeOnce<T: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<T?, Error>?
