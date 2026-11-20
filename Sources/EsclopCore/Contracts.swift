@@ -318,6 +318,10 @@ public enum EsclopError: Error, Codable, Equatable, Sendable, CustomStringConver
     /// attempt came out smaller than the original.
     case cannotFit(underBytes: Int, smallest: Int?)
     /// The output format keeps every bit (FLAC, WAV…), so it has no size to aim at.
+    // ponytail: like `leftAsIs` and `backupRemoved` before them, these two are new on the wire: an
+    // `esclop mcp` process older than the app cannot decode a report that carries one. The app,
+    // CLI and MCP server ship in one bundle. Trigger: a stale process seen failing on it; then
+    // encode them as `.other` / `.invalidArgument`.
     case losslessCannotFit(format: String)
     case other(String)
 

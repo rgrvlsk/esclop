@@ -235,13 +235,10 @@ public final class AppModel {
         events: @escaping @Sendable (JobEvent) -> Void = { _ in },
         onResult: ((OptimisationResult) -> Void)? = nil
     ) async -> JobReport {
-        // "Show floating results" off: results go only to Recent and the menu, as a pipeline's
-        // `hideResult` makes them; a card already on screen runs again in place.
-        let showsResult = job.request.showResultUI && (existing != nil || EsclopSettings.showFloatingResults.value(in: settings))
-        let batch = batch ?? (existing == nil && showsResult && job.request.sources.count >= batchThreshold
+        let batch = batch ?? (existing == nil && job.request.showResultUI && job.request.sources.count >= batchThreshold
             ? openBatch(origin: job.request.origin) : nil)
         // A fork shows as a result of its own beside a single floating result, not in a batch.
-        let single = showsResult && batch == nil && job.request.sources.count == 1 ? job.request.sources.first : nil
+        let single = job.request.showResultUI && batch == nil && job.request.sources.count == 1 ? job.request.sources.first : nil
         let desktop = AppDesktop(model: self, original: single.map { ($0, Self.size(of: $0)) })
         // The clipboard as the job starts: a link it makes later goes on it only if nothing was
         // copied after (an automatic upload's, a pipeline's upload step's).
@@ -261,7 +258,7 @@ public final class AppModel {
                 restart(existing, context: context)
                 card = existing
             } else {
-                card = showsResult ? addCard(for: source, job: job, displayName: displayName, context: context) : nil
+                card = job.request.showResultUI ? addCard(for: source, job: job, displayName: displayName, context: context) : nil
             }
             let task = Task { await self.process(source, job: job, executor: executor, card: card, linksSince: linksSince, events: events, onResult: onResult) }
             card?.cancelWork = { task.cancel() }
@@ -974,6 +971,9 @@ public final class AppModel {
                 job.operation = plain
                 card.fit = nil
                 card.adjusted = job.request.crop != nil || job.request.downscale != nil
+                // ponytail: this notice replaces an "edited version is in the Trash" one shown just
+                // before (`notice` keeps one plain notice); the restored card said it too. Trigger:
+                // someone missing it; then join the two sentences in one notice.
                 notice(Strings.text("Fit dropped"), CardPresentation.message(for: error))
                 await run(job, displayName: displayName, context: context, reusing: card, onResult: onResult)
             }

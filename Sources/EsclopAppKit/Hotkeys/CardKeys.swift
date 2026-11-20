@@ -145,11 +145,7 @@ extension AppModel {
         case .perform(.upload) where uploadTargets.isEmpty: openFile(URL(string: "esclop://settings/uploads")!)
         case let .perform(action): perform(action, on: card)
         case let .downscale(scale): downscale(card, to: scale)
-        case .harder:
-            var choice = card.choice
-            choice.compression = .aggressive
-            choice.quality = nil
-            apply(choice, to: card)
+        case .harder: apply(card.choice.with(compression: .aggressive), to: card)
         case .open: openFile(card.shownFile)
         case .speed:
             card.optionsTab = MediaKind.of(card.shownFile) == .audio ? .sound : .optimise

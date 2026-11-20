@@ -192,24 +192,33 @@ import Testing
         #expect(Hotkeys.all.map(\.name) == [.optimiseClipboard, .optimiseClipboardHarder, .focusNewestResult, .showLastResult])
     }
 
-    /// "Show floating results" off: the result goes to Recent only, and "Show the last result"
-    /// brings it up; with nothing hidden it beeps.
+    /// "Show floating results" off: a drop's results go to Recent only, a big drop opens no batch
+    /// window, and "Show the last result" brings up the newest result not on screen; with no
+    /// result at all it beeps.
     @Test func showLastResultBringsBackWhatIsNotOnScreen() async throws {
         let harness = Harness()
         var beeps = 0
         harness.model.beep = { beeps += 1 }
         try EsclopSettings.showFloatingResults.set(false, in: harness.settings.store)
-        _ = await harness.model.run(harness.job(harness.temp.file("a.png")))
+        Hotkeys.action(for: .showLastResult)(harness.model)
+        #expect(beeps == 1 && harness.model.cards.isEmpty, "nothing to show yet")
+        let many = (1...harness.model.batchThreshold).map { harness.temp.file("b\($0).png") }
+        harness.model.optimise(many, origin: .dropZone)
+        #expect(await eventually { harness.model.recent.count == many.count })
+        #expect(harness.model.batch == nil, "no batch window either")
+        harness.model.optimise([harness.temp.file("a.png")], origin: .dropZone)
+        #expect(await eventually { harness.model.recent.count == many.count + 1 })
         #expect(harness.model.cards.isEmpty)
-        #expect(harness.model.recent.count == 1)
         Hotkeys.action(for: .showLastResult)(harness.model)
         let card = try #require(harness.model.cards.first)
         #expect(card.result?.id == harness.model.recent.first?.id)
         Hotkeys.action(for: .showLastResult)(harness.model)
-        #expect(harness.model.cards.count == 1 && beeps == 1, "it is already on screen")
+        #expect(harness.model.cards.count == 2, "the newest is on screen: the next one comes")
+        #expect(harness.model.cards.last?.result?.id == harness.model.recent[1].id)
         harness.model.dismiss(card)
         Hotkeys.action(for: .showLastResult)(harness.model)
-        #expect(harness.model.cards.count == 1, "the card that went comes back")
+        #expect(harness.model.cards.last?.result?.id == card.result?.id, "the card that went comes back")
+        #expect(beeps == 1)
     }
 
     /// Copy, the result, the hotkey, Z: a copied screenshot is undone from the keyboard alone.

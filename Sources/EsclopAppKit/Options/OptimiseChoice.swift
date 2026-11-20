@@ -110,6 +110,17 @@ public struct OptimiseChoice: Codable, Hashable, Sendable {
     }
 }
 
+extension OptimiseChoice {
+    /// The same choice with another compression; the quality goes back to that compression's own
+    /// (Optimise harder, from the options or the result's ⌘A).
+    public func with(compression: Compression) -> OptimiseChoice {
+        var choice = self
+        choice.compression = compression
+        choice.quality = nil
+        return choice
+    }
+}
+
 extension OptimiseChoice.Compression {
     public var title: String { title(locale: Strings.locale) }
 
