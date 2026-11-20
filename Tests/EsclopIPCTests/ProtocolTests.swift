@@ -171,7 +171,7 @@ final class FakeHandler: AppRequestHandler, @unchecked Sendable {
     }
 
     func stop(_ request: StopRequest) async {
-        lock.lock(); stopped += request.ids; lock.unlock()
+        lock.withLock { stopped += request.ids }
     }
 
     func settings(_ command: SettingsCommand, origin: RequestOrigin) async throws -> SettingsReply {
@@ -186,7 +186,7 @@ final class FakeHandler: AppRequestHandler, @unchecked Sendable {
 
     func status() async -> AppStatus { AppStatus(version: "test", pid: getpid(), activeJobs: 0) }
     func recentResults(limit: Int) async -> [OptimisationResult] { Array([sampleResult("a.png"), sampleResult("b.png")].prefix(limit)) }
-    func quit() async { lock.lock(); quitCalled = true; lock.unlock() }
+    func quit() async { lock.withLock { quitCalled = true } }
 }
 
 @Suite(.serialized) struct LiveIPC {
@@ -265,8 +265,7 @@ final class FakeHandler: AppRequestHandler, @unchecked Sendable {
         #expect(Date().timeIntervalSince(started) < 4, "the job's task was cancelled")
         #expect(report.results.isEmpty)
         try await Task.sleep(nanoseconds: 200_000_000)
-        handler.lock.lock(); defer { handler.lock.unlock() }
-        #expect(handler.stopped == [job.id])
+        #expect(handler.lock.withLock { handler.stopped } == [job.id])
     }
 
     @Test func vanishedAppIsDetected() async throws {
@@ -372,8 +371,7 @@ final class FakeHandler: AppRequestHandler, @unchecked Sendable {
         // ponytail: a margin, not a cause. If it fails again at 30 s, a stopped port stays listed.
         try await client.quit(timeout: 30)
         _ = try await stopper.value
-        handler.lock.lock(); defer { handler.lock.unlock() }
-        #expect(handler.quitCalled)
+        #expect(handler.lock.withLock { handler.quitCalled })
         #expect(!client.isAppRunning)
     }
 }

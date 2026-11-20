@@ -8,6 +8,7 @@
 import CoreServices
 import Foundation
 
+/// Sendable by hand: its owner sets and clears `stream` on the main actor; FSEvents calls back on `queue`.
 final class FolderWatcher: @unchecked Sendable {
     typealias Handler = @Sendable ([URL]) -> Void
 

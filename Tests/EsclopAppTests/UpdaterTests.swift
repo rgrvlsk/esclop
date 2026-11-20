@@ -14,6 +14,7 @@ final class UpdaterHost: @unchecked Sendable {
     let bundle: Bundle
 
     init() {
+        _ = Self.removeEarlierRuns
         let contents = temp.url.appendingPathComponent("Host.app/Contents", isDirectory: true)
         try? FileManager.default.createDirectory(at: contents, withIntermediateDirectories: true)
         let info: [String: Any] = [
@@ -30,10 +31,23 @@ final class UpdaterHost: @unchecked Sendable {
 
     deinit {
         UserDefaults.standard.removePersistentDomain(forName: identifier)
-        // Sparkle keeps it under the host's identifier in ~/Library/Preferences; the file stays.
-        let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
-        try? FileManager.default.removeItem(at: library.appendingPathComponent("Preferences/\(identifier).plist"))
+        try? FileManager.default.removeItem(at: Self.preferences.appendingPathComponent("\(identifier).plist"))
     }
+
+    /// Sparkle keeps its defaults under the host's identifier in ~/Library/Preferences, and
+    /// cfprefsd writes a removed domain's file back about ten seconds later, when a full run is
+    /// still going. Each run removes those earlier files once they are a minute old.
+    private static let removeEarlierRuns: Void = {
+        let files = (try? FileManager.default.contentsOfDirectory(at: preferences, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+        for file in files where file.lastPathComponent.hasPrefix("dev.esclop.app-tests.updater-") {
+            guard let modified = try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
+                  modified < Date(timeIntervalSinceNow: -60) else { continue }
+            try? FileManager.default.removeItem(at: file)
+        }
+    }()
+
+    private static let preferences = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("Preferences", isDirectory: true)
 }
 
 @MainActor

@@ -83,7 +83,7 @@ public struct ResultsLog: Sendable {
             data.append(line)
             data.append(0x0A)
         }
-        let write = { [self] in
+        let write: @Sendable () -> Void = { [self, data] in
             do {
                 try locked {
                     if !FileManager.default.fileExists(atPath: url.path) {
@@ -496,6 +496,8 @@ public enum HelperProcess {
         try process.run()
 
         // Drain both pipes while the child runs: a full pipe would block it forever.
+        // Sendable by hand: one reader writes each box; it is read after `group.wait`, which gives
+        // up after 5 s (a reader still stuck then can write while it is read).
         final class Box: @unchecked Sendable { var data = Data() }
         let stdoutBox = Box(), stderrBox = Box()
         let group = DispatchGroup()

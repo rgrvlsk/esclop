@@ -8,6 +8,7 @@ import Foundation
 import Testing
 
 /// What a new file in a watched folder gets, without a file system.
+@MainActor
 @Suite struct WatchPlanTests {
     let folder = URL(fileURLWithPath: "/watched")
     var targets: [WatchTarget] { [WatchTarget(folder: folder, kinds: [.image, .video])] }
