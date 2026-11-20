@@ -10571,6 +10571,16 @@
         }
       }
     },
+    "Saved 1 page in %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’ha desat 1 pàgina a %@"
+          }
+        }
+      }
+    },
     "setting.adaptiveImageSize.summary": {
       "localizations": {
         "ca": {

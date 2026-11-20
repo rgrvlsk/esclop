@@ -128,7 +128,11 @@ public struct EsclopEngine: OptimisationEngine {
     /// Returns the files in page order. `esclop pdf pages` and the pipelines both export here.
     public func extractPDFPages(_ source: URL, pages: [Int]? = nil, format: OutputFormat?, dpi: Double = 144, to folder: URL) async throws -> [URL] {
         let written = try PDFEngine(env: env).extractPages(source, pages: pages, format: format, dpi: dpi, to: folder)
-        for page in written { await optimiseNewImage(page) }
+        for page in written {
+            // Stop in the app ends it here; the caller removes what was written.
+            try Task.checkCancellation()
+            await optimiseNewImage(page)
+        }
         return written
     }
 

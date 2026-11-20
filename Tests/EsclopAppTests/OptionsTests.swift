@@ -368,6 +368,28 @@ import UniformTypeIdentifiers
         await options.setFraming(.smart)
         #expect(asked.urls.count == 1, "Vision looks once per popover")
         #expect(options.crop?.cropSize?.rect != nil, "the engine cuts the frame that is shown")
+        // A frame resized by hand keeps its size when it moves; a typed size lands on the subject.
+        options.crop?.drag(.bottomLeft, by: CGSize(width: 400, height: -400))
+        let size = try #require(options.crop?.rect.size)
+        await options.setFraming(.centre)
+        #expect(options.crop?.rect.size == size)
+        await options.setFraming(.smart)
+        options.setSize(width: 1080, height: 1080)
+        #expect(options.crop?.rect.maxX == 3000 && options.crop?.typed?.width == 1080)
+    }
+
+    /// Smart that finds nothing goes back to Centre and does not ask again.
+    @Test func smartThatFindsNothingFallsBackToCentre() async {
+        let harness = Harness()
+        let (options, _) = options(harness)
+        let asked = Asked()
+        options.findFocus = { url in
+            asked.urls.append(url)
+            return nil
+        }
+        await options.setFraming(.smart)
+        await options.setFraming(.smart)
+        #expect(options.framing == .centre && asked.urls.count == 1)
     }
 
     /// Pages as Images writes every page into "<name> pages" beside the PDF, through the one
@@ -395,6 +417,12 @@ import UniformTypeIdentifiers
         let names = try FileManager.default.contentsOfDirectory(atPath: folder.path).sorted()
         #expect(names == ["Dossier-1.png", "Dossier-2.png"])
         #expect(pages.presentation.capsule == .status(symbol: "photo.on.rectangle.angled", text: "2 pages · \(Figures.bytes(pages.result?.bytesAfter ?? 0))"))
+        // Again: a folder of its own, so its Trash never takes the first export.
+        harness.model.perform(.pagesAsImages, on: card)
+        #expect(await eventually { harness.model.cards.filter { $0.pages != nil }.count == 2 })
+        let again = try #require(harness.model.cards.last { $0.pages != nil })
+        #expect(again.shownFile.lastPathComponent == "Dossier pages 2")
+        #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path).count == 2)
     }
 
     /// A typed size is kept for next time: five at most, newest first, in one setting.
@@ -403,7 +431,7 @@ import UniformTypeIdentifiers
         let (options, _) = options(harness)
         for width in [100, 200, 300, 400, 500, 600] {
             options.startCrop(aspect: .free)
-            options.crop?.setOutput(width: width, height: 100)
+            options.setSize(width: width, height: 100)
             options.applyCrop()
         }
         options.startCrop(aspect: .ratio(4, 3))
@@ -412,7 +440,12 @@ import UniformTypeIdentifiers
         options.useSavedSize(width: 300, height: 100)
         options.applyCrop()
         #expect(options.savedSizes.map(\.width) == [300, 600, 500, 400, 200], "used again, it comes first")
-        #expect(options.crop?.typedSize == true && options.crop?.outputWidth == 300 && options.crop?.outputHeight == 100)
+        #expect(options.crop?.typed?.width == 300 && options.crop?.outputWidth == 300 && options.crop?.outputHeight == 100)
+        // Larger than the picture: saved as typed, the crop itself never enlarges.
+        options.setSize(width: 6000, height: 4000)
+        options.applyCrop()
+        #expect(EsclopSettings.cropSizes.value(in: harness.settings.store).first == "6000x4000")
+        #expect(options.crop?.outputWidth == 3000)
     }
 }
 

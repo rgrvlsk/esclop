@@ -202,13 +202,14 @@ extension AppModel {
 
     // MARK: Beside the file
 
-    /// A PDF's pages as optimised images in a folder beside it, named as `esclop pdf pages` names
-    /// it ("Dossier pages"), on a card of its own that stands for the folder. The card works
-    /// while the pages are made, and its Stop stops them.
+    /// A PDF's pages as optimised images in a new folder beside it, named as `esclop pdf pages`
+    /// names it ("Dossier pages", else "Dossier pages 2"), on a card of its own that stands for
+    /// the folder. The folder holds only this export, so the card's Trash, and Stop or a failure
+    /// (which remove it), never touch anything else.
     func exportPages(_ card: ResultCard) {
         let pdf = card.shownFile
-        let folder = pdf.deletingLastPathComponent()
-            .appendingPathComponent(pdf.deletingPathExtension().lastPathComponent + " pages", isDirectory: true)
+        let folder = OutputLocation.unique(pdf.deletingLastPathComponent()
+            .appendingPathComponent(pdf.deletingPathExtension().lastPathComponent + " pages", isDirectory: true))
         let pagesCard = ResultCard(jobID: UUID(), source: pdf, origin: .app, bytesBefore: Self.size(of: pdf))
         pagesCard.displayName = folder.lastPathComponent
         add(pagesCard)
@@ -217,6 +218,7 @@ extension AppModel {
         let task = Task { [weak self, weak pagesCard] in
             do {
                 let pages = try await engine.extractPDFPages(pdf, format: nil, to: folder)
+                try Task.checkCancellation()
                 guard let self, let pagesCard else { return }
                 noteWritten(pages + [folder])
                 pagesCard.pages = pages.count
@@ -226,8 +228,11 @@ extension AppModel {
                 ))
                 if let first = pages.first { loadThumbnail(pagesCard, url: first) }
                 settle(pagesCard)
-                announce(Strings.format("Saved %d pages in %@", pages.count, folder.lastPathComponent))
+                announce(pages.count == 1
+                    ? Strings.format("Saved 1 page in %@", folder.lastPathComponent)
+                    : Strings.format("Saved %d pages in %@", pages.count, folder.lastPathComponent))
             } catch {
+                try? FileManager.default.removeItem(at: folder)
                 guard let self else { return }
                 if let pagesCard { dismiss(pagesCard) }
                 if !Task.isCancelled { failed(Strings.format("Could not save the pages of %@", pdf.lastPathComponent), error) }

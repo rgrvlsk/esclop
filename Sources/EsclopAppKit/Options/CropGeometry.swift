@@ -55,8 +55,9 @@ public struct CropGeometry: Equatable, Sendable {
     public private(set) var aspect: CropAspect = .free
     /// The output size when it differs from the rectangle (the picture is scaled to it).
     public private(set) var output: (width: Int, height: Int)?
-    /// The size was typed (or chosen from the saved ones) and not changed since: Crop saves it.
-    public private(set) var typedSize = false
+    /// The size as typed (or chosen from the saved ones), kept until the frame changes shape or
+    /// size: Crop saves it. It can be larger than `output`, which never enlarges.
+    public private(set) var typed: (width: Int, height: Int)?
     /// Smallest side of the rectangle, in pixels.
     static let minimum: CGFloat = 16
 
@@ -68,7 +69,7 @@ public struct CropGeometry: Equatable, Sendable {
 
     public static func == (lhs: CropGeometry, rhs: CropGeometry) -> Bool {
         lhs.imageWidth == rhs.imageWidth && lhs.imageHeight == rhs.imageHeight && lhs.rect == rhs.rect && lhs.aspect == rhs.aspect
-            && lhs.output?.width == rhs.output?.width && lhs.output?.height == rhs.output?.height && lhs.typedSize == rhs.typedSize
+            && lhs.output?.width == rhs.output?.width && lhs.output?.height == rhs.output?.height && lhs.typed?.width == rhs.typed?.width && lhs.typed?.height == rhs.typed?.height
     }
 
     var bounds: CGRect { CGRect(x: 0, y: 0, width: imageWidth, height: imageHeight) }
@@ -78,7 +79,7 @@ public struct CropGeometry: Equatable, Sendable {
     public mutating func setAspect(_ aspect: CropAspect, focus: CGPoint? = nil) {
         self.aspect = aspect
         output = nil
-        typedSize = false
+        typed = nil
         guard let ratio = aspect.value else { return }
         var width = CGFloat(imageWidth)
         var height = width / ratio
@@ -121,7 +122,7 @@ public struct CropGeometry: Equatable, Sendable {
         }
         rect = Self.rounded(r)
         output = nil
-        typedSize = false
+        typed = nil
     }
 
     /// Moves the whole rectangle, staying inside the image.
@@ -139,7 +140,7 @@ public struct CropGeometry: Equatable, Sendable {
             setAspect(.ratio(width / divisor, height / divisor), focus: focus)
         }
         output = Int(rect.width) == width && Int(rect.height) == height ? nil : (min(width, Int(rect.width)), min(height, Int(rect.height)))
-        typedSize = true
+        typed = (width, height)
     }
 
     public var outputWidth: Int { output?.width ?? Int(rect.width) }

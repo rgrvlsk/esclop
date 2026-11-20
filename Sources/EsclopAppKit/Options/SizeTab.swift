@@ -185,7 +185,7 @@ struct CropSection: View {
                     .disabled(model.card.isWorking || model.kind == .pdf && aspect == .free)
             }
             // The paper size or device chosen in Paper and devices, so the row says which.
-            if let aspect = model.crop?.aspect, case .preset = aspect, model.cropping, model.crop?.typedSize == false {
+            if let aspect = model.crop?.aspect, case .preset = aspect, model.cropping, model.crop?.typed == nil {
                 Chip(title: aspect.title, selected: true) { choose(aspect) }
             }
             // Sizes typed before (pixels: not for a PDF's pages).
@@ -251,8 +251,8 @@ struct CropSection: View {
     }
 
     private func isChosen(_ size: (width: Int, height: Int)) -> Bool {
-        guard model.cropping, let crop = model.crop, crop.typedSize else { return false }
-        return crop.outputWidth == size.width && crop.outputHeight == size.height
+        guard model.cropping, let typed = model.crop?.typed else { return false }
+        return typed == size
     }
 }
 
@@ -363,7 +363,7 @@ struct CropEditor: View {
 
     private func applySize() {
         guard let width = Int(widthText), let height = Int(heightText) else { return syncFields() }
-        model.crop?.setOutput(width: width, height: height)
+        model.setSize(width: width, height: height)
         syncFields()
     }
 }

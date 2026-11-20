@@ -103,6 +103,8 @@ public final class OptionsModel {
     public private(set) var framing = CropFraming.centre
     /// What Vision finds salient in the original, once Smart asked for it.
     @ObservationIgnored private var focus: CGPoint?
+    /// Vision looked once; it is not asked again while the popover is open.
+    @ObservationIgnored private var looked = false
     /// Finds `focus` off the main actor: the engine's smart crop. A seam for tests.
     @ObservationIgnored var findFocus: @Sendable (URL) async -> CGPoint? = { url in
         await Task.detached { EsclopEngine.salientCentre(of: url) }.value
@@ -385,20 +387,28 @@ public final class OptionsModel {
             reframe(on: CGPoint(x: 0.5, y: 0.5))
             return
         }
-        if focus == nil {
+        if !looked {
+            looked = true
             focus = await findFocus(original ?? card.shownFile)
         }
         // Another choice may have come while Vision looked.
-        if self.framing == .smart, let focus { reframe(on: focus) }
+        guard self.framing == .smart else { return }
+        if let focus { reframe(on: focus) } else { self.framing = .centre }
     }
 
+    /// Moves the frame, as it is, so its centre is on `point` (0 to 1), staying in the picture.
     private func reframe(on point: CGPoint) {
-        guard var geometry = crop, geometry.aspect != .free else { return }
-        // A typed size keeps its size; only the frame moves.
-        let typed = geometry.typedSize ? (width: geometry.outputWidth, height: geometry.outputHeight) : nil
-        geometry.setAspect(geometry.aspect, focus: point)
-        if let typed { geometry.setOutput(width: typed.width, height: typed.height) }
+        guard var geometry = crop else { return }
+        geometry.move(by: CGSize(
+            width: point.x * CGFloat(geometry.imageWidth) - geometry.rect.midX,
+            height: point.y * CGFloat(geometry.imageHeight) - geometry.rect.midY
+        ))
         crop = geometry
+    }
+
+    /// A size typed under the picture: its shape, placed as the framing says, and that size.
+    public func setSize(width: Int, height: Int) {
+        crop?.setOutput(width: width, height: height, focus: framedOn)
     }
 
     /// The sizes typed in the Crop tab before, newest first (`cropSizes`).
@@ -409,7 +419,7 @@ public final class OptionsModel {
     /// One of the saved sizes: its shape and that size, as if typed.
     public func useSavedSize(width: Int, height: Int) {
         startCrop(aspect: .free)
-        crop?.setOutput(width: width, height: height, focus: framedOn)
+        setSize(width: width, height: height)
     }
 
     static func size(_ text: String) -> (width: Int, height: Int)? {
@@ -436,7 +446,7 @@ public final class OptionsModel {
 
     public func applyCrop() {
         guard let crop, let size = crop.cropSize else { return }
-        if crop.typedSize { save(width: crop.outputWidth, height: crop.outputHeight) }
+        if let typed = crop.typed { save(width: typed.width, height: typed.height) }
         app.crop(card, to: size)
     }
 
