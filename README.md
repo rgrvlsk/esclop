@@ -16,23 +16,43 @@ then go to System Settings → Privacy & Security, find the message about L'Escl
 and click **Open Anyway**.
 
 The command line and the MCP server are inside the app, at
-`L'Esclop.app/Contents/MacOS/esclop`. `esclop-X.Y.Z-cli.tar.gz` has them without the app.
+`L'Esclop.app/Contents/MacOS/esclop`. To put `esclop` on your PATH, run
+`"/Applications/L'Esclop.app/Contents/MacOS/esclop" install-cli`: it links it into
+`~/.local/bin` (`--dir` for another folder).
+`esclop-X.Y.Z-cli.tar.gz` has the command line and the MCP server without the app.
 
 ## Status
 
-0.1 is a beta. The menu-bar app optimises copied images (and copied files when the settings
-say so) and new files in watched folders, shows a floating result for each file with its
-options, crop and conversions, lists large jobs in a batch window, offers a drop zone while
-files are dragged, and keeps originals restorable. Its Settings window lists every setting by
-pane, with search and `esclop://settings/<key>` links, and connects AI agents in one click. A
-pipeline editor creates and runs pipelines without a text file, and a first-run tour
-introduces the app. The CLI and the MCP server run their jobs through the app when it is open.
+0.2 is a beta. The menu bar app optimises what you copy, drop or save in a watched folder
+(screenshots and screen recordings by default), and keeps every original restorable. Each file
+shows a floating result with its saving; its detail and options convert, resize, crop, compare,
+upload or run a pipeline. Many files at once go to a batch window. A copied file is optimised as
+a copy, so the file on disk stays as it is; hold ⌥ while dropping to keep the originals.
 
-It compares a result with its original, offers Finder Quick Actions and Shortcuts actions, and
-updates itself when a new release is published. While files are dragged, preset zones beside the
-drop zone run a pipeline on them, and results can be uploaded to your own S3-compatible storage
-with the link copied. The app is in English and Catalan.
-See the [roadmap](docs/PLAN.md) and [architecture](docs/ARCHITECTURE.md).
+The cards take Clop's keys while the pointer rests on them: Space Quick Look, ⌘Z Undo, ⌘C Copy,
+⌘F Show in Finder, ⌘D Compare, ⌘K Crop, ⌘S Save, ⌘⌫ Dismiss, ⌘- and ⌘1–⌘9 to downscale.
+
+The app also has Settings with search and `esclop://settings/<key>` links, one-click setup for
+AI agents, a pipeline editor, preset zones beside the drop zone, Finder Quick Actions, Shortcuts
+actions, uploads to your own S3-compatible storage, and automatic updates. It is in English and
+Catalan. See the [roadmap](docs/PLAN.md) and [architecture](docs/ARCHITECTURE.md).
+
+### Command line
+
+The CLI and the MCP server run their jobs through the app when it is open.
+
+```sh
+esclop optimise photo.png                   # in place, with a backup
+esclop optimise https://example.com/a.jpg   # downloads the address first
+esclop recent                               # the recent results
+esclop restore photo.png                    # puts the original back
+```
+
+### Known limits
+
+- The beta is signed ad hoc and not notarised: macOS asks for **Open Anyway** once (Install).
+- JPEG XL is read but not written: macOS cannot write it, so it is not offered as an output.
+- A speed change leaves out a video's chapters, because their times would not follow.
 
 ## Build
 

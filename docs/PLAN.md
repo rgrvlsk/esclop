@@ -9,16 +9,16 @@ in a floating card and restore the original. CLI and MCP workflows already run w
 - Swift media engines, Rust image engine, settings registry and backups.
 - Pipeline parser, executor, file store and built-in presets.
 - Pinned tool builds, licence checks, CI and CLI release packaging.
-- Menu-bar app: clipboard watcher, the Liquid Glass floating result (thumbnail, detail with
-  before/after comparison, activity capsule for long jobs), drop zone, hotkeys, backups menu,
-  and the IPC server that runs CLI and MCP jobs with results.
+- Menu-bar app: clipboard watcher, the floating result (card, detail with the compare loupe,
+  Clop's keys on hover), the menu bar panel with Recent, drop zone, hotkeys, backups, and the
+  IPC server that runs CLI and MCP jobs with results.
 - Settings window: a sidebar of panes generated from the registry, search across every
   setting, `esclop://settings/<key>` deep links, validation and reset per setting.
 - Agents and MCP pane: agent detection, connect and disconnect with a preview of the config
   change, the permission switches, snippets and a live server test.
 - First-run onboarding, skippable and reopened from the menu.
-- The options popover from "…" (Optimise, Size with the crop editor, Share; Sound for audio)
-  with size estimates, origin suggestions, clipboard rules and the Catalan localisation.
+- The options popover (Format, Size, Crop and Actions; Sound for audio) with size estimates, origin suggestions,
+  clipboard rules and the Catalan localisation.
 - The batch window for many files at once: progress, aggregate saving, pause, stop and restore all.
 - Watched folders (screenshots and recordings by default) and pipeline folder triggers in the
   app, with a folder list editor in each kind's Settings pane.
@@ -30,14 +30,20 @@ in a floating card and restore the original. CLI and MCP workflows already run w
   get and change a setting, pause or resume.
 - Automatic updates with Sparkle: signed DMGs, a signed appcast on the `appcast` branch, two
   settings and "Check for Updates…".
-- Preset zones beside the drop zone, from pipelines and built-in templates, ordered in Settings.
-
-- Uploads to S3-compatible targets with Keychain keys, from the Share tab, a pipeline step,
+- Preset zones beside the drop zone, from pipelines and built-in templates, ordered in Settings;
+  ⌥ at the drop keeps the originals.
+- Uploads to S3-compatible targets with Keychain keys, from the options, a pipeline step,
   automatic sources, `esclop upload` and MCP.
+- Clipboard and drop-zone pipeline triggers in the app, and a pipeline's own hotkey.
+- `esclop recent`, `esclop restore` and `esclop optimise https://…`.
+- The 0.2 release hillclimb: restore, clipboard, pipeline, PDF and metadata safety, Clop's
+  compression at every stop, and output settings that all work.
 
 ## Next
 
 - A crop window for files that are not on screen as a floating result.
+- For the owner to decide: notarisation (a Developer ID and a notary profile; the release
+  scripts already support them) and a Homebrew cask.
 
 ## Later
 
@@ -46,7 +52,7 @@ in a floating card and restore the original. CLI and MCP workflows already run w
   `docs/engines.md`, PDF memory).
 - Shelf integrations.
 - More upload targets (WebDAV, a custom command) if they are asked for.
-- App release validation, notarisation, a beta update channel and a Homebrew cask.
+- App release validation and a beta update channel.
 
 ## Quality targets
 

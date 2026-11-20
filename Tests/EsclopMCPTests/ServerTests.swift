@@ -83,6 +83,10 @@ struct Session {
         #expect(!result.isError, "\(result.text)")
         #expect(session.engine.calls == ["convert:webp"])
         #expect(result.json.contains("\"savedPercent\""))
+        // No place given: the converted file goes where "Converted images go" says, as in the app.
+        #expect(session.engine.requests.last?.locationFromSettings == true)
+        _ = try await session.call("esclop_convert", ["paths": .array([.string(file.path)]), "format": "webp", "location": "sameFolder"])
+        #expect(session.engine.requests.last?.locationFromSettings != true)
     }
 
     @Test func aPipelineThatFailsLateIsAnError() async throws {

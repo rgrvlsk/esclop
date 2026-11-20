@@ -24,6 +24,10 @@ struct ImageInfo: Sendable {
     var bitDepth: Int
     /// Pixels per inch; 72 when the file does not say. 144 is a 2x (Retina) screenshot.
     var dpi: Double = 72
+    /// The EXIF `UserComment` "Screenshot" that macOS writes into screenshots, saved or copied.
+    // ponytail: screenshots from tools that do not write it are not halved.
+    // If people ask for those, also count an image in the watched screenshot folder.
+    var isScreenshot = false
 
     var isAnimated: Bool { frameCount > 1 }
 
@@ -42,7 +46,8 @@ struct ImageInfo: Sendable {
             frameCount: CGImageSourceGetCount(source),
             hasGainMap: ImageIOCodec.gainMapType(source) != nil,
             bitDepth: properties[kCGImagePropertyDepth] as? Int ?? 8,
-            dpi: (properties[kCGImagePropertyDPIWidth] as? NSNumber)?.doubleValue ?? 72
+            dpi: (properties[kCGImagePropertyDPIWidth] as? NSNumber)?.doubleValue ?? 72,
+            isScreenshot: (properties[kCGImagePropertyExifDictionary] as? [CFString: Any])?[kCGImagePropertyExifUserComment] as? String == "Screenshot"
         )
     }
 }

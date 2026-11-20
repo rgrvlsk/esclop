@@ -14,7 +14,7 @@
 
 | File | Contents |
 | --- | --- |
-| `esclop-X.Y.Z-cli.tar.gz` | `bin/esclop`, `libexec/esclop/` (ffmpeg, ffprobe, gs, gifsicle, esclop-engine), `LICENSES/`, `THIRD_PARTY.md` |
+| `esclop-X.Y.Z-cli.tar.gz` | `bin/esclop`, `libexec/esclop/` (ffmpeg, ffprobe, gifsicle, esclop-engine), `LICENSES/`, `THIRD_PARTY.md` |
 | `esclop-X.Y.Z-source.tar.zst` | `git archive` of the tag |
 | `esclop-swift-X.Y.Z-vendor.tar.zst` | SwiftPM dependency sources at the revisions in `Package.resolved` |
 | `esclop-engine-X.Y.Z-vendor.tar.zst` | `cargo vendor` of `engine/Cargo.lock`, with the `.cargo/config.toml` that uses it |

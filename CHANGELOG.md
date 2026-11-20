@@ -21,7 +21,6 @@ into the body of its GitHub release.
 - Two or more failures share one place in the stack: an amber pill ("3 not optimised") that
   opens into their list, each with why and Retry, and Retry All and Dismiss. They no longer push
   the results off the screen.
-
 - The menu bar opens the design's panel instead of a system menu: the saving today or over the
   last 7 days on an arc, the batch at work, the recent results with Copy and Show in Finder on
   hover, and Optimise Files and Optimise Clipboard. The gear holds Settings, Pipelines, the
@@ -29,8 +28,90 @@ into the body of its GitHub release.
 - Recent › Clear forgets the names of recent results, in the panel and in the shared log the
   CLI and MCP read: only sizes and dates stay, so the saving still counts. Files and backups are
   not touched.
+- Recent in the menu bar panel brings back a card that newer results hid, a copied image with
+  its Copy. It works with the arrow keys, Return and VoiceOver.
+- "Go to the newest result" (Settings › General, unset by default) gives the newest result the
+  card keys, so a copied screenshot can be undone from the keyboard alone. Esc gives the keys
+  back to the app you were in.
+- The drop zone takes photos from Photos, attachments from Mail, and images and videos dragged
+  from a browser. A tap on ⌥ during a drag opens the zone under the pointer; "Show the drop zone
+  only after tapping ⌥" shows it only then.
+- Pipelines with the clipboard or drop-zone trigger run in the app on what you copy or drop,
+  for the kinds of file they have steps for. A pipeline's `hotkey` runs it on the clipboard. In
+  the app, pipeline steps copy to the clipboard, open the file with an app, hand it to Yoink,
+  Dropover, Dockside, Atoll or Dropshare, and show a `fork` as a result of its own.
+- "Downscale Retina screenshots" works: automatic optimisation halves a 2x (144 dpi)
+  screenshot, saved or copied. Other 144 dpi pictures keep their size.
+- `esclop recent` lists the recent results and `esclop restore <file>` puts an original back.
+- `esclop optimise https://…` downloads the address first. Other schemes are refused.
+- The CLI says on stderr when `--pdf-dpi`, `--remove-audio` or `--playback-speed-factor` do not
+  apply to a file.
+- MCP `esclop_restore_backup` lists the files it set aside in the Trash (`movedToTrash`).
+- Settings › Uploads warns when a Cloudflare R2 target has no public link, and Test Upload
+  checks that the copied link opens without the keys.
 
 ### Changed
+- Copying an image file in Finder no longer changes it on disk: L'Esclop optimises a copy and
+  puts that copy on the clipboard, as Clop does. A clipboard pipeline also works on a copy.
+- Hold ⌥ while dropping to keep the originals: the results go beside them, also on a preset
+  zone. Its pipeline runs on a copy beside the original, which goes again when the pipeline
+  writes its result elsewhere.
+- Result cards take Clop's keys while the pointer rests on them, with no click: Space Quick
+  Look, ⌘Z Undo, ⌘C Copy, ⌘F Show in Finder, ⌘D Compare, ⌘K Crop, ⌘S Save, ⌘⌫ Dismiss, ⌘- and
+  ⌘1–⌘9 to downscale. Space on a focused card or a Recent row opens Quick Look; Return opens the
+  detail.
+- Converted files keep their plain name (`photo.webp`), and new JPEGs use `.jpg`. With no place
+  chosen for the job, a conversion goes where "Converted images/videos/audio go" says (next to
+  the original for images), in the app, the CLI and for agents (MCP). An agent still never
+  replaces an original without the person's permission.
+- JPEG XL is no longer offered as an output on a Mac that cannot write it (macOS 26 reads JPEG
+  XL only).
+- Undo takes a result out of Recent Results, and it no longer counts in "Saved".
+- Audio keeps its title, artist and album when optimised; only "Remove metadata" strips them.
+- Apple Lossless files stay lossless unless you convert them or add `alac` to "Convert to AAC".
+  Lossless output keeps its bit depth and sample rate.
+- Video optimisation and Strip keep every video and audio track, track languages, chapters
+  (except after a speed change) and the subtitles the format can carry. MKV to MP4 keeps text
+  subtitles.
+- Crops, resizes and conversions keep the picture's density (Retina screenshots, print photos).
+  Titles and keywords (XMP) reach WebP, AVIF and PNG when metadata is kept.
+- A crop larger than the picture or video never enlarges it, and says so. GIFs follow the
+  playback speed; fitting a GIF to a size is refused instead of making an MP4. Audio downscale
+  lowers the bitrate by the factor.
+- Multi-page TIFFs and animated images are never flattened to their first page or frame, and
+  are not converted automatically. Asked to become a single-image format, they stay as they are
+  with a reason.
+- Compression matches Clop at every stop: "Adaptive image format" encodes from the original, an
+  alpha channel without transparent pixels no longer keeps a picture in PNG, and the strongest
+  stops cap the PNG palette and drop GIF frames. A lossy re-encode replaces the original only
+  when it saves at least 3 %. JPEG optimisation is about a third faster.
+- Cropping or uncropping a signed PDF is refused, so its signature stays valid.
+- A crop and a scale stay with the result: another format or quality runs them again from the
+  original, until Original or Reset.
+- The options popover does what it shows: Save As never deletes the file, Keep Both saves its
+  copy beside the file, the rule line says what the rule does, and Actions shows only the
+  pipelines for the file's kind.
+- Watched folders work each on their own: a burst of files in one no longer skips files in
+  another, a file starts as soon as it stops changing, and folders that are renamed, deleted or
+  created later are noticed at once. The "More than N at once" notice offers Optimise Them
+  Anyway.
+- Over a preset zone, the drop zone names the pipeline that will run and no longer offers ⌘. A
+  dropped folder counts the media inside it and offers only the zones that fit it.
+- CLI: a file already as small as it gets, and a file L'Esclop already optimised, are listed as
+  unchanged and exit 0. `--force` optimises an already optimised file again.
+- CLI: a relative `-o` starts in the working directory. `-o` with `--behaviour
+  inplace|samefolder|temp` is a usage error.
+- CLI: `esclop upload` takes only the options it honours and refuses `-o`, `--behaviour` and
+  `--in-process`. `--copy` copies every link, one per line.
+- `ESCLOP_SUPPORT_DIR` also moves the settings and the engine's backups, so scripted runs leave
+  the person's own alone.
+- A public upload link must contain `{path}`, and files over 5 GB are refused before uploading.
+- `hideResult` also hides the floating result when a trigger, Finder or the hotkey runs the
+  pipeline.
+- The app keeps its charcoal for default buttons, switches and checkboxes whatever the accent
+  colour. Catalan uses one verb for optimising and macOS's own names for System Settings panes.
+- Recording a result no longer blocks the interface. Tool errors go to the system log as
+  private data.
 - The options popover takes the design's shell (`pr4-options-popover-tabs`): round tabs with the
   chosen one fused into the panel, Format · Size · Actions, and no file header. Format shows the
   suggestion as a card with Convert, then the format tiles with their sizes up front: a click
@@ -86,6 +167,36 @@ into the body of its GitHub release.
   button is Stop. The detail shows the whole picture, never a crop.
 
 ### Fixed
+- Undo puts back the original of that exact result, also when the file was optimised again
+  later or Recent was cleared. Restoring no longer loses work: a file changed since, and a
+  converted copy, go to the Trash instead of being overwritten. A failed restore no longer
+  compresses the file again. Restore All stops the batch first and asks.
+- A job with several files lists, restores and counts every file, not only the last one.
+- Something copied while a file is being optimised is no longer replaced by the result. Copying
+  several files puts all of them back, in order. `esclop optimise --copy` is no longer optimised
+  a second time by the app.
+- Pipelines no longer delete a file at a `copy`, `move` or `rename` destination before the new
+  one is written. A step that fails after earlier ones changed the file reports what they did
+  and keeps the backup. "Try it" keeps every file in its own folder and runs no scripts or
+  Shortcuts.
+- Converting in place no longer replaces an unrelated file with the new name: the result takes
+  the next free name (`IMG 2.jpg`). An output name whose extension names another format is
+  refused.
+- Exporting PDF pages no longer replaces files that are already there, and a page that cannot be
+  rendered fails the export instead of being skipped.
+- Stripping metadata keeps a JPEG's DPI and its EXIF colour space, so Adobe RGB photos keep
+  their colours. Keep HDR applies to fit-to-size and to same-size HEIC.
+- A stuck ffmpeg is stopped after five minutes without progress, and not after the Mac sleeps. A
+  file that crashes the image engine no longer fails the other files. Tools stop when L'Esclop
+  quits unexpectedly.
+- The detail stays open while its file changes in place, a file at work keeps its place among
+  the floating results, and a result never lands out of sight.
+- Recent › Clear reports a failure when the log cannot be read, instead of clearing the list
+  while names stay on disk.
+- An automatic upload's link no longer replaces something copied meanwhile, and a batch copies
+  all its links at once. The test upload no longer leaves its file in the bucket.
+- The welcome window no longer reopens at every launch, and its permissions refresh after a visit
+  to System Settings. "Kept for 0 days" reads "always kept".
 - Turning "Strip metadata" off in a file's options now keeps its metadata while the setting is
   on. A request's `stripMetadata` is now optional: `true` strips, `false` keeps, and leaving it
   out follows the setting. For MCP, `stripMetadata: false` used to be ignored and now keeps

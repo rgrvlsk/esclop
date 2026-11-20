@@ -50,6 +50,8 @@ public final class AppModel {
     /// Uploads to the person's targets, with the keys from the Keychain (tests use memory).
     @ObservationIgnored public var uploader: any FileUploading
     @ObservationIgnored var restoredIDs = Set<UUID>()
+    /// An ⌥-drop's copies a pipeline runs on, by path, with the original each stands for.
+    @ObservationIgnored var dropCopies: [String: URL] = [:]
     @ObservationIgnored var onCardsChange: (() -> Void)?
     /// Replaces the auto-hide delays from the settings (tests).
     @ObservationIgnored public var hideDelayOverride: Duration?
@@ -375,6 +377,8 @@ public final class AppModel {
         let outcome: Result<OptimisationResult, EsclopError>
         var failedStep: String?
         var partial: OptimisationResult?
+        // Taken for every outcome: a stale entry must never settle a later file at that path.
+        let dropOriginal = dropCopies.removeValue(forKey: source.standardizedFileURL.path)
         if Task.isCancelled {
             outcome = .failure(.cancelled)
         } else {
@@ -387,6 +391,7 @@ public final class AppModel {
                     }
                 }
                 result.origin = job.request.origin
+                if let dropOriginal { result = Self.dropCopySettled(result, workingCopy: source, of: dropOriginal) }
                 outcome = .success(result)
             } catch let failed as PipelineStepFailure {
                 // Earlier steps changed the file: keep that in Recent, where its backup restores.

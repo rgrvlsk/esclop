@@ -29,7 +29,7 @@ public enum ToolCatalog {
 
     // MARK: Shared copy
 
-    static let placement = "Where results go: by default the original is replaced in place with a backup kept only if the person allowed agents to overwrite originals; otherwise a new file is written next to it. Pass location or output to choose. The result lists every output path."
+    static let placement = "Where results go: by default the original is replaced in place with a backup kept only if the person allowed agents to overwrite originals; otherwise a new file is written next to it. A result in another format goes where the person's \"Converted … go\" setting says. Pass location or output to choose. The result lists every output path."
     static let returns = "Returns one line per file (bytes before → after, saving %, output path) and JSON with results[] (source, output, backup, bytesBefore, bytesAfter, savedPercent, width, height) and failures[] (source, error, code). Files that fail do not stop the others; isError is set only when every file failed."
     static let runsVia = "Runs through the L'Esclop app when it is open (the result card shows on screen) and in this process otherwise."
 
@@ -723,12 +723,15 @@ public enum ToolCatalog {
             guard (0 ... 100).contains(compression) else { throw ToolFailure("compression is 0 to 100", code: "invalidArgument") }
             quality = CompressionQuality(tier: .custom, factor: compression)
         }
-        return OptimisationRequest(
+        var request = OptimisationRequest(
             sources: sources, origin: .mcp, quality: quality,
             stripMetadata: call.arguments.bool("stripMetadata"),
             location: try location(call),
             showResultUI: call.arguments.bool("showResult") ?? true
         )
+        // No place given: a result in another format follows "Converted … go", as in the app and the CLI.
+        if call.arguments.string("output") == nil, call.arguments.string("location") == nil { request.locationFromSettings = true }
+        return request
     }
 
     static func location(_ call: ToolCall) throws -> OutputLocation {
