@@ -123,17 +123,9 @@ final class LocalServer: @unchecked Sendable {
         try Data("mine".utf8).write(to: folder.appendingPathComponent("photo.heic"))
         let address = "http://127.0.0.1:\(server.port)/photo.heic"
 
-        let process = Process()
-        process.executableURL = try esclopBinary()
-        process.arguments = ["optimise", "--no-color", "-n", address]
-        process.currentDirectoryURL = folder
-        process.environment = ProcessInfo.processInfo.environment.merging(["ESCLOP_NO_APP": "1", "ESCLOP_SUPPORT_DIR": support.path]) { $1 }
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        try process.run()
-        let output = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        process.waitUntilExit()
-        #expect(process.terminationStatus == 0, "\(output)")
+        let run = try await runEsclop(["optimise", "--no-color", "-n", address], environment: ["ESCLOP_SUPPORT_DIR": support.path], in: folder)
+        let output = run.stdoutString
+        #expect(run.exitCode == 0, "\(run.output)")
         let result = folder.appendingPathComponent("photo 2.heic")
         #expect(FileManager.default.fileExists(atPath: result.path), "\(output)")
         #expect(output.contains("/photo 2.heic"), "the line names the path: \(output)")

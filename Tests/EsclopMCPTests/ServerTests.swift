@@ -230,12 +230,13 @@ struct Session {
 @Suite struct Elicitation {
     static let schema = MCP.Elicitation.RequestSchema(properties: ["x": ["type": "string"]])
 
-    @Test func unansweredQuestionsTimeOut() async {
+    /// The question is never answered, so only the 0.3 s timeout can end the call. No clock
+    /// check: under a full run's load on a CI runner that sleep ended up to 19 s late.
+    @Test(.timeLimit(.minutes(1))) func unansweredQuestionsTimeOut() async {
         let elicitor = Elicitor(supported: { true }, request: { _, _ in
-            try await Task.sleep(nanoseconds: 30_000_000_000)
-            return CreateElicitation.Result(action: .cancel)
+            try await Task.sleep(for: .seconds(3600))
+            return CreateElicitation.Result(action: .accept, content: ["x": "late"])
         }, timeout: 0.3)
-        let started = Date()
         do {
             _ = try await elicitor.ask("Which?", schema: Self.schema, missing: "x", options: "a, b")
             Issue.record("expected a timeout")
@@ -246,8 +247,6 @@ struct Session {
         } catch {
             Issue.record("wrong error \(error)")
         }
-        // The request sleeps 30 s; anything well below that proves the 0.3 s timeout fired.
-        #expect(Date().timeIntervalSince(started) < 15)
     }
 
     @Test func outcomes() async throws {

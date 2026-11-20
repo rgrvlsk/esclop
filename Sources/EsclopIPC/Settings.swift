@@ -242,8 +242,8 @@ public struct RegistrySettingsProvider: SettingsProvider {
     public func resetValue(forKey key: String) throws -> JSONValue {
         let descriptor = try descriptor(forKey: key)
         try registry.reset(key, in: store)
-        // Not read back: a suite that is a path (`ESCLOP_SUPPORT_DIR`) still answers the removed
-        // value in this process when another process wrote it.
+        // Not read back: a value another process wrote can still answer here for a moment after
+        // its removal.
         return descriptor.defaultValue
     }
 }

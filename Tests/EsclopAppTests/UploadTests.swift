@@ -26,21 +26,17 @@ struct S3TestServer {
         try await shared.value
     }
 
-    private static let shared = Task.detached { try launch() }
+    private static let shared = Task.detached { try await launch() }
 
-    private static func launch() throws -> S3TestServer {
-        let process = Process()
-        process.executableURL = root.appendingPathComponent("Scripts/s3-test-server.sh")
-        process.arguments = ["start"]
-        var environment = ProcessInfo.processInfo.environment
-        environment["ESCLOP_S3_OWNER"] = String(ProcessInfo.processInfo.processIdentifier)
-        process.environment = environment
-        let out = Pipe()
-        process.standardOutput = out
-        try process.run()
-        let data = out.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0, let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+    /// Awaited, not waited for: the start would otherwise hold one of the cooperative pool's
+    /// threads (three on a CI runner) for that half minute, and every other test's sleeps and
+    /// timeouts would end late.
+    private static func launch() async throws -> S3TestServer {
+        let started = try await ProcessRunner.run(
+            executable: root.appendingPathComponent("Scripts/s3-test-server.sh"), arguments: ["start"],
+            options: ProcessOptions(environment: ["ESCLOP_S3_OWNER": String(ProcessInfo.processInfo.processIdentifier)], timeout: 600)
+        )
+        guard let json = try JSONSerialization.jsonObject(with: started.stdout) as? [String: Any] else {
             throw EsclopError.other("the S3 test server did not start")
         }
         return S3TestServer(

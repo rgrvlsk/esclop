@@ -3,17 +3,26 @@
 // Where esclop keeps things on disk. Every module uses these instead of building paths itself,
 // so the CLI, the MCP server and the app agree.
 
+import CryptoKit
 import Foundation
 
 public enum Paths {
     public static let bundleIdentifier = "dev.esclop.app"
     public static let defaultsSuite = "dev.esclop.app"
 
-    /// Where the settings live: the app's suite, or `settings.plist` in `$ESCLOP_SUPPORT_DIR` when
-    /// it is set, so a scripted or test run never changes the person's settings.
+    /// Where the settings live: the app's suite, or, when `$ESCLOP_SUPPORT_DIR` is set, a suite of
+    /// that folder's own (`dev.esclop.support.<hash of the folder>`), so a scripted or test run
+    /// never changes the person's settings. A named suite, not a plist in the folder: a suite at
+    /// a path lost writes on CI runners, even to a read through the same UserDefaults. The folder
+    /// is hashed as spelled (symlinks resolve only once it exists, which would change the suite).
+    /// ponytail: the suite outlives the folder, so a folder made again at the same path gets the
+    /// earlier settings back, and its plist stays in ~/Library/Preferences. Give `esclop settings`
+    /// a way to reset all of them if scripts that reuse a path ever need a clean start.
     public static func defaultsSuite(environment: [String: String]) -> String {
         guard let support = environment["ESCLOP_SUPPORT_DIR"], !support.isEmpty else { return defaultsSuite }
-        return applicationSupport(environment: environment).appendingPathComponent("settings").path
+        let folder = applicationSupport(environment: environment).standardized.path
+        let hash = SHA256.hash(data: Data(folder.utf8)).prefix(8).map { String(format: "%02x", $0) }.joined()
+        return "dev.esclop.support.\(hash)"
     }
 
     /// `~/Library/Application Support/esclop`, or `$ESCLOP_SUPPORT_DIR` when it is set (tests and

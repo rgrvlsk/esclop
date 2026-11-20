@@ -197,6 +197,9 @@ import Testing
         _ = try await client.capabilities()
         // The crash takes the sleeper down twice, so each goes on alone. The new crash is sent
         // once a lone attempt runs: a fixed wait lost that race under a loaded CI runner.
+        // ponytail: the lone attempt lasts the sleeper's 3 s, and the poll below must see it in
+        // that time; lengthen the sleep if the test fails with "a lone attempt started". A crash
+        // that arrives after the lone attempt ended also passes, without testing the hold.
         async let sleeper = client.call("sleep", params: ["seconds": 3.0])
         async let crasher: Void = { _ = try? await client.call("crash") }()
         let deadline = ContinuousClock.now + .seconds(30)

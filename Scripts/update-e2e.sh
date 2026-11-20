@@ -43,6 +43,9 @@ cleanup() {
   rm -rf "$TMP"
 }
 trap cleanup EXIT
+# A setup step that fails under `set -e` says which one, also when it prints nothing itself.
+set -E
+trap 'say "line $LINENO failed (exit $?): $BASH_COMMAND"' ERR
 [ -z "${ESCLOP_E2E_OUT:-}" ] || { mkdir -p "$ESCLOP_E2E_OUT"; : > "$ESCLOP_E2E_OUT/result.txt"; }
 
 # A throwaway key: the release key never signs a test build.
@@ -66,7 +69,15 @@ version "$installed" 1 1.0.0
 version "$next" 2 1.0.1
 
 port="$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')"
-hdiutil create -quiet -volname "L'Esclop" -srcfolder "$next" -fs APFS -format ULFO -ov "$feed/next.dmg"
+dmg() { hdiutil create -quiet -volname "L'Esclop" -srcfolder "$next" -fs APFS -format ULFO -ov "$feed/next.dmg" 2>&1; }
+# hdiutil sometimes finds the source busy just after ditto: once more after a pause.
+# The trap is off in the first try: its failure is handled here, not the end of the script.
+if ! made="$(trap - ERR; dmg)"; then
+  case "$made" in
+    *"Resource busy"*) say "hdiutil create: resource busy, trying once more"; sleep 5; dmg ;;
+    *) echo "$made" >&2; false ;;
+  esac
+fi
 printf '### Added\n- The end-to-end test update.\n' > "$TMP/notes.md"
 SPARKLE_ED_PRIVATE_KEY="$private_key" ESCLOP_APPCAST_NOTES="$TMP/notes.md" \
   "$ROOT/Scripts/appcast.sh" "$feed/next.dmg" "http://127.0.0.1:$port/next.dmg" "$feed/appcast.xml"

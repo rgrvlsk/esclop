@@ -27,6 +27,9 @@ enum Harness {
     }
 }
 
+/// The first world of a run removes the files earlier runs' suites left in ~/Library/Preferences.
+private let sweptEarlierRuns = SettingsStore.removeEarlierSuites(prefix: "dev.esclop.tests.")
+
 /// One test's world: its folder, settings, backups and an engine wired to the fake image engine.
 struct TestWorld {
     let folder: URL
@@ -38,6 +41,7 @@ struct TestWorld {
     init(name: String = #function, realEngine: Bool = false) async throws {
         folder = try Harness.folder(name)
         // A named suite: on CI runners a suite at a path sometimes lost a write (see TestSettings).
+        _ = sweptEarlierRuns
         settings = SettingsStore(suiteName: "dev.esclop.tests.\(UUID().uuidString)")
         backups = BackupStore(root: folder.appendingPathComponent("backups", isDirectory: true))
         client = realEngine ? EngineClient() : EngineClient(executable: try await FakeEngine.shared.executable())

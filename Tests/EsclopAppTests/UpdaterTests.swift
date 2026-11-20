@@ -10,11 +10,11 @@ import Testing
 /// and an identifier of its own, whose defaults domain is removed afterwards.
 final class UpdaterHost: @unchecked Sendable {
     let temp = TempDir()
-    let identifier = "dev.esclop.app-tests.updater-\(UUID().uuidString)"
+    let identifier = "\(TestSettings.prefix)updater-\(UUID().uuidString)"
     let bundle: Bundle
 
     init() {
-        _ = Self.removeEarlierRuns
+        _ = TestSettings.sweptEarlierRuns
         let contents = temp.url.appendingPathComponent("Host.app/Contents", isDirectory: true)
         try? FileManager.default.createDirectory(at: contents, withIntermediateDirectories: true)
         let info: [String: Any] = [
@@ -29,25 +29,13 @@ final class UpdaterHost: @unchecked Sendable {
         bundle = Bundle(url: contents.deletingLastPathComponent())!
     }
 
-    deinit {
-        UserDefaults.standard.removePersistentDomain(forName: identifier)
-        try? FileManager.default.removeItem(at: Self.preferences.appendingPathComponent("\(identifier).plist"))
-    }
-
     /// Sparkle keeps its defaults under the host's identifier in ~/Library/Preferences, and
     /// cfprefsd writes a removed domain's file back about ten seconds later, when a full run is
-    /// still going. Each run removes those earlier files once they are a minute old.
-    private static let removeEarlierRuns: Void = {
-        let files = (try? FileManager.default.contentsOfDirectory(at: preferences, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
-        for file in files where file.lastPathComponent.hasPrefix("dev.esclop.app-tests.updater-") {
-            guard let modified = try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
-                  modified < Date(timeIntervalSinceNow: -60) else { continue }
-            try? FileManager.default.removeItem(at: file)
-        }
-    }()
-
-    private static let preferences = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent("Preferences", isDirectory: true)
+    /// still going; a later run's sweep (`TestSettings`) removes it.
+    deinit {
+        UserDefaults.standard.removePersistentDomain(forName: identifier)
+        try? FileManager.default.removeItem(at: SettingsStore.preferences.appendingPathComponent("\(identifier).plist"))
+    }
 }
 
 @MainActor
