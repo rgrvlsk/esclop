@@ -13431,6 +13431,16 @@
         }
       }
     },
+    "The file has no cover art.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El fitxer no té portada."
+          }
+        }
+      }
+    },
     "to WebP": {
       "localizations": {
         "ca": {

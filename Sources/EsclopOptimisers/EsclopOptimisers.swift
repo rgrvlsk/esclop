@@ -151,7 +151,8 @@ public struct EsclopEngine: OptimisationEngine {
     public func extractCover(_ source: URL, to folder: URL, name: String? = nil) async throws -> URL {
         let info = try await MediaInfo.probe(source, tools: env.tools)
         guard let index = info.streams.firstIndex(where: { $0.type == "video" && $0.attachedPicture }) else {
-            throw EsclopError.other("\(source.lastPathComponent) has no cover art")
+            // A fixed sentence, so the app shows it in its language; the notice names the file.
+            throw EsclopError.other("The file has no cover art.")
         }
         // ffprobe lists every stream in file order, so the position is the stream's index.
         let jpeg = info.streams[index].codec == "mjpeg"
