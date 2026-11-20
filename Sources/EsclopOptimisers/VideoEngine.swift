@@ -140,6 +140,14 @@ struct VideoEngine: Sendable {
         let request = plan.request
         let factor = plan.factor(for: .video, format: container, env: env)
         let codec = try await chooseCodec(container: container, request: request, video: video)
+        // The bundled ffmpeg is LGPL, without x264 or x265: say which encoder ran instead.
+        let asked = request.videoEncoder ?? env.value(EsclopSettings.videoEncoder)
+        if let name = [VideoEncoder.h264Software: "x264", .hevcSoftware: "x265"][asked],
+           [.mp4, .mov, .mkv].contains(container) || container == .hevc && asked == .hevcSoftware,
+           await !FFmpegCapabilities.shared.encoders(tools: env.tools).contains(asked.rawValue)
+        {
+            steps.append("This ffmpeg has no \(name); used \(codec.label)")
+        }
         // ponytail: the bundled ffmpeg has no zscale or tonemap filter, and an 8-bit encode of HDR
         // keeps its HDR tags, so players still treat it as HDR. HDR video stays HDR until a build
         // can tone-map; then honour `keepHDR` off here.

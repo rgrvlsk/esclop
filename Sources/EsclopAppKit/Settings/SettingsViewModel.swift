@@ -53,6 +53,11 @@ public final class SettingsViewModel {
     /// The row a deep link or a search result points at; the pane scrolls to it and marks it.
     public var highlighted: String?
     public private(set) var descriptors: [SettingDescriptor] = []
+    /// Choices the pickers leave out, by key: the video encoders this ffmpeg lacks. The value
+    /// stays valid (the CLI and agents may set it); the engine says which encoder ran instead.
+    public var hiddenChoices: [String: Set<String>] = [:] {
+        didSet { reload() }
+    }
     /// The last refusal per key, shown under the control until the next good value.
     public private(set) var errors: [String: String] = [:]
 
@@ -94,7 +99,11 @@ public final class SettingsViewModel {
 
     public func reload() {
         // In the app's language; the registry and the CLI stay English.
-        descriptors = provider.descriptors().map { SettingWords.localised($0, locale: locale) }
+        descriptors = provider.descriptors().map { descriptor in
+            var descriptor = SettingWords.localised(descriptor, locale: locale)
+            if let hidden = hiddenChoices[descriptor.key] { descriptor.choices?.removeAll { hidden.contains($0) } }
+            return descriptor
+        }
     }
 
     /// Picks up one key's new value, written here or by another process.

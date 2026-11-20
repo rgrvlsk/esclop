@@ -159,6 +159,23 @@ import UniformTypeIdentifiers
         #expect(fractions.values.last == 1)
     }
 
+    /// The bundled ffmpeg has no x264 or x265 (LGPL build): a software choice runs on
+    /// VideoToolbox and a step names the encoder that ran.
+    @Test func aSoftwareEncoderChoiceNamesTheEncoderThatRan() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let mov = world.file("clip.mov")
+        try await Fixture.video(mov)
+        let missing = await EsclopEngine.missingVideoEncoders()
+        #expect(!missing.contains(.h264VideoToolbox))
+        var request = world.request(mov, location: .temporary)
+        request.videoEncoder = .h264Software
+        let result = try await world.engine.optimise(mov, request: request, progress: { _ in })
+        #expect(result.steps.contains("This ffmpeg has no x264; used H.264 (VideoToolbox)") == missing.contains(.h264Software))
+        let plain = try await world.engine.optimise(mov, request: world.request(mov, location: .temporary), progress: { _ in })
+        #expect(!plain.steps.contains { $0.hasPrefix("This ffmpeg has no") })
+    }
+
     @Test func watermarkAVideo() async throws {
         let world = try await TestWorld()
         defer { Task { await world.finish() } }

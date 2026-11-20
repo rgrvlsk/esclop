@@ -101,6 +101,14 @@ public struct EsclopEngine: OptimisationEngine {
         return try await run(.crop, source, request: request, progress: { _ in })
     }
 
+    /// The encoder choices the bundled ffmpeg lacks (x264 and x265 in the LGPL build), from
+    /// the one cached `ffmpeg -encoders` probe. Empty when there is no ffmpeg to ask.
+    public static func missingVideoEncoders(tools: ToolLocator = .shared) async -> Set<VideoEncoder> {
+        let encoders = await FFmpegCapabilities.shared.encoders(tools: tools)
+        guard !encoders.isEmpty else { return [] }
+        return Set(VideoEncoder.allCases.filter { !encoders.contains($0.rawValue) })
+    }
+
     /// Optimises an image this process just made (an exported PDF page) where it is, when that
     /// makes it smaller, in its own format: no backup and no result record, since nothing is
     /// replaced that anyone had. On any failure the file stays as it was.

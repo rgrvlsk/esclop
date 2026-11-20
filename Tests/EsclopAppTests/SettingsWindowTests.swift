@@ -68,6 +68,21 @@ import Testing
         #expect(control("maxImageSizeMB") == .number(unit: "MB", step: 1))
     }
 
+    /// The video encoder picker leaves out what this ffmpeg lacks (x264 and x265 in the LGPL
+    /// build); the CLI and agents still see every choice.
+    @Test func thePickerHidesTheEncodersThisFFmpegLacks() {
+        let model = model()
+        func encoders() -> [String] {
+            guard case let .picker(choices)? = model.descriptor("videoEncoder").map(SettingPresentation.control(for:)) else { return [] }
+            return choices.compactMap(\.value.stringValue)
+        }
+        #expect(encoders().contains("libx264"))
+        model.hiddenChoices["videoEncoder"] = ["libx264", "libx265"]
+        #expect(!encoders().contains("libx264") && !encoders().contains("libx265"))
+        #expect(encoders().contains("h264_videotoolbox"))
+        #expect(model.provider.descriptors().first { $0.key == "videoEncoder" }?.choices?.contains("libx264") == true)
+    }
+
     @Test func choicesReadAsWords() {
         #expect(SettingPresentation.label(for: "bottomRight") == "Bottom right")
         #expect(SettingPresentation.label(for: "sameFolder") == "Next to the original")
