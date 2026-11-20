@@ -195,16 +195,17 @@ enum ResultWriter {
         {
             ext = source.pathExtension
         }
-        let destination = request.location.destination(
+        let location = Self.location(for: request, source: source, kind: kind, extension: ext, env: env)
+        let destination = location.destination(
             for: source, extension: ext,
             sameFolderTemplate: env.value(EsclopSettings.sameFolderNameTemplate),
             temporaryRoot: Paths.temporary
         )
-        if case .path = request.location { try OutputLocation.checkExtension(of: destination, matches: ext) }
+        if case .path = location { try OutputLocation.checkExtension(of: destination, matches: ext) }
         let sourcePath = source.standardizedFileURL.path
         let replacesSource = destination.standardizedFileURL.path == sourcePath
         // A template can resolve to the source itself; that is an in-place write too.
-        let inPlace = request.location == .inPlace || replacesSource
+        let inPlace = location == .inPlace || replacesSource
         if inPlace, request.origin == .mcp, !env.value(EsclopSettings.allowOverwriteOriginals) {
             throw EsclopError.notPermitted(Self.agentOverwriteMessage)
         }
@@ -240,7 +241,7 @@ enum ResultWriter {
         }
 
         // In place with a new extension: the converted file replaces the original.
-        if request.location == .inPlace, !replacesSource, fm.fileExists(atPath: sourcePath) {
+        if location == .inPlace, !replacesSource, fm.fileExists(atPath: sourcePath) {
             try fm.removeItem(at: source)
         }
 
@@ -258,6 +259,14 @@ enum ResultWriter {
             width: produced.width, height: produced.height, duration: produced.duration,
             startedAt: started, finishedAt: finished, steps: produced.steps
         )
+    }
+
+    /// The request's location, except for a result in another format (`ext` differs from the
+    /// source's) when the location came from the settings: then "Converted … go" for `kind`.
+    static func location(for request: OptimisationRequest, source: URL, kind: MediaKind, extension ext: String, env: EngineEnvironment) -> OutputLocation {
+        guard request.locationFromSettings == true, ext.lowercased() != source.pathExtension.lowercased() else { return request.location }
+        return env.value(EsclopSettings.convertedBehaviour(for: kind))
+            .location(specificFolder: env.value(EsclopSettings.specificFolderTemplate))
     }
 
     static let agentOverwriteMessage =
