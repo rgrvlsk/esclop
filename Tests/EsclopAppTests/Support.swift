@@ -35,8 +35,18 @@ final class TempDir: @unchecked Sendable {
 }
 
 /// A settings suite of its own, a plist in the temporary folder, removed when the value goes away.
+/// `observed` makes a named suite, as the app's own is, for tests that follow changes through
+/// key-value observation: on CI runners a suite at a path sometimes left a change unreported.
+/// ponytail: a named suite's plist lands in ~/Library/Preferences and is removed with the domain;
+/// make every suite a path again once its changes are always observed.
 final class TestSettings: @unchecked Sendable {
-    let store = SettingsStore(suiteName: FileManager.default.temporaryDirectory.appendingPathComponent("esclop-app-settings-\(UUID().uuidString)").path)
+    let store: SettingsStore
+    init(observed: Bool = false) {
+        let id = UUID().uuidString
+        store = SettingsStore(suiteName: observed
+            ? "dev.esclop.app-tests.\(id)"
+            : FileManager.default.temporaryDirectory.appendingPathComponent("esclop-app-settings-\(id)").path)
+    }
     deinit { store.removeAll() }
 }
 
