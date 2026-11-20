@@ -101,6 +101,14 @@ public struct EsclopEngine: OptimisationEngine {
         return try await run(.crop, source, request: request, progress: { _ in })
     }
 
+    /// The encoder choices the bundled ffmpeg lacks (x264 and x265 in the LGPL build), from
+    /// the one cached `ffmpeg -encoders` probe. Empty when there is no ffmpeg to ask.
+    public static func missingVideoEncoders(tools: ToolLocator = .shared) async -> Set<VideoEncoder> {
+        let encoders = await FFmpegCapabilities.shared.encoders(tools: tools)
+        guard !encoders.isEmpty else { return [] }
+        return Set(VideoEncoder.allCases.filter { !encoders.contains($0.rawValue) })
+    }
+
     /// Optimises an image this process just made (an exported PDF page) where it is, when that
     /// makes it smaller, in its own format: no backup and no result record, since nothing is
     /// replaced that anyone had. On any failure the file stays as it was.
@@ -115,9 +123,13 @@ public struct EsclopEngine: OptimisationEngine {
         _ = try? FileManager.default.replaceItemAt(url, withItemAt: produced.url)
     }
 
-    /// Renders every page to PNG or JPEG into `folder`. Returns the files in page order.
-    public func extractPDFPages(_ source: URL, format: OutputFormat = .png, dpi: Int = 144, to folder: URL) async throws -> [URL] {
-        try PDFEngine(env: env).extractPages(source, format: format, dpi: dpi, to: folder)
+    /// Renders pages (1-based, all when nil) to PNG or JPEG files in `folder`, each optimised
+    /// where it is. Without a format, a page that is one photo becomes a JPEG, others PNG.
+    /// Returns the files in page order. `esclop pdf pages` and the pipelines both export here.
+    public func extractPDFPages(_ source: URL, pages: [Int]? = nil, format: OutputFormat?, dpi: Double = 144, to folder: URL) async throws -> [URL] {
+        let written = try PDFEngine(env: env).extractPages(source, pages: pages, format: format, dpi: dpi, to: folder)
+        for page in written { await optimiseNewImage(page) }
+        return written
     }
 
     /// Re-encodes a video (or audio file) at `kbps` kbit/s.
