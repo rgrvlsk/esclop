@@ -271,6 +271,11 @@ import UniformTypeIdentifiers
         #expect(options.ruleOn)
         #expect(options.rule?.choice.format == .webp, "the box promises the rule that is stored")
         #expect(harness.model.rules.all.map(\.choice.format) == [.webp])
+        // "Use this from now on" stores the card's choice in its place.
+        #expect(options.ruleDiffers)
+        options.useChoiceAsRule()
+        #expect(harness.model.rules.all.map(\.choice.format) == [.avif])
+        #expect(!options.ruleDiffers)
     }
 
     /// A format tile clears the chosen quality; the slider goes back with it.

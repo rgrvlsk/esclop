@@ -312,12 +312,25 @@ public final class AppModel {
 
     /// The one restore every window uses: by the result itself, never by its path (an older
     /// result for the same file would get the newer original), with the copying off the main actor.
-    private func putBack(_ result: OptimisationResult) async throws {
+    /// True when a version edited after optimising went to the Trash on the way.
+    @discardableResult
+    private func putBack(_ result: OptimisationResult) async throws -> Bool {
         let service = service
-        _ = try await Task.detached { try await service.restoreBackup(of: result, deleteBackup: false) }.value
+        let outcome = try await Task.detached { try await service.restoreBackup(of: result, deleteBackup: false) }.value
         restoredIDs.insert(result.id)
         forget(result)
         noteWritten([result.source, result.output])
+        return Self.editWentToTrash(trashed: outcome.movedToTrash?.count ?? 0, restoring: result)
+    }
+
+    /// Whether a restore that moved `trashed` files to the Trash took an edited version with them.
+    /// ponytail: the Trash also takes a converted output, so an edit counts only beyond it. A
+    /// converted output that was gone or stayed put beside an edit, or an edit made to the
+    /// converted output itself, hides the line (never a false one). Trigger: RestoreOutcome
+    /// naming the edit apart.
+    nonisolated static func editWentToTrash(trashed: Int, restoring result: OptimisationResult) -> Bool {
+        let converted = result.output.standardizedFileURL != result.source.standardizedFileURL
+        return trashed > (converted ? 1 : 0)
     }
 
     /// The executor for a request's origin: agents get the pipeline permissions the person set.
@@ -803,16 +816,22 @@ public final class AppModel {
     }
 
     /// Runs a file again with another choice or one change (convert, downscale, fit, crop),
-    /// always from the original so quality is not lost twice. The card stays and shows the new
-    /// result, so an open options popover keeps its anchor; a rule stays shown only while its
-    /// choice is the one used.
+    /// always from the original so quality is not lost twice. The crop and the scale the card
+    /// keeps are made again on every run, as Clop re-runs its steps, until Original or Reset
+    /// (`adjust` clears them). The card stays and shows the new result, so an open options
+    /// popover keeps its anchor; a rule stays shown only while its choice is the one used.
     func reprocess(_ card: ResultCard, choice: OptimiseChoice? = nil, adjust: ((inout OptimisationJob) -> Void)? = nil) {
+        // One restore at a time on a card, Undo's or a re-run's: a second one would put the
+        // original back twice and send it to the Trash as an edit. Once the run starts the card
+        // is working, which refuses another re-run.
+        // ponytail: Recent's Restore and Compare's Restore Original skip this flag. Trigger: a
+        // double restore from them; then guard `restore(_:)` by the result's id.
+        guard !card.restoring else { return }
+        card.restoring = true
         let origin = card.origin, displayName = card.displayName
         let wasClipboardImage = Self.isCopiedImage(card.source)
-        // Every run starts from the original: the scale resets here, and the run that starts
-        // sets it below. A failed restore puts the old scale back, as the card keeps its result.
-        let keptScale = card.downscale
-        card.downscale = 1
+        // Read now: the restore below puts the card back to its original.
+        let kept = (crop: card.crop, scale: card.downscale)
         let choice = choice ?? card.choice
         let rule = card.appliedRule?.choice == choice ? card.appliedRule : nil
         let context = CardContext(origin: card.fileOrigin ?? .unknown, inputType: card.inputType, choice: choice, rule: rule)
@@ -834,7 +853,7 @@ public final class AppModel {
                 } else if !(await restore(result)) {
                     // A failed restore shows a notice and the card keeps its result as it was;
                     // encoding the optimised file again would not start from the original.
-                    card.downscale = keptScale
+                    card.restoring = false
                     return
                 }
             case let .restored(result):
@@ -842,19 +861,25 @@ public final class AppModel {
                 shown = [result.source]
                 besideOriginal = result.backup == nil && result.output.standardizedFileURL != result.source.standardizedFileURL
             case .working, .failed, .notice:
+                card.restoring = false
                 return
             case .unchanged:
                 break
             }
-            card.adjusted = adjust != nil
             card.loupe = nil
             var job = factory.job(for: source, origin: origin, location: wasClipboardImage ? .inPlace : nil)
             if besideOriginal, job.request.location == .inPlace { job.request.location = .sameFolder }
             choice.apply(to: &job.request)
+            job.request.crop = kept.crop
+            job.request.downscale = kept.scale < 1 ? kept.scale : nil
+            let plain = job.operation
             adjust?(&job)
-            // The Size tab's chosen tile follows the run that starts, from a tile or the hover button.
+            // What this run applies the next one applies again; the Size tab's tile follows it.
+            card.crop = job.request.crop
             card.downscale = job.request.downscale ?? 1
+            card.adjusted = job.request.crop != nil || job.request.downscale != nil || job.operation != plain
             let copyBack = origin == .clipboard && EsclopSettings.autoCopyToClipboard.value(in: settings)
+            card.restoring = false
             await run(job, displayName: displayName, context: context, reusing: card, onResult: { result in
                 if let replaced {
                     self.forget(replaced)
@@ -881,20 +906,22 @@ public final class AppModel {
     /// compresses the optimised file again).
     @discardableResult
     public func restore(_ result: OptimisationResult) async -> Bool {
-        let card = cards.first { $0.result?.id == result.id }
+        let shown = cards.first { $0.result?.id == result.id }
         do {
-            try await putBack(result)
-            if let card {
-                card.phase = .restored(result)
-                card.loupe = nil
-                loadThumbnail(card, url: result.source)
-                settle(card)
-            } else {
-                let card = ResultCard(jobID: result.requestID ?? result.id, source: result.source, origin: .app, bytesBefore: result.bytesBefore, phase: .restored(result))
-                add(card)
-                loadThumbnail(card, url: result.source)
-                settle(card)
-            }
+            let editInTrash = try await putBack(result)
+            let card = shown ?? ResultCard(jobID: result.requestID ?? result.id, source: result.source, origin: result.origin ?? .app, bytesBefore: result.bytesBefore, phase: .restored(result))
+            if shown == nil { add(card) }
+            card.phase = .restored(result)
+            card.loupe = nil
+            card.editInTrash = editInTrash
+            // The original is back as it was: no crop or scale left to make again, and a copy
+            // saved from the result is not it (Show in Finder shows the original).
+            card.crop = nil
+            card.downscale = 1
+            card.adjusted = false
+            card.savedCopy = nil
+            loadThumbnail(card, url: result.source)
+            settle(card)
             // The optimised copy was on the clipboard: the original replaces it there too.
             await putBackOnClipboard([(result.output, result.source)])
             return true
@@ -924,11 +951,12 @@ public final class AppModel {
             settle(card)
             return card
         }
-        // A copied image lives in L'Esclop's temporary folder: it comes back as one, with Copy.
-        // ponytail: the results log keeps no origin, so a copied file comes back with Show in
-        // Finder. Trigger: the log recording the request's origin.
+        // Its actions follow where it came from, as the log recorded it; lines from before 0.2
+        // have no origin and go by the path. A copied image lives in L'Esclop's temporary
+        // folder: it has no name of its own.
         let copiedImage = result.source.path.hasPrefix(Paths.temporary.path)
-        let card = ResultCard(jobID: result.requestID ?? result.id, source: result.source, origin: copiedImage ? .clipboard : .app, bytesBefore: result.bytesBefore, phase: .done(result))
+        let origin = result.origin ?? (copiedImage ? .clipboard : .app)
+        let card = ResultCard(jobID: result.requestID ?? result.id, source: result.source, origin: origin, bytesBefore: result.bytesBefore, phase: .done(result))
         if copiedImage { card.displayName = Strings.text("Copied image") }
         add(card)
         loadThumbnail(card, url: result.output)
