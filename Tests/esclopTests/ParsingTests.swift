@@ -196,7 +196,7 @@ func rejects(_ arguments: [String]) -> Bool {
     }
 
     /// `pdf pages` reports the size of every page it wrote, not of the first.
-    @Test func pageExportReportsAllPages() throws {
+    @Test func pageExportReportsAllPages() async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-pages-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
@@ -210,15 +210,7 @@ func rejects(_ arguments: [String]) -> Bool {
             context.endPDFPage()
         }
         context.closePDF()
-        let process = Process()
-        process.executableURL = try esclopBinary()
-        process.arguments = ["pdf", "pages", pdf.path, "--dpi", "72", "--json", "-o", folder.appendingPathComponent("pages").path]
-        process.environment = ProcessInfo.processInfo.environment.merging(["ESCLOP_NO_APP": "1"]) { $1 }
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        try process.run()
-        let output = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
+        let output = try await runEsclop(["pdf", "pages", pdf.path, "--dpi", "72", "--json", "-o", folder.appendingPathComponent("pages").path]).stdout
         let export = try JSONDecoder().decode(PageExport.self, from: output)
         #expect(export.pages.count == 2)
         #expect(export.bytes == export.pages.reduce(0) { $0 + PageExport.size(of: URL(fileURLWithPath: $1)) })
@@ -250,36 +242,27 @@ func rejects(_ arguments: [String]) -> Bool {
 
     /// `esclop restore` on a file with no recent result names the CLI's list, not the MCP tool,
     /// and exits 1 (nothing to put back is not a usage error); the JSON code stays.
-    @Test func restoringAnUnknownFileNamesEsclopRecent() throws {
+    @Test func restoringAnUnknownFileNamesEsclopRecent() async throws {
         // An empty support folder of its own: no recent results, and the person's log is not read.
         let support = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-restore-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: support) }
-        func run(_ arguments: [String]) throws -> (Int32, String) {
-            let process = Process()
-            process.executableURL = try esclopBinary()
-            process.arguments = arguments
-            process.environment = ProcessInfo.processInfo.environment.merging(["ESCLOP_NO_APP": "1", "ESCLOP_SUPPORT_DIR": support.path]) { $1 }
-            let pipe = Pipe()
-            process.standardOutput = pipe
-            process.standardError = pipe
-            try process.run()
-            let output = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-            process.waitUntilExit()
-            return (process.terminationStatus, output)
+        func run(_ arguments: [String]) async throws -> (Int32, String) {
+            let result = try await runEsclop(arguments, environment: ["ESCLOP_SUPPORT_DIR": support.path])
+            return (result.exitCode, result.output)
         }
         let unknown = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-never-\(UUID().uuidString).png").path
-        let (status, output) = try run(["restore", "--no-color", unknown])
+        let (status, output) = try await run(["restore", "--no-color", unknown])
         #expect(status == 1, "\(output)")
         #expect(output.contains("`esclop recent`") && !output.contains("esclop_recent_results"), "\(output)")
-        let (jsonStatus, json) = try run(["restore", "--json", unknown])
+        let (jsonStatus, json) = try await run(["restore", "--json", unknown])
         #expect(jsonStatus == 1 && json.contains("\"invalidArgument\""), "\(json)")
     }
 
     /// Exit 65 when every file was unreadable, through the real binary: the per-file path, which
     /// is where a damaged file actually fails (UI check, N9). A damaged PNG fails in ImageIO,
     /// before any bundled tool, so this runs everywhere.
-    @Test func everyFileUnreadableExits65() throws {
+    @Test func everyFileUnreadableExits65() async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-exit-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
@@ -287,59 +270,43 @@ func rejects(_ arguments: [String]) -> Bool {
         let other = folder.appendingPathComponent("also broken.png")
         try Data("not a picture".utf8).write(to: broken)
         try Data("nor this".utf8).write(to: other)
-        func run(_ files: [URL]) throws -> (Int32, String) {
-            let process = Process()
-            process.executableURL = try esclopBinary()
-            process.arguments = ["optimise", "--in-process", "--no-color"] + files.map(\.path)
-            process.environment = ProcessInfo.processInfo.environment.merging(["ESCLOP_NO_APP": "1"]) { $1 }
-            let pipe = Pipe()
-            process.standardOutput = pipe
-            process.standardError = pipe
-            try process.run()
-            process.waitUntilExit()
-            return (process.terminationStatus, String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self))
+        func run(_ files: [URL]) async throws -> (Int32, String) {
+            let result = try await runEsclop(["optimise", "--in-process", "--no-color"] + files.map(\.path))
+            return (result.exitCode, result.output)
         }
-        let (status, output) = try run([broken, other])
+        let (status, output) = try await run([broken, other])
         #expect(status == 65, "\(output)")
         #expect(output.contains("This file isn’t an image L’Esclop can read. It may be damaged."))
         #expect(!output.contains(folder.path), "no path in the message")
         // One unreadable among other failures is a plain failure.
-        let (mixed, _) = try run([broken, folder.appendingPathComponent("missing.png")])
+        let (mixed, _) = try await run([broken, folder.appendingPathComponent("missing.png")])
         #expect(mixed == 1)
     }
 
     /// `optimise` leaves files L'Esclop already optimised as they are; `--force`, or a level
     /// stronger than the regular one, does them anyway.
-    @Test func optimisedFilesAreLeftAloneWithoutForce() throws {
+    @Test func optimisedFilesAreLeftAloneWithoutForce() async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-mark-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let file = folder.appendingPathComponent("done.png")
         try Data("not a picture".utf8).write(to: file)
         try OptimisedMark.set(file)
-        func run(_ extra: [String]) throws -> (Int32, String) {
-            let process = Process()
-            process.executableURL = try esclopBinary()
-            process.arguments = ["optimise", "--in-process", "--no-color"] + extra + [file.path]
-            process.environment = ProcessInfo.processInfo.environment.merging(["ESCLOP_NO_APP": "1"]) { $1 }
-            let pipe = Pipe()
-            process.standardOutput = pipe
-            process.standardError = pipe
-            try process.run()
-            process.waitUntilExit()
-            return (process.terminationStatus, String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self))
+        func run(_ extra: [String]) async throws -> (Int32, String) {
+            let result = try await runEsclop(["optimise", "--in-process", "--no-color"] + extra + [file.path])
+            return (result.exitCode, result.output)
         }
-        let (status, output) = try run([])
+        let (status, output) = try await run([])
         // Left as it is, like a file already as small as it gets: not a failure.
         #expect(status == 0)
         #expect(output.contains("unchanged: already optimised by L'Esclop (--force optimises it again)"), "\(output)")
-        let (_, forced) = try run(["--force"])
+        let (_, forced) = try await run(["--force"])
         #expect(!forced.contains("already optimised"), "\(forced)")
         #expect(forced.contains("It may be damaged"), "--force reaches the optimiser: \(forced)")
         for stronger in [["-a"], ["--compression", "70"]] {
-            let (_, output) = try run(stronger)
+            let (_, output) = try await run(stronger)
             #expect(output.contains("It may be damaged"), "\(stronger) reaches the optimiser: \(output)")
         }
-        #expect(try run(["--compression", "30"]).1.contains("already optimised"), "the regular level is no request to go again")
+        #expect(try await run(["--compression", "30"]).1.contains("already optimised"), "the regular level is no request to go again")
     }
 }

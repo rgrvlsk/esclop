@@ -364,13 +364,10 @@ final class FakeHandler: AppRequestHandler, @unchecked Sendable {
         let server = AppServer(handler: handler, ports: ports)
         try server.start()
         let client = AppClient(ports: ports)
-        // The fake does not exit, so stop the ports as the app would on terminate.
-        let stopper = Task { try await Task.sleep(nanoseconds: 300_000_000); server.stop() }
-        // The ports' end shows up to the client after a delay that reached 2 s on a CI runner
-        // when the test passed, and more than 5 s four times.
-        // ponytail: a margin, not a cause. If it fails again at 30 s, a stopped port stays listed.
-        try await client.quit(timeout: 30)
-        _ = try await stopper.value
+        // The fake does not exit, so stop the ports as the app would on terminate. Off the
+        // cooperative pool: on a loaded runner a task's 0.3 s sleep there ended seconds late.
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.3) { server.stop() }
+        try await client.quit(timeout: 5)
         #expect(handler.lock.withLock { handler.quitCalled })
         #expect(!client.isAppRunning)
     }
