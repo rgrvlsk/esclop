@@ -64,7 +64,7 @@ import Testing
         #expect(!EsclopSettings.pauseAutomaticOptimisations.value(in: harness.settings.store), "the setting itself is off")
     }
 
-    /// The gear's Pause L'Esclop and the ⌃⇧P hotkey turn the same setting on and off (council
+    /// The gear's Pause L’Esclop and the ⌃⇧P hotkey turn the same setting on and off (council
     /// C4-F1): pausing no longer takes Settings. The hotkey also posts a short notice.
     @Test func theGearAndTheHotkeyPauseAndResume() throws {
         let harness = Harness()

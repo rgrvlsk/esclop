@@ -171,7 +171,7 @@ public struct MenuPanel: View {
             Spacer()
             Menu {
                 // The panel stays open, so its "Paused · Resume" line shows what changed.
-                Button(model.paused ? Strings.text("Resume L'Esclop") : Strings.text("Pause L'Esclop")) { model.togglePause() }
+                Button(model.paused ? Strings.text("Resume L’Esclop") : Strings.text("Pause L’Esclop")) { model.togglePause() }
                     .globalKeyboardShortcut(.togglePause)
                 Divider()
                 Button(Strings.text("Settings…"), action: run(actions.settings)).keyboardShortcut(",")

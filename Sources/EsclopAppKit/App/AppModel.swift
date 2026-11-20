@@ -198,7 +198,7 @@ public final class AppModel {
         pauseChanged(value)
     }
 
-    /// The gear's Pause L'Esclop / Resume L'Esclop.
+    /// The gear's Pause L’Esclop / Resume L’Esclop.
     public func togglePause() { setPaused(!paused) }
 
     /// The hotkey (`key`, ⌃⇧P by default): neither the glyph nor a closed panel shows the change,
