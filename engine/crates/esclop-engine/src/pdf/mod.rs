@@ -86,6 +86,10 @@ pub struct Settings {
     /// Downsample images drawn denser than this; `None` keeps every image's resolution.
     pub dpi: Option<f64>,
     pub jpeg_quality: u8,
+    /// The ceiling for an image the target dpi does not downsample: the low-dpi caps go with
+    /// downsampling, so asking for 72 dpi never codes a 72 ppi image harder (and, through the
+    /// SSIM gate's retries, larger) than the default would.
+    pub kept_size_quality: u8,
     /// The page gate: SSIM 0.98 at default settings, 0.95 when aggressive.
     pub min_ssim: f64,
     /// The lowest SSIM any one image may keep, however little of its page it covers: 0.90 at
@@ -102,6 +106,7 @@ impl Settings {
         Self {
             dpi,
             jpeg_quality: jpeg_quality(factor, dpi),
+            kept_size_quality: jpeg_quality(factor, None),
             min_ssim: if factor <= 40 { 0.98 } else { 0.95 },
             image_floor: if factor <= 40 { 0.90 } else { 0.85 },
             strip,
@@ -116,7 +121,7 @@ impl Settings {
 /// copy of its streams is the only one.
 pub fn rewrite(input: Vec<u8>, settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>, bool)> {
     let bytes = input.as_slice();
-    let Settings { dpi, jpeg_quality, min_ssim, image_floor, strip, images } = *settings;
+    let Settings { dpi, jpeg_quality, kept_size_quality, min_ssim, image_floor, strip, images } = *settings;
     let head = &bytes[..bytes.len().min(1024)];
     if !head.windows(5).any(|w| w == b"%PDF-") {
         return Err(EngineError::unsupported("not a PDF"));
@@ -294,11 +299,17 @@ pub fn rewrite(input: Vec<u8>, settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8
                     if !images {
                         return Ok(None);
                     }
+                    // Masks are never resampled, and a /Matte mask must keep its image's size.
+                    let image_dpi = dpi.filter(|_| !matted.contains(id));
+                    let drawn_dpi = drawn.get(id).map(|p| p.dpi);
+                    // ponytail: planned, not applied: an image the SSIM gate keeps at full size
+                    // still gets the low-dpi cap, and the reply's quality is the cap. Decide
+                    // after `checked_scale` if that image turns up larger than the default.
+                    let downsampled = images::planned_scale(image_dpi, drawn_dpi) < 1.0;
                     let plan = ImagePlan {
-                        jpeg_quality,
-                        // Masks are never resampled, and a /Matte mask must keep its image's size.
-                        dpi: dpi.filter(|_| !matted.contains(id)),
-                        drawn_dpi: drawn.get(id).map(|p| p.dpi),
+                        jpeg_quality: if downsampled { jpeg_quality } else { kept_size_quality },
+                        dpi: image_dpi,
+                        drawn_dpi,
                         is_mask: masks.contains(id),
                         // Without downsampling a JPEG is passed through (re-coded losslessly).
                         reencode_jpeg: dpi.is_some(),

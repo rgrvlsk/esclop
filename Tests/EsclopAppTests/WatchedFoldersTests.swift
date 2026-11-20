@@ -157,10 +157,13 @@ import Testing
         let file = temp.file("locked.png")
         try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: file.path)
         defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: file.path) }
+        // Measured against the timeout, not a guess at "at once": under a full run's load the
+        // 20 ms checks took up to 14 s on a CI runner.
         let clock = ContinuousClock()
         let started = clock.now
-        #expect(await FileSettle.wait(for: file, interval: .milliseconds(20), timeout: .seconds(30)) == .unreadable)
-        #expect(clock.now - started < .seconds(5), "no wait for the timeout")
+        let timeout = Duration.seconds(60)
+        #expect(await FileSettle.wait(for: file, interval: .milliseconds(20), timeout: timeout) == .unreadable)
+        #expect(clock.now - started < timeout, "no wait for the timeout")
     }
 }
 
@@ -478,9 +481,22 @@ final class Flag: @unchecked Sendable {
 
     @Test func aRefusalTakesTheFolderOutQuietly() async throws {
         let rig = try WatchedFoldersTests.Rig()
+        // Landed while the folder's own stream is off. FSEvents still reports a write to a stream
+        // that starts before it has handled that write, so a witness stream waits until it has;
+        // after that the folder is unreadable, the stream skips a path it cannot see, and only
+        // the calls below hand the file over.
+        rig.folders.stop()
+        let seen = Flag()
+        let witness = FolderWatcher { files in
+            if files.contains(where: { $0.lastPathComponent == "shot.png" }) { seen.set() }
+        }
+        witness.start([rig.folder])
         let file = rig.land("shot.png")
+        #expect(await eventually { seen.isSet })
+        witness.stop()
         try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: rig.folder.path)
         defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: rig.folder.path) }
+        rig.folders.refresh()
         rig.folders.received([file])
         let folder = WatchPlan.canonical(rig.folder.path)
         #expect(rig.folders.denied == [folder])
@@ -493,8 +509,10 @@ final class Flag: @unchecked Sendable {
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: rig.folder.path)
         rig.folders.refresh(retryDenied: true)
         #expect(rig.folders.statuses[folder] == .watching, "the lists changed: it is tried again")
-        try await Task.sleep(for: .milliseconds(200))
-        #expect(rig.harness.requests.requests.isEmpty)
+        // Watched again: a new file goes on, the refused one does not come back with it.
+        let next = rig.land("next.png")
+        #expect(await eventually { !rig.harness.requests.requests.isEmpty })
+        #expect(rig.harness.requests.requests.flatMap(\.sources).map(\.lastPathComponent) == [next.lastPathComponent])
         rig.folders.stop()
     }
 
