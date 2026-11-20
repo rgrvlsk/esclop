@@ -447,6 +447,18 @@ func options(_ tmp: TempDir, scripts: Bool = false) -> PipelineRunOptions {
     #expect(!rec.calls.contains { $0.hasPrefix("zsh") || $0.hasPrefix("shortcuts") }, "\(rec.calls)")
 }
 
+@Test func aTrialSkipsDeleteAsItSkipsScripts() async throws {
+    let tmp = try TempDir()
+    let png = try tmp.file("trial/a.png")
+    var opts = options(tmp)
+    opts.allowDelete = false
+    opts.trialFolder = png.deletingLastPathComponent()
+    let report = await runner(Recorder()).run(steps: [.delete(path: "sourceFile")], on: [png], options: opts)
+    #expect(report.files[0].status == .completed, "\(report.files[0].log)")
+    #expect(report.files[0].log.map(\.outcome) == [.skipped])
+    #expect(FileManager.default.fileExists(atPath: png.path))
+}
+
 @Test func adaptiveOptimiseAsksTheEngineForIt() async throws {
     let tmp = try TempDir()
     let rec = Recorder()

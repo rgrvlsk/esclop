@@ -158,6 +158,7 @@ struct BatchRowView: View {
 
     private var isError: Bool {
         if case .failed = row.state { return true }
+        if case .failed = row.upload { return true }
         return false
     }
 
