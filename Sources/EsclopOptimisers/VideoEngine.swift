@@ -540,15 +540,27 @@ struct VideoEngine: Sendable {
         let info = try await MediaInfo.probe(source, tools: env.tools)
         guard info.audio != nil else { throw EsclopError.alreadySmaller }
         let output = work.file(stem: "muted", ext: source.pathExtension.isEmpty ? "mp4" : source.pathExtension)
-        // Video only: iPhone data tracks (mebx, timecode) do not survive a copy into MOV/MP4.
-        var args = ["-hide_banner", "-nostdin", "-y", "-i", source.path, "-map", "0:v", "-c", "copy"]
-        args += ["-map_metadata", plan.strip ? "-1" : "0"]
+        // Video and subtitles: iPhone data tracks (mebx, timecode) do not survive a copy into
+        // MOV/MP4. Subtitles go along when the container takes them as a copy.
+        var args = ["-hide_banner", "-nostdin", "-y", "-i", source.path, "-map", "0:v"]
+        var steps = ["Removed audio"]
+        let container = OutputFormat.of(url: output) ?? .mp4
+        let subtitles = info.streams("subtitle").map(\.codec)
+        let kept = subtitles.indices.filter { subtitleFits(subtitles[$0], in: container) }
+        for index in kept { args += ["-map", "0:s:\(index)"] }
+        if kept.count < subtitles.count {
+            let dropped = subtitles.count - kept.count
+            steps.append("Left out \(dropped) subtitle track\(dropped == 1 ? "" : "s")")
+        }
+        args += ["-c", "copy"]
+        // As in `arguments`: stripping keeps the track languages.
+        args += plan.strip ? ["-map_metadata:g", "-1", "-metadata:s", "creation_time="] : ["-map_metadata", "0"]
         if ["mp4", "mov", "m4v"].contains(source.pathExtension.lowercased()) { args += ["-movflags", "+faststart"] }
         args += ["-progress", "pipe:1", "-nostats", output.path]
         try await ProcessRunner.run(.ffmpeg, args, options: FFmpegProgress(duration: info.duration, sink: progress).options, locator: env.tools)
         return Produced(
             url: output, width: info.video?.width, height: info.video?.height, duration: info.duration,
-            steps: ["Removed audio"], allowLarger: false, lossless: true
+            steps: steps, allowLarger: false, lossless: true
         )
     }
 

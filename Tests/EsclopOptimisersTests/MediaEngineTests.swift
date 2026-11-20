@@ -634,6 +634,60 @@ import UniformTypeIdentifiers
         #expect(try await !Inspect.media(bare.output).hasCoverArt)
     }
 
+    /// An audiobook stays an `.m4b`, in place and elsewhere: it used to become `book.m4a`, and in
+    /// place the `.m4b` was removed.
+    @Test func anAudiobookKeepsItsExtension() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let noise = world.file("noise.wav")
+        try Fixture.noiseWAV(noise)
+        let book = world.file("book.m4b")
+        try await ProcessRunner.run(.ffmpeg, ["-hide_banner", "-loglevel", "error", "-y", "-i", noise.path, "-c:a", "aac", "-b:a", "256k", book.path])
+        let elsewhere = try await world.engine.optimise(book, request: world.request(book, location: .temporary), progress: { _ in })
+        #expect(elsewhere.output.pathExtension == "m4b")
+        let inPlace = try await world.engine.optimise(book, request: world.request(book), progress: { _ in })
+        #expect(inPlace.output == book)
+        #expect(try await Inspect.media(book).audio?.codec == "aac")
+        #expect(!FileManager.default.fileExists(atPath: world.file("book.m4a").path))
+    }
+
+    /// An audio speed change leaves the chapters out, as a video's does: their times would not
+    /// follow, and a step says so.
+    @Test func anAudioSpeedChangeLeavesOutTheChaptersAndSaysSo() async throws {
+        guard let ffmpeg = await Fixture.richFFmpeg() else { return }
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let chapters = world.file("chapters.txt")
+        try ";FFMETADATA1\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=0\nEND=1000\ntitle=Intro\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=1000\nEND=3000\ntitle=Main\n"
+            .write(to: chapters, atomically: true, encoding: .utf8)
+        let noise = world.file("noise.wav")
+        try Fixture.noiseWAV(noise)
+        let book = world.file("book.m4b")
+        try await ProcessRunner.run(executable: ffmpeg, arguments: [
+            "-hide_banner", "-loglevel", "error", "-y", "-i", noise.path, "-i", chapters.path, "-map", "0:a", "-map_chapters", "1",
+            "-c:a", "aac", "-b:a", "128k", book.path,
+        ])
+        try #require(chapterTitles(try await ffprobe(book)) == ["Intro", "Main"])
+        let same = try await world.engine.optimise(book, request: world.request(book, location: .temporary), progress: { _ in })
+        #expect(chapterTitles(try await ffprobe(same.output)) == ["Intro", "Main"])
+        let fast = try await world.engine.changeSpeed(book, factor: 2, request: world.request(book, location: .temporary), progress: { _ in })
+        #expect(chapterTitles(try await ffprobe(fast.output)).isEmpty)
+        #expect(fast.steps.contains("Left out 2 chapters: their times do not follow a speed change"))
+    }
+
+    /// Remove audio keeps the subtitles (it used to map only the video, dropping them silently).
+    @Test func removingTheAudioKeepsTheSubtitles() async throws {
+        guard let ffmpeg = await Fixture.richFFmpeg() else { return }
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let mkv = try await richMKV(world, ffmpeg: ffmpeg)
+        let result = try await world.engine.removeAudio(mkv, request: world.request(mkv, location: .temporary))
+        let json = try await ffprobe(result.output)
+        #expect(languages(json, "audio").isEmpty)
+        #expect(languages(json, "subtitle") == ["cat", "spa"])
+        #expect(!result.steps.contains { $0.hasPrefix("Left out") })
+    }
+
     /// Audio downscale scales the source's bitrate (it used to ignore the factor).
     @Test func audioDownscaleScalesTheBitrate() async throws {
         let world = try await TestWorld()
