@@ -385,16 +385,18 @@ import UniformTypeIdentifiers
 }
 
 @Suite struct HDRTests {
-    /// An HDR HEIC with a gain map, made with Core Image (macOS 15+).
+    /// An HDR HEIC with a gain map, made with Core Image (macOS 15+), with `properties` (EXIF,
+    /// GPS, orientation) as an iPhone writes them.
     @available(macOS 15, *)
-    static func hdrHEIC(_ url: URL) throws {
+    static func hdrHEIC(_ url: URL, properties: [String: Any] = [:]) throws {
         let space = CGColorSpace(name: CGColorSpace.extendedLinearDisplayP3)!
         let bright = CIImage(color: CIColor(red: 3, green: 2.5, blue: 2, colorSpace: space)!).cropped(to: CGRect(x: 0, y: 0, width: 160, height: 120))
         let dark = CIImage(color: CIColor(red: 0.2, green: 0.3, blue: 0.4, colorSpace: space)!).cropped(to: CGRect(x: 160, y: 0, width: 160, height: 120))
         let hdr = bright.composited(over: dark).cropped(to: CGRect(x: 0, y: 0, width: 320, height: 120))
         let sdr = hdr.applyingFilter("CIToneMapHeadroom", parameters: ["inputTargetHeadroom": 1.0])
         try CIContext().writeHEIFRepresentation(
-            of: sdr, to: url, format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.displayP3)!, options: [.hdrImage: hdr]
+            of: sdr.settingProperties(properties), to: url, format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.displayP3)!,
+            options: [.hdrImage: hdr]
         )
     }
 
@@ -418,6 +420,45 @@ import UniformTypeIdentifiers
         try EsclopSettings.keepHDR.set(false, in: world.settings)
         let sdr = try await world.engine.convert(heic, to: .jpeg, request: world.request(heic, location: .temporary), progress: { _ in })
         #expect(ImageInfo.probe(sdr.output)?.hasGainMap == false)
+    }
+
+    /// A resized iPhone HDR photo loses its location, camera and EXIF with strip on and keeps
+    /// them with it off; either way the gain map stays and the picture stands upright (it was
+    /// rebuilt by Core Image, which kept the GPS whatever strip said).
+    @Test func aResizedHDRPhotoFollowsStrip() async throws {
+        guard #available(macOS 15, *) else { return }
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let heic = world.file("iphone.heic")
+        try Self.hdrHEIC(heic, properties: [
+            kCGImagePropertyOrientation as String: 6,
+            kCGImagePropertyGPSDictionary as String: [kCGImagePropertyGPSLatitude: 41.38, kCGImagePropertyGPSLatitudeRef: "N"],
+            kCGImagePropertyTIFFDictionary as String: [kCGImagePropertyTIFFMake: "Apple", kCGImagePropertyTIFFModel: "iPhone", kCGImagePropertyTIFFOrientation: 6],
+            kCGImagePropertyExifDictionary as String: [kCGImagePropertyExifLensModel: "esclop lens"],
+        ])
+        try #require(ImageInfo.probe(heic)?.hasGainMap == true)
+        try #require(Inspect.properties(heic)[kCGImagePropertyGPSDictionary] != nil)
+        try #require(Inspect.size(heic)! == (120, 320))
+        for format in [OutputFormat.heic, .jpeg] {
+            for strip in [true, false] {
+                let label = "\(format) strip \(strip)"
+                var request = world.request(heic, location: .temporary)
+                request.stripMetadata = strip
+                request.crop = CropSize(width: 60)
+                let result = try await world.engine.convert(heic, to: format, request: request, progress: { _ in })
+                let properties = Inspect.properties(result.output)
+                let tiff = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any]
+                let exif = properties[kCGImagePropertyExifDictionary] as? [CFString: Any]
+                #expect(ImageInfo.probe(result.output)?.hasGainMap == true, "\(label)")
+                #expect(result.steps.contains("Kept the HDR gain map"), "\(label)")
+                #expect(Inspect.size(result.output)! == (60, 160), "\(label)")
+                #expect(properties[kCGImagePropertyOrientation] as? Int == 1, "\(label)")
+                #expect((properties[kCGImagePropertyGPSDictionary] != nil) == !strip, "\(label)")
+                #expect((tiff?[kCGImagePropertyTIFFMake] != nil) == !strip, "\(label)")
+                #expect((tiff?[kCGImagePropertyTIFFModel] != nil) == !strip, "\(label)")
+                #expect((exif?[kCGImagePropertyExifLensModel] != nil) == !strip, "\(label)")
+            }
+        }
     }
 }
 

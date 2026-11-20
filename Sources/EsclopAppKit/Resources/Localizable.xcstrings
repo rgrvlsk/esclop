@@ -351,6 +351,16 @@
         }
       }
     },
+    "%@, downloading": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, s’està baixant"
+          }
+        }
+      }
+    },
     "%@, left as it was": {
       "localizations": {
         "ca": {
@@ -2921,12 +2931,32 @@
         }
       }
     },
+    "Do nothing": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No facis res"
+          }
+        }
+      }
+    },
     "Done": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Fet"
+          }
+        }
+      }
+    },
+    "Download and optimise": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Baixa i optimitza"
           }
         }
       }
@@ -2947,6 +2977,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Baixa imatges, vídeos, PDF o fitxers d’àudio del web i optimitza’ls. Les baixades van a la carpeta temporal de L’Esclop, tret que triïs on desar-les."
+          }
+        }
+      }
+    },
+    "Downloading…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’està baixant…"
           }
         }
       }
@@ -3067,6 +3107,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Deixa anar per executar «%@»"
+          }
+        }
+      }
+    },
+    "Dropped file": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fitxer deixat anar"
           }
         }
       }
@@ -3381,12 +3431,12 @@
         }
       }
     },
-    "Files are optimised on this Mac, with no account. They leave it only when you upload them or set up automatic uploads. L’Esclop needs no Accessibility, Screen Recording or Full Disk Access.": {
+    "Files are optimised on this Mac, with no account. They leave it only when you upload them or set up automatic uploads. A copied media link is only offered for download: nothing is fetched until you click. L’Esclop needs no Accessibility, Screen Recording or Full Disk Access.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Els fitxers s’optimitzen en aquest Mac, sense cap compte. Només en surten si els puges o si configures les pujades automàtiques. L’Esclop no necessita Accessibilitat, Gravació de la pantalla ni Accés complet al disc."
+            "value": "Els fitxers s’optimitzen en aquest Mac, sense cap compte. Només en surten si els puges o si configures les pujades automàtiques. Un enllaç multimèdia copiat només es proposa per baixar: no es baixa res fins que hi fas clic. L’Esclop no necessita Accessibilitat, Gravació de la pantalla ni Accés complet al disc."
           }
         }
       }
@@ -4077,6 +4127,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Havia canviat després d’optimitzar-la. El resultat nou parteix de l’original."
+          }
+        }
+      }
+    },
+    "It is larger than %@.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fa més de %@."
+          }
+        }
+      }
+    },
+    "It is not an image, video, PDF or audio file.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No és cap imatge, vídeo, PDF ni fitxer d’àudio."
+          }
+        }
+      }
+    },
+    "It is on this Mac or the local network: download it with Optimise Clipboard.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "És en aquest Mac o a la xarxa local: baixa-la amb Optimitza el porta-retalls."
           }
         }
       }
@@ -5427,6 +5507,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No hi ha res per optimitzar"
+          }
+        }
+      }
+    },
+    "Offer to download": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proposa la baixada"
           }
         }
       }
@@ -8617,6 +8707,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Les mateixes opcions al Terminal"
+          }
+        }
+      }
+    },
+    "The server answered with error %d.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El servidor ha respost amb l’error %d."
           }
         }
       }
@@ -11826,7 +11926,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quan el text copiat és l’adreça web d’una imatge, un vídeo, un PDF o un àudio, el baixa i l’optimitza. Els altres enllaços no s’obren mai."
+            "value": "Quan copies l’adreça web d’una imatge, un vídeo, un PDF o un fitxer d’àudio. Si te la proposa, no baixa res fins que hi facis clic. Els altres enllaços no s’obren mai."
           }
         }
       }
@@ -11836,7 +11936,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Baixa les adreces web copiades"
+            "value": "Adreces web copiades"
           }
         }
       }

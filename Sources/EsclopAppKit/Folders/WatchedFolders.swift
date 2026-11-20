@@ -195,7 +195,7 @@ public final class WatchedFolders {
         model.notice(
             Self.tooManyTitle(key.kind, count: burst.limit),
             Strings.format("They appeared together in %@, so L’Esclop left them alone.", PathInput.abbreviate(key.folder)),
-            optimiseAnyway: { [weak self] in self?.optimiseAnyway(burst.files) }
+            action: (.optimiseAnyway, { [weak self] in self?.optimiseAnyway(burst.files) })
         )
     }
 

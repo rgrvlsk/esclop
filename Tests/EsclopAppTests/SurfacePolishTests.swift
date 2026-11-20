@@ -16,6 +16,9 @@ import Testing
     /// says where it went, since the restored card that says it lasts only until the run starts.
     @Test func aReRunSaysWhereTheEditWent() async throws {
         let harness = Harness()
+        // The notice stays: its 3 s ran out under a full run's load (40 s on a CI runner) before
+        // the main actor came back to look.
+        harness.model.hideDelayOverride = .seconds(600)
         harness.model.restoreBackup = { service, result in
             var outcome = try await service.restoreBackup(of: result, deleteBackup: false)
             outcome.movedToTrash = [result.output.path, result.source.path]

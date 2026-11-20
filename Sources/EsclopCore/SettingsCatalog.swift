@@ -36,6 +36,27 @@ public enum AudioCoverArt: String, CaseIterable, Codable, Sendable, SettingValue
 
 extension VideoEncoder: SettingValue {}
 
+/// What a copied web address of an image, video, PDF or audio file does.
+public enum CopiedAddressAction: String, CaseIterable, Codable, Sendable, SettingValue {
+    /// A brief card offers the download; nothing is fetched before its click.
+    case offer
+    /// Downloaded and optimised on its own, as a copied file.
+    case download
+    case ignore
+
+    /// Before 0.2 the setting was a switch: a stored true reads as `download`, false as `ignore`.
+    public init?(storedValue: Any) {
+        if let raw = storedValue as? String {
+            guard let value = Self(rawValue: raw) else { return nil }
+            self = value
+        } else if let flag = storedValue as? NSNumber {
+            self = flag.boolValue ? .download : .ignore
+        } else {
+            return nil
+        }
+    }
+}
+
 /// The screen corner where floating results stack.
 public enum ScreenCorner: String, CaseIterable, Codable, Sendable, SettingValue {
     case bottomRight, bottomLeft, topRight, topLeft
@@ -422,9 +443,9 @@ public enum EsclopSettings {
         "optimiseImagePathClipboard", default: false, title: "Optimise copied image paths",
         description: "When a copied text is the path of an image file, optimise that file.", section: .clipboard
     )
-    public static let optimiseURLClipboard = Setting<Bool>(
-        "optimiseURLClipboard", default: true, title: "Download copied web addresses",
-        description: "When a copied text is the web address of an image, video, PDF or audio file, download and optimise it. Other links are never opened.",
+    public static let optimiseURLClipboard = Setting<CopiedAddressAction>(
+        "optimiseURLClipboard", default: .offer, title: "Copied web addresses",
+        description: "When you copy the web address of an image, video, PDF or audio file. An offer fetches nothing until you click it. Other links are never opened.",
         section: .clipboard
     )
     public static let clipboardIgnoredAppBundleIds = Setting<[String]>(

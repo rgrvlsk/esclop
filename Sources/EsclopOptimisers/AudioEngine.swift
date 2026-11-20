@@ -84,7 +84,11 @@ struct AudioEngine: Sendable {
             steps.append("Reduced to 24 bits")
         }
 
-        let output = work.file(stem: "encoded", ext: codec.fileExtension)
+        // MPEG-4 audio keeps its own name: an audiobook stays `.m4b`, also when converted to
+        // AAC or fitted, since the container does not change.
+        let sourceExtension = source.pathExtension.lowercased()
+        let ext = codec == .aac && ["m4a", "m4b"].contains(sourceExtension) ? sourceExtension : codec.fileExtension
+        let output = work.file(stem: "encoded", ext: ext)
         let duration = info.duration.map { $0 / (speed ?? 1) }
         let options = FFmpegProgress(duration: duration, sink: progress).options
 
@@ -104,6 +108,8 @@ struct AudioEngine: Sendable {
             // strip-metadata setting describes photos and videos, not songs. The cover follows
             // the cover-art setting either way; only `strip` (`stripMetadata(_:work:)`) drops it.
             args += ["-map_metadata", plan.request.stripMetadata == true ? "-1" : "0"]
+            // Chapter times do not follow a speed change (as in VideoEngine).
+            if speed != nil { args += ["-map_chapters", "-1"] }
             args += ["-progress", "pipe:1", "-nostats", output.path]
             return args
         }
@@ -114,7 +120,12 @@ struct AudioEngine: Sendable {
             Log.audio.info("AudioToolbox AAC failed, using ffmpeg's AAC: \(error.description, privacy: .private)")
             try await ProcessRunner.run(.ffmpeg, arguments(appleAAC: false), options: options, locator: env.tools)
         }
-        if let speed { steps.append("Changed speed to \(String(format: "%g", speed))x") }
+        if let speed {
+            steps.append("Changed speed to \(String(format: "%g", speed))x")
+            if info.chapterCount > 0 {
+                steps.append("Left out \(info.chapterCount) chapter\(info.chapterCount == 1 ? "" : "s"): their times do not follow a speed change")
+            }
+        }
         if let loudness { steps.append("Normalised loudness to \(String(format: "%g", loudness)) LUFS") }
         if plan.request.stripMetadata == true { steps.append("Removed metadata") }
         // A new codec under the same name (Apple Lossless to AAC in an .m4a) still has to shrink.

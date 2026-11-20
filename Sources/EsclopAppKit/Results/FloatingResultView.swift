@@ -198,7 +198,7 @@ public struct FloatingResultView: View {
     /// open it belongs to the popover. Space is Quick Look (`CardKeys`), as in Finder and Clop.
     private func enter(_ info: CardPresentation) -> KeyPress.Result {
         if card.machine.menuOpen { return .ignored }
-        if case .notice = card.phase { return run(.optimiseAnyway, in: info) }
+        if case .notice = card.phase { return card.noticeAction.map { run($0.action, in: info) } ?? .ignored }
         guard card.machine.level == .detail else { return run(.openDetail, in: info) }
         return info.primary.map { run($0, in: info) } ?? .ignored
     }
@@ -290,10 +290,10 @@ struct NoticeCapsule: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.callout.weight(.semibold))
                 Text(detail).font(.subheadline).foregroundStyle(Ink.secondary)
-                if info.actions.contains(.optimiseAnyway) {
+                if let action = info.actions.first(where: { $0 != .dismiss }) {
                     // The most likely action, in charcoal, as the detail card's is.
-                    Button { perform(.optimiseAnyway) } label: {
-                        Text(CardPresentation.Action.optimiseAnyway.title)
+                    Button { perform(action) } label: {
+                        Text(action.title)
                             .font(.callout.weight(.semibold))
                             .foregroundStyle(Ink.onCharcoal)
                             .padding(.horizontal, 12)

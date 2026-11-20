@@ -27,7 +27,9 @@ public final class AppModel {
     /// Every pasteboard read and write for results, and what the clipboard holds.
     @ObservationIgnored let clipboard: ClipboardKeeper
     /// Fetches a copied web address (`WebDownload.fetch`); a fake in tests.
-    @ObservationIgnored var download: @Sendable (URL) async throws -> URL = { try await WebDownload.fetch($0) }
+    @ObservationIgnored var download: @Sendable (URL, WebDownload.Terms) async throws -> URL = { try await WebDownload.fetch($0, terms: $1) }
+    /// Copied addresses offered this session: each is offered once.
+    @ObservationIgnored var offeredAddresses: Set<URL> = []
     /// Shows the batch window when a batch starts.
     @ObservationIgnored var onBatch: ((Batch) -> Void)?
 
@@ -641,13 +643,16 @@ public final class AppModel {
         for card in cards where ids.contains(card.jobID) { dismiss(card) }
     }
 
-    /// A short message with no file. It replaces the last plain one. With `optimiseAnyway` it
-    /// offers that action, stays long enough to reach it, and no later notice takes its place.
-    public func notice(_ title: String, _ detail: String, optimiseAnyway: (() -> Void)? = nil) {
-        cards.filter { if case .notice = $0.phase { return $0.optimiseAnyway == nil } else { return false } }.forEach(dismiss)
+    /// A short message with no file. It replaces the last plain one. With an `action` it offers
+    /// that action, stays `hideAfter` seconds (8 by default) so it can be reached, and no later
+    /// notice takes its place.
+    public func notice(
+        _ title: String, _ detail: String, action: (action: CardPresentation.Action, run: () -> Void)? = nil, hideAfter: TimeInterval? = nil
+    ) {
+        cards.filter { if case .notice = $0.phase { return $0.noticeAction == nil } else { return false } }.forEach(dismiss)
         let card = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/"), origin: .app, bytesBefore: 0, phase: .notice(title: title, detail: detail))
-        card.optimiseAnyway = optimiseAnyway
-        card.machine.notice(at: now(), hideAfter: hideDelayOverride.map(Self.seconds) ?? (optimiseAnyway == nil ? 3 : 8))
+        card.noticeAction = action
+        card.machine.notice(at: now(), hideAfter: hideDelayOverride.map(Self.seconds) ?? hideAfter ?? (action == nil ? 3 : 8))
         add(card)
     }
 
@@ -670,6 +675,8 @@ public final class AppModel {
         case .pointerEntered: card.machine.pointerEntered(at: time)
         case .pointerExited: card.machine.pointerExited(at: time)
         case .openDetail:
+            // A download has no file to show yet.
+            guard !card.downloading else { return }
             // The options popover belongs to the card; the detail opens without it, and without
             // its "…" menu open.
             card.machine.setMenuOpen(false, at: time)
@@ -873,8 +880,8 @@ public final class AppModel {
             openOptions(card)
         case .trash:
             trash(card)
-        case .optimiseAnyway:
-            card.optimiseAnyway?()
+        case .optimiseAnyway, .download:
+            card.noticeAction?.run()
             dismiss(card)
         case .save:
             save(card)
