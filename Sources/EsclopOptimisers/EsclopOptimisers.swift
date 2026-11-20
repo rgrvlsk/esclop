@@ -129,7 +129,7 @@ public struct EsclopEngine: OptimisationEngine {
     public func extractPDFPages(_ source: URL, pages: [Int]? = nil, format: OutputFormat?, dpi: Double = 144, to folder: URL) async throws -> [URL] {
         let written = try PDFEngine(env: env).extractPages(source, pages: pages, format: format, dpi: dpi, to: folder)
         for page in written {
-            // Stop in the app ends it here; the caller removes what was written.
+            // A cancelled export stops here; the pages written so far stay (the app removes its folder).
             try Task.checkCancellation()
             await optimiseNewImage(page)
         }
