@@ -443,7 +443,10 @@ final class Flag: @unchecked Sendable {
         // Jobs hold until cancelled: an instant engine finished the first burst's batch before
         // the second burst opened one.
         let rig = try Rig(pipelines: [pipeline], delay: .seconds(3600), alsoWatching: [other.url.path])
-        for index in 1 ... 4 { try pngData().write(to: piped.url.appendingPathComponent("p \(index).png"), options: .atomic) }
+        let piping = (1 ... 4).map { piped.url.appendingPathComponent("p \($0).png") }
+        for file in piping { try pngData().write(to: file, options: .atomic) }
+        // In one go too: under load FSEvents can split these four as it can the bursts below.
+        rig.folders.received(piping)
         #expect(await eventually { (try? FileManager.default.contentsOfDirectory(atPath: out.url.path).count) == 4 })
         #expect(rig.harness.model.batch?.rows.count == 4, "a pipeline burst shares one batch")
         #expect(rig.harness.model.cards.isEmpty)
