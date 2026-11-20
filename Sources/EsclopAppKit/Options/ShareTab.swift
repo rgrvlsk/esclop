@@ -22,11 +22,14 @@ struct ShareTab: View {
             }
             // Uploads to the person's own targets (Settings › Uploads), the link on the clipboard.
             let targets = app.uploadTargets
+            // The result's ⌘U uploads to the default target.
+            let fallback = try? UploadTarget.resolve(nil, in: app.settings)
             ForEach(targets) { target in
                 ActionRow(
                     symbol: "icloud.and.arrow.up", title: targets.count == 1 ? Strings.text("Upload") : Strings.format("Upload to %@", target.name),
                     detail: Strings.text("Copies a link")
                 ) { app.upload(card, to: target.name) }
+                .help(target.name == fallback?.name ? CardKeys.onTheResult(Strings.text("Upload"), key: "⌘U") : "")
             }
             if targets.isEmpty {
                 ActionRow(symbol: "icloud.and.arrow.up", title: Strings.text("Set Up Uploads…"), detail: Strings.text("In Settings"), opens: true) {

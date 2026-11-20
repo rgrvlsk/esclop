@@ -314,6 +314,11 @@ public enum EsclopError: Error, Codable, Equatable, Sendable, CustomStringConver
     /// The result had a backup, but it is gone: removed by retention after `afterDays` days, or
     /// some other way when that is nil. `file` is the source path the backup was of.
     case backupRemoved(file: String, afterDays: Int?)
+    /// A fit found nothing under `underBytes`: `smallest` is the smallest attempt, nil when no
+    /// attempt came out smaller than the original.
+    case cannotFit(underBytes: Int, smallest: Int?)
+    /// The output format keeps every bit (FLAC, WAV…), so it has no size to aim at.
+    case losslessCannotFit(format: String)
     case other(String)
 
     /// "This file isn’t a video L'Esclop can read. It may be damaged."
@@ -342,6 +347,10 @@ public enum EsclopError: Error, Codable, Equatable, Sendable, CustomStringConver
         case let .leftAsIs(reason): return reason
         case let .backupRemoved(file, days?): return "The backup of \(file) was removed after \(days) \(days == 1 ? "day" : "days") (Settings → Backups)"
         case let .backupRemoved(file, nil): return "The backup of \(file) is no longer there"
+        case let .cannotFit(target, smallest):
+            let size = { (bytes: Int) in ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file) }
+            return "Could not fit under \(size(target)); the smallest attempt was \(smallest.map(size) ?? "nothing smaller than the original")"
+        case let .losslessCannotFit(format): return "\(format) is lossless and cannot be fitted to a size"
         case let .other(msg): return msg
         }
     }

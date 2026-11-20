@@ -221,13 +221,19 @@ struct CardFooter: View {
         if large {
             // The detail already names the file, and its charcoal button stops the work.
             VStack(alignment: .leading, spacing: 8) {
-                Text(info.headline).font(.system(size: 13, weight: .semibold)).foregroundStyle(Ink.text).lineLimit(1)
+                HStack(spacing: 5) {
+                    StateMark(meaning: .working).font(.system(size: 12, weight: .semibold))
+                    Text(info.headline).font(.system(size: 13, weight: .semibold)).foregroundStyle(Ink.text).lineLimit(1)
+                }
                 WorkBar(progress: info.progress, pulses: !reduceMotion)
             }
         } else {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(info.headline).font(.system(size: 13, weight: .semibold)).foregroundStyle(Ink.text).lineLimit(1)
+                    HStack(spacing: 5) {
+                        StateMark(meaning: .working).font(.system(size: 12, weight: .semibold))
+                        Text(info.headline).font(.system(size: 13, weight: .semibold)).foregroundStyle(Ink.text).lineLimit(1)
+                    }
                     TimelineView(.periodic(from: card.startedAt, by: 1)) { context in
                         caption(workCaption(at: context.date))
                     }

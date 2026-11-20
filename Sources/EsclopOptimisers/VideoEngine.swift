@@ -619,7 +619,7 @@ struct VideoEngine: Sendable {
             videoKbps = max(20, Int(Double(videoKbps) * 0.9))
             steps.append("\(codec.label) could not fit; trying the next encoder")
         }
-        throw EsclopError.other("Could not fit under \(ByteFormat.string(target)); the smallest attempt was \(ByteFormat.string(smallest))")
+        throw EsclopError.cannotFit(underBytes: target, smallest: smallest == Int.max ? nil : smallest)
     }
 
     // MARK: Metadata

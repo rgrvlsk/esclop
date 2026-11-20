@@ -149,7 +149,7 @@ struct AudioEngine: Sendable {
         var codec = try targetCodec(for: source, plan: plan)
         if codec.isLossless, plan.format == nil { codec = .aac }
         guard !codec.isLossless else {
-            throw EsclopError.invalidArgument("\(codec.fileExtension.uppercased()) is lossless and cannot be fitted to a size")
+            throw EsclopError.losslessCannotFit(format: codec.fileExtension.uppercased())
         }
         let budget = Int(Double(target) * 8 / duration / 1000 * 0.95)
         var candidates = codec.allowedBitrates.filter { $0 <= budget }.reversed().map { $0 }
@@ -169,7 +169,7 @@ struct AudioEngine: Sendable {
                 return produced
             }
         }
-        throw EsclopError.other("Could not fit under \(ByteFormat.string(target)); the smallest attempt was \(ByteFormat.string(smallest))")
+        throw EsclopError.cannotFit(underBytes: target, smallest: smallest == Int.max ? nil : smallest)
     }
 
     func stripMetadata(_ source: URL, work: WorkFolder) async throws -> Produced {

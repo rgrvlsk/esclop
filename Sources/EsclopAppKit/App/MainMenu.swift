@@ -22,7 +22,7 @@ public enum MainMenu {
             return item
         }
         let main = NSMenu()
-        main.addItem(menu("L'Esclop", [item("Quit L'Esclop", #selector(NSApplication.terminate(_:)), "q")]))
+        main.addItem(menu("L’Esclop", [item("Quit L’Esclop", #selector(NSApplication.terminate(_:)), "q")]))
         main.addItem(menu("Edit", [
             item("Undo", Selector(("undo:")), "z"),
             item("Redo", Selector(("redo:")), "z", [.command, .shift]),

@@ -62,6 +62,16 @@ final class RequestLog: @unchecked Sendable {
     var requests: [OptimisationRequest] { lock.withLock { stored } }
 }
 
+/// A refusal the test engine gives to every fit while it is set (a FLAC fit, a size out of reach).
+final class FitRefusal: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: EsclopError?
+    var error: EsclopError? {
+        get { lock.withLock { stored } }
+        set { lock.withLock { stored = newValue } }
+    }
+}
+
 struct ShrinkingEngine: OptimisationEngine {
     var factor = 0.4
     var backups: URL
@@ -70,6 +80,7 @@ struct ShrinkingEngine: OptimisationEngine {
     var log: RequestLog?
     /// Where `.temporary` results go; `.sameFolder` ones go beside the source, the rest in place.
     var temporaryRoot: URL?
+    var fitRefusal: FitRefusal?
 
     func optimise(_ source: URL, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult {
         log?.add(request)
@@ -109,6 +120,10 @@ struct ShrinkingEngine: OptimisationEngine {
     func fit(_ source: URL, underBytes: Int, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult {
         var request = request
         request.targetBytes = underBytes
+        if let error = fitRefusal?.error {
+            log?.add(request)
+            throw error
+        }
         return try await optimise(source, request: request, progress: progress)
     }
     func stripMetadata(_ source: URL, request: OptimisationRequest) async throws -> OptimisationResult { try await optimise(source, request: request) { _ in } }
@@ -125,6 +140,7 @@ struct Harness {
     let revealed = Revealed()
     let requests = RequestLog()
     let announcements = Revealed()
+    let fitRefusal = FitRefusal()
 
     final class Revealed: @unchecked Sendable {
         var urls: [URL] = []
@@ -137,7 +153,8 @@ struct Harness {
             origin: .app,
             engine: ShrinkingEngine(
                 backups: locations.backups, failure: failure, delay: delay, log: requests,
-                temporaryRoot: temp.url.appendingPathComponent("esclop-temporary", isDirectory: true)
+                temporaryRoot: temp.url.appendingPathComponent("esclop-temporary", isDirectory: true),
+                fitRefusal: fitRefusal
             ),
             engineName: "test", settings: RegistrySettingsProvider(store: settings.store),
             pipelines: PipelineStore(directory: locations.pipelines, useTrash: false),

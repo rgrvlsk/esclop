@@ -61,6 +61,12 @@ public final class AppModel {
     @ObservationIgnored var onCardsChange: (() -> Void)?
     /// Replaces the auto-hide delays from the settings (tests).
     @ObservationIgnored public var hideDelayOverride: Duration?
+    /// VoiceOver is on: results wait for the person, they never hide on a timer (tests set it).
+    @ObservationIgnored var voiceOverRunning: () -> Bool = { NSWorkspace.shared.isVoiceOverEnabled }
+    /// A key that does nothing where it was pressed (tests count them).
+    @ObservationIgnored var beep: () -> Void = { NSSound.beep() }
+    /// Opens a file in its default app (tests record it).
+    @ObservationIgnored var openFile: (URL) -> Void = { NSWorkspace.shared.open($0) }
     @ObservationIgnored public var loadsThumbnails = true
     /// The clock the floating results run on (tests move it by hand).
     @ObservationIgnored public var now: () -> Date = Date.init
@@ -229,10 +235,13 @@ public final class AppModel {
         events: @escaping @Sendable (JobEvent) -> Void = { _ in },
         onResult: ((OptimisationResult) -> Void)? = nil
     ) async -> JobReport {
-        let batch = batch ?? (existing == nil && job.request.showResultUI && job.request.sources.count >= batchThreshold
+        // "Show floating results" off: results go only to Recent and the menu, as a pipeline's
+        // `hideResult` makes them; a card already on screen runs again in place.
+        let showsResult = job.request.showResultUI && (existing != nil || EsclopSettings.showFloatingResults.value(in: settings))
+        let batch = batch ?? (existing == nil && showsResult && job.request.sources.count >= batchThreshold
             ? openBatch(origin: job.request.origin) : nil)
         // A fork shows as a result of its own beside a single floating result, not in a batch.
-        let single = job.request.showResultUI && batch == nil && job.request.sources.count == 1 ? job.request.sources.first : nil
+        let single = showsResult && batch == nil && job.request.sources.count == 1 ? job.request.sources.first : nil
         let desktop = AppDesktop(model: self, original: single.map { ($0, Self.size(of: $0)) })
         // The clipboard as the job starts: a link it makes later goes on it only if nothing was
         // copied after (an automatic upload's, a pipeline's upload step's).
@@ -252,7 +261,7 @@ public final class AppModel {
                 restart(existing, context: context)
                 card = existing
             } else {
-                card = job.request.showResultUI ? addCard(for: source, job: job, displayName: displayName, context: context) : nil
+                card = showsResult ? addCard(for: source, job: job, displayName: displayName, context: context) : nil
             }
             let task = Task { await self.process(source, job: job, executor: executor, card: card, linksSince: linksSince, events: events, onResult: onResult) }
             card?.cancelWork = { task.cancel() }
@@ -763,7 +772,7 @@ public final class AppModel {
     }
 
     private func hideDelay(for card: ResultCard) -> Duration? {
-        guard EsclopSettings.autoHideFloatingResults.value(in: settings) else { return nil }
+        guard EsclopSettings.autoHideFloatingResults.value(in: settings), !voiceOverRunning() else { return nil }
         if let hideDelayOverride { return hideDelayOverride }
         let seconds = card.origin == .clipboard
             ? EsclopSettings.autoHideClipboardResultAfter.value(in: settings)
@@ -950,17 +959,35 @@ public final class AppModel {
             card.adjusted = job.request.crop != nil || job.request.downscale != nil || job.operation != plain
             let copyBack = origin == .clipboard && EsclopSettings.autoCopyToClipboard.value(in: settings)
             card.restoring = false
-            await run(job, displayName: displayName, context: context, reusing: card, onResult: { result in
+            let onResult = { (result: OptimisationResult) in
                 if let replaced {
                     self.forget(replaced)
                     self.service.results.append([], withdrawing: [replaced], wait: false)
                 }
                 guard copyBack else { return }
                 Task { await self.putBackOnClipboard(shown.map { ($0, result.output) }) }
-            })
+            }
+            let report = await run(job, displayName: displayName, context: context, reusing: card, onResult: onResult)
+            // A kept fit the new choice cannot make (FLAC is lossless, nothing came under the
+            // size): the choice runs once more without it, and a notice says the fit went.
+            if case let .fit(bytes) = job.operation, bytes == kept.fit, let error = report.failures.first?.error, Self.isFitFailure(error) {
+                job.operation = plain
+                card.fit = nil
+                card.adjusted = job.request.crop != nil || job.request.downscale != nil
+                notice(Strings.text("Fit dropped"), CardPresentation.message(for: error))
+                await run(job, displayName: displayName, context: context, reusing: card, onResult: onResult)
+            }
             // A failed card has no "…": the popover closes so the failure and its Retry show,
             // instead of controls that can no longer run anything.
             if case .failed = card.phase, card.machine.menuOpen { interact(card, .menu(false)) }
+        }
+    }
+
+    /// The engine found no way to make the fit, as opposed to failing to optimise at all.
+    nonisolated static func isFitFailure(_ error: EsclopError) -> Bool {
+        switch error {
+        case .cannotFit, .losslessCannotFit: return true
+        default: return false
         }
     }
 

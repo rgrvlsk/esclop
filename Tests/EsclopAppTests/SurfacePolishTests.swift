@@ -105,6 +105,38 @@ import Testing
         #expect(harness.requests.requests.last?.targetBytes == nil && card.fit == nil, "Original takes it off")
     }
 
+    /// A kept fit that a later choice cannot make (FLAC is lossless) does not leave the card
+    /// "Not optimised": the choice runs once more without it, and a notice says the fit went. A
+    /// fit chosen now that fails stays a failure: the person asked for that size.
+    @Test func aKeptFitTheChoiceCannotMakeIsDropped() async throws {
+        let harness = Harness()
+        _ = await harness.model.run(harness.job(harness.temp.file("a.png", bytes: 100_000)))
+        let card = try #require(harness.model.cards.first)
+        harness.model.fit(card, under: 20_000)
+        #expect(await eventually { harness.requests.requests.count == 2 && card.result != nil })
+        harness.model.interact(card, .menu(true))
+        harness.fitRefusal.error = .losslessCannotFit(format: "FLAC")
+        var choice = card.choice
+        choice.stripMetadata = false
+        harness.model.apply(choice, to: card)
+        #expect(await eventually { harness.requests.requests.count == 4 && card.result != nil })
+        #expect(harness.requests.requests[2].targetBytes == 20_000, "the kept fit was tried")
+        #expect(harness.requests.requests[3].targetBytes == nil, "then the choice ran without it")
+        #expect(card.fit == nil && !card.adjusted)
+        #expect(card.machine.menuOpen, "the popover stays open on the new result")
+        let notice = harness.model.cards.first { if case .notice = $0.phase { true } else { false } }
+        guard case let .notice(title, detail)? = notice?.phase else {
+            Issue.record("no notice")
+            return
+        }
+        #expect(title == "Fit dropped")
+        #expect(detail == "FLAC is lossless, so it cannot be fitted to a size.")
+
+        harness.model.fit(card, under: 10_000)
+        #expect(await eventually { harness.requests.requests.count == 5 && card.failure == .optimise })
+        #expect(card.failureMessage == "FLAC is lossless, so it cannot be fitted to a size.", "a fit chosen now is not dropped")
+    }
+
     /// ⌥ on a format tile keeps both, and the copy has the card's crop, scale and fit.
     @Test func keepBothMakesTheCardsStepsAgain() async throws {
         let harness = Harness()

@@ -115,7 +115,7 @@ struct PDFEngine: Sendable {
                 return Produced(url: output, width: nil, height: nil, duration: nil, steps: ["Fit under \(ByteFormat.string(target)) at \(dpi) dpi"], allowLarger: true)
             }
         }
-        throw EsclopError.other("Could not fit under \(ByteFormat.string(target)); the smallest attempt was \(ByteFormat.string(smallest)) at \(stops.last ?? PDFResolution.minDPI) dpi")
+        throw EsclopError.cannotFit(underBytes: target, smallest: smallest == Int.max ? nil : smallest)
     }
 
     /// `pdf.optimise` without downsampling, at the lightest compression, drops the document
