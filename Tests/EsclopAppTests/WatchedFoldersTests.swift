@@ -259,7 +259,6 @@ final class Flag: @unchecked Sendable {
     @Test func tooManyFilesAtOnceAreSkippedWithANotice() async throws {
         let rig = try Rig()
         rig.folders.burstWindow = .seconds(1)
-        rig.harness.model.hideDelayOverride = .seconds(600)
         for index in 1 ... 5 { _ = rig.land("copied \(index).png") }
         #expect(await eventually {
             rig.harness.model.cards.contains { if case .notice = $0.phase { return true } else { return false } }
@@ -315,7 +314,6 @@ final class Flag: @unchecked Sendable {
         let other = TempDir()
         let rig = try Rig(alsoWatching: [other.url.path])
         rig.folders.burstWindow = .seconds(1)
-        rig.harness.model.hideDelayOverride = .seconds(600)
         for index in 1 ... 5 { _ = rig.land("unzipped \(index).png") }
         _ = rig.land("Screenshot.png", in: other.url)
         #expect(await eventually { rig.harness.model.recent.count == 1 })
@@ -400,7 +398,6 @@ final class Flag: @unchecked Sendable {
     @Test func tooManyFilesCanBeOptimisedAnyway() async throws {
         let rig = try Rig()
         rig.folders.burstWindow = .seconds(1)
-        rig.harness.model.hideDelayOverride = .seconds(600)
         for index in 1 ... 5 { _ = rig.land("copied \(index).png") }
         #expect(await eventually {
             rig.harness.model.cards.contains { if case .notice = $0.phase { return true } else { return false } }
@@ -418,7 +415,6 @@ final class Flag: @unchecked Sendable {
     @Test func twoTooLargeBurstsKeepBothActions() async throws {
         let other = TempDir()
         let rig = try Rig(alsoWatching: [other.url.path])
-        rig.harness.model.hideDelayOverride = .seconds(600)
         let landed = (1 ... 5).flatMap { [rig.land("a \($0).png"), rig.land("b \($0).png", in: other.url)] }
         // In one go: under load FSEvents reported part of a burst after the window closed, so
         // neither part was too large.
