@@ -211,7 +211,8 @@ import Testing
         #expect(originals.items.count == 2, "nothing claimed removed")
         await originals.removeAll()
         #expect(originals.removalFailures.isEmpty)
-        #expect(originals.items.isEmpty)
+        // A reload the deletions started may still be under way: the list ends empty.
+        #expect(await eventually { originals.items.isEmpty })
     }
 
     /// B5: Optimise Again With on the selected rows runs each again from its original, in the

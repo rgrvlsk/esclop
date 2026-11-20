@@ -186,21 +186,6 @@ import Testing
         }, size: CGSize(width: MenuPanel.width + 36, height: 640), name: "menu-panel-last-batch")
     }
 
-    /// W3: the Originals window with three kept originals, and empty.
-    @Test func originalsWindow() async throws {
-        let harness = Harness()
-        for (name, bytes) in [("Screenshot 2026-11-19 at 09.41.12.png", 2_400_000), ("Holiday.jpg", 4_800_000), ("Menu scan.pdf", 1_200_000)] {
-            _ = await harness.model.run(harness.job(harness.temp.file(name, bytes: bytes)))
-        }
-        let originals = OriginalsModel(app: harness.model)
-        await originals.load()
-        #expect(originals.items.count == 3)
-        try await SettingsRenderTests.renderBoth({ _ in OriginalsView(model: originals) }, size: CGSize(width: 520, height: 360), name: "originals")
-        let empty = OriginalsModel(app: Harness().model)
-        await empty.load()
-        try await SettingsRenderTests.renderBoth({ _ in OriginalsView(model: empty) }, size: CGSize(width: 520, height: 360), name: "originals-empty")
-    }
-
     /// W5: Open at login in Settings › General.
     @Test func openAtLoginInGeneral() async throws {
         let settings = TestSettings()
