@@ -81,7 +81,7 @@ import Testing
                 #expect(lines.count == 3)
                 #expect(lines[0].hasPrefix("7.png: ") && lines[0].contains("ffmpeg"))
                 #expect(lines[1].hasPrefix("8.png: "))
-                #expect(lines[2] == "The other 8 files were optimised; Recent Results has them.")
+                #expect(lines[2] == "8 other files were optimised; Recent Results has them.")
             } catch {
                 Issue.record("unexpected \(error)")
             }

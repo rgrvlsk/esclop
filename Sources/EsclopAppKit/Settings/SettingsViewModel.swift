@@ -153,6 +153,10 @@ public final class SettingsViewModel {
 
     // MARK: Search
 
+    /// Registry settings edited in another setting's rows, by that setting: each watched folder's
+    /// rules sit under it in the folder lists.
+    static let editedIn = [EsclopSettings.watchedFolderRules.key: EsclopSettings.imageDirs.key]
+
     /// Every row matching all the words of the query, in pane order.
     public var hits: [Hit] {
         // Accents fold on both sides: "copia" finds "Còpies", "cópia" finds "copies".
@@ -167,7 +171,11 @@ public final class SettingsViewModel {
         for pane in SettingsPane.allCases {
             for group in groups(in: pane) {
                 for setting in group.settings where matches([setting.key, setting.title, setting.summary, pane.title, pane.englishTitle, group.heading ?? ""] + setting.keywords) {
-                    found.append(Hit(id: setting.key, title: setting.title, summary: setting.summary, pane: pane))
+                    // A setting edited in another's rows is found there.
+                    let host = Self.editedIn[setting.key]
+                    let id = host ?? setting.key
+                    guard !found.contains(where: { $0.id == id }) else { continue }
+                    found.append(Hit(id: id, title: setting.title, summary: setting.summary, pane: host.flatMap { self.pane(of: $0) } ?? pane))
                 }
             }
             for row in extraRows where row.pane == pane && matches([row.id, row.title, row.summary, pane.title, pane.englishTitle] + row.keywords) {

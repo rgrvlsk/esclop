@@ -263,6 +263,9 @@ public final class WatchedFolders {
     }
 
     /// The folder's `.esclopignore` or `.clopignore` matches the file's name.
+    // ponytail: both files are read on the main actor for each new file (twice: on arrival and
+    // before its job), a few small reads; read them once per burst if a large unzip into a
+    // watched folder shows as a hang.
     nonisolated static func isIgnored(_ file: URL) -> Bool {
         IgnoreFile.ignores(file.lastPathComponent, patterns: IgnoreFile.patterns(in: file.deletingLastPathComponent()))
     }

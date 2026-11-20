@@ -69,7 +69,8 @@ final class FinderServices: NSObject {
         guard !media.isEmpty else {
             return model.notice(Strings.text("Nothing to optimise"), Strings.text("Choose images, videos, PDFs or audio files in Finder."))
         }
-        guard confirmed(action, media, in: files) else { return }
+        // A pipeline is asked about once there is one to run.
+        guard action == .runPipeline || confirmed(action, media, in: files) else { return }
         switch action {
         case .optimise:
             model.optimise(media, origin: .finder)
@@ -92,8 +93,10 @@ final class FinderServices: NSObject {
                     Strings.text("Turn on “Finder’s right-click menu” for a pipeline in the pipeline editor.")
                 )
             case 1:
+                guard confirmed(action, media, in: files) else { return }
                 run(offered[0], on: media)
             default:
+                guard confirmed(action, media, in: files) else { return }
                 choosePipeline(offered) { [weak self] pipeline in self?.run(pipeline, on: media) }
             }
         }

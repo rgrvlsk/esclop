@@ -112,6 +112,8 @@ import Testing
         #expect(await eventually { harness.requests.requests.count == count })
         services.handle(.optimise, files: (1 ... count).map { harness.temp.file("loose/\($0).png") })
         #expect(asked.count == 2, "a selection of files does not ask")
+        services.handle(.runPipeline, files: [folder])
+        #expect(asked.count == 2, "no pipeline for Finder: nothing to ask about")
     }
 
     @Test func webPConvertsOnlyImagesAndOtherFilesAreLeftWithANotice() async throws {

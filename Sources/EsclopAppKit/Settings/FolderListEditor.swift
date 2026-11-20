@@ -41,6 +41,7 @@ struct FolderListEditor: View {
             ForEach(folders, id: \.self) { folder in
                 FolderRow(folder: folder, status: status(of: folder)) {
                     write(folders.filter { $0 != folder })
+                    forgetRules(of: folder)
                 }
                 FolderRulesRow(folder: folder, pixels: descriptor.key == EsclopSettings.imageDirs.key || descriptor.key == EsclopSettings.videoDirs.key, model: model)
                     .padding(.leading, 26)
@@ -80,6 +81,17 @@ struct FolderListEditor: View {
 
     func write(_ list: [String]) {
         model.set(descriptor.key, to: .array(list.map(JSONValue.string)))
+    }
+
+    /// A folder no list watches any more takes its rules with it: added again later, it starts clean.
+    func forgetRules(of folder: String) {
+        let canonical = WatchPlan.canonical(folder)
+        let lists = WatchPlan.lists.map(\.2.key).compactMap { model.descriptor($0)?.value?.arrayValue?.compactMap(\.stringValue) }
+        guard !lists.joined().contains(where: { WatchPlan.canonical($0) == canonical }),
+              let rules = model.descriptor(EsclopSettings.watchedFolderRules.key)?.value?.arrayValue?.compactMap(\.stringValue)
+        else { return }
+        let kept = FolderRules.replacing(FolderRules(folder: folder), in: rules)
+        if kept != rules { model.set(EsclopSettings.watchedFolderRules.key, to: .array(kept.map(JSONValue.string))) }
     }
 
     func add() {

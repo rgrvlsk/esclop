@@ -15,6 +15,7 @@
 import EsclopCore
 import EsclopPipelines
 import Foundation
+import UniformTypeIdentifiers
 
 /// One watched folder and what it is watched for.
 public struct WatchTarget: Equatable, Sendable {
@@ -59,9 +60,14 @@ public struct FolderRules: Codable, Equatable, Sendable {
     /// Nothing to skip: the entry can go.
     public var isEmpty: Bool { (skipFormats ?? []).isEmpty && minPixels == nil && maxPixels == nil }
 
+    /// By type, so `jpg` skips `.jpeg` too and `tif` skips `.tiff`.
     public func skips(_ file: URL) -> Bool {
         let format = file.pathExtension.lowercased()
-        return (skipFormats ?? []).contains { $0.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: ". ")) == format }
+        let type = UTType(filenameExtension: format)
+        return (skipFormats ?? []).contains { skip in
+            let skip = skip.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: ". "))
+            return skip == format || (type != nil && UTType(filenameExtension: skip) == type)
+        }
     }
 
     /// Outside the pixel limits, by the longer side. Unknown sizes pass.

@@ -37,7 +37,7 @@ struct SettingsPaneView: View {
                 }
                 ForEach(model.groups(in: pane)) { group in
                     Section {
-                        ForEach(group.settings.filter { !Self.besideHotkeys.contains($0.key) && !Self.inFolderRows.contains($0.key) }, id: \.key) { setting in
+                        ForEach(group.settings.filter { !Self.besideHotkeys.contains($0.key) && SettingsViewModel.editedIn[$0.key] == nil }, id: \.key) { setting in
                             SettingRow(descriptor: setting, model: model, actions: actions)
                         }
                     } header: {
@@ -72,8 +72,6 @@ struct SettingsPaneView: View {
 
     /// Registry settings shown with the keyboard shortcuts instead of their section's group.
     static let besideHotkeys = [EsclopSettings.cardKeysUnderPointer.key]
-    /// Registry settings edited in each watched folder's rows (`FolderRulesRow`).
-    static let inFolderRows = [EsclopSettings.watchedFolderRules.key]
 
     static var intro: [SettingsPane: String] {
         [.agents: Strings.text("AI agents such as Claude, Codex and Cursor use L’Esclop through its MCP server: they can optimise, convert and crop files, and write pipelines. Connect an agent here, then restart it.")]
@@ -256,8 +254,8 @@ enum SettingsFilePanels {
             let title = read.values.count == 1 ? Strings.text("Imported 1 setting") : Strings.format("Imported %d settings", read.values.count)
             let skipped = read.unknown.isEmpty ? "" : Strings.format("Skipped what this version does not know: %@.", read.unknown.joined(separator: ", "))
             tell(title, skipped)
-        } catch EsclopError.invalidArgument {
-            tell(Strings.text("Could not import the settings"), Strings.text("The file is not one L’Esclop exported, or a value in it is not one its setting takes. Nothing was changed."))
+        } catch let EsclopError.invalidArgument(reason) {
+            tell(Strings.text("Could not import the settings"), Strings.text("The file is not one L’Esclop exported, or a value in it is not one its setting takes. Nothing was changed.") + "\n\n" + reason)
         } catch {
             tell(Strings.text("Could not import the settings"), error.localizedDescription)
         }

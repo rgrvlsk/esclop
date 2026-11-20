@@ -27,6 +27,8 @@ public final class AppServices {
     private var pipelineFiles: FolderWatcher?
     /// A disk with watched folders mounted or went away.
     private var volumeObservers: [NSObjectProtocol] = []
+    private var isStarted = false
+    private var heldFiles: [URL] = []
     let watcher: ClipboardWatcher
     let server: AppServer
     /// Pictures of the app's windows on request; only with ESCLOP_SNAPSHOT_DIR set.
@@ -165,6 +167,14 @@ public final class AppServices {
         onboarding.showIfFirstRun()
         snapshots?.start()
         log.info("L'Esclop \(EsclopVersion.string, privacy: .public) is running")
+        releaseHeldFiles()
+    }
+
+    /// The end of `start`: files opened before it go now, later ones at once.
+    func releaseHeldFiles() {
+        isStarted = true
+        if !heldFiles.isEmpty { open(heldFiles) }
+        heldFiles = []
     }
 
     /// Handles `esclop://` links (`esclop://settings/...` opens the Settings window there) and
@@ -172,7 +182,8 @@ public final class AppServices {
     /// them as a drop on the drop zone does.
     public func open(_ urls: [URL]) {
         let files = urls.filter(\.isFileURL)
-        if !files.isEmpty { model.optimiseDropped(files, harder: false) }
+        // Open With on a closed app sends the files before launch finishes: they wait for `start`.
+        if !files.isEmpty { if isStarted { model.optimiseDropped(files, harder: false) } else { heldFiles += files } }
         for url in urls where !url.isFileURL && !settingsWindow.open(url) && !pipelinesWindow.open(url) && !compareWindow.open(url) && !dropZone.open(url) {
 
             log.info("Ignored a link L'Esclop does not handle: \(url.absoluteString, privacy: .private)")

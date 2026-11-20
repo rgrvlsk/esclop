@@ -60,6 +60,8 @@ import Testing
         #expect(decide("a.gif", in: ruled) == .skip(.skippedFormat))
         #expect(decide("a.HEIC", in: ruled) == .skip(.skippedFormat))
         #expect(decide("a.png", in: ruled) == .optimise(.image))
+        let jpegs = [WatchTarget(folder: folder, kinds: [.image], rules: FolderRules(folder: "/watched", skipFormats: ["jpg"]))]
+        #expect(decide("a.jpeg", in: jpegs) == .skip(.skippedFormat), "jpg names the type")
         #expect(WatchPlan.decide(folder.appendingPathComponent("a.mov"), targets: ruled, size: 100_000, isMarked: false, justWritten: false, ignored: true, limits: limits) == .skip(.ignored))
     }
 
