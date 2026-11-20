@@ -200,6 +200,72 @@ extension AppModel {
         }
     }
 
+    // MARK: Beside the file
+
+    /// A PDF's pages as optimised images in a folder beside it, named as `esclop pdf pages` names
+    /// it ("Dossier pages"), on a card of its own that stands for the folder. The card works
+    /// while the pages are made, and its Stop stops them.
+    func exportPages(_ card: ResultCard) {
+        let pdf = card.shownFile
+        let folder = pdf.deletingLastPathComponent()
+            .appendingPathComponent(pdf.deletingPathExtension().lastPathComponent + " pages", isDirectory: true)
+        let pagesCard = ResultCard(jobID: UUID(), source: pdf, origin: .app, bytesBefore: Self.size(of: pdf))
+        pagesCard.displayName = folder.lastPathComponent
+        add(pagesCard)
+        let engine = EsclopEngine(settings: settings)
+        let started = now()
+        let task = Task { [weak self, weak pagesCard] in
+            do {
+                let pages = try await engine.extractPDFPages(pdf, format: nil, to: folder)
+                guard let self, let pagesCard else { return }
+                noteWritten(pages + [folder])
+                pagesCard.pages = pages.count
+                pagesCard.phase = .done(OptimisationResult(
+                    source: pdf, output: folder, kind: .image, bytesBefore: pagesCard.bytesBefore,
+                    bytesAfter: pages.reduce(0) { $0 + Self.size(of: $1) }, startedAt: started, finishedAt: now()
+                ))
+                if let first = pages.first { loadThumbnail(pagesCard, url: first) }
+                settle(pagesCard)
+                announce(Strings.format("Saved %d pages in %@", pages.count, folder.lastPathComponent))
+            } catch {
+                guard let self else { return }
+                if let pagesCard { dismiss(pagesCard) }
+                if !Task.isCancelled { failed(Strings.format("Could not save the pages of %@", pdf.lastPathComponent), error) }
+            }
+        }
+        pagesCard.cancelWork = { task.cancel() }
+    }
+
+    /// An audio file's cover art, saved beside it and optimised as a result of its own. It comes
+    /// from the original while that is kept: optimising may have made the cover smaller.
+    func extractCover(_ card: ResultCard) {
+        let audio = card.shownFile
+        let source = originalFile(of: card) ?? audio
+        let engine = EsclopEngine(settings: settings)
+        Task {
+            do {
+                let cover = try await engine.extractCover(
+                    source, to: audio.deletingLastPathComponent(), name: audio.deletingPathExtension().lastPathComponent
+                )
+                noteWritten([cover])
+                optimise([cover], origin: .app)
+            } catch {
+                failed(Strings.format("Could not extract the cover of %@", audio.lastPathComponent), error)
+            }
+        }
+    }
+
+    /// Extract Cover is offered only for audio whose original carries cover art. Like the
+    /// pictures, it is read only when the app loads them (not in most tests).
+    func lookForCover(_ card: ResultCard) {
+        guard loadsThumbnails, MediaKind.of(card.shownFile) == .audio, let file = originalFile(of: card) else { return }
+        let engine = EsclopEngine(settings: settings)
+        Task { [weak card] in
+            let found = await engine.hasCoverArt(file)
+            card?.hasCoverArt = found
+        }
+    }
+
     /// Saves a copied image to Downloads in one click, named for what it is and when it was made:
     /// "Copied image 2026-11-14 09.41.12.png". A copied image otherwise lives in a temporary folder.
     /// ponytail: always Downloads. The specific-folder setting resolves into that temporary folder

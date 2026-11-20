@@ -188,6 +188,12 @@ public enum EsclopSettings {
         description: "Images below this size in KB are skipped by automatic optimisation.",
         section: .images, minimum: 0, maximum: 100_000
     )
+    /// Filled by the Crop tab's Crop; shown there as chips.
+    public static let cropSizes = Setting<[String]>(
+        "cropSizes", default: [], title: "Saved crop sizes",
+        description: "The last five sizes typed in the Crop tab, newest first, as width x height. They show there to use again.",
+        section: .images
+    )
 
     // MARK: Video
 
@@ -561,7 +567,7 @@ public enum EsclopSettings {
         imageCompression.erased, imageAggressiveCompression.erased,
         useAggressiveOptimisationJPEG.erased, useAggressiveOptimisationPNG.erased, useAggressiveOptimisationGIF.erased,
         adaptiveImageSize.erased, formatsToConvertToJPEG.erased, formatsToConvertToPNG.erased,
-        downscaleFactor.erased, downscaleRetinaImages.erased, maxImageSizeMB.erased, minImageSizeKB.erased,
+        downscaleFactor.erased, downscaleRetinaImages.erased, maxImageSizeMB.erased, minImageSizeKB.erased, cropSizes.erased,
         videoCompression.erased, videoAggressiveCompression.erased, videoEncoder.erased,
         useAggressiveOptimisationMP4.erased, formatsToConvertToMP4.erased, capVideoFPS.erased, targetVideoFPS.erased,
         minVideoFPS.erased, removeAudioFromVideos.erased, convertAudioToAAC.erased, playbackSpeedFrames.erased,

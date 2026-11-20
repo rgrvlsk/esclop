@@ -382,6 +382,41 @@ import Testing
         try render(rows, name: "result-detail-menu", scheme: scheme)
     }
 
+    /// What a PDF's and a song's "…" add (HC-37): Pages as Images, Extract Cover; and the card
+    /// that stands for the pages' folder, closed and open.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func besideTheFileActions(scheme: ColorScheme) throws {
+        let pdf = URL(fileURLWithPath: "/tmp/Desktop/Dossier.pdf")
+        let song = URL(fileURLWithPath: "/tmp/Music/Song.mp3")
+        let document = card(.done(saved(pdf, before: 12_800_000, after: 3_100_000, kind: .pdf)), source: pdf, origin: .dropZone)
+        let music = card(.done(saved(song, before: 9_000_000, after: 6_200_000, kind: .audio)), source: song, origin: .dropZone)
+        music.hasCoverArt = true
+        for (name, card, action) in [("result-detail-menu-pdf", document, CardPresentation.Action.pagesAsImages), ("result-detail-menu-audio", music, .extractCover)] {
+            let info = card.presentation
+            #expect(info.menu.contains(action))
+            let rows = VStack(spacing: 0) {
+                ForEach(Array(info.menu.enumerated()), id: \.element) { index, row in
+                    LiquidMenuRow(separated: index > 0, action: row, highlighted: row == action, hover: { _ in }, choose: {})
+                }
+            }
+            .padding(.vertical, LiquidMenu.inset)
+            .frame(width: LiquidMenu.width)
+            .background(RoundedRectangle(cornerRadius: LiquidMenu.radius, style: .continuous).fill(info.surface))
+            try render(rows, name: name, scheme: scheme)
+        }
+        let folder = URL(fileURLWithPath: "/tmp/Desktop/Dossier pages", isDirectory: true)
+        var result = saved(pdf, before: 12_800_000, after: 4_600_000)
+        result.output = folder
+        result.backup = nil
+        result.width = nil
+        result.height = nil
+        let pages = card(.done(result), source: pdf, origin: .app)
+        pages.pages = 28
+        try render(object(pages), name: "result-pages", scheme: scheme)
+        pages.machine.openDetail(at: Date())
+        try render(object(pages), name: "result-pages-detail", scheme: scheme)
+    }
+
     @Test(arguments: [ColorScheme.light, .dark])
     func stackOfThree(scheme: ColorScheme) throws {
         let harness = Harness()

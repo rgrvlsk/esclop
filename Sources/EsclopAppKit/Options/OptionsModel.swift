@@ -6,6 +6,7 @@
 
 import AppKit
 import EsclopCore
+import EsclopOptimisers
 import Foundation
 import ImageIO
 import Observation
@@ -98,6 +99,14 @@ public final class OptionsModel {
     public var customFit = ""
     public var cropping = false
     public var crop: CropGeometry?
+    /// Where a shape's frame lands; Smart waits for `focus` before it moves the frame.
+    public private(set) var framing = CropFraming.centre
+    /// What Vision finds salient in the original, once Smart asked for it.
+    @ObservationIgnored private var focus: CGPoint?
+    /// Finds `focus` off the main actor: the engine's smart crop. A seam for tests.
+    @ObservationIgnored var findFocus: @Sendable (URL) async -> CGPoint? = { url in
+        await Task.detached { EsclopEngine.salientCentre(of: url) }.value
+    }
     public var drill: Drill?
     /// A video's format tile, chosen and waiting for Convert.
     public var armed: OutputFormat?
@@ -350,15 +359,70 @@ public final class OptionsModel {
 
     public func startCrop(aspect: CropAspect) {
         guard let width = facts.width, let height = facts.height else { return }
-        if var crop {
-            crop.setAspect(aspect)
-            self.crop = crop
-        } else {
-            var geometry = CropGeometry(imageWidth: width, imageHeight: height)
-            geometry.setAspect(aspect)
-            crop = geometry
-        }
+        var geometry = crop ?? CropGeometry(imageWidth: width, imageHeight: height)
+        geometry.setAspect(aspect, focus: framedOn)
+        crop = geometry
         cropping = true
+    }
+
+    /// The point a new shape centres on: the middle, or the salient point with Smart. Nil keeps
+    /// it where the person left the frame (Smart while Vision is still looking).
+    private var framedOn: CGPoint? {
+        switch framing {
+        case .centre: return nil
+        case .smart: return focus
+        }
+    }
+
+    /// Smart framing only where the engine crops smartly: pictures.
+    public var offersFraming: Bool { kind == .image }
+
+    /// Centre puts the frame in the middle again; Smart moves it onto what Vision finds salient,
+    /// the same point the engine's smart crop uses (the CLI's `--smart`, Shortcuts, pipelines).
+    public func setFraming(_ framing: CropFraming) async {
+        self.framing = framing
+        if framing == .centre {
+            reframe(on: CGPoint(x: 0.5, y: 0.5))
+            return
+        }
+        if focus == nil {
+            focus = await findFocus(original ?? card.shownFile)
+        }
+        // Another choice may have come while Vision looked.
+        if self.framing == .smart, let focus { reframe(on: focus) }
+    }
+
+    private func reframe(on point: CGPoint) {
+        guard var geometry = crop, geometry.aspect != .free else { return }
+        // A typed size keeps its size; only the frame moves.
+        let typed = geometry.typedSize ? (width: geometry.outputWidth, height: geometry.outputHeight) : nil
+        geometry.setAspect(geometry.aspect, focus: point)
+        if let typed { geometry.setOutput(width: typed.width, height: typed.height) }
+        crop = geometry
+    }
+
+    /// The sizes typed in the Crop tab before, newest first (`cropSizes`).
+    public var savedSizes: [(width: Int, height: Int)] {
+        EsclopSettings.cropSizes.value(in: app.settings).compactMap(Self.size)
+    }
+
+    /// One of the saved sizes: its shape and that size, as if typed.
+    public func useSavedSize(width: Int, height: Int) {
+        startCrop(aspect: .free)
+        crop?.setOutput(width: width, height: height, focus: framedOn)
+    }
+
+    static func size(_ text: String) -> (width: Int, height: Int)? {
+        let parts = text.lowercased().split(separator: "x").compactMap { Int($0) }
+        guard parts.count == 2, parts[0] > 0, parts[1] > 0 else { return nil }
+        return (parts[0], parts[1])
+    }
+
+    /// Keeps a typed size first in `cropSizes`, five at most.
+    private func save(width: Int, height: Int) {
+        let text = "\(width)x\(height)"
+        let sizes = [text] + EsclopSettings.cropSizes.value(in: app.settings).filter { $0 != text }
+        try? EsclopSettings.cropSizes.set(Array(sizes.prefix(5)), in: app.settings)
     }
 
     /// The whole picture again, free: the Crop tab's preview with no frame drawn in. A file the
@@ -371,7 +435,8 @@ public final class OptionsModel {
     }
 
     public func applyCrop() {
-        guard let size = crop?.cropSize else { return }
+        guard let crop, let size = crop.cropSize else { return }
+        if crop.typedSize { save(width: crop.outputWidth, height: crop.outputHeight) }
         app.crop(card, to: size)
     }
 

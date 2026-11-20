@@ -711,6 +711,36 @@ import UniformTypeIdentifiers
         #expect(try await !Inspect.media(bare.output).hasCoverArt)
     }
 
+    /// Extract Cover writes the cover beside the song as it is held, under a free name, and
+    /// writes nothing for a song without one (HC-37, K3).
+    @Test func extractCoverWritesTheCoverBesideTheSong() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let noise = world.file("noise.wav")
+        try Fixture.noiseWAV(noise)
+        let song = world.file("song.mp3")
+        try await ProcessRunner.run(.ffmpeg, [
+            "-hide_banner", "-loglevel", "error", "-y", "-i", noise.path, "-f", "lavfi", "-i", "color=c=red:s=64x64:d=1",
+            "-map", "0:a", "-map", "1:v", "-frames:v", "1", "-c:v", "mjpeg", "-disposition:v", "attached_pic",
+            "-c:a", "libmp3lame", "-b:a", "128k", song.path,
+        ])
+        #expect(await world.engine.hasCoverArt(song))
+        let folder = world.file("covers")
+        let cover = try await world.engine.extractCover(song, to: folder)
+        #expect(cover.lastPathComponent == "song cover.jpg")
+        let image = try #require(CGImageSourceCreateWithURL(cover as CFURL, nil))
+        #expect(CGImageSourceGetType(image) as String? == "public.jpeg")
+        let again = try await world.engine.extractCover(song, to: folder, name: "Track")
+        #expect(again.lastPathComponent == "Track cover.jpg")
+        #expect(try await world.engine.extractCover(song, to: folder).lastPathComponent == "song cover 2.jpg", "never replaces a file")
+
+        let bare = world.file("bare.mp3")
+        try await ProcessRunner.run(.ffmpeg, ["-hide_banner", "-loglevel", "error", "-y", "-i", noise.path, "-c:a", "libmp3lame", bare.path])
+        #expect(await !world.engine.hasCoverArt(bare))
+        await #expect(throws: EsclopError.self) { try await world.engine.extractCover(bare, to: folder) }
+        #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path).sorted() == ["Track cover.jpg", "song cover 2.jpg", "song cover.jpg"])
+    }
+
     /// An audiobook stays an `.m4b`, in place and elsewhere: it used to become `book.m4a`, and in
     /// place the `.m4b` was removed.
     @Test func anAudiobookKeepsItsExtension() async throws {

@@ -6,14 +6,23 @@ import EsclopCore
 import Foundation
 
 public enum AspectRatio {
-    /// Portrait sizes (width, height). Paper in millimetres or inches, devices in pixels.
-    public static let presets: [(name: String, width: Double, height: Double)] = [
+    public typealias Preset = (name: String, width: Double, height: Double)
+
+    /// Portrait paper sizes (width, height) in millimetres or inches.
+    public static let paperSizes: [Preset] = [
         ("A3", 297, 420), ("A4", 210, 297), ("A5", 148, 210), ("B5", 176, 250),
         ("Letter", 8.5, 11), ("Legal", 8.5, 14), ("Tabloid", 11, 17),
+    ]
+
+    /// Portrait device screens (width, height) in pixels.
+    public static let devices: [Preset] = [
         ("iPad", 1640, 2360), ("iPad mini", 1488, 2266), ("iPad Air 13", 2048, 2732), ("iPad Pro 13", 2064, 2752),
         ("iPhone", 1179, 2556), ("Kindle Paperwhite", 1236, 1648), ("Kindle Scribe", 1860, 2480),
         ("Kobo Libra", 1264, 1680), ("reMarkable 2", 1404, 1872),
     ]
+
+    /// Every name `--for-device`, `--paper-size` and the Crop tab know: paper first, then devices.
+    public static let presets: [Preset] = paperSizes + devices
 
     public static var presetNames: [String] { presets.map(\.name) }
 

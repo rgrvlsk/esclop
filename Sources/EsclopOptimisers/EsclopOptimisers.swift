@@ -132,6 +132,43 @@ public struct EsclopEngine: OptimisationEngine {
         return written
     }
 
+    /// The centre of what Vision finds salient in an image, normalised with the origin at the top
+    /// left; nil when it finds nothing. The same point a `smart` crop centres on, so the Crop
+    /// tab's Smart framing shows the frame the engine would cut. Slow: call it off the main actor.
+    public static func salientCentre(of url: URL) -> CGPoint? {
+        ImageIOCodec.salientCenter(url)
+    }
+
+    /// Whether an audio (or video) file carries cover art.
+    public func hasCoverArt(_ source: URL) async -> Bool {
+        (try? await MediaInfo.probe(source, tools: env.tools))?.hasCoverArt ?? false
+    }
+
+    /// Writes an audio file's cover art into `folder` as `<name> cover.jpg` (`.png` for any other
+    /// kind of picture), under the next free name, as the file holds it: the app optimises it as
+    /// a result of its own. Nothing is written when the file has no cover. `name` stands for the
+    /// source's own (a kept original's backup has another).
+    public func extractCover(_ source: URL, to folder: URL, name: String? = nil) async throws -> URL {
+        let info = try await MediaInfo.probe(source, tools: env.tools)
+        guard let index = info.streams.firstIndex(where: { $0.type == "video" && $0.attachedPicture }) else {
+            throw EsclopError.other("\(source.lastPathComponent) has no cover art")
+        }
+        // ffprobe lists every stream in file order, so the position is the stream's index.
+        let jpeg = info.streams[index].codec == "mjpeg"
+        let ext = jpeg ? "jpg" : "png"
+        let work = try WorkFolder(root: env.workRoot)
+        defer { work.remove() }
+        let staged = work.file("cover.\(ext)")
+        try await ProcessRunner.run(.ffmpeg, [
+            "-v", "error", "-nostdin", "-i", source.path, "-map", "0:\(index)", "-frames:v", "1",
+            "-c:v", jpeg || info.streams[index].codec == "png" ? "copy" : "png", "-y", staged.path,
+        ], locator: env.tools)
+        try Paths.ensure(folder)
+        let target = OutputLocation.unique(folder.appendingPathComponent("\(name ?? source.deletingPathExtension().lastPathComponent) cover.\(ext)"))
+        try FileManager.default.moveItem(at: staged, to: target)
+        return target
+    }
+
     /// Re-encodes a video (or audio file) at `kbps` kbit/s.
     public func lowerBitrate(_ source: URL, kbps: Int, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult {
         guard kbps > 0 else { throw EsclopError.invalidArgument("The bitrate must be above zero") }
