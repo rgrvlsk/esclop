@@ -34,19 +34,13 @@ final class TempDir: @unchecked Sendable {
     deinit { try? FileManager.default.removeItem(at: url) }
 }
 
-/// A settings suite of its own, a plist in the temporary folder, removed when the value goes away.
-/// `observed` makes a named suite, as the app's own is, for tests that follow changes through
-/// key-value observation: on CI runners a suite at a path sometimes left a change unreported.
-/// ponytail: a named suite's plist lands in ~/Library/Preferences and is removed with the domain;
-/// make every suite a path again once its changes are always observed.
+/// A settings suite of its own, emptied when the value goes away. A named suite, as the app's own
+/// is: on CI runners a suite at a path sometimes lost a write, even to a read through the same
+/// UserDefaults, and a change through key-value observation.
+/// ponytail: each named suite leaves a plist in ~/Library/Preferences (cfprefsd writes a removed
+/// domain back). Sweep old ones at the start of a run if they pile up.
 final class TestSettings: @unchecked Sendable {
-    let store: SettingsStore
-    init(observed: Bool = false) {
-        let id = UUID().uuidString
-        store = SettingsStore(suiteName: observed
-            ? "dev.esclop.app-tests.\(id)"
-            : FileManager.default.temporaryDirectory.appendingPathComponent("esclop-app-settings-\(id)").path)
-    }
+    let store = SettingsStore(suiteName: "dev.esclop.app-tests.\(UUID().uuidString)")
     deinit { store.removeAll() }
 }
 
