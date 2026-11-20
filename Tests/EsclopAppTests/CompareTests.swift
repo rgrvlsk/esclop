@@ -192,38 +192,39 @@ enum CompareFixtures {
         #expect(compare.pixels == CGSize(width: 640, height: 420))
     }
 
-    @Test func opensByIdFromTheRecentResultsAndLinks() throws {
+    @Test func opensByIdFromTheRecentResultsAndLinks() async throws {
         let harness = Harness()
         let result = CompareFixtures.imageResult(in: harness.temp.url)
         harness.model.record(result)
         let compare = CompareModel(app: harness.model)
-        #expect(compare.open(id: result.id))
+        #expect(await compare.open(id: result.id))
         #expect(compare.result?.id == result.id)
-        #expect(!compare.open(id: UUID()))
+        #expect(await !compare.open(id: UUID()))
         #expect(CompareWindowController.route(URL(string: "esclop://compare/\(result.id.uuidString)")!) == result.id)
         #expect(CompareWindowController.route(URL(string: "esclop://compare/nope")!) == nil)
         #expect(CompareWindowController.route(URL(string: "esclop://pipelines/x")!) == nil)
     }
 
-    @Test func anUnknownLinkClearsTheComparisonOnScreen() throws {
+    @Test func anUnknownLinkClearsTheComparisonOnScreen() async throws {
         let harness = Harness()
         let result = CompareFixtures.imageResult(in: harness.temp.url)
         harness.model.record(result)
         let compare = CompareModel(app: harness.model)
         let controller = CompareWindowController(model: compare)
         defer { compare.onClose() }
+        // A link opens once the shared log is read, off the main actor.
         #expect(controller.open(URL(string: "esclop://compare/\(result.id.uuidString)")!))
-        #expect(controller.isVisible)
+        #expect(await eventually { controller.isVisible })
         #expect(compare.result?.id == result.id)
         // Another link, to a result the app no longer knows, while the window is open.
         #expect(controller.open(URL(string: "esclop://compare/\(UUID().uuidString)")!))
+        #expect(await eventually { compare.isUnknown })
         #expect(controller.isVisible)
-        #expect(compare.isUnknown)
         #expect(compare.result == nil)
         #expect(compare.sides == .gone)
         // A known result again replaces the message.
         #expect(controller.open(URL(string: "esclop://compare/\(result.id.uuidString)")!))
-        #expect(!compare.isUnknown)
+        #expect(await eventually { !compare.isUnknown })
         #expect(compare.result?.id == result.id)
     }
 
@@ -290,8 +291,6 @@ enum CompareFixtures {
 
     @Test func theLayoutIsRemembered() {
         let harness = Harness()
-        let saved = UserDefaults.standard.string(forKey: CompareModel.modeKey)
-        defer { UserDefaults.standard.set(saved, forKey: CompareModel.modeKey) }
         CompareModel(app: harness.model).mode = .flip
         #expect(CompareModel(app: harness.model).mode == .flip)
     }

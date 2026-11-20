@@ -37,6 +37,7 @@ struct TestWorld {
 
     init(name: String = #function, realEngine: Bool = false) async throws {
         folder = try Harness.folder(name)
+        // A named suite: on CI runners a suite at a path sometimes lost a write (see TestSettings).
         settings = SettingsStore(suiteName: "dev.esclop.tests.\(UUID().uuidString)")
         backups = BackupStore(root: folder.appendingPathComponent("backups", isDirectory: true))
         client = realEngine ? EngineClient() : EngineClient(executable: try await FakeEngine.shared.executable())

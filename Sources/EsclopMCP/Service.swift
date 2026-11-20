@@ -335,8 +335,12 @@ public struct EsclopService: Sendable {
             let expired = days > 0 && result.finishedAt < Date().addingTimeInterval(-Double(days) * 86400)
             throw EsclopError.backupRemoved(file: result.source.path, afterDays: expired ? days : nil)
         }
-        let report = try BackupStore(root: context.locations.backups).restore(result)
-        if deleteBackup { try fm.removeItem(at: backup) }
+        let store = BackupStore(root: context.locations.backups)
+        let report = try store.restore(result)
+        if deleteBackup {
+            // The whole entry, manifest and folder, so the totals stop counting it at once.
+            if let entry = store.entry(forBackup: backup) { try store.delete(entry) } else { try fm.removeItem(at: backup) }
+        }
         // The original is back: the result no longer counts in the saving or lists in Recent.
         results.append([], withdrawing: [result])
         return RestoreOutcome(

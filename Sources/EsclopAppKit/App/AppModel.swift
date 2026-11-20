@@ -890,7 +890,7 @@ public final class AppModel {
                 loadThumbnail(card, url: result.source)
                 settle(card)
             } else {
-                let card = ResultCard(jobID: result.id, source: result.source, origin: .app, bytesBefore: result.bytesBefore, phase: .restored(result))
+                let card = ResultCard(jobID: result.requestID ?? result.id, source: result.source, origin: .app, bytesBefore: result.bytesBefore, phase: .restored(result))
                 add(card)
                 loadThumbnail(card, url: result.source)
                 settle(card)
@@ -928,7 +928,7 @@ public final class AppModel {
         // ponytail: the results log keeps no origin, so a copied file comes back with Show in
         // Finder. Trigger: the log recording the request's origin.
         let copiedImage = result.source.path.hasPrefix(Paths.temporary.path)
-        let card = ResultCard(jobID: result.id, source: result.source, origin: copiedImage ? .clipboard : .app, bytesBefore: result.bytesBefore, phase: .done(result))
+        let card = ResultCard(jobID: result.requestID ?? result.id, source: result.source, origin: copiedImage ? .clipboard : .app, bytesBefore: result.bytesBefore, phase: .done(result))
         if copiedImage { card.displayName = Strings.text("Copied image") }
         add(card)
         loadThumbnail(card, url: result.output)

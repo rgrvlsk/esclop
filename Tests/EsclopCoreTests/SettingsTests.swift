@@ -3,12 +3,29 @@ import Foundation
 import Testing
 @testable import EsclopCore
 
-/// A throwaway UserDefaults suite per test.
+/// A throwaway UserDefaults suite per test. Named: on CI runners a suite at a path sometimes lost
+/// a write.
 func scratchStore() -> SettingsStore {
     SettingsStore(suiteName: "dev.esclop.tests.\(UUID().uuidString)")
 }
 
 @Suite struct SettingsTests {
+    /// With ESCLOP_SUPPORT_DIR set, a scripted or test run keeps its settings in that folder and
+    /// never touches the person's.
+    @Test func theSupportFolderHoldsItsOwnSettings() throws {
+        #expect(Paths.defaultsSuite(environment: [:]) == "dev.esclop.app")
+        let folder = try scratchFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let suite = Paths.defaultsSuite(environment: ["ESCLOP_SUPPORT_DIR": folder.path])
+        #expect(suite == folder.appendingPathComponent("settings").path)
+        let store = SettingsStore(suiteName: suite)
+        try EsclopSettings.imageCompression.set(61, in: store)
+        #expect(EsclopSettings.imageCompression.value(in: SettingsStore(suiteName: suite)) == 61)
+        #expect(FileManager.default.fileExists(atPath: suite + ".plist"))
+        store.removeAll()
+        #expect(!FileManager.default.fileExists(atPath: suite + ".plist"), "removeAll leaves no file")
+    }
+
     @Test func defaultsWhenNothingIsStored() {
         let store = scratchStore()
         defer { store.removeAll() }
