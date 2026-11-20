@@ -340,7 +340,7 @@ final class EventLog: @unchecked Sendable {
     }
 
     @Test func registryProviderUsesTheRegistry() throws {
-        let store = SettingsStore(suiteName: FileManager.default.temporaryDirectory.appendingPathComponent("esclop-settings-\(UUID().uuidString)").path)
+        let store = SettingsStore(suiteName: "dev.esclop.tests.\(UUID().uuidString)")
         defer { store.removeAll() }
         let provider = RegistrySettingsProvider(store: store)
         #expect(!provider.isAllowed(.allowSettingsChanges))

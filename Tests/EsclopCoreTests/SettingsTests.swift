@@ -3,10 +3,10 @@ import Foundation
 import Testing
 @testable import EsclopCore
 
-/// A throwaway UserDefaults suite per test: a plist in the temporary folder, not in
-/// ~/Library/Preferences, that `removeAll` deletes.
+/// A throwaway UserDefaults suite per test. Named: on CI runners a suite at a path sometimes lost
+/// a write.
 func scratchStore() -> SettingsStore {
-    SettingsStore(suiteName: FileManager.default.temporaryDirectory.appendingPathComponent("esclop-settings-\(UUID().uuidString)").path)
+    SettingsStore(suiteName: "dev.esclop.tests.\(UUID().uuidString)")
 }
 
 @Suite struct SettingsTests {
