@@ -111,7 +111,7 @@ struct DropIntake {
     // is taken to list one type per file (unverified); one listing fewer would lose the rest.
     // Files more than `gather` apart are separate batches, each counted against
     // `batchWindowFrom` (slow iCloud originals give cards, not one window); gather longer if so.
-    @MainActor @discardableResult
+    @MainActor
     func resolve(
         into folder: URL = Paths.temporary.appendingPathComponent("dropped", isDirectory: true),
         gather: Duration = .milliseconds(500),
