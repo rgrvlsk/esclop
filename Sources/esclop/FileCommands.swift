@@ -34,6 +34,9 @@ struct Optimise: AsyncParsableCommand {
     @Option(name: .customLong("playback-speed-factor"), help: "Videos and audio: speed factor, 2 is twice as fast.")
     var playbackSpeedFactor: Double?
 
+    @Flag(help: "Also optimise files L'Esclop already optimised (each pass may lose more quality).")
+    var force = false
+
     func validate() throws {
         if let downscaleFactor, !(0.05 ... 1).contains(downscaleFactor) { throw ValidationError("--downscale-factor is between 0.05 and 1.") }
         if let crop { _ = try parseCrop(crop) }
@@ -42,7 +45,7 @@ struct Optimise: AsyncParsableCommand {
 
     func run() async throws {
         let crop = try self.crop.map(parseCrop)
-        try await runFileJob(.optimise, files: files, global: global) { request in
+        try await runFileJob(.optimise, files: files, global: global, skipOptimised: !force) { request in
             request.quality = quality.quality
             request.stripMetadata = quality.stripMetadata ? true : nil
             request.downscale = downscaleFactor
@@ -60,7 +63,8 @@ struct Optimise: AsyncParsableCommand {
 struct Convert: AsyncParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Convert images, videos and audio files to another format.")
 
-    @Option(name: [.customShort("t"), .long], help: "Target format: \(OutputFormat.allCases.map(\.rawValue).joined(separator: ", ")).")
+    // JPEG XL is read, not offered: macOS does not write it yet and esclop has no encoder.
+    @Option(name: [.customShort("t"), .long], help: "Target format: \(OutputFormat.allCases.filter { $0 != .jxl }.map(\.rawValue).joined(separator: ", ")).")
     var to: OutputFormat
 
     @OptionGroup var files: FileOptions

@@ -100,7 +100,7 @@ public enum ToolCatalog {
                 name: "esclop_convert",
                 title: "Convert format",
                 description: """
-                Convert files to another format: images to webp, avif, jpeg, png, heic, jxl, gif, tiff; videos to mp4, \
+                Convert files to another format: images to webp, avif, jpeg, png, heic, gif, tiff; videos to mp4, \
                 mov, webm, mkv, hevc, av1 or gif-video (an animated GIF from a video); audio to mp3, aac, m4a, opus, \
                 flac, wav. Use it when a format is named ("as WebP", "turn this into an MP4"). The converted file gets \
                 the new extension; the original stays unless location is inPlace. When format is missing, L'Esclop asks \
@@ -119,7 +119,7 @@ public enum ToolCatalog {
                     format = try parseFormat(raw)
                 } else {
                     let kind = files.lazy.compactMap(MediaKind.of).first ?? .image
-                    let options = OutputFormat.allCases.filter { $0.kind == kind && $0 != .pdf }.map(\.rawValue)
+                    let options = OutputFormat.allCases.filter { $0.kind == kind && $0 != .pdf && $0 != .jxl }.map(\.rawValue)
                     let answer = try await call.elicitor.ask(
                         "Which format should \(describe(files)) become?",
                         schema: Elicitation.RequestSchema(
