@@ -161,6 +161,15 @@ import Testing
         try await Self.renderWindow(warned, size: CGSize(width: 520, height: 760), name: "settings-upload-editor-private-link", scheme: scheme)
     }
 
+    /// Settings › Clipboard, tall enough for every row, with an ignored app shown by its name.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func clipboardPane(scheme: ColorScheme) async throws {
+        let model = model(TestSettings())
+        model.set("clipboardIgnoredAppBundleIds", to: .array([.string("com.apple.TextEdit")]))
+        model.pane = .clipboard
+        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 1100), name: "settings-clipboard", scheme: scheme)
+    }
+
     @Test(arguments: [ColorScheme.light, .dark])
     func search(scheme: ColorScheme) async throws {
         let model = model(TestSettings())

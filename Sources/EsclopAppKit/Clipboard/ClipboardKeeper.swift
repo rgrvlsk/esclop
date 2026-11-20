@@ -9,6 +9,7 @@
 // count has not moved since. Whatever was copied in the meantime stays.
 
 import AppKit
+import EsclopCore
 import EsclopOptimisers
 import Foundation
 import UniformTypeIdentifiers
@@ -28,6 +29,14 @@ final class ClipboardKeeper: @unchecked Sendable {
     private var ownRun: (from: Int, to: Int)?
     /// The last copy the clipboard watcher saw, with the app it came from.
     private var lastCopy: ClipboardCopy?
+    /// L'Esclop's last write of files, at its change count, which the next copy gathers onto
+    /// (`appendClipboardResults`); any other write, or a second copy, ends it.
+    // ponytail: two copies between two polls (0.5 s) look like one, so text copied just before an
+    // image does not stop the gathering; nor does it when "Optimise Clipboard" runs on the image
+    // before the watcher's next poll. Clop also resets after 30 s of quiet; add that if people
+    // find old results in a paste. Several files go back without pixels (`Clipboard.write`), so
+    // an app that pastes only pixels gets nothing once a second result gathers.
+    private var lastFiles: (count: Int, files: [URL])?
 
     /// An automatic write just made, which went over change `before`.
     private func continued(from before: Int) {
@@ -50,10 +59,16 @@ final class ClipboardKeeper: @unchecked Sendable {
 
     /// The clipboard holds `files` since change `count`. An older change never wins, so copies
     /// handled out of order cannot go back in time; at the same change the latest hold does
-    /// ("Optimise Clipboard" on pixels saves them to a new file).
-    func hold(_ files: [URL], at count: Int) {
+    /// ("Optimise Clipboard" on pixels saves them to a new file). With `gathering`
+    /// (`appendClipboardResults`), a copy that followed L'Esclop's last write of files holds
+    /// those first, so its results go back beside them and one paste gives them all.
+    func hold(_ files: [URL], at count: Int, gathering: Bool = false) {
         if let held, held.count > count { return }
-        held = (count, files)
+        var before: [URL] = []
+        if gathering, let own = lastFiles, count > own.count {
+            before = own.files.filter { !files.contains($0) && FileManager.default.fileExists(atPath: $0.path) }
+        }
+        held = (count, before + files)
     }
 
     /// Writes files as L'Esclop's own, whatever the clipboard holds: the person asked for them, or
@@ -66,6 +81,7 @@ final class ClipboardKeeper: @unchecked Sendable {
         if ownWrites.count > 32 { ownWrites.removeFirst(ownWrites.count - 32) }
         Clipboard.write(files: files, to: pasteboard)
         held = (pasteboard.changeCount, files)
+        lastFiles = held
         if automatic { continued(from: before) } else { ownRun = nil }
     }
 
@@ -86,6 +102,7 @@ final class ClipboardKeeper: @unchecked Sendable {
         if link { pasteboard.setString(text, forType: .URL) }
         pasteboard.setString("1", forType: Clipboard.optimisedType)
         held = nil
+        lastFiles = nil
         if automatic || count != nil { continued(from: before) } else { ownRun = nil }
         return true
     }
@@ -98,6 +115,7 @@ final class ClipboardKeeper: @unchecked Sendable {
         if ownWrites.count > 32 { ownWrites.removeFirst(ownWrites.count - 32) }
         Clipboard.write(image: data, type: type, to: pasteboard)
         held = nil
+        lastFiles = nil
         continued(from: before)
     }
 
@@ -118,12 +136,14 @@ final class ClipboardKeeper: @unchecked Sendable {
         switch content {
         case let .files(urls): return !urls.isEmpty && urls.allSatisfy { ClipboardFingerprint(file: $0).map(ownWrites.contains) ?? false }
         case let .image(data, _), let .base64Image(data, _): return ownWrites.contains(ClipboardFingerprint(data: data))
-        case .path, .empty: return false
+        case .path, .address, .empty: return false
         }
     }
 
     /// The clipboard watcher saw `copy` (every copy, also one it left alone).
     func noteCopy(_ copy: ClipboardCopy) {
+        // A second copy since L'Esclop's last write: nothing gathers onto that write any more.
+        if let own = lastFiles, let last = lastCopy, last.changeCount > own.count { lastFiles = nil }
         lastCopy = copy
     }
 
@@ -131,7 +151,7 @@ final class ClipboardKeeper: @unchecked Sendable {
     /// whether it carries L'Esclop's marker, whether it is L'Esclop's (marker or bytes), and the
     /// app it was copied from when the watcher saw that copy.
     func snapshot() -> (content: ClipboardContent, count: Int, marked: Bool, own: Bool, app: String?) {
-        let content = Clipboard.read(pasteboard)
+        let content = ClipboardPolicy.read(pasteboard)
         let marked = Clipboard.isOwnWrite(pasteboard)
         let count = pasteboard.changeCount
         return (content, count, marked, marked || isOwnBytes(content), lastCopy?.changeCount == count ? lastCopy?.app : nil)
@@ -167,9 +187,11 @@ extension AppModel {
         _ = await clipboard.run { $0.swap(replacements) }
     }
 
-    /// Remembers what a copy put on the clipboard, so its results can go back in place.
+    /// Remembers what a copy put on the clipboard, so its results can go back in place, beside
+    /// the earlier ones with `appendClipboardResults`.
     func holdOnClipboard(_ files: [URL], at count: Int) {
         let keeper = clipboard
-        ClipboardKeeper.queue.async { keeper.hold(files, at: count) }
+        let gathering = EsclopSettings.appendClipboardResults.value(in: settings)
+        ClipboardKeeper.queue.async { keeper.hold(files, at: count, gathering: gathering) }
     }
 }

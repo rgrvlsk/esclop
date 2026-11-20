@@ -53,6 +53,7 @@ esclop restore photo.png                    # puts the original back
 - The beta is signed ad hoc and not notarised: macOS asks for **Open Anyway** once (Install).
 - JPEG XL is read but not written: macOS cannot write it, so it is not offered as an output.
 - A speed change leaves out a video's chapters, because their times would not follow.
+- No secure send link and no iCloud settings sync yet; both are planned for 0.3.
 
 ## Build
 

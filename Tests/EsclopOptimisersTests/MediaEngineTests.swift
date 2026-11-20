@@ -330,7 +330,9 @@ import UniformTypeIdentifiers
         Clipboard.write(files: [png], to: board)
         #expect(Clipboard.isOwnWrite(board))
         #expect(Clipboard.read(board) == .files([png.standardizedFileURL]))
+        // The file, its path as text and its pixels, as Clop's `copyImageFilePath` (on by default).
         #expect(board.data(forType: .png) != nil)
+        #expect(board.string(forType: .string) == png.path)
     }
 
     @Test func imageDataIsSavedToAFile() throws {

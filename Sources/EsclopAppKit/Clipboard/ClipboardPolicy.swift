@@ -4,9 +4,11 @@
 // pasteboard. Behaviour follows Clop 3.5: skip our own writes and the nspasteboard.org transient,
 // concealed and auto-generated markers, skip copies made in ignored apps, optimise copied image
 // data, and copied files only when their kind's clipboard setting is on and they are not marked
-// as already optimised.
+// as already optimised. A copied web address of such a file is downloaded first, as Clop does.
 
+import AppKit
 import EsclopCore
+import EsclopIPC
 import EsclopOptimisers
 import Foundation
 import UniformTypeIdentifiers
@@ -31,6 +33,8 @@ public enum ClipboardAction: Equatable, Sendable {
     case optimiseImage(Data, UTType, ClipboardCopy)
     /// The files to optimise, and every file copied, in order: the results go back in their places.
     case optimiseFiles([URL], copied: [URL], ClipboardCopy)
+    /// A copied web address of a media file, to download and then optimise as a copied file.
+    case optimiseAddress(URL, ClipboardCopy)
 
     public enum Reason: Equatable, Sendable {
         case ownWrite, transient, paused, ignoredApp, empty, unsupported
@@ -56,6 +60,10 @@ public struct ClipboardPolicy: Sendable {
     /// watcher does not read it.
     public var readsText: Bool { EsclopSettings.optimiseImagePathClipboard.value(in: factory.settings) }
 
+    /// Copied web addresses are downloaded (`optimiseURLClipboard`); otherwise the watcher does
+    /// not read them.
+    public var readsAddresses: Bool { EsclopSettings.optimiseURLClipboard.value(in: factory.settings) }
+
     /// `content` is only read when the cheap checks pass. `appBefore` is the app that was in front
     /// at the poll before: a copy made just before switching apps belongs to it.
     public func decide(_ copy: ClipboardCopy, appBefore: String? = nil, content: () -> ClipboardContent) -> ClipboardAction {
@@ -78,6 +86,10 @@ public struct ClipboardPolicy: Sendable {
         case .base64Image:
             // Text stays text: replacing a data URL with an image would surprise the person.
             return .ignore(.unsupported)
+        case let .address(url):
+            guard readsAddresses, let kind = MediaKind.of(url) else { return .ignore(.unsupported) }
+            guard factory.clipboardAllows(kind) else { return .ignore(.skipped(.disabled)) }
+            return .optimiseAddress(url, copy)
         case .empty:
             return .ignore(.empty)
         }
@@ -95,5 +107,26 @@ public struct ClipboardPolicy: Sendable {
         }
         if !eligible.isEmpty { return .optimiseFiles(eligible, copied: urls, copy) }
         return .ignore(.skipped(firstSkip ?? .unsupported))
+    }
+
+    /// What is on the pasteboard (`Clipboard.read`), and when nothing else is, a copied web
+    /// address of media (`address`). Without `addresses` no address is read.
+    public static func read(_ pasteboard: NSPasteboard, text readsText: Bool = true, addresses: Bool = true) -> ClipboardContent {
+        let content = Clipboard.read(pasteboard, text: readsText)
+        guard content == .empty, addresses else { return content }
+        let text = pasteboard.string(forType: .URL) ?? pasteboard.string(forType: .string)
+        return text.flatMap(address).map(ClipboardContent.address) ?? .empty
+    }
+
+    /// The address `text` is when the whole of it, trimmed, is one http or https address
+    /// (`WebDownload.address`) whose path names a kind L'Esclop optimises. Any other link is never
+    /// fetched: a copied sign-in or one-time link must not be opened. Text that only contains an
+    /// address is not one.
+    public static func address(_ text: String) -> URL? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.rangeOfCharacter(from: .whitespacesAndNewlines) == nil,
+              let url = try? WebDownload.address(trimmed), MediaKind.of(url) != nil
+        else { return nil }
+        return url
     }
 }

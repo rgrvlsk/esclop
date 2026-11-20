@@ -20,6 +20,9 @@ public enum ClipboardContent: Sendable, Equatable {
     case path(URL)
     /// Text that is a `data:image/...;base64,` URL.
     case base64Image(Data, UTType)
+    /// The web address of a media file, copied in a browser (`ClipboardPolicy.read` in the app;
+    /// this reader never returns it, as it has no downloader).
+    case address(URL)
     case empty
 }
 
@@ -75,6 +78,7 @@ public enum Clipboard {
         switch content {
         case let .files(urls): return urls
         case let .path(url): return [url]
+        case .address: return []
         case let .image(data, type), let .base64Image(data, type):
             // A folder per copy: two copies in the same second keep their own files, and the
             // file keeps the readable name that pasting it elsewhere shows.
