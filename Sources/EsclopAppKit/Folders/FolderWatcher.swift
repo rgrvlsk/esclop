@@ -95,8 +95,9 @@ final class FolderWatcher: @unchecked Sendable {
 }
 
 /// Waits until a file stops changing: size and modification date the same over consecutive
-/// checks, and the file can be opened. A screenshot is written in one go; a download or a
-/// recording grows for a while.
+/// checks, not modified for `quiet`, and the file can be opened. A screenshot is written in
+/// one go; a download or a recording grows for a while, and a copy over the network can stall
+/// for most of a second and go on.
 enum FileSettle {
     enum Outcome: Equatable {
         case steady
@@ -116,9 +117,12 @@ enum FileSettle {
         return Snapshot(size: (attributes[.size] as? NSNumber)?.intValue ?? 0, modified: attributes[.modificationDate] as? Date ?? .distantPast)
     }
 
-    /// Steady once the file has been still for `steadyChecks` checks `interval` apart and opens.
+    /// Steady once the file has been still for `steadyChecks` checks `interval` apart, its
+    /// modification date is `quiet` old, and it opens. A file that arrives complete (moved or
+    /// copied in with its old date) takes the checks alone.
     static func wait(
-        for url: URL, interval: Duration = .milliseconds(300), steadyChecks: Int = 2, timeout: Duration = .seconds(180)
+        for url: URL, interval: Duration = .milliseconds(300), steadyChecks: Int = 2, quiet: TimeInterval = 1.5,
+        timeout: Duration = .seconds(180)
     ) async -> Outcome {
         let clock = ContinuousClock()
         let deadline = clock.now + timeout
@@ -129,7 +133,9 @@ enum FileSettle {
             guard let now = snapshot(url) else { return .unsettled }
             if now == last, now.size > 0 {
                 steady += 1
-                guard steady >= steadyChecks else { continue }
+                // A date in the future (another clock, on a network disk) waits for the checks alone.
+                let age = Date().timeIntervalSince(now.modified)
+                guard steady >= steadyChecks, age >= quiet || age < -1 else { continue }
                 do {
                     try FileHandle(forReadingFrom: url).close()
                     return .steady

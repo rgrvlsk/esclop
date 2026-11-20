@@ -138,6 +138,35 @@ import Testing
         try await writer.value
     }
 
+    /// A network copy that stalls for 0.7 s between writes is not taken for a finished file.
+    @Test func aCopyThatStallsIsStillWaitedFor() async throws {
+        let temp = TempDir()
+        let file = temp.file("export.mov", bytes: 1000)
+        let finished = Flag()
+        let writer = Task.detached {
+            try await Task.sleep(for: .milliseconds(700))
+            let handle = try FileHandle(forWritingTo: file)
+            try handle.seekToEnd()
+            try handle.write(contentsOf: Data(repeating: 0x41, count: 1000))
+            try handle.close()
+            finished.set()
+        }
+        // Two still checks 150 ms apart would take the stall for the end.
+        let settled = await FileSettle.wait(for: file, interval: .milliseconds(150))
+        #expect(settled == .steady)
+        #expect(finished.isSet, "the wait outlasted the stall")
+        #expect(FileSettle.snapshot(file)?.size == 2000)
+        try await writer.value
+    }
+
+    /// A file moved in with an old date is complete: the checks alone settle it.
+    @Test func aFileThatArrivesCompleteTakesTheChecksAlone() async throws {
+        let temp = TempDir()
+        let file = temp.file("moved.png")
+        try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(-3600)], ofItemAtPath: file.path)
+        #expect(await FileSettle.wait(for: file, interval: .milliseconds(20), quiet: 600) == .steady)
+    }
+
     @Test func aFileThatGoesAwayDoesNotSettle() async {
         let temp = TempDir()
         let file = temp.file("a.png")
