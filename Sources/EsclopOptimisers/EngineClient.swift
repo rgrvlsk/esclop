@@ -144,6 +144,8 @@ public actor EngineClient {
 
     /// The running child's process id (tests).
     var childProcessIdentifier: Int32? { running?.processIdentifier }
+    /// Whether a lone attempt is running, so new requests wait (tests).
+    var isLonely: Bool { lonely }
 
     /// Whether an engine executable exists at all.
     public nonisolated var isInstalled: Bool {
