@@ -172,6 +172,8 @@ public final class AppModel {
     @ObservationIgnored var onPauseChange: (() -> Void)?
     /// Opens the compare window on a result.
     @ObservationIgnored public var onCompare: ((OptimisationResult) -> Void)?
+    /// Gives the floating panel's keys back to the app in front (`returnKeys(from:)`).
+    @ObservationIgnored var onReturnKeys: (() -> Void)?
     /// Opens the pipeline editor, on a pipeline when one is named.
 
     @ObservationIgnored public var onOpenPipelines: ((String?) -> Void)?
@@ -566,6 +568,8 @@ public final class AppModel {
         case pointerEntered, pointerExited
         case openDetail, closeDetail
         case focus(Bool), dragging(Bool), menu(Bool)
+        /// Gives the keys the "Go to the newest result" hotkey lent back to the app in front.
+        case returnKeys
         /// The detail's name, edited in place: the file takes the new name.
         case rename(String)
     }
@@ -594,6 +598,8 @@ public final class AppModel {
             card.machine.setMenuOpen(value, at: time)
         case let .rename(name):
             rename(card, to: name)
+        case .returnKeys:
+            returnKeys(from: card)
         }
         afterChange(card)
     }
@@ -715,6 +721,9 @@ public final class AppModel {
     // MARK: Card actions
 
     public func perform(_ action: CardPresentation.Action, on card: ResultCard) {
+        // Undo, Copy or Save on a card the "Go to the newest result" hotkey reached gives the keys
+        // back to the app in front, by key or by click.
+        defer { if card.lentKeys, CardKeys.givesKeysBack(action) { returnKeys(from: card) } }
         switch action {
         case .undo:
             // One restore at a time: a second click while it runs would leave a stray copy.

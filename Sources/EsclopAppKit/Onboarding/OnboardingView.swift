@@ -71,7 +71,11 @@ public struct OnboardingView: View {
         case .automatic: AutomaticPage(settings: settings, actions: actions)
         case .permissions: PermissionsPage(onboarding: onboarding, actions: actions)
         case .agents: AgentsPage(agents: agents, settings: settings, actions: actions)
-        case .done: DonePage()
+        case .done:
+            DonePage { name in
+                settings.open(SettingsRoute(pane: .general, row: Hotkeys.rowID(name)))
+                openSettings()
+            }
         }
     }
 
@@ -344,6 +348,11 @@ struct AgentsPage: View {
 }
 
 struct DonePage: View {
+    /// Opens a hotkey's row in Settings.
+    var setShortcut: (KeyboardShortcuts.Name) -> Void = { _ in }
+    /// Read again when the window comes back from Settings, where a key may have been set.
+    @State private var shortcutsRead = 0
+
     /// "Look for <icon> at the top of the screen…": the sentence comes from the catalog with %@
     /// where the icon goes, so each language puts it where it reads naturally.
     static func lookFor(_ icon: Image) -> Text {
@@ -376,20 +385,40 @@ struct DonePage: View {
             Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 10) {
                 ForEach(Hotkeys.all, id: \.name.rawValue) { hotkey in
                     GridRow {
-                        Text(KeyboardShortcuts.getShortcut(for: hotkey.name)?.description ?? Strings.text("None"))
-
-                            .font(.title3.weight(.medium))
-                            .monospacedDigit()
-                            .gridColumnAlignment(.trailing)
+                        Group {
+                            let _ = shortcutsRead
+                            if let shortcut = KeyboardShortcuts.getShortcut(for: hotkey.name) {
+                                Text(shortcut.description)
+                                    .font(.title3.weight(.medium))
+                                    .monospacedDigit()
+                            } else {
+                                // "Go to the newest result" has no key until one is set: this
+                                // opens its row in Settings, so the keyboard alone finds it.
+                                Button(Strings.text("Set…")) { setShortcut(hotkey.name) }
+                            }
+                        }
+                        .gridColumnAlignment(.trailing)
                         Text(hotkey.title)
                     }
                 }
             }
             .padding(.top, 28)
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in shortcutsRead += 1 }
             Text(Strings.text("Change the shortcuts in Settings › General."))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .padding(.top, 16)
+            // The card keys (DESIGN.md › Keys), the three most used. They are fixed, so they sit
+            // apart from the shortcuts Settings changes.
+            Grid(alignment: .leading, horizontalSpacing: 18) {
+                GridRow {
+                    Text(Strings.text("Space, ⌘Z, ⌘C"))
+                        .font(.title3.weight(.medium))
+                        .gridColumnAlignment(.trailing)
+                    Text(Strings.text("On the result under the pointer: Quick Look, Undo, Copy"))
+                }
+            }
+            .padding(.top, 22)
             Spacer(minLength: 24)
         }
         .multilineTextAlignment(.center)

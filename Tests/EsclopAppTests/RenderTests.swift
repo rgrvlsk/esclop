@@ -169,7 +169,8 @@ import Testing
             let size = try render(object(card), name: name, scheme: scheme)
             #expect(size.width == Metrics.thumbnailWidth, "\(name) is a 208 pt card")
         }
-        try render(object(card(.notice(title: "Skipping the next copy", detail: "Press again to pause everything."))), name: "result-notice", scheme: scheme)
+        // One the app shows: ⌃⇧C with nothing copied.
+        try render(object(card(.notice(title: Strings.text("Nothing to optimise"), detail: Strings.text("Copy an image or a file first.")))), name: "result-notice", scheme: scheme)
     }
 
     /// The detail (pr2-detail-card): a dropped photo shows its folder, a copied screenshot goes back
@@ -322,6 +323,23 @@ import Testing
         try FileManager.default.createDirectory(at: Self.folder, withIntermediateDirectories: true)
         let data = try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
         try data.write(to: Self.folder.appendingPathComponent("\(name)-\(scheme == .dark ? "dark" : "light").png"))
+    }
+
+    /// The detail's "…" menu rows, in the card's fill: a row with a card key shows it at its end.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func detailMenuRows(scheme: ColorScheme) throws {
+        let photo = card(.done(saved(URL(fileURLWithPath: "/tmp/Desktop/Beach.jpg"))), source: URL(fileURLWithPath: "/tmp/Desktop/Beach.jpg"), origin: .dropZone)
+        let info = photo.presentation
+        #expect(info.menu.contains(.compare))
+        let rows = VStack(spacing: 0) {
+            ForEach(Array(info.menu.enumerated()), id: \.element) { index, action in
+                LiquidMenuRow(separated: index > 0, action: action, highlighted: index == 1, hover: { _ in }, choose: {})
+            }
+        }
+        .padding(.vertical, LiquidMenu.inset)
+        .frame(width: LiquidMenu.width)
+        .background(RoundedRectangle(cornerRadius: LiquidMenu.radius, style: .continuous).fill(info.surface))
+        try render(rows, name: "result-detail-menu", scheme: scheme)
     }
 
     @Test(arguments: [ColorScheme.light, .dark])

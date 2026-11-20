@@ -3541,6 +3541,16 @@
         }
       }
     },
+    "Go to the newest result": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ves al resultat més recent"
+          }
+        }
+      }
+    },
     "Graphic with transparency": {
       "localizations": {
         "ca": {
@@ -5057,6 +5067,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No hi ha res per optimitzar"
+          }
+        }
+      }
+    },
+    "On the result under the pointer: Quick Look, Undo, Copy": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Al resultat sota el punter: Vista ràpida, Desfés, Copia"
           }
         }
       }
@@ -6951,6 +6971,16 @@
         }
       }
     },
+    "Set…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Assigna…"
+          }
+        }
+      }
+    },
     "Share": {
       "localizations": {
         "ca": {
@@ -7267,6 +7297,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "espai"
+          }
+        }
+      }
+    },
+    "Space, ⌘Z, ⌘C": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espai, ⌘Z, ⌘C"
           }
         }
       }
