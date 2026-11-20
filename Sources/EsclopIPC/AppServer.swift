@@ -23,6 +23,7 @@ public protocol AppRequestHandler: Sendable {
     func quit() async
 }
 
+/// Sendable by hand: the listeners and jobs are behind `lock`.
 public final class AppServer: @unchecked Sendable {
     public let ports: IPCPorts
     private let handler: any AppRequestHandler
@@ -171,7 +172,7 @@ public final class AppServer: @unchecked Sendable {
 }
 
 /// Sends replies for one exchange, in order, without blocking the caller.
-final class ReplySender: @unchecked Sendable {
+final class ReplySender: Sendable {
     private let port: String
     private let id: UUID
     private let queue: DispatchQueue

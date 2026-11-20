@@ -1131,6 +1131,16 @@
         }
       }
     },
+    "Addresses": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adreces"
+          }
+        }
+      }
+    },
     "Advanced": {
       "localizations": {
         "ca": {
@@ -1681,6 +1691,16 @@
         }
       }
     },
+    "Change Playback Speed": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Canvia la velocitat de reproducció"
+          }
+        }
+      }
+    },
     "Change a Setting": {
       "localizations": {
         "ca": {
@@ -1857,6 +1877,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tria’n un a l’esquerra o fes-ne un de nou."
+          }
+        }
+      }
+    },
+    "Choose the folder the results go to.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tria la carpeta on han d’anar els resultats."
           }
         }
       }
@@ -2201,12 +2231,12 @@
         }
       }
     },
-    "Convert ${files} to ${format}": {
+    "Convert ${files} to ${format} and save ${place}": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Converteix ${files} a ${format}"
+            "value": "Converteix ${files} a ${format} i desa ${place}"
           }
         }
       }
@@ -2451,6 +2481,16 @@
         }
       }
     },
+    "Copy the results": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia els resultats"
+          }
+        }
+      }
+    },
     "Copy to the clipboard": {
       "localizations": {
         "ca": {
@@ -2467,6 +2507,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No s’ha pogut copiar %@"
+          }
+        }
+      }
+    },
+    "Could not download %@: %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha pogut baixar %@: %@"
           }
         }
       }
@@ -2551,12 +2601,12 @@
         }
       }
     },
-    "Crop ${files}": {
+    "Crop ${files} and save ${place}": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Retalla ${files}"
+            "value": "Retalla ${files} i desa ${place}"
           }
         }
       }
@@ -2571,12 +2621,42 @@
         }
       }
     },
+    "Crop PDF": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retalla PDF"
+          }
+        }
+      }
+    },
     "Crop area": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Zona de retall"
+          }
+        }
+      }
+    },
+    "Crop the pages of ${files} to ${shape} and save ${place}": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retalla les pàgines de ${files} a ${shape} i desa ${place}"
+          }
+        }
+      }
+    },
+    "Crop the pages of PDFs to a paper size, a device or a ratio such as 3:4. Nothing is cut away: the crop sets each page’s visible area, and `esclop pdf uncrop` takes it off again.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retalla les pàgines dels PDF a una mida de paper, a un dispositiu o a una proporció com 3:4. No s’esborra res: el retall només marca l’àrea visible de cada pàgina, i `esclop pdf uncrop` el torna a treure."
           }
         }
       }
@@ -2771,6 +2851,26 @@
         }
       }
     },
+    "Download and optimise ${addresses}, and save ${place}": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Baixa i optimitza ${addresses}, i desa ${place}"
+          }
+        }
+      }
+    },
+    "Download images, videos, PDFs or audio files from the web and optimise them. The downloads go to L’Esclop’s temporary folder unless you choose where to save them.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Baixa imatges, vídeos, PDF o fitxers d’àudio del web i optimitza’ls. Les baixades van a la carpeta temporal de L’Esclop, tret que triïs on desar-les."
+          }
+        }
+      }
+    },
     "Downscale": {
       "localizations": {
         "ca": {
@@ -2781,12 +2881,12 @@
         }
       }
     },
-    "Downscale ${files} by ${factor}": {
+    "Downscale ${files} by ${factor} and save ${place}": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Redueix ${files} per ${factor}"
+            "value": "Redueix ${files} per ${factor} i desa ${place}"
           }
         }
       }
@@ -3421,6 +3521,16 @@
         }
       }
     },
+    "Folder": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carpeta"
+          }
+        }
+      }
+    },
     "Folder %@": {
       "localizations": {
         "ca": {
@@ -3707,6 +3817,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Amaga el detall"
+          }
+        }
+      }
+    },
+    "Hide the floating result": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amaga el resultat flotant"
           }
         }
       }
@@ -4821,6 +4941,16 @@
         }
       }
     },
+    "No address was given to the action.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’acció no ha rebut cap adreça."
+          }
+        }
+      }
+    },
     "No agents found on this Mac. Pick one below to set it up anyway, or copy a snippet at the end of this pane.": {
       "localizations": {
         "ca": {
@@ -5161,6 +5291,16 @@
         }
       }
     },
+    "Only PDFs crop to a page shape (%@).": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Només els PDF es poden retallar a una forma de pàgina (%@)."
+          }
+        }
+      }
+    },
     "Only if": {
       "localizations": {
         "ca": {
@@ -5207,6 +5347,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Només alguns fitxers"
+          }
+        }
+      }
+    },
+    "Only videos and audio files change speed (%@).": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Només els vídeos i els fitxers d’àudio poden canviar de velocitat (%@)."
           }
         }
       }
@@ -5311,12 +5461,12 @@
         }
       }
     },
-    "Optimise ${files}": {
+    "Optimise ${files} and save ${place}": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Optimitza ${files}"
+            "value": "Optimitza ${files} i desa ${place}"
           }
         }
       }
@@ -5387,6 +5537,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Optimitza primer"
+          }
+        }
+      }
+    },
+    "Optimise from URL": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optimitza des d’un URL"
           }
         }
       }
@@ -5611,6 +5771,16 @@
         }
       }
     },
+    "PDFs": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PDF"
+          }
+        }
+      }
+    },
     "PDFs over 1 GB are left as they are.": {
       "localizations": {
         "ca": {
@@ -5661,12 +5831,32 @@
         }
       }
     },
+    "Pad with blank paper": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Omple amb paper en blanc"
+          }
+        }
+      }
+    },
     "Page %d of %d": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Pàgina %d de %d"
+          }
+        }
+      }
+    },
+    "Page shape": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forma de pàgina"
           }
         }
       }
@@ -5867,6 +6057,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pipelines…"
+          }
+        }
+      }
+    },
+    "Place": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lloc"
+          }
+        }
+      }
+    },
+    "Play ${files} at ${factor}× speed and save ${place}": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprodueix ${files} a ${factor}× i desa ${place}"
           }
         }
       }
@@ -6257,6 +6467,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Elimina l’àudio"
+          }
+        }
+      }
+    },
+    "Remove audio from videos": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Treu l’àudio dels vídeos"
           }
         }
       }
@@ -7401,6 +7621,26 @@
         }
       }
     },
+    "Speed": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Velocitat"
+          }
+        }
+      }
+    },
+    "Speed videos and audio files up or slow them down: 2 plays twice as fast, 0.5 at half speed.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accelera o alenteix vídeos i fitxers d’àudio: 2 els fa anar el doble de ràpid, i 0,5 a la meitat de velocitat."
+          }
+        }
+      }
+    },
     "Split": {
       "localizations": {
         "ca": {
@@ -8111,6 +8351,16 @@
         }
       }
     },
+    "The speed is above 0 and at most 100: 2 plays twice as fast, 0.5 at half speed.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La velocitat ha de ser més gran que 0 i com a màxim 100: 2 fa anar el doble de ràpid, i 0,5 a la meitat de velocitat."
+          }
+        }
+      }
+    },
     "The step %@ failed: %@": {
       "localizations": {
         "ca": {
@@ -8507,6 +8757,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dos `->` seguits. Treu-ne un."
+          }
+        }
+      }
+    },
+    "Two results would be named %@ in the folder. Rename one, or save beside the originals.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dos resultats es dirien %@ a la carpeta. Canvia el nom d’un, o desa’ls al costat dels originals."
           }
         }
       }
@@ -9661,6 +9921,16 @@
         }
       }
     },
+    "beside the original": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "al costat de l’original"
+          }
+        }
+      }
+    },
     "camera": {
       "localizations": {
         "ca": {
@@ -9757,6 +10027,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "per sota d’1 MB"
+          }
+        }
+      }
+    },
+    "in a folder": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "en una carpeta"
           }
         }
       }
@@ -9907,6 +10187,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "un d’aquests: %@"
+          }
+        }
+      }
+    },
+    "over the original": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sobre l’original"
           }
         }
       }
@@ -10866,7 +11156,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conserva els mapes de guany HDR i el vídeo HDR quan el format de sortida els admet. Desactivat, les fotos passen a SDR i el vídeo a 8 bits, sense mapatge de tons."
+            "value": "Conserva els mapes de guany HDR i el vídeo HDR quan el format de sortida els admet. Desactivat, les fotos passen a SDR; el vídeo HDR continua sent HDR, perquè aquesta versió no el pot convertir a SDR."
           }
         }
       }
@@ -12731,6 +13021,16 @@
         }
       }
     },
+    "where Settings say": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "on digui la Configuració"
+          }
+        }
+      }
+    },
     "“%@” did not get through.": {
       "localizations": {
         "ca": {
@@ -12757,6 +13057,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "«%@» no hi coincideix: no es toca."
+          }
+        }
+      }
+    },
+    "“%@” is not a page shape. Choose a paper size or a device, or write a ratio like 3:4.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» no és una forma de pàgina. Tria una mida de paper o un dispositiu, o escriu una proporció com 3:4."
           }
         }
       }

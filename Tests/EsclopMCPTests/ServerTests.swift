@@ -89,6 +89,38 @@ struct Session {
         #expect(session.engine.requests.last?.locationFromSettings != true)
     }
 
+    /// A call with a progress token hears how its files go, rising, all before the result; a
+    /// call without one hears nothing.
+    @Test func progressIsSentOnlyWhenAsked() async throws {
+        let session = try await Session.start()
+        defer { Task { await session.stop() } }
+        let heard = Heard()
+        await session.client.onNotification(ProgressNotification.self) { message in heard.append(message.params) }
+        let files = [session.temp.file("a.png"), session.temp.file("b.png")]
+        let paths = Value.array(files.map { .string($0.path) })
+        _ = try await session.client.callTool(name: "esclop_optimise", arguments: ["paths": paths, "location": "sameFolder"])
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(heard.all.isEmpty, "no token, no progress")
+        let (_, isError) = try await session.client.callTool(
+            name: "esclop_optimise", arguments: ["paths": paths, "location": "sameFolder"], meta: Metadata(progressToken: .string("job-1"))
+        )
+        #expect(isError != true)
+        try await Task.sleep(for: .milliseconds(200))
+        let updates = heard.all
+        #expect(!updates.isEmpty && updates.allSatisfy { $0.progressToken == .string("job-1") && $0.total == 2 })
+        #expect(updates.map(\.progress) == updates.map(\.progress).sorted() && Set(updates.map(\.progress)).count == updates.count, "rising: \(updates.map(\.progress))")
+        #expect(updates.last?.progress == 1, "half of each of the two files")
+    }
+
+    /// The last step is sent even when it rose by less than a hundredth: a bar reaches the end.
+    @Test func progressReachesTheTotal() {
+        let sent = SentProgress()
+        let progress = JobProgress(files: 1) { value, _, _ in sent.append(value) }
+        let file = URL(fileURLWithPath: "/x/a.mp4")
+        for fraction in [0.5, 0.995, 0.998, 1.0, 1.0] { progress.update(OptimisationProgress(requestID: UUID(), source: file, fraction: fraction)) }
+        #expect(sent.values == [0.5, 0.995, 1.0])
+    }
+
     @Test func aPipelineThatFailsLateIsAnError() async throws {
         let session = try await Session.start()
         defer { Task { await session.stop() } }
@@ -251,4 +283,19 @@ struct Session {
         let readOnly = ToolCatalog.all.filter { $0.tool.annotations.readOnlyHint == true }.map(\.tool.name)
         #expect(Set(readOnly) == ["esclop_pipeline_list", "esclop_pipeline_show", "esclop_settings_schema", "esclop_settings_get", "esclop_status", "esclop_recent_results", "esclop_logs"])
     }
+}
+
+/// Progress notifications a test client received.
+final class Heard: @unchecked Sendable {
+    private let lock = NSLock()
+    private var list: [ProgressNotification.Parameters] = []
+    func append(_ update: ProgressNotification.Parameters) { lock.lock(); list.append(update); lock.unlock() }
+    var all: [ProgressNotification.Parameters] { lock.lock(); defer { lock.unlock() }; return list }
+}
+
+final class SentProgress: @unchecked Sendable {
+    private let lock = NSLock()
+    private var list: [Double] = []
+    func append(_ value: Double) { lock.lock(); list.append(value); lock.unlock() }
+    var values: [Double] { lock.lock(); defer { lock.unlock() }; return list }
 }

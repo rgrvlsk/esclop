@@ -41,8 +41,15 @@ pub fn minimal_exif(orientation: u8) -> Vec<u8> {
 /// What stripping keeps of an EXIF block: the orientation (`Some` and not 1), the resolution
 /// (XResolution, YResolution, ResolutionUnit: describing the picture, like JFIF density and PNG
 /// pHYs) and, with `colour`, the tags an Adobe RGB photo without a profile is read by
-/// (ColorSpace, InteroperabilityIndex). In the source's byte order; None when nothing is left.
-pub fn kept_exif(source: Option<&[u8]>, orientation: Option<u8>, colour: bool) -> Option<Vec<u8>> {
+/// (ColorSpace, InteroperabilityIndex). A source without XResolution gets one from `density`
+/// (dots per inch, X and Y: a PNG's pHYs or a JPEG's JFIF header), so a WebP or AVIF made from a
+/// 144 dpi screenshot still reads 144 dpi. In the source's byte order; None when nothing is left.
+pub fn kept_exif(
+    source: Option<&[u8]>,
+    orientation: Option<u8>,
+    colour: bool,
+    density: Option<(f64, f64)>,
+) -> Option<Vec<u8>> {
     let src = source.and_then(|t| match t.get(0..4)? {
         b"II\x2a\0" => Some((t, true)),
         b"MM\0\x2a" => Some((t, false)),
@@ -70,6 +77,22 @@ pub fn kept_exif(source: Option<&[u8]>, orientation: Option<u8>, colour: bool) -
         .into_iter()
         .collect();
     first.extend(pick(ifd0, &[0x011A, 0x011B, 0x0128]));
+    // 72 dpi is what a reader assumes without one: no EXIF for it.
+    if let Some((x, y)) = density.filter(|(x, y)| x.round() != 72.0 || y.round() != 72.0)
+        && !first.iter().any(|e| e.tag == 0x011A)
+    {
+        first.retain(|e| e.tag != 0x011B && e.tag != 0x0128);
+        let u32b = |v: u32| if le { v.to_le_bytes() } else { v.to_be_bytes() };
+        let rational = |dpi: f64| -> Vec<u8> {
+            // pHYs counts dots per metre: 5669 is 143.99 dpi, written as 144.
+            let (num, den) =
+                if (dpi - dpi.round()).abs() < 0.02 { (dpi.round(), 1) } else { ((dpi * 100.0).round(), 100) };
+            [u32b(num as u32), u32b(den)].concat()
+        };
+        first.push(IfdEntry { tag: 0x011A, kind: 5, count: 1, value: rational(x) });
+        first.push(IfdEntry { tag: 0x011B, kind: 5, count: 1, value: rational(y) });
+        first.push(IfdEntry { tag: 0x0128, kind: 3, count: 1, value: short(2) }); // inches
+    }
     if !exif.is_empty() {
         first.push(IfdEntry { tag: EXIF_IFD, kind: 4, count: 1, value: vec![0; 4] });
     }
@@ -403,7 +426,7 @@ pub fn jpeg_markers_to_carry(
     }
     if strip {
         let o = keep_orientation.then(|| orientation_override.unwrap_or_else(|| parts.orientation()));
-        if let Some(exif) = kept_exif(parts.exif(), o, keep_icc) {
+        if let Some(exif) = kept_exif(parts.exif(), o, keep_icc, None) {
             out.insert(0, (APP1, exif_app1(&exif)));
         }
     }
@@ -413,6 +436,62 @@ pub fn jpeg_markers_to_carry(
 /// The JFIF density (unit, X, Y: the DPI) of a JPEG, as its five bytes.
 pub fn jfif_density(parts: &JpegParts) -> Option<[u8; 5]> {
     parts.segments.iter().find(|s| s.is_jfif() && s.data.starts_with(b"JFIF\0"))?.data.get(7..12)?.try_into().ok()
+}
+
+/// The JFIF density in dots per inch (X, Y); None for an aspect ratio without a unit.
+pub fn jfif_dpi(parts: &JpegParts) -> Option<(f64, f64)> {
+    let [unit, x1, x0, y1, y0] = jfif_density(parts)?;
+    let per_inch = match unit {
+        1 => 1.0,
+        2 => 2.54,
+        _ => return None,
+    };
+    let (x, y) = (u16::from_be_bytes([x1, x0]), u16::from_be_bytes([y1, y0]));
+    (x > 0 && y > 0).then(|| (f64::from(x) * per_inch, f64::from(y) * per_inch))
+}
+
+/// A PNG's pHYs density in dots per inch (X, Y); None without one or without a unit.
+pub fn png_dpi(chunks: &[Chunk]) -> Option<(f64, f64)> {
+    let d = chunks.iter().find(|c| &c.name == b"pHYs")?.data;
+    let (x, y) = (read_u32(d, 0, false)?, read_u32(d, 4, false)?);
+    (d.get(8) == Some(&1) && x > 0 && y > 0).then(|| (f64::from(x) * 0.0254, f64::from(y) * 0.0254))
+}
+
+/// Sets every `tiff:Orientation` in an XMP packet to `value`, attribute (`tiff:Orientation="6"`)
+/// or element (`<tiff:Orientation>6</tiff:Orientation>`), in place. False when one is in a form
+/// it cannot read; the caller then drops the packet rather than let a viewer turn upright pixels.
+pub fn xmp_set_orientation(xmp: &mut [u8], value: u8) -> bool {
+    const NAME: &[u8] = b"tiff:Orientation";
+    let mut from = 0;
+    while let Some(at) = xmp[from..].windows(NAME.len()).position(|w| w == NAME).map(|p| from + p) {
+        let mut i = at + NAME.len();
+        let skip = |xmp: &[u8], mut i: usize| {
+            while xmp.get(i).is_some_and(u8::is_ascii_whitespace) {
+                i += 1;
+            }
+            i
+        };
+        i = skip(xmp, i);
+        let digit = match xmp.get(i) {
+            // closing tag `</tiff:Orientation>`
+            _ if at > 0 && xmp[at - 1] == b'/' => None,
+            Some(b'=') => {
+                i = skip(xmp, i + 1);
+                matches!(xmp.get(i), Some(b'"' | b'\'')).then(|| skip(xmp, i + 1))
+            }
+            Some(b'>') => Some(skip(xmp, i + 1)),
+            _ => return false,
+        };
+        if let Some(d) = digit {
+            if !xmp.get(d).is_some_and(|c| (b'1'..=b'8').contains(c)) || xmp.get(d + 1).is_some_and(u8::is_ascii_digit)
+            {
+                return false;
+            }
+            xmp[d] = b'0' + value;
+        }
+        from = at + NAME.len();
+    }
+    true
 }
 
 /// Writes `density` into the JFIF header an encoder put first in `jpeg`.
@@ -915,7 +994,7 @@ mod tests {
         let tags = |entries: &[IfdEntry]| entries.iter().map(|e| e.tag).collect::<Vec<_>>();
         let next = |entry: &IfdEntry| read_u32(&entry.value, 0, true).unwrap() as usize;
 
-        let kept = kept_exif(Some(&source), Some(6), true).unwrap();
+        let kept = kept_exif(Some(&source), Some(6), true, None).unwrap();
         let ifd0 = ifd_entries(&kept, 8, true);
         assert_eq!(tags(&ifd0), [0x0112, 0x011A, 0x011B, 0x0128, EXIF_IFD]);
         assert_eq!(exif_orientation(&kept), Some(6));
@@ -925,10 +1004,42 @@ mod tests {
         assert_eq!(exif[0].value, 0xFFFFu16.to_le_bytes());
         assert_eq!(ifd_entries(&kept, next(&exif[1]), true)[0].value, b"R03\0");
 
-        let plain = kept_exif(Some(&source), None, false).unwrap();
+        let plain = kept_exif(Some(&source), None, false, None).unwrap();
         assert_eq!(tags(&ifd_entries(&plain, 8, true)), [0x011A, 0x011B, 0x0128]);
-        assert_eq!(kept_exif(None, Some(1), true), None);
-        assert_eq!(kept_exif(None, Some(3), false).as_deref().and_then(exif_orientation), Some(3));
+        assert_eq!(kept_exif(None, Some(1), true, None), None);
+        assert_eq!(kept_exif(None, Some(3), false, None).as_deref().and_then(exif_orientation), Some(3));
+    }
+
+    #[test]
+    fn density_fills_a_missing_resolution_only() {
+        let tags = |t: &[u8]| ifd_entries(t, 8, false).iter().map(|e| e.tag).collect::<Vec<_>>();
+        // A 144 dpi PNG's pHYs (5669 dots per metre) without EXIF: resolution in inches.
+        let made = kept_exif(None, Some(6), false, Some((5669.0 * 0.0254, 5669.0 * 0.0254))).unwrap();
+        assert_eq!(tags(&made), [0x0112, 0x011A, 0x011B, 0x0128]);
+        let ifd0 = ifd_entries(&made, 8, false);
+        assert_eq!(ifd0[1].value, [144u32.to_be_bytes(), 1u32.to_be_bytes()].concat());
+        assert_eq!(ifd0[3].value, 2u16.to_be_bytes());
+        // An EXIF resolution wins over the density.
+        let rational = [300u32.to_be_bytes(), 1u32.to_be_bytes()].concat();
+        let e = |tag, kind, value: &[u8]| IfdEntry { tag, kind, count: 1, value: value.to_vec() };
+        let source = tiff_from_ifds(false, &[vec![e(0x011A, 5, &rational), e(0x011B, 5, &rational)]]);
+        let kept = kept_exif(Some(&source), None, false, Some((72.0, 72.0))).unwrap();
+        assert_eq!(ifd_entries(&kept, 8, false)[0].value, rational);
+        assert_eq!(kept_exif(None, None, false, None), None);
+        assert_eq!(kept_exif(None, None, false, Some((72.0, 72.0))), None);
+    }
+
+    #[test]
+    fn xmp_orientation_is_rewritten_in_both_forms() {
+        let mut attr = br#"<rdf:Description tiff:Orientation="6" dc:title="x"/>"#.to_vec();
+        assert!(xmp_set_orientation(&mut attr, 1));
+        assert_eq!(attr, br#"<rdf:Description tiff:Orientation="1" dc:title="x"/>"#);
+        let mut element = b"<tiff:Orientation> 8 </tiff:Orientation>".to_vec();
+        assert!(xmp_set_orientation(&mut element, 1));
+        assert_eq!(element, b"<tiff:Orientation> 1 </tiff:Orientation>");
+        let mut none = b"<dc:subject>Holiday</dc:subject>".to_vec();
+        assert!(xmp_set_orientation(&mut none, 1));
+        assert!(!xmp_set_orientation(&mut b"tiff:Orientation=\"Rotate 90\"".to_vec(), 1));
     }
 
     #[test]

@@ -147,7 +147,7 @@ extension AppModel {
 
     /// A pipeline step's copy (`automatic`) or Settings' copy, as L'Esclop's own.
     func copyToClipboard(text: String, automatic: Bool = false) async {
-        await clipboard.run { $0.write(text: text, automatic: automatic) }
+        _ = await clipboard.run { $0.write(text: text, automatic: automatic) }
     }
 
     /// Links on the clipboard, one per line; with `since`, only if nothing was copied after it

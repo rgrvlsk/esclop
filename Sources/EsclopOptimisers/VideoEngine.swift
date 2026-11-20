@@ -135,11 +135,17 @@ struct VideoEngine: Sendable {
     ) async throws -> EncodeSettings {
         let request = plan.request
         let factor = plan.factor(for: .video, format: container, env: env)
-        let codec = try await chooseCodec(container: container, request: request, video: video, keepHDR: plan.keepHDR)
+        let codec = try await chooseCodec(container: container, request: request, video: video)
+        // ponytail: the bundled ffmpeg has no zscale or tonemap filter, and an 8-bit encode of HDR
+        // keeps its HDR tags, so players still treat it as HDR. HDR video stays HDR until a build
+        // can tone-map; then honour `keepHDR` off here.
+        if !plan.keepHDR, video.isHDR { steps.append("Kept HDR: this build cannot convert HDR to SDR") }
 
         var filters: [String] = []
         var width = video.width
         var height = video.height
+        // The size before scaling: the source's, or the crop's.
+        var unscaled = (width: even(Double(width)), height: even(Double(height)))
         if let crop = plan.crop {
             let target = crop.targetSize(fromWidth: width, height: height)
             var available = (width: Double(width), height: Double(height))
@@ -147,8 +153,9 @@ struct VideoEngine: Sendable {
                 let aspect = Double(target.width) / Double(target.height)
                 let rect = crop.region(inWidth: width, height: height)
                     ?? ImageIOCodec.cropRect(for: nil, width: width, height: height, aspect: aspect, smart: false)
-                filters.append("crop=\(even(rect.width)):\(even(rect.height)):\(Int(rect.minX)):\(Int(rect.minY))")
-                steps.append("Cropped to \(even(rect.width))x\(even(rect.height))")
+                unscaled = (even(rect.width), even(rect.height))
+                filters.append("crop=\(unscaled.width):\(unscaled.height):\(Int(rect.minX)):\(Int(rect.minY))")
+                steps.append("Cropped to \(unscaled.width)x\(unscaled.height)")
                 // The crop rectangle, not its even size: `targetSize` may round to an odd width
                 // the even crop then trims, which is no enlargement.
                 available = (rect.width.rounded(), rect.height.rounded())
@@ -164,10 +171,11 @@ struct VideoEngine: Sendable {
         }
         width = even(Double(width))
         height = even(Double(height))
-        if width != even(Double(video.width)) || height != even(Double(video.height)) || filters.contains(where: { $0.hasPrefix("crop") }) {
+        let cropped = filters.contains { $0.hasPrefix("crop") }
+        if width != unscaled.width || height != unscaled.height {
             filters.append("scale=\(width):\(height):flags=lanczos")
             steps.append("Resized to \(width)x\(height)")
-        } else if video.width % 2 == 1 || video.height % 2 == 1 {
+        } else if !cropped, video.width % 2 == 1 || video.height % 2 == 1 {
             filters.append("scale=trunc(iw/2)*2:trunc(ih/2)*2")
         }
 
@@ -235,19 +243,20 @@ struct VideoEngine: Sendable {
         let reencodeAudio = !removeAudio && (speed != nil || loudness != nil || container == .webm || request.audioBitrateKbps != nil
             || env.value(EsclopSettings.convertAudioToAAC) || !info.streams("audio").allSatisfy { audioFits($0.codec, in: container) })
         if let kbps = request.videoBitrateKbps { steps.append("Video bitrate \(kbps) kbit/s") }
+        if plan.strip { steps.append("Removed metadata") }
 
         return EncodeSettings(
             container: container, codec: codec, factor: factor, videoBitrate: request.videoBitrateKbps,
             filters: filters, fpsCap: fpsCap, speed: speed, removeAudio: removeAudio,
             audioBitrate: request.audioBitrateKbps, reencodeAudio: reencodeAudio, strip: plan.strip,
-            hdr: plan.keepHDR && video.isHDR ? video : nil, width: width, height: height,
+            hdr: video.isHDR ? video : nil, width: width, height: height,
             loudness: loudness, watermark: plan.watermark,
             extraVideoTracks: max(0, info.streams("video").count - 1), trackFilters: trackFilters, subtitles: subtitles
         )
     }
 
     /// The codec for a container and encoder choice, given what this ffmpeg build has.
-    func chooseCodec(container: OutputFormat, request: OptimisationRequest, video: MediaInfo.Video, keepHDR: Bool) async throws -> Codec {
+    func chooseCodec(container: OutputFormat, request: OptimisationRequest, video: MediaInfo.Video) async throws -> Codec {
         let encoders = await FFmpegCapabilities.shared.encoders(tools: env.tools)
         switch container {
         case .webm: return .vp9
@@ -266,7 +275,7 @@ struct VideoEngine: Sendable {
         case .hevcSoftware: codec = encoders.contains("libx265") ? .hevcx265 : .hevcVT
         }
         // 8-bit H.264 would clip HDR; HEVC Main 10 keeps it.
-        if keepHDR, video.isHDR, codec == .h264VT || codec == .h264x264 { codec = .hevcVT }
+        if video.isHDR, codec == .h264VT || codec == .h264x264 { codec = .hevcVT }
         return codec
     }
 
