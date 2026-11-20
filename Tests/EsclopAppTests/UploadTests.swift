@@ -455,7 +455,7 @@ struct S3TestServer {
     /// The Uploads pane in a window while its targets change under it: added, renamed (the
     /// default following), removed, and changed by another process.
     @Test func thePaneFollowsItsTargets() async throws {
-        let settings = TestSettings(observed: true)
+        let settings = TestSettings()
         let model = SettingsViewModel(provider: RegistrySettingsProvider(store: settings.store), defaults: settings.store.defaults, extraRows: [])
         model.uploads = UploadSettingsSupport(credentials: MemoryCredentialStore()) { _, _ in URL(string: "https://example.invalid")! }
         model.pane = .uploads
