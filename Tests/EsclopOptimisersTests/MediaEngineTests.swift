@@ -32,9 +32,11 @@ import UniformTypeIdentifiers
         let mov = world.file("hlg.mov")
         try await ProcessRunner.run(.ffmpeg, [
             "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=d=1:s=640x360:r=30",
+            // The frames carry the HLG tags, so VideoToolbox writes them into the stream, as a
+            // camera does (the bundled ffmpeg has no hevc_metadata filter).
+            "-vf", "scale=out_primaries=bt2020:out_transfer=arib-std-b67:out_color_matrix=bt2020nc",
             "-c:v", "hevc_videotoolbox", "-profile:v", "main10", "-pix_fmt", "p010le", "-q:v", "90", "-tag:v", "hvc1",
-            // VideoToolbox leaves the colour tags out of the stream; the bitstream filter writes them.
-            "-bsf:v", "hevc_metadata=colour_primaries=9:transfer_characteristics=18:matrix_coefficients=9", mov.path,
+            mov.path,
         ])
         #expect(try await Inspect.media(mov).video?.isHDR == true)
         try EsclopSettings.keepHDR.set(false, in: world.settings)
