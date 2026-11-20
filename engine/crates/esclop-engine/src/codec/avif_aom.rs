@@ -109,7 +109,14 @@ impl AvifCodec for Libaom {
         format!("libaom {a}.{b}.{c} (tune={})", tune().unwrap_or("default"))
     }
 
-    fn encode(&self, img: &DynamicImage, o: &AvifOptions, icc: Option<&[u8]>, exif: Option<&[u8]>) -> Result<Vec<u8>> {
+    fn encode(
+        &self,
+        img: &DynamicImage,
+        o: &AvifOptions,
+        icc: Option<&[u8]>,
+        exif: Option<&[u8]>,
+        xmp: Option<&[u8]>,
+    ) -> Result<Vec<u8>> {
         // RGB or RGBA, borrowed: libavif converts each cell straight from the decoded pixels
         let converted;
         let (px, channels, format): (&[u8], u32, avifRGBFormat) = match img {
@@ -142,6 +149,9 @@ impl AvifCodec for Libaom {
                     }
                     if let Some(exif) = exif.filter(|_| owned.images.len() == 1) {
                         check(avifImageSetMetadataExif(cell, exif.as_ptr(), exif.len()), "EXIF")?;
+                    }
+                    if let Some(xmp) = xmp.filter(|_| owned.images.len() == 1) {
+                        check(avifImageSetMetadataXMP(cell, xmp.as_ptr(), xmp.len()), "XMP")?;
                     }
                     let mut rgb: avifRGBImage = std::mem::zeroed();
                     avifRGBImageSetDefaults(&mut rgb, cell);

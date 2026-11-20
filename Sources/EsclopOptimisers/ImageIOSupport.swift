@@ -48,14 +48,18 @@ struct ImageInfo: Sendable {
 }
 
 enum ImageIOCodec {
-    /// Sets the density of a PNG, JPEG or TIFF to 72 dpi without re-encoding it: a PNG's `pHYs`
-    /// and the resolution in its `eXIf`, else the resolution tags through ImageIO.
-    /// ponytail: HEIC, WebP and BMP keep their density (ImageIO cannot rewrite it without
-    /// re-encoding); a 2x screenshot in those formats is rare.
-    static func setOneX(_ url: URL) {
+    /// Sets the density of a PNG, JPEG or TIFF without re-encoding it: a PNG's `pHYs` (added
+    /// when missing) and the resolution in its `eXIf`, else the resolution tags through ImageIO.
+    /// ponytail: HEIC, WebP, AVIF and BMP keep theirs (ImageIO cannot rewrite it without
+    /// re-encoding; WebP and AVIF have none outside EXIF); `write` gives HEIC its density. One
+    /// value for both axes, whole dots per inch: a 204x196 dpi fax scan comes out 204x204.
+    static func setDensity(_ url: URL, dpi: Double) {
         guard var data = try? Data(contentsOf: url) else { return }
-        guard data.starts(with: [0x89, 0x50, 0x4E, 0x47]) else { return setOneXThroughImageIO(url) }
+        guard data.starts(with: [0x89, 0x50, 0x4E, 0x47]) else { return setDensityThroughImageIO(url, dpi: dpi) }
+        let perMetre = UInt32((dpi / 0.0254).rounded())
+        let phys = withUnsafeBytes(of: perMetre.bigEndian, Array.init) + withUnsafeBytes(of: perMetre.bigEndian, Array.init) + [1]
         var offset = 8
+        var hasPhys = false
         var changed = false
         while offset + 12 <= data.count {
             let length = data[offset ..< offset + 4].reduce(0) { $0 << 8 | Int($1) }
@@ -63,22 +67,28 @@ enum ImageIOCodec {
             guard name != "IDAT", offset + 12 + length <= data.count else { break }
             let body = offset + 8 ..< offset + 8 + length
             if name == "pHYs", length == 9 {
-                // 2835 pixels per metre in x and y: 72 dpi.
-                data.replaceSubrange(body, with: [0, 0, 0x0B, 0x13, 0, 0, 0x0B, 0x13, 1])
+                data.replaceSubrange(body, with: phys)
+                hasPhys = true
                 changed = true
             } else if name == "eXIf" {
                 var exif = Data(data[body])
-                if setTIFFResolution72(&exif) { data.replaceSubrange(body, with: exif); changed = true }
+                if setTIFFResolution(&exif, dpi: UInt32(dpi.rounded())) { data.replaceSubrange(body, with: exif); changed = true }
             }
             let crc = crc32(data[offset + 4 ..< body.upperBound])
             data.replaceSubrange(body.upperBound ..< body.upperBound + 4, with: withUnsafeBytes(of: crc.bigEndian, Array.init))
             offset += 12 + length
         }
+        if !hasPhys, data.count > 33 {
+            // After IHDR (8 bytes of signature, then 25 of IHDR), before any IDAT.
+            let chunk = Data(withUnsafeBytes(of: UInt32(9).bigEndian, Array.init) + Array("pHYs".utf8) + phys)
+            data.insert(contentsOf: chunk + withUnsafeBytes(of: crc32(chunk.dropFirst(4)).bigEndian, Array.init), at: 33)
+            changed = true
+        }
         if changed { try? data.write(to: url, options: .atomic) }
     }
 
-    /// XResolution and YResolution of a TIFF/EXIF block's first directory set to 72/1, in place.
-    static func setTIFFResolution72(_ tiff: inout Data) -> Bool {
+    /// XResolution and YResolution of a TIFF/EXIF block's first directory set to `dpi`/1, in place.
+    static func setTIFFResolution(_ tiff: inout Data, dpi: UInt32) -> Bool {
         guard tiff.count >= 8 else { return false }
         let little = tiff[0] == 0x49
         func read(_ at: Int, _ size: Int) -> Int? {
@@ -95,19 +105,20 @@ enum ImageIOCodec {
             let entry = ifd + 2 + index * 12
             guard let tag = read(entry, 2), let type = read(entry + 2, 2), let value = read(entry + 8, 4) else { break }
             guard tag == 0x011A || tag == 0x011B, type == 5, value + 8 <= tiff.count else { continue }
-            write32(72, at: value)
+            write32(dpi, at: value)
             write32(1, at: value + 4)
             changed = true
         }
         return changed
     }
 
-    private static func setOneXThroughImageIO(_ url: URL) {
+    private static func setDensityThroughImageIO(_ url: URL, dpi: Double) {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil), let type = CGImageSourceGetType(source) else { return }
         let staging = url.deletingLastPathComponent().appendingPathComponent(".\(url.lastPathComponent).dpi")
         guard let destination = CGImageDestinationCreateWithURL(staging as CFURL, type, 1, nil) else { return }
         let metadata = CGImageMetadataCreateMutable()
-        for (key, value) in [(kCGImagePropertyTIFFXResolution, "72"), (kCGImagePropertyTIFFYResolution, "72"), (kCGImagePropertyTIFFResolutionUnit, "2")] {
+        let value = "\(Int(dpi.rounded()))"
+        for (key, value) in [(kCGImagePropertyTIFFXResolution, value), (kCGImagePropertyTIFFYResolution, value), (kCGImagePropertyTIFFResolutionUnit, "2")] {
             CGImageMetadataSetValueMatchingImageProperty(metadata, kCGImagePropertyTIFFDictionary, key, value as CFString)
         }
         let options = [kCGImageDestinationMetadata: metadata, kCGImageDestinationMergeMetadata: true] as CFDictionary
@@ -175,10 +186,10 @@ enum ImageIOCodec {
         return scaled
     }
 
-    /// Writes `image` as `type`. `metadataFrom` copies EXIF/GPS/XMP from another file unless
-    /// `strip`; the orientation is reset because the pixels are already upright.
+    /// Writes `image` as `type` at `dpi` when given. `metadataFrom` copies EXIF/GPS/IPTC from
+    /// another file unless `strip`; the orientation is reset because the pixels are already upright.
     static func write(
-        _ image: CGImage, to url: URL, type: UTType, quality: Double?, metadataFrom: URL? = nil, strip: Bool
+        _ image: CGImage, to url: URL, type: UTType, quality: Double?, metadataFrom: URL? = nil, strip: Bool, dpi: Double? = nil
     ) throws {
         guard let destination = CGImageDestinationCreateWithURL(url as CFURL, type.identifier as CFString, 1, nil) else {
             throw EsclopError.unsupportedFile("This Mac cannot write \(type.preferredFilenameExtension ?? type.identifier)")
@@ -190,6 +201,11 @@ enum ImageIOCodec {
             for key in [kCGImagePropertyExifDictionary, kCGImagePropertyGPSDictionary, kCGImagePropertyIPTCDictionary, kCGImagePropertyTIFFDictionary] {
                 if let value = original[key] { properties[key] = value }
             }
+        }
+        // The density describes the picture, not the person: it stays when stripping.
+        if let dpi {
+            properties[kCGImagePropertyDPIWidth] = dpi
+            properties[kCGImagePropertyDPIHeight] = dpi
         }
         properties[kCGImagePropertyOrientation] = 1
         if var tiff = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any] {
@@ -211,9 +227,9 @@ enum ImageIOCodec {
     /// Decodes anything macOS reads (HEIC, JPEG XL, AVIF, TIFF...) to an upright PNG the engine
     /// can take, with the EXIF (GPS included) in its eXIf chunk unless `strip`, so the engine
     /// carries it into WebP and AVIF.
-    static func decodeToPNG(_ source: URL, to url: URL, strip: Bool) throws {
+    static func decodeToPNG(_ source: URL, to url: URL, strip: Bool, dpi: Double) throws {
         let image = try uprightImage(source)
-        try write(image, to: url, type: .png, quality: nil, metadataFrom: source, strip: strip)
+        try write(image, to: url, type: .png, quality: nil, metadataFrom: source, strip: strip, dpi: dpi)
     }
 
     /// Rewrites metadata without re-encoding pixels (JPEG, PNG, TIFF, HEIC): drops EXIF, GPS,

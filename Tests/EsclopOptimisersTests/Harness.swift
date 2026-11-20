@@ -165,6 +165,18 @@ enum Fixture {
         try wav.write(to: url)
     }
 
+    /// A Homebrew ffmpeg that reads SubRip files and chapter lists, for fixtures the bundled
+    /// ffmpeg cannot make (it has neither reader). nil when there is none.
+    static func richFFmpeg() async -> URL? {
+        for path in ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"] where FileManager.default.isExecutableFile(atPath: path) {
+            let url = URL(fileURLWithPath: path)
+            let demuxers = (try? await ProcessRunner.run(executable: url, arguments: ["-hide_banner", "-demuxers"]))?.stdoutString ?? ""
+            let names = demuxers.split(separator: "\n").compactMap { $0.split(separator: " ").dropFirst().first }
+            if names.contains("srt"), names.contains("ffmetadata") { return url }
+        }
+        return nil
+    }
+
     static func wav(_ url: URL, seconds: Int = 2) async throws {
         try await ProcessRunner.run(.ffmpeg, [
             "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=f=440:d=\(seconds):sample_rate=44100",

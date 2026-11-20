@@ -184,11 +184,11 @@ extension Inspect {
         let world = try await TestWorld()
         defer { Task { await world.finish() } }
         let png = world.file("photo.png")
-        let sibling = world.file("photo.jpeg")
+        let sibling = world.file("photo.jpg")
         try Fixture.png(png)
         try Data("an unrelated jpeg".utf8).write(to: sibling)
         let result = try await world.engine.convert(png, to: .jpeg, request: world.request(png), progress: { _ in })
-        #expect(result.output == world.file("photo 2.jpeg"))
+        #expect(result.output == world.file("photo 2.jpg"))
         #expect(Inspect.type(result.output) == .jpeg)
         #expect(try String(contentsOf: sibling, encoding: .utf8) == "an unrelated jpeg")
         #expect(world.backups.entries().map { $0.original.lastPathComponent } == ["photo.png"])
@@ -288,5 +288,70 @@ extension Inspect {
         try Fixture.taggedHEIC(heic)
         let result = try await world.engine.convert(heic, to: .webp, request: world.request(heic, location: .temporary), progress: { _ in })
         #expect(Inspect.properties(result.output)[kCGImagePropertyGPSDictionary] != nil)
+    }
+
+    /// Crops, resizes and conversions keep the source's density, on the engine path (PNG, a
+    /// JFIF-only JPEG) and the ImageIO one (TIFF, HEIC): a 144 dpi screenshot keeps its size on
+    /// screen, a 300 dpi print its size on paper.
+    @Test func cropsAndResizesKeepTheDensity() async throws {
+        let world = try await TestWorld(realEngine: true)
+        defer { Task { await world.finish() } }
+        let image = try Fixture.gradient(width: 400, height: 300, deep: false, alpha: false, noise: true)
+        let cases: [(String, UTType, Double)] = [("shot.png", .png, 144), ("print.jpg", .jpeg, 300), ("scan.tiff", .tiff, 300), ("photo.heic", .heic, 300)]
+        for (name, type, dpi) in cases {
+            let url = world.file(name)
+            try Fixture.write(image, to: url, type: type, properties: [kCGImagePropertyDPIWidth: dpi, kCGImagePropertyDPIHeight: dpi])
+            try #require(ImageInfo.probe(url)?.dpi == dpi)
+            let cropped = try await world.engine.crop(url, to: CropSize(width: 200, height: 200), request: world.request(url, location: .temporary), progress: { _ in })
+            #expect(ImageInfo.probe(cropped.output)?.dpi == dpi, "crop \(name)")
+            let halved = try await world.engine.downscale(url, factor: 0.5, request: world.request(url, location: .temporary), progress: { _ in })
+            #expect(ImageInfo.probe(halved.output)?.dpi == dpi, "downscale \(name)")
+        }
+        let png = world.file("shot.png")
+        let converted = try await world.engine.convert(png, to: .jpeg, request: world.request(png, location: .temporary), progress: { _ in })
+        #expect(ImageInfo.probe(converted.output)?.dpi == 144)
+    }
+
+    /// A crop larger than the picture never enlarges it, whatever the size asked, and says so
+    /// (it used to do nothing silently, or fail above four times the size).
+    @Test func aCropLargerThanThePictureIsNotEnlarged() async throws {
+        let world = try await TestWorld(realEngine: true)
+        defer { Task { await world.finish() } }
+        let png = world.file("small.png")
+        try Fixture.png(png, width: 320, height: 240)
+        for (size, kept) in [((640, 480), (320, 240)), ((3200, 2400), (320, 240)), ((640, 360), (320, 180))] {
+            let result = try await world.engine.crop(png, to: CropSize(width: size.0, height: size.1), request: world.request(png, location: .temporary), progress: { _ in })
+            #expect(Inspect.size(result.output)! == kept)
+            #expect(result.steps.contains("Not enlarged to \(size.0)x\(size.1); kept \(kept.0)x\(kept.1)"))
+        }
+    }
+
+    /// With strip off, the XMP packet (title, keywords) reaches WebP, AVIF and PNG; with strip
+    /// on it does not.
+    @Test func conversionsCarryTheXMPPacketUnlessStripping() async throws {
+        let world = try await TestWorld(realEngine: true)
+        defer { Task { await world.finish() } }
+        let jpeg = world.file("sunset.jpg")
+        let image = try Fixture.gradient(width: 320, height: 240, deep: false, alpha: false)
+        let metadata = CGImageMetadataCreateMutable()
+        _ = CGImageMetadataSetValueWithPath(metadata, nil, "dc:title" as CFString, "Posta de sol" as CFString)
+        let destination = try #require(CGImageDestinationCreateWithURL(jpeg as CFURL, UTType.jpeg.identifier as CFString, 1, nil))
+        CGImageDestinationAddImageAndMetadata(destination, image, metadata, [kCGImageDestinationLossyCompressionQuality: 1.0] as CFDictionary)
+        try #require(CGImageDestinationFinalize(destination))
+        func title(_ url: URL) -> String? {
+            guard let source = CGImageSourceCreateWithURL(url as CFURL, nil), let meta = CGImageSourceCopyMetadataAtIndex(source, 0, nil) else { return nil }
+            return CGImageMetadataCopyStringValueWithPath(meta, nil, "dc:title" as CFString) as String?
+        }
+        try #require(title(jpeg) != nil)
+        for format in [OutputFormat.webp, .avif, .png] {
+            var keep = world.request(jpeg, location: .temporary)
+            keep.stripMetadata = false
+            let kept = try await world.engine.convert(jpeg, to: format, request: keep, progress: { _ in })
+            #expect(title(kept.output)?.contains("Posta de sol") == true, "\(format)")
+            var strip = world.request(jpeg, location: .temporary)
+            strip.stripMetadata = true
+            let stripped = try await world.engine.convert(jpeg, to: format, request: strip, progress: { _ in })
+            #expect(title(stripped.output) == nil, "\(format)")
+        }
     }
 }

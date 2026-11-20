@@ -33,8 +33,14 @@ fn config(o: &WebpOptions, pixels: u64) -> Result<webp::WebPConfig> {
     Ok(c)
 }
 
-/// Encodes a still image. `icc`/`exif` (TIFF payload) are embedded when given.
-pub fn encode_still(img: &DynamicImage, o: &WebpOptions, icc: Option<&[u8]>, exif: Option<&[u8]>) -> Result<Vec<u8>> {
+/// Encodes a still image. `icc`/`exif` (TIFF payload)/`xmp` are embedded when given.
+pub fn encode_still(
+    img: &DynamicImage,
+    o: &WebpOptions,
+    icc: Option<&[u8]>,
+    exif: Option<&[u8]>,
+    xmp: Option<&[u8]>,
+) -> Result<Vec<u8>> {
     let (w, h) = (img.width(), img.height());
     if w > 16383 || h > 16383 {
         return Err(EngineError::unsupported("WebP is limited to 16383 pixels per side"));
@@ -49,10 +55,16 @@ pub fn encode_still(img: &DynamicImage, o: &WebpOptions, icc: Option<&[u8]>, exi
         }
     }
     .map_err(|e| EngineError::encode(format!("libwebp: {e:?}")))?;
-    with_metadata(&mem, icc, exif)
+    with_metadata(&mem, icc, exif, xmp)
 }
 
-pub fn encode_animation(a: &Animation, o: &WebpOptions, icc: Option<&[u8]>, exif: Option<&[u8]>) -> Result<Vec<u8>> {
+pub fn encode_animation(
+    a: &Animation,
+    o: &WebpOptions,
+    icc: Option<&[u8]>,
+    exif: Option<&[u8]>,
+    xmp: Option<&[u8]>,
+) -> Result<Vec<u8>> {
     if a.width > 16383 || a.height > 16383 {
         return Err(EngineError::unsupported("WebP is limited to 16383 pixels per side"));
     }
@@ -65,13 +77,13 @@ pub fn encode_animation(a: &Animation, o: &WebpOptions, icc: Option<&[u8]>, exif
         t += f.delay_ms.max(10) as i32;
     }
     let mem = enc.try_encode().map_err(|e| EngineError::encode(format!("libwebp animation: {e:?}")))?;
-    with_metadata(&mem, icc, exif)
+    with_metadata(&mem, icc, exif, xmp)
 }
 
-fn with_metadata(webp: &[u8], icc: Option<&[u8]>, exif: Option<&[u8]>) -> Result<Vec<u8>> {
-    if icc.is_none() && exif.is_none() {
+fn with_metadata(webp: &[u8], icc: Option<&[u8]>, exif: Option<&[u8]>, xmp: Option<&[u8]>) -> Result<Vec<u8>> {
+    if icc.is_none() && exif.is_none() && xmp.is_none() {
         return Ok(webp.to_vec());
     }
     let chunks = WebpChunks::parse(webp)?;
-    meta::webp_build(&chunks.chunks, icc, exif, None)
+    meta::webp_build(&chunks.chunks, icc, exif, xmp)
 }

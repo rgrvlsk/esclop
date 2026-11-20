@@ -58,7 +58,8 @@ app that wants one `EngineClient`).
   `imageAggressiveCompression`, `videoCompression`, ...); the `useAggressiveOptimisation*`
   switches turn normal into aggressive per format.
 - **Metadata** is stripped when `request.stripMetadata` or the `stripMetadata` setting is true
-  (default true). Orientation and colour profile are always kept.
+  (default true). Orientation and colour profile are always kept. Audio keeps its tags (title,
+  artist, album) unless `request.stripMetadata` is true: the setting does not apply to music.
 - **Automatic conversion** (`formatsToConvertToJPEG/PNG/MP4`) applies only to automatic origins:
   `.app`, `.clipboard`, `.dropZone`, `.watchedFolder`, `.hotkey`. CLI, MCP, Finder and Shortcuts
   keep the format unless asked. Images with several frames or pages are never converted
@@ -73,9 +74,11 @@ app that wants one `EngineClient`).
   app's "Optimised … go", or the CLI with neither `-o` nor `--behaviour`) sends a result in
   another format where `convertedImage/Video/AudioBehaviour` says; an explicit location always
   wins. `.inPlace` backs up the original first; with a new extension the converted file
-  replaces the original (`photo.heic` becomes `photo.jpeg`, or `photo 2.jpeg` when an unrelated
-  `photo.jpeg` is already there). Same-format results keep the source's extension (`.jpg` stays
-  `.jpg`). `.sameFolder` uses `sameFolderNameTemplate` (`%f-optimised`) and never overwrites.
+  replaces the original (`photo.heic` becomes `photo.jpg`, or `photo 2.jpg` when an unrelated
+  `photo.jpg` is already there). Same-format results keep the source's extension (`.jpg` stays
+  `.jpg`); a new JPEG is `.jpg`. `.sameFolder` uses `sameFolderNameTemplate` (`%f-optimised`) and
+  never overwrites; with the default template a result in another format keeps the plain name
+  (`photo.png` gives `photo.webp`).
   `.temporary` writes under `Paths.temporary/results`. `.path(template)` expands `%f` (name), `%e`
   (output extension), `%d` (source folder), `~`; a trailing `/` or an existing folder receives
   `<name>.<ext>`; a relative template starts in the source's folder (the CLI anchors `-o` to the
@@ -224,7 +227,7 @@ Swift code reads typed values: `EsclopSettings.stripMetadata.value` (or `.value(
 | `maxPDFSizeMB` | Int | `100` | pdf | Largest PDF to optimise automatically |
 | `audioCompression` | Int | `35` | audio | Audio compression |
 | `audioAggressiveCompression` | Int | `65` | audio | Aggressive audio compression |
-| `formatsToConvertToAAC` | [String] | `[aiff, aif, flac]` | audio | Convert to AAC |
+| `formatsToConvertToAAC` | [String] | `[aiff, aif, flac]` | audio | Convert to AAC (`alac` converts Apple Lossless) |
 | `formatsToConvertToMP3` | [String] | `[wav]` | audio | Convert to MP3 |
 | `audioCoverArt` | AudioCoverArt | `.optimise` | audio | Cover art |
 | `normalizeLoudness` | Bool | `false` | audio | Normalise loudness |

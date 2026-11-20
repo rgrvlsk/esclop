@@ -29,7 +29,11 @@ public extension OutputLocation {
             let candidate = folder.appendingPathComponent(stem).appendingPathExtension(ext)
             return candidate.standardizedFileURL.path == source.standardizedFileURL.path ? candidate : Self.unique(candidate)
         case .sameFolder:
-            let name = Self.expand(sameFolderTemplate, stem: stem, ext: ext, folder: folder)
+            // With the default template a conversion keeps the plain name (photo.png gives
+            // photo.webp): only a result in the same format needs another name.
+            let converts = UTType(filenameExtension: ext.lowercased()) != UTType(filenameExtension: source.pathExtension.lowercased())
+            let template = converts && sameFolderTemplate == EsclopSettings.sameFolderNameTemplate.defaultValue ? "%f" : sameFolderTemplate
+            let name = Self.expand(template, stem: stem, ext: ext, folder: folder)
             var candidate = folder.appendingPathComponent(name).appendingPathExtension(ext)
             if candidate.standardizedFileURL.path == source.standardizedFileURL.path {
                 candidate = folder.appendingPathComponent("\(name)-optimised").appendingPathExtension(ext)

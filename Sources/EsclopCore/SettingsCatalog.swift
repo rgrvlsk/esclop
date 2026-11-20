@@ -290,7 +290,7 @@ public enum EsclopSettings {
     )
     public static let formatsToConvertToAAC = Setting<[String]>(
         "formatsToConvertToAAC", default: ["aiff", "aif", "flac"], title: "Convert to AAC",
-        description: "Audio formats (file extensions) converted to AAC (M4A) when optimised.",
+        description: "Audio formats (file extensions, or alac for Apple Lossless) converted to AAC (M4A) when optimised.",
         section: .audio
     )
     public static let formatsToConvertToMP3 = Setting<[String]>(
@@ -370,7 +370,7 @@ public enum EsclopSettings {
 
     public static let sameFolderNameTemplate = Setting<String>(
         "sameFolderNameTemplate", default: "%f-optimised", title: "Same folder name",
-        description: "File name for results written next to the original. %f is the original name without extension.",
+        description: "File name for results written next to the original. %f is the original name without extension. With the default, a result in another format keeps the original name (photo.webp).",
         section: .output
     )
     public static let specificFolderTemplate = Setting<String>(

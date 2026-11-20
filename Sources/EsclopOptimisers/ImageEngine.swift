@@ -26,6 +26,8 @@ struct ImageEngine: Sendable {
         var width: Int
         var height: Int
         var changed: Bool
+        /// The step line when a crop asked for more pixels than the picture has.
+        var notEnlarged: String?
     }
 
     // MARK: Optimise, convert, downscale, crop
@@ -39,9 +41,12 @@ struct ImageEngine: Sendable {
         }
         var halved = plan
         halved.downscale = 0.5
-        var produced = try await produce(source, info: info, sourceFormat: sourceFormat, plan: halved, work: work, progress: progress)
+        // Written at 72 dpi from the start: HEIC's density cannot be rewritten afterwards.
+        var oneX = info
+        oneX.dpi = 72
+        var produced = try await produce(source, info: oneX, sourceFormat: sourceFormat, plan: halved, work: work, progress: progress)
         // Half the pixels at 72 dpi: the screenshot shows at the size it had.
-        ImageIOCodec.setOneX(produced.url)
+        ImageIOCodec.setDensity(produced.url, dpi: 72)
         produced.steps.insert("Downscaled the 2x screenshot to 1x", at: 0)
         return produced
     }
@@ -63,6 +68,7 @@ struct ImageEngine: Sendable {
         let formatChanged = target != sourceFormat
         var steps: [String] = []
         if formatChanged { steps.append("Converted \(sourceFormat.rawValue.uppercased()) to \(target.rawValue.uppercased())") }
+        if let note = geometry.notEnlarged { steps.append(note) }
         let allowLarger = plan.allowsLarger(formatChanged: formatChanged)
 
         if sourceFormat == .gif, target == .gif {
@@ -174,24 +180,30 @@ struct ImageEngine: Sendable {
         var crop: CGRect?
         var width = info.width
         var height = info.height
+        var note: String?
         if let size = plan.crop {
             let target = size.targetSize(fromWidth: width, height: height)
+            var available = (width: width, height: height)
             if size.cropsAspect(fromWidth: width, height: height) {
                 let aspect = Double(target.width) / Double(target.height)
-                crop = size.region(inWidth: width, height: height)
+                let rect = size.region(inWidth: width, height: height)
                     ?? ImageIOCodec.cropRect(for: source, width: width, height: height, aspect: aspect, smart: size.smart)
+                crop = rect
+                available = (Int(rect.width), Int(rect.height))
             }
-            width = target.width
-            height = target.height
+            let fitted = notEnlarged(target, within: available)
+            width = fitted.width
+            height = fitted.height
+            if fitted.note { note = notEnlargedStep(target, kept: (width, height)) }
         }
         if let factor = plan.downscale {
             width = max(1, Int((Double(width) * factor).rounded()))
             height = max(1, Int((Double(height) * factor).rounded()))
         }
-        guard width <= info.width * 4, height <= info.height * 4 else {
-            throw EsclopError.invalidArgument("\(width)x\(height) is more than four times the original size")
-        }
-        return Geometry(crop: crop, width: width, height: height, changed: crop != nil || width != info.width || height != info.height)
+        return Geometry(
+            crop: crop, width: width, height: height, changed: crop != nil || width != info.width || height != info.height,
+            notEnlarged: note
+        )
     }
 
     // MARK: esclop-engine
@@ -220,7 +232,7 @@ struct ImageEngine: Sendable {
             // The engine reads PNG, JPEG, WebP and GIF; ImageIO decodes everything else (and
             // applies the orientation so crop rectangles mean the same thing on both sides).
             let decoded = work.file("decoded.png")
-            try ImageIOCodec.decodeToPNG(source, to: decoded, strip: strip)
+            try ImageIOCodec.decodeToPNG(source, to: decoded, strip: strip, dpi: info.dpi)
             input = decoded
             inputFormat = .png
         }
@@ -280,6 +292,11 @@ struct ImageEngine: Sendable {
                 produced.allowLarger = true
                 produced.steps.append("\(names.0) was smaller than \(names.1), kept \(names.0)")
             }
+        }
+        // Crops, resizes and conversions lose the density: a 144 dpi screenshot or a 300 dpi
+        // print keeps the size it shows and prints at.
+        if [.png, .jpeg].contains(OutputFormat.of(url: produced.url)), let dpi = ImageInfo.probe(produced.url)?.dpi, abs(dpi - info.dpi) >= 0.5 {
+            ImageIOCodec.setDensity(produced.url, dpi: info.dpi)
         }
         return produced
     }
@@ -374,7 +391,9 @@ struct ImageEngine: Sendable {
             throw EsclopError.other("gifsicle flattened the animation of \(source.lastPathComponent); keeping the original")
         }
         steps.append("Optimised GIF (\(curves.gifsicleArgs.joined(separator: " ")))")
-        return Produced(url: output, width: geometry.width, height: geometry.height, duration: nil, steps: steps, allowLarger: allowLarger)
+        // At --lossy=0 (compression 9 and under) gifsicle keeps every pixel, so any saving counts.
+        let lossless = !geometry.changed && curves.gifsicleArgs.contains("--lossy=0")
+        return Produced(url: output, width: geometry.width, height: geometry.height, duration: nil, steps: steps, allowLarger: allowLarger, lossless: lossless)
     }
 
     /// Each frame's delay in centiseconds, unclamped (0.02 s stays 2, not ImageIO's 10).
@@ -406,7 +425,7 @@ struct ImageEngine: Sendable {
             try ImageIOCodec.reencode(source, to: output, type: type, quality: quality ?? 0.8, strip: strip, keepGainMap: false)
         } else {
             let image = try ImageIOCodec.render(ImageIOCodec.uprightImage(source), crop: geometry.crop, width: geometry.width, height: geometry.height)
-            try ImageIOCodec.write(image, to: output, type: type, quality: quality, metadataFrom: source, strip: strip)
+            try ImageIOCodec.write(image, to: output, type: type, quality: quality, metadataFrom: source, strip: strip, dpi: info.dpi)
             if geometry.changed { steps.append("Resized to \(geometry.width)x\(geometry.height)") }
         }
         steps.append(quality.map { "Encoded \(target.rawValue.uppercased()) at quality \(Int($0 * 100))" } ?? "Encoded \(target.rawValue.uppercased())")
@@ -478,7 +497,7 @@ struct ImageEngine: Sendable {
         else { throw EsclopError.fileNotFound(watermark.image.path) }
         let composed = try Self.compose(base, mark: mark, watermark: watermark)
         let intermediate = work.file("watermarked.png")
-        try ImageIOCodec.write(composed, to: intermediate, type: .png, quality: nil, metadataFrom: source, strip: plan.strip)
+        try ImageIOCodec.write(composed, to: intermediate, type: .png, quality: nil, metadataFrom: source, strip: plan.strip, dpi: info.dpi)
 
         var next = plan
         next.format = plan.format ?? targetFormat(for: sourceFormat, source: source, info: info, plan: plan)
@@ -540,7 +559,7 @@ struct ImageEngine: Sendable {
             var input = source
             if !Self.engineReadable.contains(sourceFormat) {
                 input = work.file("decoded.png")
-                try ImageIOCodec.decodeToPNG(source, to: input, strip: plan.strip)
+                try ImageIOCodec.decodeToPNG(source, to: input, strip: plan.strip, dpi: info.dpi)
             }
             let output = work.file(stem: "fit", ext: format.fileExtension)
             let reply = try await env.images.call("fit", input: input, output: output, params: [
@@ -659,6 +678,19 @@ extension ImageIOCodec {
         }
         _ = try? FileManager.default.replaceItemAt(target, withItemAt: staging)
     }
+}
+
+/// The one rule for crops of images and videos: never enlarge. A size larger than the picture
+/// (or than the region cropped from it) shrinks to fit inside it, keeping its shape; `note`
+/// says it did, for a step line.
+func notEnlarged(_ target: (width: Int, height: Int), within available: (width: Int, height: Int)) -> (width: Int, height: Int, note: Bool) {
+    let shrink = min(1, Double(available.width) / Double(max(1, target.width)), Double(available.height) / Double(max(1, target.height)))
+    guard shrink < 1 else { return (target.width, target.height, false) }
+    return (max(1, Int((Double(target.width) * shrink).rounded())), max(1, Int((Double(target.height) * shrink).rounded())), true)
+}
+
+func notEnlargedStep(_ target: (width: Int, height: Int), kept: (width: Int, height: Int)) -> String {
+    "Not enlarged to \(target.width)x\(target.height); kept \(kept.width)x\(kept.height)"
 }
 
 enum ByteFormat {

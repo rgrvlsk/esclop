@@ -83,7 +83,7 @@ import Testing
         model.pick(.gifVideo, keepBoth: false)
         #expect(model.armed == nil, "not armed: it runs, beside the video")
         #expect(await eventually { harness.requests.requests.count == 2 })
-        let beside = clip.deletingLastPathComponent().appendingPathComponent("clip-optimised.gif")
+        let beside = clip.deletingLastPathComponent().appendingPathComponent("clip.gif")
         #expect(harness.requests.requests.last?.location == .path(beside.path), "a new file next to the video")
     }
 }

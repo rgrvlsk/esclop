@@ -43,7 +43,10 @@ struct Terminal {
 
     func line(_ failure: FailureSummary) -> String {
         let name = bold(URL(fileURLWithPath: failure.source).lastPathComponent)
-        if failure.isUnchanged { return "\(dim("–")) \(name) \(dim("unchanged: already as small as it gets"))" }
+        if failure.isUnchanged {
+            let reason = failure.error == EsclopError.alreadySmaller.description ? "already as small as it gets" : failure.error
+            return "\(dim("–")) \(name) \(dim("unchanged: \(reason)"))"
+        }
         return "\(red("✗")) \(name) \(red(failure.message))"
     }
 }
@@ -207,8 +210,8 @@ final class InterruptHandler: @unchecked Sendable {
 }
 
 /// Builds the job, runs it through the service with progress and Ctrl-C, prints the outcome.
-/// `skipOptimised` leaves files with L'Esclop's optimised mark as they are, each reported as a
-/// failure that names `--force`.
+/// `skipOptimised` leaves files with L'Esclop's optimised mark as they are, each listed as
+/// unchanged (exit 0, as a file already as small as it gets) with a reason that names `--force`.
 func runFileJob(
     _ operation: JobOperation, files: FileOptions, global: GlobalOptions, skipOptimised: Bool = false,
     configure: (inout OptimisationRequest) -> Void = { _ in }
@@ -232,11 +235,18 @@ func runJob(
         var sources = try await inputs.sources()
         let optimised = skipOptimised ? sources.filter(OptimisedMark.isMarked) : []
         sources.removeAll { optimised.contains($0) }
-        let skipped = optimised.map {
-            FileFailure(source: $0, error: .leftAsIs("Already optimised by L'Esclop; pass --force to optimise it again"))
+        let skipped = optimised.map { source in
+            var unchanged = FailureSummary(FileFailure(source: source, error: .alreadySmaller))
+            unchanged.error = "already optimised by L'Esclop (--force optimises it again)"
+            return unchanged
+        }
+        func summary(_ report: JobReport) -> JobSummary {
+            var summary = JobSummary(operation: operation.name, report: report)
+            summary.failures += skipped
+            return summary
         }
         guard !sources.isEmpty else {
-            if !skipped.isEmpty { return Output.report(JobSummary(operation: operation.name, report: JobReport(failures: skipped)), printing: printing) }
+            if !skipped.isEmpty { return Output.report(summary(JobReport()), printing: printing) }
             if printing.json { Output.json(JobSummary(operation: operation.name, report: JobReport())) } else { print("No files to process.") }
             return 0
         }
@@ -247,10 +257,9 @@ func runJob(
         let progress = ProgressLine(enabled: !inputs.noProgress && !printing.json)
         let interrupt = InterruptHandler { service.stop([job.id]) }
         defer { interrupt.cancel() }
-        var report = try await service.perform(job) { progress.update($0) }
-        report.failures += skipped
+        let report = try await service.perform(job) { progress.update($0) }
         progress.clear()
         finished(report)
-        return Output.report(JobSummary(operation: operation.name, report: report), printing: printing)
+        return Output.report(summary(report), printing: printing)
     }
 }

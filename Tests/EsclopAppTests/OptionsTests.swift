@@ -251,7 +251,8 @@ import UniformTypeIdentifiers
         #expect(await eventually { harness.requests.requests.count == 2 })
         let request = try #require(harness.requests.requests.last)
         #expect(request.sources == [backup], "from the original")
-        let beside = file.deletingLastPathComponent().appendingPathComponent(file.deletingPathExtension().lastPathComponent + "-optimised.webp")
+        // A conversion keeps the plain name under the default template.
+        let beside = file.deletingLastPathComponent().appendingPathComponent(file.deletingPathExtension().lastPathComponent + ".webp")
         #expect(request.location == .path(beside.path), "beside the file, not in the backups folder")
     }
 

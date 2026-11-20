@@ -145,6 +145,10 @@ pub struct Carry {
     pub icc: Option<Vec<u8>>,
     /// TIFF payload.
     pub exif: Option<Vec<u8>>,
+    /// XMP packet. ponytail: a packet over a JPEG marker (65,504 bytes, no extended XMP), a
+    /// compressed PNG `iTXt` and the rav1e AVIF build drop it without a step; split it into
+    /// extended XMP or add a step if large packets turn up.
+    pub xmp: Option<Vec<u8>>,
 }
 
 /// What to carry from `meta`. `upright` says the pixels were already rotated to the EXIF
@@ -163,7 +167,10 @@ pub fn carry(meta: &SourceMeta, out: &OutputParams, upright: bool) -> Carry {
         let orientation = (keep.contains(&Keep::Orientation) && !upright).then_some(meta.orientation);
         meta::kept_exif(meta.exif.as_deref(), orientation, keep.contains(&Keep::Icc))
     };
-    Carry { icc, exif }
+    // ponytail: XMP may repeat the orientation (tiff:Orientation); upright pixels from a rotated
+    // source drop the packet rather than rewrite it, so no viewer turns them twice.
+    let xmp = (!out.strip && (!upright || meta.orientation == 1)).then(|| meta.xmp.clone()).flatten();
+    Carry { icc, exif, xmp }
 }
 
 /// Default output format for a decoded input.
@@ -185,6 +192,9 @@ pub fn encode_content(content: &Content, fmt: Format, p: &EncodeParams, carry: &
             let mut markers = Vec::new();
             if let Some(x) = &carry.exif {
                 markers.push((meta::APP1, meta::exif_app1(x)));
+            }
+            if let Some(x) = &carry.xmp {
+                markers.push((meta::APP1, [meta::XMP_ID, x].concat()));
             }
             if let Some(icc) = &carry.icc {
                 markers.extend(meta::icc_app2(icc).into_iter().map(|d| (meta::APP2, d)));
@@ -210,7 +220,8 @@ pub fn encode_content(content: &Content, fmt: Format, p: &EncodeParams, carry: &
         }
         Format::Png => {
             let img = content.first_frame();
-            let chunks: Vec<([u8; 4], Vec<u8>)> = carry.exif.iter().map(|x| (*b"eXIf", x.clone())).collect();
+            let mut chunks: Vec<([u8; 4], Vec<u8>)> = carry.exif.iter().map(|x| (*b"eXIf", x.clone())).collect();
+            chunks.extend(carry.xmp.iter().map(|x| (*b"iTXt", [meta::PNG_XMP_PREFIX, x].concat())));
             let level = quality::png_level(f);
             if p.lossy.unwrap_or(true) {
                 let (_, target) = quality::png_quality(f);
@@ -237,9 +248,21 @@ pub fn encode_content(content: &Content, fmt: Format, p: &EncodeParams, carry: &
             e.bytes = match content {
                 Content::Anim(a) => {
                     e.frames = a.frames.len() as u32;
-                    codec::webp::encode_animation(a, &o, carry.icc.as_deref(), carry.exif.as_deref())?
+                    codec::webp::encode_animation(
+                        a,
+                        &o,
+                        carry.icc.as_deref(),
+                        carry.exif.as_deref(),
+                        carry.xmp.as_deref(),
+                    )?
                 }
-                Content::Still(img) => codec::webp::encode_still(img, &o, carry.icc.as_deref(), carry.exif.as_deref())?,
+                Content::Still(img) => codec::webp::encode_still(
+                    img,
+                    &o,
+                    carry.icc.as_deref(),
+                    carry.exif.as_deref(),
+                    carry.xmp.as_deref(),
+                )?,
             };
             e.quality = (!lossless).then_some(quality);
             e.lossy = !lossless;
@@ -250,7 +273,13 @@ pub fn encode_content(content: &Content, fmt: Format, p: &EncodeParams, carry: &
             })?;
             let quality = q.unwrap_or_else(|| quality::avif_quality(f));
             let o = AvifOptions { quality, alpha_quality: quality, speed: p.speed.unwrap_or(6).clamp(1, 10) };
-            e.bytes = codec.encode(&content.first_frame(), &o, carry.icc.as_deref(), carry.exif.as_deref())?;
+            e.bytes = codec.encode(
+                &content.first_frame(),
+                &o,
+                carry.icc.as_deref(),
+                carry.exif.as_deref(),
+                carry.xmp.as_deref(),
+            )?;
             e.quality = Some(quality);
             e.lossy = true;
         }
