@@ -66,6 +66,10 @@ public final class AppModel {
     @ObservationIgnored public var now: () -> Date = Date.init
     /// Where Save puts a copied image (tests point it elsewhere).
     @ObservationIgnored public var downloads: () -> URL = { FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0] }
+    /// Puts a result's original back; tests report an edit set aside without the real Trash.
+    @ObservationIgnored var restoreBackup: @Sendable (EsclopService, OptimisationResult) async throws -> RestoreOutcome = {
+        try await $0.restoreBackup(of: $1, deleteBackup: false)
+    }
     /// Announces results to VoiceOver; tests record them instead.
     @ObservationIgnored public var announce: (String) -> Void = AppModel.postAnnouncement
     /// Size estimates for the options popover, cached per file.
@@ -354,8 +358,8 @@ public final class AppModel {
     private func putBack(_ result: OptimisationResult) async throws -> Bool {
         guard restoringIDs.insert(result.id).inserted else { throw RestoreUnderWay() }
         defer { restoringIDs.remove(result.id) }
-        let service = service
-        let outcome = try await Task.detached { try await service.restoreBackup(of: result, deleteBackup: false) }.value
+        let (service, restoreBackup) = (service, restoreBackup)
+        let outcome = try await Task.detached { try await restoreBackup(service, result) }.value
         restoredIDs.insert(result.id)
         forget(result)
         noteWritten([result.source, result.output])
@@ -864,8 +868,8 @@ public final class AppModel {
         case .saveAs:
             saveAs(card)
         case .keepMetadata:
-            // From the original again, the same choice, the metadata kept.
-            guard !card.adjusted else { return }
+            // From the original again, the same choice, the metadata kept; the kept crop, scale
+            // and fit are made again.
             var choice = card.choice
             choice.stripMetadata = false
             reprocess(card, choice: choice)
@@ -873,8 +877,8 @@ public final class AppModel {
     }
 
     /// Runs a file again with another choice or one change (convert, downscale, fit, crop),
-    /// always from the original so quality is not lost twice. The crop and the scale the card
-    /// keeps are made again on every run, as Clop re-runs its steps, until Original or Reset
+    /// always from the original so quality is not lost twice. The crop, the scale and the fit the
+    /// card keeps are made again on every run, as Clop re-runs its steps, until Original or Reset
     /// (`adjust` clears them). The card stays and shows the new result, so an open options
     /// popover keeps its anchor; a rule stays shown only while its choice is the one used.
     func reprocess(_ card: ResultCard, choice: OptimiseChoice? = nil, adjust: ((inout OptimisationJob) -> Void)? = nil) {
@@ -885,7 +889,7 @@ public final class AppModel {
         let origin = card.origin, displayName = card.displayName
         let wasClipboardImage = Self.isCopiedImage(card.source)
         // Read now: the restore below puts the card back to its original.
-        let kept = (crop: card.crop, scale: card.downscale)
+        let kept = (crop: card.crop, scale: card.downscale, fit: card.fit)
         let choice = choice ?? card.choice
         let rule = card.appliedRule?.choice == choice ? card.appliedRule : nil
         let context = CardContext(origin: card.fileOrigin ?? .unknown, inputType: card.inputType, choice: choice, rule: rule)
@@ -909,6 +913,9 @@ public final class AppModel {
                     // encoding the optimised file again would not start from the original.
                     card.restoring = false
                     return
+                } else if card.editInTrash {
+                    // The restored card that says so lasts only until the run starts.
+                    notice(Strings.text("Your edited version is in the Trash"), Strings.text("It changed after optimising. The new result starts from the original."))
                 }
             case let .restored(result):
                 source = result.source
@@ -927,10 +934,12 @@ public final class AppModel {
             job.request.crop = kept.crop
             job.request.downscale = kept.scale < 1 ? kept.scale : nil
             let plain = job.operation
+            if let fit = kept.fit { job.operation = .fit(underBytes: fit) }
             adjust?(&job)
             // What this run applies the next one applies again; the Size tab's tile follows it.
             card.crop = job.request.crop
             card.downscale = job.request.downscale ?? 1
+            if case let .fit(bytes) = job.operation { card.fit = bytes } else { card.fit = nil }
             card.adjusted = job.request.crop != nil || job.request.downscale != nil || job.operation != plain
             let copyBack = origin == .clipboard && EsclopSettings.autoCopyToClipboard.value(in: settings)
             card.restoring = false
@@ -972,6 +981,7 @@ public final class AppModel {
             // saved from the result is not it (Show in Finder shows the original).
             card.crop = nil
             card.downscale = 1
+            card.fit = nil
             card.adjusted = false
             card.savedCopy = nil
             loadThumbnail(card, url: result.source)
@@ -1009,9 +1019,9 @@ public final class AppModel {
             return card
         }
         // Its actions follow where it came from, as the log recorded it; lines from before 0.2
-        // have no origin and go by the path. A copied image lives in L'Esclop's temporary
-        // folder: it has no name of its own.
-        let copiedImage = result.source.path.hasPrefix(Paths.temporary.path)
+        // have no origin and go by the path. A copied image lives in L'Esclop's clipboard
+        // folder: it has no name of its own. A dropped or downloaded file there keeps its name.
+        let copiedImage = Self.isCopiedImage(result.source)
         let origin = result.origin ?? (copiedImage ? .clipboard : .app)
         let card = ResultCard(jobID: result.requestID ?? result.id, source: result.source, origin: origin, bytesBefore: result.bytesBefore, phase: .done(result))
         if copiedImage { card.displayName = Strings.text("Copied image") }

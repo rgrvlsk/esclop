@@ -144,7 +144,7 @@ public struct CardPresentation: Equatable, Sendable {
     /// Work done so far while optimising; nil when the engine cannot tell.
     public var progress: Double?
     public var isWorking: Bool
-    /// The card's round buttons on hover, chosen by where the file came from (`tools(for:undo:)`).
+    /// The card's round buttons on hover, chosen by where the file came from (`tools(copied:undo:)`).
     public var tools: [Action]
     /// Every action, for the keyboard and VoiceOver.
     public var actions: [Action]
@@ -174,7 +174,8 @@ public struct CardPresentation: Equatable, Sendable {
     public var removedSummary = ""
     /// Compare is the detail's loupe: a picture that lost detail, with its original kept.
     public var loupe = false
-    /// Restore is offered for the removed metadata (not after a crop, downscale or fit).
+    /// Restore is offered for the removed metadata: its re-run makes the kept crop, scale and fit
+    /// again, so it is offered after them too.
     public var restorable = false
 
     public var accessibilityLabel: String
@@ -226,7 +227,7 @@ public struct CardPresentation: Equatable, Sendable {
             if result.bytesAfter > result.bytesBefore { tone = .neutral }
             let undo: [Action] = result.backup != nil ? [.undo] : []
             let resultEditing = Self.editingActions(for: result.output, kind: result.kind)
-            tools = Self.tools(for: card.origin, undo: !undo.isEmpty)
+            tools = Self.tools(copied: card.actsAsCopiedImage, undo: !undo.isEmpty)
             change = Figures.change(before: result.bytesBefore, after: result.bytesAfter, locale: locale)
             formats = Self.formatName(of: result.source) == Self.formatName(of: result.output)
                 ? Self.formatName(of: result.output)
@@ -247,14 +248,14 @@ public struct CardPresentation: Equatable, Sendable {
             if RemovedMetadata.original(of: result, origin: card.origin) != nil {
                 removedMetadata = card.removedMetadata
                 removedSummary = Self.summary(of: card.removedMetadata, t: t)
-                restorable = !card.adjusted
+                restorable = true
             }
         case let .unchanged(bytes):
             capsule = .status(symbol: nil, text: f("Already optimised · %@", Figures.bytes(bytes, locale: locale)))
             headline = t("Already optimised")
             caption = f("%@, left as it was", Figures.bytes(bytes, locale: locale))
             tone = .neutral
-            tools = Self.tools(for: card.origin, undo: false)
+            tools = Self.tools(copied: card.actsAsCopiedImage, undo: false)
             change = f("Kept the original, %@", Figures.bytes(bytes, locale: locale))
             (primary, primaryDetail, secondary, menu) = Self.detail(card, undo: false, editing: editing, t: t)
             self.editing = editing
@@ -269,7 +270,7 @@ public struct CardPresentation: Equatable, Sendable {
             caption = card.editInTrash ? t("Your edited version is in the Trash") : Figures.bytes(result.bytesBefore, locale: locale)
             tone = .neutral
             let restoredEditing = Self.editingActions(for: result.source, kind: result.kind)
-            tools = Self.tools(for: card.origin, undo: false)
+            tools = Self.tools(copied: card.actsAsCopiedImage, undo: false)
             change = Figures.bytes(result.bytesBefore, locale: locale)
             formats = Self.formatName(of: result.source)
             dimensions = Self.dimensions(result)
@@ -347,7 +348,7 @@ public struct CardPresentation: Equatable, Sendable {
     @MainActor private static func detail(
         _ card: ResultCard, undo: Bool, editing: [Action], compare: Bool = false, trash: Bool = false, t: (String) -> String
     ) -> (Action?, String?, [Action], [Action]) {
-        let clipboard = card.origin == .clipboard
+        let clipboard = card.actsAsCopiedImage
         let detail = clipboard
             ? t("To the clipboard")
             : FileManager.default.displayName(atPath: card.shownFile.deletingLastPathComponent().path)
@@ -405,8 +406,8 @@ public struct CardPresentation: Equatable, Sendable {
     /// The card's buttons, for what the person most likely wants next: a copied screenshot goes
     /// back to the clipboard, any other file is found in Finder. Undo while a backup exists. "…"
     /// opens the options, where convert, downscale and crop live.
-    static func tools(for origin: RequestOrigin, undo: Bool) -> [Action] {
-        [origin == .clipboard ? .copy : .reveal] + (undo ? [.undo] : []) + [.more]
+    static func tools(copied: Bool, undo: Bool) -> [Action] {
+        [copied ? .copy : .reveal] + (undo ? [.undo] : []) + [.more]
     }
 
     /// The one-click conversion: WebP for images (PNG for WebP itself), MP4 for other videos,

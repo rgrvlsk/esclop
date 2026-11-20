@@ -37,22 +37,31 @@ extension AppModel {
         var choice = card.choice
         choice.format = format
         choice.apply(to: &job.request)
+        // The steps the card keeps, as its own re-runs make them.
+        job.request.crop = card.crop
+        job.request.downscale = card.downscale < 1 ? card.downscale : nil
+        if let fit = card.fit { job.operation = .fit(underBytes: fit) }
         Task { await run(job) }
     }
 
     // MARK: Size
 
-    /// Scales from the original, keeping the crop; 1 is the original itself, with no crop, scale
-    /// or fit left over.
+    /// Scales from the original, keeping the crop and the fit; 1 is the original itself, with no
+    /// crop, scale or fit left over.
     public func downscale(_ card: ResultCard, to factor: Double) {
         guard factor < 1 else {
-            return reprocess(card) { $0.request.downscale = nil; $0.request.crop = nil }
+            return reprocess(card) { $0.request.downscale = nil; $0.request.crop = nil; $0.operation = .optimise }
         }
         reprocess(card) { $0.request.downscale = factor }
     }
 
     public func fit(_ card: ResultCard, under bytes: Int) {
         reprocess(card) { $0.operation = .fit(underBytes: bytes) }
+    }
+
+    /// The chosen Fit chip again: the fit comes off, the crop and the scale stay.
+    public func removeFit(_ card: ResultCard) {
+        reprocess(card) { $0.operation = .optimise }
     }
 
     public func crop(_ card: ResultCard, to size: CropSize) {
@@ -154,10 +163,7 @@ extension AppModel {
         do {
             try Self.saveCopy(of: file, to: target)
         } catch {
-            // Seen and heard: the notice says why, VoiceOver reads it.
-            let title = Strings.format("Could not save %@", target.lastPathComponent)
-            notice(title, CardPresentation.message(for: error))
-            announce(title)
+            failed(Strings.format("Could not save %@", target.lastPathComponent), error)
         }
     }
 
@@ -184,13 +190,13 @@ extension AppModel {
     /// Moves an optimised file to the Trash and removes its card. Its backup stays, as for any
     /// result; Finder's Put Back brings the file back.
     func trash(_ card: ResultCard) {
-        guard case .done = card.phase, card.origin != .clipboard else { return }
+        guard case .done = card.phase, !card.actsAsCopiedImage else { return }
         do {
             try FileManager.default.trashItem(at: card.shownFile, resultingItemURL: nil)
             dismiss(card)
             announce(Strings.text("Moved to the Trash"))
         } catch {
-            NSSound.beep()
+            failed(Strings.format("Could not move %@ to the Trash", card.shownFile.lastPathComponent), error)
         }
     }
 
@@ -209,8 +215,14 @@ extension AppModel {
             card.savedCopy = target
             announce(Strings.text("Saved to Downloads"))
         } catch {
-            NSSound.beep()
+            failed(Strings.format("Could not save %@", target.lastPathComponent), error)
         }
+    }
+
+    /// Seen and heard: a notice says why a file action failed, VoiceOver reads it.
+    private func failed(_ title: String, _ error: any Error) {
+        notice(title, CardPresentation.message(for: error))
+        announce(title)
     }
 
     private static let saveStamp: DateFormatter = {

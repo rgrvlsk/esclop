@@ -65,6 +65,14 @@ public enum EsclopSettings {
         section: .general
     )
 
+    /// Clop's keys on the card under the pointer, as one switch (Clop has one per key). Its row
+    /// sits with the keyboard shortcuts.
+    public static let cardKeysUnderPointer = Setting<Bool>(
+        "cardKeysUnderPointer", default: true, title: "Card keys under the pointer",
+        description: "While the pointer rests on a result, Space shows it in Quick Look and ⌘C, ⌘Z, ⌘S and the other card keys act on it, not on the app in front.",
+        section: .general
+    )
+
     // MARK: Updates
 
     public static let checkForUpdatesAutomatically = Setting<Bool>(
@@ -547,7 +555,7 @@ public enum EsclopSettings {
     public static var defaultVideoEncoder: VideoEncoder { .h264VideoToolbox }
 
     public static let all: [AnySetting] = [
-        stripMetadata.erased, preserveDates.erased, keepHDR.erased,
+        stripMetadata.erased, preserveDates.erased, keepHDR.erased, cardKeysUnderPointer.erased,
         floatingResultsCorner.erased, followCursorScreen.erased, autoHideFloatingResults.erased,
         autoHideFloatingResultsAfter.erased, autoHideClipboardResultAfter.erased, batchWindowFrom.erased, enableDragAndDrop.erased, dropZoneOnlyWithOption.erased, presetZones.erased,
         imageCompression.erased, imageAggressiveCompression.erased,

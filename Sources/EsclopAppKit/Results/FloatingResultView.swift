@@ -22,6 +22,9 @@ public struct FloatingResultView: View {
     /// A menu, the options, a name, the loupe or a drag on any card has the keys: the card keys
     /// stand aside on every card.
     let keysTaken: Bool
+    /// "Card keys under the pointer": off, a resting pointer holds no keys (a click still gives
+    /// the card its keys).
+    let pointerKeys: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.controlActiveState) private var activeState
@@ -33,7 +36,7 @@ public struct FloatingResultView: View {
     public init(
         card: ResultCard, corner: ScreenCorner = .bottomRight,
         perform: @escaping (CardPresentation.Action) -> Void, interact: @escaping (AppModel.Interaction) -> Void = { _ in },
-        options: (() -> OptionsModel)? = nil, press: @escaping (Character) -> Bool = { _ in false }, keysTaken: Bool = false
+        options: (() -> OptionsModel)? = nil, press: @escaping (Character) -> Bool = { _ in false }, keysTaken: Bool = false, pointerKeys: Bool = true
     ) {
         self.card = card
         self.options = options
@@ -42,6 +45,7 @@ public struct FloatingResultView: View {
         self.interact = interact
         self.press = press
         self.keysTaken = keysTaken
+        self.pointerKeys = pointerKeys
     }
 
     public var body: some View {
@@ -182,7 +186,7 @@ public struct FloatingResultView: View {
     /// The keys the resting pointer holds for this card now: none while the pointer is away, or
     /// while the options, the "…" menu, the name, the loupe or a drag take keys of their own.
     private var hoverKeys: [Character] {
-        guard rest.moved, !keysTaken else { return [] }
+        guard pointerKeys, rest.moved, !keysTaken else { return [] }
         return CardKeys.keys(on: card)
     }
 

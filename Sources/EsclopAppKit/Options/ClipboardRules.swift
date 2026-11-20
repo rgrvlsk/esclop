@@ -59,7 +59,13 @@ public struct ClipboardRule: Codable, Hashable, Identifiable, Sendable {
         case .graphic: noun = "graphics with transparency"
         case .animatedGIF: noun = "animated GIFs"
         case .screenRecording: noun = "screen recordings"
-        case .pdfExport: noun = "exported documents"
+        case .pdfExport:
+            // An exported document is a PDF: "exported PDFs", never "PDF exported documents".
+            switch phrase {
+            case .subject: return Strings.text("exported PDFs", locale: locale)
+            case .checkbox: return Strings.text("Always apply to exported PDFs", locale: locale)
+            case .promise: return Strings.format("Next exported PDFs will become %@", summary, locale: locale)
+            }
         case .voiceMemo: noun = "voice memos"
         case .unknown: noun = "copied files"
         }

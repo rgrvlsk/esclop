@@ -105,7 +105,8 @@ public struct OptimiseChoice: Codable, Hashable, Sendable {
             if audioBitrate == nil, loudness == nil { parts.append(compression.title(locale: locale)) }
         }
         if let note { parts.append(note) } else if stripMetadata == true { parts.append(Strings.text("strip metadata", locale: locale)) }
-        return parts.joined(separator: " · ")
+        // The dot keeps to the part after it, so a wrapped line never ends on a lone "·".
+        return parts.joined(separator: " ·\u{00A0}")
     }
 }
 

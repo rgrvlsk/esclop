@@ -57,8 +57,8 @@ public final class ResultCard: Identifiable {
     /// What optimising took from the picture's metadata, worked out when the detail opens
     /// (`RemovedMetadata`). Empty until then, and for anything but a picture.
     public var removedMetadata: [MetadataKind] = []
-    /// The last run cropped, downscaled or fitted the file. Restore runs the choice again without
-    /// that change, so it is not offered then.
+    /// The last run cropped, downscaled or fitted the file: the result no longer lines up with
+    /// its original pixel for pixel (no loupe), and Original is not the size it has.
     public var adjusted = false
     /// The scale the last run applied to the original, 1 when it was not scaled (a crop is not a
     /// scale): the Size tab's chosen tile. Every re-run applies it again, until Original.
@@ -68,6 +68,8 @@ public final class ResultCard: Identifiable {
     /// ponytail: the crop and the scale live as long as the card; a card made again (from Recent
     /// after it hid, or by Retry) runs uncropped. Trigger: the results log recording them.
     public var crop: CropSize?
+    /// The Fit target the last run applied, in bytes; every re-run fits again, until Original.
+    public var fit: Int?
     /// Undo or a re-run is putting the original back; Undo and another re-run wait until it is
     /// done.
     public var restoring = false
@@ -96,6 +98,14 @@ public final class ResultCard: Identifiable {
     var optimiseAnyway: (() -> Void)?
     var cancelWork: (() -> Void)?
     var timer: Task<Void, Never>?
+
+    /// A copied image, or a file shown from L'Esclop's temporary folder (a promised or downloaded
+    /// drop optimised in place, or the temporary output location), which macOS clears: its
+    /// actions are a copied image's (Copy, Save to Downloads, Save as…), never Show in Finder or
+    /// Move to Trash on a folder that goes away.
+    var actsAsCopiedImage: Bool {
+        origin == .clipboard || shownFile.standardizedFileURL.path.hasPrefix(Paths.temporary.standardizedFileURL.path + "/")
+    }
 
     /// The two files the loupe shows, while both are there.
     var loupeSides: (before: URL, after: URL)? {

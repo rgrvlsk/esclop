@@ -100,6 +100,11 @@ import UniformTypeIdentifiers
             }
         }
         try await snapshot(size, name: "options-size", scheme: scheme)
+        // A Fit the card keeps: its chip is the chosen one, so another choice fits again.
+        let fitted = card(.done(renders.saved()))
+        fitted.fit = 1_000_000
+        fitted.adjusted = true
+        try await snapshot(model(fitted, harness: harness) { $0.tab = .size }, name: "options-size-fit", scheme: scheme)
         let crop = model(card(.done(renders.saved())), harness: harness) { model in
             model.tab = .crop
             model.startCrop(aspect: .ratio(16, 9))
