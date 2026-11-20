@@ -531,6 +531,16 @@
         }
       }
     },
+    "%d originals · %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d originals · %@"
+          }
+        }
+      }
+    },
     "%d page": {
       "localizations": {
         "ca": {
@@ -657,6 +667,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "1 original restaurat"
+          }
+        }
+      }
+    },
+    "1 original · %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 original · %@"
           }
         }
       }
@@ -796,7 +816,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "En arrossegar fitxers, al costat de la zona de deixar anar apareixen les quatre primeres que funcionen amb tots."
+            "value": "En arrossegar fitxers, al costat de la zona per deixar anar apareixen les quatre primeres que funcionen amb tots."
           }
         }
       }
@@ -1886,7 +1906,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Clica o mantén per veure l’optimitzat"
+            "value": "Fes clic o mantén premut per veure l’optimitzat"
           }
         }
       }
@@ -1896,7 +1916,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Clica o mantén per veure l’original"
+            "value": "Fes clic o mantén premut per veure l’original"
           }
         }
       }
@@ -3216,7 +3236,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fitxers deixats a la zona de deixar anar"
+            "value": "Fitxers deixats a la zona per deixar anar"
           }
         }
       }
@@ -3841,6 +3861,16 @@
         }
       }
     },
+    "In place": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Al seu lloc"
+          }
+        }
+      }
+    },
     "Interface": {
       "localizations": {
         "ca": {
@@ -4081,6 +4111,16 @@
         }
       }
     },
+    "Last batch": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Últim lot"
+          }
+        }
+      }
+    },
     "Layout": {
       "localizations": {
         "ca": {
@@ -4231,6 +4271,16 @@
         }
       }
     },
+    "L’Esclop": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’Esclop"
+          }
+        }
+      }
+    },
     "L’Esclop cannot optimise this kind of file (%@).": {
       "localizations": {
         "ca": {
@@ -4297,6 +4347,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "L’Esclop no té permís per obrir-lo, així que no l’ha tocat."
+          }
+        }
+      }
+    },
+    "L’Esclop kept no copy of this original.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’Esclop no en va guardar cap còpia."
           }
         }
       }
@@ -4676,7 +4736,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mai no s’amplia. Manté la proporció."
+            "value": "No s’amplia mai. Manté la proporció."
           }
         }
       }
@@ -5591,12 +5651,52 @@
         }
       }
     },
+    "Originals": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Originals"
+          }
+        }
+      }
+    },
+    "Originals are kept for %@, then removed.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els originals es conserven durant %@ i després s’eliminen."
+          }
+        }
+      }
+    },
+    "Originals are kept until you remove them.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els originals es conserven fins que els eliminis."
+          }
+        }
+      }
+    },
     "Originals are kept, so every result can be undone.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Els originals es conserven, així que qualsevol resultat es pot desfer."
+          }
+        }
+      }
+    },
+    "Originals…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Originals…"
           }
         }
       }
@@ -6231,6 +6331,26 @@
         }
       }
     },
+    "Remove All": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elimina-ho tot"
+          }
+        }
+      }
+    },
+    "Remove All…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elimina-ho tot…"
+          }
+        }
+      }
+    },
     "Remove Option": {
       "localizations": {
         "ca": {
@@ -6266,7 +6386,17 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elimina l’àudio"
+            "value": "Treu l’àudio"
+          }
+        }
+      }
+    },
+    "Remove every original?": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vols eliminar tots els originals?"
           }
         }
       }
@@ -6296,7 +6426,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elimina les metadades"
+            "value": "Treu les metadades"
           }
         }
       }
@@ -6556,7 +6686,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Restaura les metadades eliminades"
+            "value": "Restaura les metadades tretes"
           }
         }
       }
@@ -7191,6 +7321,16 @@
         }
       }
     },
+    "Show as Result": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra com a resultat"
+          }
+        }
+      }
+    },
     "Show details": {
       "localizations": {
         "ca": {
@@ -7586,7 +7726,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elimina les metadades"
+            "value": "Treu les metadades"
           }
         }
       }
@@ -8031,6 +8171,16 @@
         }
       }
     },
+    "The original was never changed. It is still beside the new file.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’original no s’ha tocat mai. Encara és al costat del fitxer nou."
+          }
+        }
+      }
+    },
     "The original was removed after %d days.": {
       "localizations": {
         "ca": {
@@ -8237,6 +8387,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Encara no hi ha cap destí de pujada. Afegeix-ne un a Configuració › Pujades (esclop://settings/uploads)."
+          }
+        }
+      }
+    },
+    "These files can no longer be restored. This cannot be undone.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquests fitxers ja no es podran restaurar. No es pot desfer."
           }
         }
       }
@@ -8716,7 +8876,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Penja"
+            "value": "Puja"
           }
         }
       }
@@ -10046,7 +10206,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Permet que els agents d’IA canviïn la configuració d’esclop."
+            "value": "Permet que els agents d’IA canviïn la configuració de L’Esclop."
           }
         }
       }
@@ -11446,7 +11606,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les zones al costat de la zona de deixar anar que executen un pipeline amb el que hi deixes, per ordre. Sempre hi surten els pipelines desats que tenen una zona predefinida entre els activadors; s’hi afegeixen les plantilles integrades que s’hi anomenen."
+            "value": "Les zones al costat de la zona per deixar anar que executen un pipeline amb el que hi deixes, per ordre. Sempre hi surten els pipelines desats que tenen una zona predefinida entre els activadors; s’hi afegeixen les plantilles integrades que s’hi anomenen."
           }
         }
       }
@@ -11466,7 +11626,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elimina totes les pistes d’àudio en optimitzar vídeos."
+            "value": "Treu totes les pistes d’àudio en optimitzar vídeos."
           }
         }
       }
@@ -11476,7 +11636,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Treu el so dels vídeos"
+            "value": "Treu l’àudio dels vídeos"
           }
         }
       }
@@ -11536,7 +11696,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elimina les metadades"
+            "value": "Treu les metadades"
           }
         }
       }
@@ -12366,7 +12526,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abaixa la taxa de bits de l’àudio. Mai l’apuja."
+            "value": "Abaixa la taxa de bits de l’àudio. No l’apuja mai."
           }
         }
       }
@@ -12666,7 +12826,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Penja el fitxer amb una app de pujada."
+            "value": "Puja el fitxer amb una app de pujada."
           }
         }
       }

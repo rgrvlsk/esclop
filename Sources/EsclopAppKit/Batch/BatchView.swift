@@ -14,6 +14,9 @@ public struct BatchView: View {
     let batch: Batch
     let app: AppModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The row under the pointer: Space shows it in Quick Look, as in Finder and the menu.
+    @State private var pointed: BatchRow.ID?
+    @FocusState private var focused: Bool
 
     public init(batch: Batch, app: AppModel) {
         self.batch = batch
@@ -28,16 +31,31 @@ public struct BatchView: View {
             ScrollView {
                 LazyVStack(spacing: 0) {
                     ForEach(batch.rows) { row in
-                        BatchRowView(row: row, batch: batch, app: app)
+                        BatchRowView(row: row, batch: batch, app: app) { inside in
+                            if inside { pointed = row.id } else if pointed == row.id { pointed = nil }
+                        }
                         Divider().padding(.leading, 64)
                     }
                 }
             }
         }
+        // One stop for the keys, as the menu panel is; no focus ring.
+        .focusable()
+        .focused($focused)
+        .focusEffectDisabled()
+        .defaultFocus($focused, true)
+        .onKeyPress(.space) { quickLook() }
         .frame(minWidth: 520, idealWidth: 560, minHeight: 360, idealHeight: 520)
         .background(Color(nsColor: .windowBackgroundColor))
         .animation(reduceMotion ? nil : Motion.bar, value: info.barEnd)
         .designTint()
+    }
+
+    private func quickLook() -> KeyPress.Result {
+        guard let row = batch.rows.first(where: { $0.id == pointed }), row.isFinished,
+              FileManager.default.fileExists(atPath: row.shownFile.path) else { return .ignored }
+        QuickLookPresenter.shared.toggle(row.shownFile)
+        return .handled
     }
 }
 
@@ -111,6 +129,8 @@ struct BatchRowView: View {
     let row: BatchRow
     let batch: Batch
     let app: AppModel
+    /// The pointer came onto the row or left it.
+    var point: (Bool) -> Void = { _ in }
     @State private var hovering = false
     @State private var thumbnail: NSImage?
 
@@ -125,7 +145,7 @@ struct BatchRowView: View {
                     .lineLimit(2)
                     .monospacedDigit()
                 if let restoreError = row.restoreError {
-                    Text(restoreError).font(.subheadline).foregroundStyle(Color.red).lineLimit(2)
+                    Text(restoreError).font(.subheadline).foregroundStyle(Ink.error).lineLimit(2)
                 }
                 bar.frame(maxWidth: 180)
             }
@@ -144,8 +164,10 @@ struct BatchRowView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .contentShape(Rectangle())
-        .onHover { hovering = $0 }
+        .onHover { hovering = $0; point($0) }
         .animation(Motion.hover, value: hovering)
+        // The file drags out as it is now, once the row is done with it.
+        .modifier(DragOut(file: row.isFinished ? row.shownFile : nil))
         .contextMenu { menu }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel([row.source.lastPathComponent, BatchPresentation.status(of: row), row.restoreError].compactMap(\.self).joined(separator: ", "))
@@ -216,6 +238,8 @@ struct BatchRowView: View {
 
     @ViewBuilder private var menu: some View {
         if let result = row.result {
+            // Its floating result, with the options popover's every choice.
+            Button(Strings.text("Show as Result")) { app.show(result) }
             Button(Strings.text("Compare with the original…")) { app.onCompare?(result) }
         }
         if row.canRestore {
@@ -227,6 +251,7 @@ struct BatchRowView: View {
         Button(Strings.text("Show in Finder")) { app.reveal([row.shownFile]) }
         Button(Strings.text("Copy")) { app.writeClipboard(files: [row.shownFile]) }
         if row.isFinished {
+            Button(Strings.text("Quick Look")) { QuickLookPresenter.shared.show(row.shownFile) }
             Divider()
             Button(Strings.text("Remove from the List")) { batch.remove(row) }
         }

@@ -122,6 +122,8 @@ import Testing
         let agents = AgentsModel(installer: fixture.installer, command: AgentsFixture.command)
         await agents.refresh()
         let model = OnboardingModel(defaults: settings.store.defaults)
+        // Reading the real Desktop would make macOS ask the test runner.
+        model.readDesktopAccess = { .allowed }
         model.go(to: step)
         let view = OnboardingView(onboarding: model, settings: viewModel, agents: agents, actions: SettingsActions(), icon: Self.appIcon) {}
         let size = try await SettingsRenderTests.renderWindow(view, size: CGSize(width: 640, height: 560), name: "onboarding-\(step.rawValue + 1)-\(String(describing: step))", scheme: scheme)

@@ -34,7 +34,9 @@ struct ClipboardRuleList: View {
                 if let rule = try? JSONDecoder().decode(ClipboardRule.self, from: Data(text.utf8)) {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(rule.subject())
+                            // Alone as a title it starts with a capital ("Captures de pantalla PNG").
+                            let subject = rule.subject()
+                            Text(subject.prefix(1).uppercased() + subject.dropFirst())
                             Text(rule.choice.summary(input: rule.inputFormat)).font(.callout).foregroundStyle(.secondary)
                         }
                         Spacer()

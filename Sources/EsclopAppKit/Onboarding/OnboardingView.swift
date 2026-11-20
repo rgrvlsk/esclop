@@ -163,7 +163,7 @@ struct WelcomePage: View {
                     .frame(width: 112, height: 112)
                     .accessibilityHidden(true)
             }
-            Text(Strings.text("L'Esclop"))
+            Text(Strings.text("L’Esclop"))
                 .font(.largeTitle.weight(.bold))
                 .padding(.top, 12)
             Text(Strings.text("Makes the images, videos, PDFs and audio you copy and drop smaller, right where they are."))
@@ -269,39 +269,64 @@ struct PermissionsPage: View {
                             summary: Strings.text("To find images you copy. macOS may ask before L’Esclop reads it; choose Allow under Privacy & Security › Paste from Other Apps so it does not ask every time.")
                         )
                     }
-                    // Information only: no glyph at the end, where a control would sit.
-                    SettingLabel(
-                        title: Strings.text("Files in Desktop, Documents and Downloads"),
-                        summary: Strings.text("macOS will ask to let L’Esclop see your Desktop: that is where screenshots land, and L’Esclop watches it for new ones. It asks again the first time L’Esclop replaces a file in Documents or Downloads. If you say no, the Desktop is left alone; Settings › Images shows how to allow it later.")
-                    )
-                    TitledToggle(
-                        title: Strings.text("Open at login"),
-                        subtitle: Strings.text("Keep L’Esclop in the menu bar after a restart, so copies are optimised from the start."),
-                        isOn: Binding(get: { onboarding.opensAtLogin }, set: { onboarding.opensAtLogin = $0 })
-                    )
-                    if onboarding.loginNeedsApproval {
-                        LabeledContent {
-                            Button(Strings.text("Open Login Items")) { SMAppService.openSystemSettingsLoginItems() }
-                        } label: {
-                            // Amber marks the decision; the sentence stays in text ink (amber holds 3:1).
-                            Label {
-                                Text(Strings.text("macOS waits for you to allow L’Esclop in Login Items & Extensions.")).fixedSize(horizontal: false, vertical: true)
-                            } icon: {
-                                Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Ink.warm)
+                    // The Desktop as Settings sees it: asking here is what brings macOS's
+                    // question, while this page explains it.
+                    LabeledContent {
+                        HStack {
+                            AccessBadge(access: onboarding.desktopAccess)
+                            if onboarding.desktopAccess == .denied {
+                                Button(Strings.text("Privacy Settings…")) { FolderRow.openPrivacySettings() }
                             }
                         }
+                    } label: {
+                        SettingLabel(
+                            title: Strings.text("Files in Desktop, Documents and Downloads"),
+                            summary: Strings.text("macOS will ask to let L’Esclop see your Desktop: that is where screenshots land, and L’Esclop watches it for new ones. It asks again the first time L’Esclop replaces a file in Documents or Downloads. If you say no, the Desktop is left alone; Settings › Images shows how to allow it later.")
+                        )
                     }
-
-                    if let error = onboarding.loginError {
-                        Label(error, systemImage: "exclamationmark.triangle.fill")
-                            .font(.subheadline)
-                            .foregroundStyle(Ink.error)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                    LoginItemRows(onboarding: onboarding)
                 }
             }
             .formStyle(.grouped)
             .scrollDisabled(true)
+        }
+        .onAppear { onboarding.checkDesktop() }
+    }
+}
+
+/// Open at login, the one switch that is a system setting: in the tour and in Settings › General,
+/// on the same model, with what macOS still waits for and why it refused.
+struct LoginItemRows: View {
+    let onboarding: OnboardingModel
+    /// Settings' row id, which a deep link or a search result scrolls to and marks.
+    var rowID: String?
+    var highlighted = false
+
+    var body: some View {
+        TitledToggle(
+            title: Strings.text("Open at login"),
+            subtitle: Strings.text("Keep L’Esclop in the menu bar after a restart, so copies are optimised from the start."),
+            isOn: Binding(get: { onboarding.opensAtLogin }, set: { onboarding.opensAtLogin = $0 })
+        )
+        .id(rowID)
+        .highlighted(highlighted)
+        if onboarding.loginNeedsApproval {
+            LabeledContent {
+                Button(Strings.text("Open Login Items")) { SMAppService.openSystemSettingsLoginItems() }
+            } label: {
+                // Amber marks the decision; the sentence stays in text ink (amber holds 3:1).
+                Label {
+                    Text(Strings.text("macOS waits for you to allow L’Esclop in Login Items & Extensions.")).fixedSize(horizontal: false, vertical: true)
+                } icon: {
+                    Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Ink.warm)
+                }
+            }
+        }
+        if let error = onboarding.loginError {
+            Label(error, systemImage: "exclamationmark.triangle.fill")
+                .font(.subheadline)
+                .foregroundStyle(Ink.error)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

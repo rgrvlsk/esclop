@@ -32,8 +32,12 @@ struct CompareFooter: View {
                 }
                 Spacer()
                 if case .ready = model.sides {
-                    Button(Strings.text("Restore Original")) { confirmingRestore = true }
-                        .help(Strings.text("Put the original back and drop the optimised file"))
+                    // A conversion written beside its original has no backup: the original is
+                    // still there, so there is nothing to put back.
+                    if model.result?.backup != nil {
+                        Button(Strings.text("Restore Original")) { confirmingRestore = true }
+                            .help(Strings.text("Put the original back and drop the optimised file"))
+                    }
                     // The detail's charcoal: the likely choice, never the system's accent, and
                     // still charcoal while the window is not the key one (else both look alike).
                     Button(Strings.text("Keep")) { model.keep() }

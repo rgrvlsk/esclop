@@ -93,7 +93,9 @@ public struct BatchPresentation: Equatable {
         case .unchanged: return String(format: t("Already optimised · %@"), locale: locale, Figures.bytes(row.bytesBefore, locale: locale))
         case let .failed(message): return message
         case .cancelled: return t("Stopped, original kept")
-        case let .restored(result): return String(format: t("Original restored · %@"), locale: locale, Figures.bytes(result.bytesBefore, locale: locale))
+        case let .restored(result):
+            let restored = String(format: t("Original restored · %@"), locale: locale, Figures.bytes(result.bytesBefore, locale: locale))
+            return row.editInTrash ? restored + " · " + t("Your edited version is in the Trash") : restored
         }
     }
 

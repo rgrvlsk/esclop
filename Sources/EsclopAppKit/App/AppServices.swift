@@ -21,6 +21,7 @@ public final class AppServices {
     let panels: FloatingPanelController
     let dropZone: DropZoneController
     let batchWindow: BatchWindowController
+    let originalsWindow: OriginalsWindowController
     public let folders: WatchedFolders
     private var folderSettings: DefaultsObserver?
     private var pipelineFiles: FolderWatcher?
@@ -85,6 +86,7 @@ public final class AppServices {
         let batchWindow = BatchWindowController(model: model)
         self.batchWindow = batchWindow
         model.onBatch = { [weak batchWindow] batch in batchWindow?.show(batch) }
+        originalsWindow = OriginalsWindowController(model: OriginalsModel(app: model))
         let store = model.service.context.pipelines
         finderServices = FinderServices(model: model, pipelines: { (try? store.list()) ?? [] })
         let updater = Updater(settings: settings)
@@ -95,6 +97,7 @@ public final class AppServices {
         let folders = WatchedFolders(model: model, pipelines: { (try? store.list()) ?? [] })
         self.folders = folders
         settingsModel.watchedFolders = folders
+        settingsModel.login = onboarding.model
         model.onPauseChange = { [weak folders] in folders?.refresh() }
         // Folder lists changed here or by `esclop settings set` in another process.
         folderSettings = DefaultsObserver(defaults: settings.defaults, keys: WatchedFolders.settingKeys) { [weak folders] _ in
@@ -113,11 +116,12 @@ public final class AppServices {
     /// Starts everything. Throws when another L'Esclop already serves the CLI.
     /// The glyph in the menu bar, and the panel it opens.
     public func startStatusItem() {
-        let model = model, settingsWindow = settingsWindow, onboarding = onboarding
+        let model = model, settingsWindow = settingsWindow, onboarding = onboarding, originalsWindow = originalsWindow
         statusItem = StatusItemController(model: model) { close in
             MenuPanelActions(
                 settings: { settingsWindow.show() },
                 pipelines: { model.onOpenPipelines?(nil) },
+                originals: { originalsWindow.show() },
                 welcome: { onboarding.show() },
                 checkForUpdates: model.onCheckForUpdates,
                 close: close
@@ -129,7 +133,13 @@ public final class AppServices {
         try server.start()
         watcher.start()
         dropZone.start()
-        folders.refresh()
+        // On the first run the tour starts watching once its Permissions page explains macOS's
+        // question about the Desktop, so the question never covers the Welcome page.
+        if onboarding.model.shouldShowAtLaunch {
+            onboarding.model.onPermissions = { [weak folders] in folders?.refresh() }
+        } else {
+            folders.refresh()
+        }
         PipelineEditorModel.removeLeftovers()
         let retention = EsclopSettings.backupRetentionDays.value(in: model.settings)
         let backups = BackupStore(root: model.service.context.locations.backups)
