@@ -97,9 +97,9 @@ public final class ClipboardWatcher: @unchecked Sendable {
         let copy = ClipboardCopy(changeCount: count, app: app, types: Set((pasteboard.types ?? []).map(\.rawValue)))
         onCopy(copy)
         let pasteboard = pasteboard
-        let readsText = policy.readsText
+        let readsText = policy.readsText, readsAddresses = policy.readsAddresses
         let action = policy.decide(copy, appBefore: appBefore == app ? nil : appBefore) {
-            Clipboard.read(pasteboard, text: readsText)
+            ClipboardPolicy.read(pasteboard, text: readsText, addresses: readsAddresses)
         }
         onAction(action)
         return action

@@ -33,7 +33,27 @@ extension AppModel {
                 let triggered = pipelines(for: .clipboard)
                 optimise(urls, origin: .clipboard, copy: copy, copied: copied, pipeline: { Self.first(of: triggered, for: $0) })
             }
+        case let .optimiseAddress(address, copy):
+            let triggered = pipelines(for: .clipboard)
+            Task { await optimiseAddress(address, aggressive: false, copy: copy, pipeline: { Self.first(of: triggered, for: $0) }) }
         }
+    }
+
+    /// A copied web address of media: downloaded (`WebDownload.fetch`, with its limits), then
+    /// optimised as a copied file, so its result goes back on the clipboard while the clipboard
+    /// still holds the address. A refused download is a notice, as a refused drop is; the
+    /// watcher sees each copy once, so it is never tried again on its own.
+    func optimiseAddress(_ address: URL, aggressive: Bool, copy: ClipboardCopy, pipeline: @escaping (URL) -> Pipeline?) async {
+        let file: URL
+        do {
+            file = try await download(address)
+        } catch {
+            return notice(Strings.text("Could not download the copied address"), CardPresentation.message(for: error))
+        }
+        if WebDownload.isInsecure(address) {
+            notice(Strings.format("%@ came over insecure http", file.lastPathComponent), Strings.text("It may have been changed on the way."))
+        }
+        optimise([file], origin: .clipboard, aggressive: aggressive, copy: copy, pipeline: pipeline)
     }
 
     /// Origin, format and rule for a copied file, read before it is optimised (stripping
@@ -207,6 +227,9 @@ extension AppModel {
             optimise([url], origin: .clipboard, aggressive: aggressive, copy: copy, pipeline: { _ in pipeline })
         case let .image(data, type), let .base64Image(data, type):
             optimiseImageData(data, type: type, aggressive: aggressive, copy: copy, pipeline: { _ in pipeline })
+        case let .address(address):
+            // Asked for: downloaded whatever `optimiseURLClipboard` and the kinds' switches say.
+            await optimiseAddress(address, aggressive: aggressive, copy: copy, pipeline: { _ in pipeline })
         case .empty:
             notice(Strings.text("Nothing to optimise"), Strings.text("Copy an image or a file first."))
         }

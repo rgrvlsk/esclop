@@ -41,6 +41,16 @@
         }
       }
     },
+    "%@ came over insecure http": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ha arribat per http no segur"
+          }
+        }
+      }
+    },
     "%@ copied files": {
       "localizations": {
         "ca": {
@@ -2471,6 +2481,16 @@
         }
       }
     },
+    "Could not download the copied address": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha pogut baixar l’adreça copiada"
+          }
+        }
+      }
+    },
     "Could not get the dropped file": {
       "localizations": {
         "ca": {
@@ -3857,6 +3877,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "S’optimitza de seguida i torna al porta-retalls, més petita."
+          }
+        }
+      }
+    },
+    "It may have been changed on the way.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pot haver canviat pel camí."
           }
         }
       }
@@ -10061,6 +10091,26 @@
         }
       }
     },
+    "setting.appendClipboardResults.summary": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afegeix cada resultat nou als fitxers que L’Esclop va posar al porta-retalls per última vegada, i així els enganxes tots d’una vegada."
+          }
+        }
+      }
+    },
+    "setting.appendClipboardResults.title": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acumula els resultats al porta-retalls"
+          }
+        }
+      }
+    },
     "setting.audioAggressiveCompression.summary": {
       "localizations": {
         "ca": {
@@ -11197,6 +11247,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Optimitza els PDF copiats"
+          }
+        }
+      }
+    },
+    "setting.optimiseURLClipboard.summary": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quan el text copiat és l’adreça web d’una imatge, un vídeo, un PDF o un àudio, el baixa i l’optimitza. Els altres enllaços no s’obren mai."
+          }
+        }
+      }
+    },
+    "setting.optimiseURLClipboard.title": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Baixa les adreces web copiades"
           }
         }
       }
