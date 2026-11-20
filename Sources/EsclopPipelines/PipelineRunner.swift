@@ -332,6 +332,7 @@ struct FileRun {
             let dir = try pageDirectory(location)
             let request = baseRequest(location: .path(dir.path))
             let pages = try await ops.extractPages(current, format: format, scale: quality.scale, into: dir, request: request, progress: engineProgress)
+            guard !pages.isEmpty else { throw EsclopError.other("No pages were exported from \(current.lastPathComponent)") }
             self.report.extraOutputs += pages
             if pages.count == 1 { current = pages[0] }
             return (.done, "\(pages.count) page\(pages.count == 1 ? "" : "s") in \(dir.path)")

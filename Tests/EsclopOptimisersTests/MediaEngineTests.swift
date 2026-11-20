@@ -253,6 +253,44 @@ import UniformTypeIdentifiers
     }
 }
 
+/// The PDFKit side: no engine needed.
+@Suite struct PDFPageSafetyTests {
+    @Test func signedPDFsAreNotCropped() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let pdf = world.file("contract.pdf")
+        try signedPDF(at: pdf)
+        let before = try Data(contentsOf: pdf)
+        await #expect(throws: EsclopError.leftAsIs(PDFSignature.reason)) {
+            try await world.engine.cropPDF(pdf, aspectRatio: "1:1", request: world.request(pdf))
+        }
+        await #expect(throws: EsclopError.leftAsIs(PDFSignature.reason)) {
+            try await world.engine.uncropPDF(pdf, request: world.request(pdf))
+        }
+        #expect(try Data(contentsOf: pdf) == before)
+    }
+
+    @Test func aPageThatCannotBeRenderedFailsTheExport() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let pdf = world.file("doc.pdf")
+        try Fixture.pdf(pdf, pages: 3)
+        let folder = world.file("pages")
+        let engine = PDFEngine(env: world.engine.env)
+        #expect(throws: EsclopError.self) {
+            try engine.extractPages(pdf, format: .png, dpi: 18, to: folder) { page, scale in
+                page.document?.index(for: page) == 1 ? nil : PDFEngine.render(page, scale: scale)
+            }
+        }
+        #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path).isEmpty)
+        // A second export next to the first keeps it.
+        let first = try engine.extractPages(pdf, format: .png, dpi: 18, to: folder)
+        let second = try engine.extractPages(pdf, format: .png, dpi: 18, to: folder)
+        #expect(first.map(\.lastPathComponent) == ["doc-1.png", "doc-2.png", "doc-3.png"])
+        #expect(second.map(\.lastPathComponent) == ["doc-1 2.png", "doc-2 2.png", "doc-3 2.png"])
+    }
+}
+
 @Suite(.serialized) struct ClipboardTests {
     func pasteboard() -> NSPasteboard {
         NSPasteboard(name: NSPasteboard.Name("dev.esclop.tests.\(UUID().uuidString)"))
