@@ -449,7 +449,7 @@ struct ImageEngine: Sendable {
         if !geometry.changed {
             try ImageIOCodec.reencode(source, to: output, type: type, quality: quality, strip: strip, keepGainMap: true)
         } else if #available(macOS 15, *) {
-            try ImageIOCodec.renderHDR(source, crop: geometry.crop, width: geometry.width, height: geometry.height, to: output, type: type, quality: quality)
+            try ImageIOCodec.renderHDR(source, crop: geometry.crop, width: geometry.width, height: geometry.height, to: output, type: type, quality: quality, strip: strip)
             steps.append("Resized to \(geometry.width)x\(geometry.height)")
         } else {
             return nil
