@@ -41,6 +41,16 @@ import Testing
         }
     }
 
+    /// Open With and a drop on the Dock icon: offered for every kind L'Esclop optimises, never as
+    /// their default app.
+    @Test func infoPlistOffersOpenWithNeverAsTheDefault() throws {
+        let url = Self.root.appendingPathComponent("Scripts/templates/Info.plist.in")
+        let plist = try PropertyListSerialization.propertyList(from: Data(contentsOf: url), format: nil) as? [String: Any]
+        let types = try #require(plist?["CFBundleDocumentTypes"] as? [[String: Any]])
+        #expect(types.allSatisfy { $0["LSHandlerRank"] as? String == "Alternate" && $0["CFBundleTypeRole"] as? String == "Viewer" })
+        #expect(Set(types.flatMap { $0["LSItemContentTypes"] as? [String] ?? [] }) == ["public.image", "public.movie", "public.audio", "com.adobe.pdf"])
+    }
+
     @Test func everyServiceTitleHasCatalan() throws {
         let strings = Self.root.appendingPathComponent("Scripts/templates/ServicesMenu/ca.lproj/ServicesMenu.strings")
         let catalan = try #require(NSDictionary(contentsOf: strings) as? [String: String])
@@ -80,6 +90,30 @@ import Testing
         services.handle(.optimise, files: files)
         #expect(harness.model.batch?.rows.count == files.count)
         #expect(await eventually { harness.requests.requests.count == files.count })
+    }
+
+    /// ⌃O on a folder changes its whole tree: past the batch threshold it asks once, and a "no"
+    /// leaves every file alone. Files chosen one by one never ask.
+    @Test func aLargeFolderAsksOnce() async throws {
+        let harness = Harness()
+        let services = FinderServices(model: harness.model, pipelines: { [] })
+        var asked: [String] = []
+        var answer = false
+        services.confirm = { question, _ in asked.append(question); return answer }
+        let count = harness.model.batchThreshold + 1
+        let files = (1 ... count).map { harness.temp.file("Photos export/\($0).png") }
+        let folder = files[0].deletingLastPathComponent()
+        services.handle(.optimise, files: [folder])
+        #expect(asked == ["Optimise \(count) files in Photos export?"])
+        #expect(harness.model.batch == nil && harness.requests.requests.isEmpty, "nothing runs after a no")
+        answer = true
+        services.handle(.optimiseHarder, files: [folder])
+        #expect(asked.count == 2)
+        #expect(await eventually { harness.requests.requests.count == count })
+        services.handle(.optimise, files: (1 ... count).map { harness.temp.file("loose/\($0).png") })
+        #expect(asked.count == 2, "a selection of files does not ask")
+        services.handle(.runPipeline, files: [folder])
+        #expect(asked.count == 2, "no pipeline for Finder: nothing to ask about")
     }
 
     @Test func webPConvertsOnlyImagesAndOtherFilesAreLeftWithANotice() async throws {

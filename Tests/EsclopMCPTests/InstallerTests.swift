@@ -290,6 +290,8 @@ import Testing
         #expect(try installedEntry("copilot") == ["type": "local", "command": .string(Self.command.command), "args": ["mcp", "serve"], "tools": ["*"]])
         #expect(try installedEntry("opencode") == ["type": "local", "command": [.string(Self.command.command), "mcp", "serve"], "enabled": true])
         #expect(try installedEntry("vscode") == ["type": "stdio", "command": .string(Self.command.command), "args": ["mcp", "serve"]])
+        #expect(try installedEntry("vscode-insiders") == ["type": "stdio", "command": .string(Self.command.command), "args": ["mcp", "serve"]])
+        #expect(try installedEntry("crush") == ["type": "stdio", "command": .string(Self.command.command), "args": ["mcp", "serve"]])
         #expect(try installedEntry("zed")?["command"] == .string(Self.command.command))
     }
 
@@ -529,6 +531,8 @@ import Testing
     @Test func aliasesResolve() {
         #expect(AgentCatalog.agent("claude")?.id == "claude-code")
         #expect(AgentCatalog.agent("ChatGPT")?.id == "codex")
+        #expect(AgentCatalog.agent("code-insiders")?.configPaths == ["~/Library/Application Support/Code - Insiders/User/mcp.json"])
+        #expect(AgentCatalog.agent("crush")?.configPaths == ["~/.config/crush/crush.json"])
         #expect(AgentCatalog.agent("nope") == nil)
         #expect(Set(AgentCatalog.all.map(\.id)).isSuperset(of: ["claude-code", "claude-desktop", "codex", "cursor", "windsurf", "zed", "gemini", "copilot", "opencode", "pi", "warp"]))
     }

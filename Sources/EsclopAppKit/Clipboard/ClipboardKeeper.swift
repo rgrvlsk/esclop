@@ -33,10 +33,14 @@ final class ClipboardKeeper: @unchecked Sendable {
     /// (`appendClipboardResults`); any other write, or a second copy, ends it.
     // ponytail: two copies between two polls (0.5 s) look like one, so text copied just before an
     // image does not stop the gathering; nor does it when "Optimise Clipboard" runs on the image
-    // before the watcher's next poll. Clop also resets after 30 s of quiet; add that if people
-    // find old results in a paste. Several files go back without pixels (`Clipboard.write`), so
-    // an app that pastes only pixels gets nothing once a second result gathers.
-    private var lastFiles: (count: Int, files: [URL])?
+    // before the watcher's next poll. Several files go back without pixels (`Clipboard.write`),
+    // so an app that pastes only pixels gets nothing once a second result gathers.
+    private var lastFiles: (count: Int, files: [URL], at: Date)?
+    /// Results gather only within this long of the last one, as in Clop: an old result does not
+    /// come back in a paste.
+    static let gatherWindow: TimeInterval = 30
+    /// The clock; tests move it.
+    var now: @Sendable () -> Date = { Date() }
 
     /// An automatic write just made, which went over change `before`.
     private func continued(from before: Int) {
@@ -65,7 +69,7 @@ final class ClipboardKeeper: @unchecked Sendable {
     func hold(_ files: [URL], at count: Int, gathering: Bool = false) {
         if let held, held.count > count { return }
         var before: [URL] = []
-        if gathering, let own = lastFiles, count > own.count {
+        if gathering, let own = lastFiles, count > own.count, now().timeIntervalSince(own.at) <= Self.gatherWindow {
             before = own.files.filter { !files.contains($0) && FileManager.default.fileExists(atPath: $0.path) }
         }
         held = (count, before + files)
@@ -81,7 +85,7 @@ final class ClipboardKeeper: @unchecked Sendable {
         if ownWrites.count > 32 { ownWrites.removeFirst(ownWrites.count - 32) }
         Clipboard.write(files: files, to: pasteboard)
         held = (pasteboard.changeCount, files)
-        lastFiles = held
+        lastFiles = (pasteboard.changeCount, files, now())
         if automatic { continued(from: before) } else { ownRun = nil }
     }
 

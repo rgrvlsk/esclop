@@ -44,6 +44,34 @@ func rejects(_ arguments: [String]) -> Bool {
         #expect(try parse(["optimise", "a.png", "--no-adaptive"], as: Optimise.self).adaptive == false)
     }
 
+    /// `optimise image|video|pdf|audio`: the plain command's options for one kind; a file of
+    /// another kind is refused before anything runs. Files keep working as before.
+    @Test func optimiseOneKind() throws {
+        let images: Optimise = try parse(["optimise", "image", "a.png", "b.jpg", "-a"])
+        #expect(images.onlyKind == .image && images.files.inputs.items == ["image", "a.png", "b.jpg"] && images.quality.aggressive)
+        let video: Optimise = try parse(["optimise", "video", "a.mov", "--bitrate", "2500"])
+        #expect(video.onlyKind == .video && video.bitrate.bitrate == 2500)
+        #expect(try parse(["optimize", "pdf", "a.pdf"], as: Optimise.self).onlyKind == .pdf)
+        #expect(try parse(["optimise", "audio", "a.mp3"], as: Optimise.self).onlyKind == .audio)
+        #expect(rejects(["optimise", "image", "a.png", "b.mov"]))
+        #expect(rejects(["optimise", "pdf", "a.png"]))
+        #expect(rejects(["optimise", "image"]))
+        // A folder is fine: only its files of that kind are taken.
+        #expect(throws: Never.self) { try parse(["optimise", "image", NSTemporaryDirectory()], as: Optimise.self) }
+        #expect(try parse(["optimise", "images.png"], as: Optimise.self).onlyKind == nil)
+    }
+
+    @Test func bitrateIsForVideoAndAudio() throws {
+        var request = OptimisationRequest(sources: [URL(fileURLWithPath: "/a.mov")], origin: .cli)
+        try parse(["optimise", "a.mov", "--bitrate", "3000"], as: Optimise.self).bitrate.apply(to: &request)
+        #expect(request.videoBitrateKbps == 3000 && request.audioBitrateKbps == nil, "the video stream's; the soundtrack keeps its own")
+        var audio = OptimisationRequest(sources: [URL(fileURLWithPath: "/a.mp3")], origin: .cli)
+        try parse(["convert", "-t", "m4a", "a.mp3", "--bitrate", "96"], as: Convert.self).bitrate.apply(to: &audio)
+        #expect(audio.audioBitrateKbps == 96 && audio.videoBitrateKbps == nil)
+        #expect(rejects(["optimise", "a.mov", "--bitrate", "0"]))
+        #expect(rejects(["optimise", "a.mov", "--bitrate", "fast"]))
+    }
+
     @Test func optimiseRejectsBadValues() {
         #expect(rejects(["optimise", "a.png", "--compression", "101"]))
         #expect(rejects(["optimise", "a.png", "--downscale-factor", "2"]))

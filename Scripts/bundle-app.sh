@@ -58,6 +58,8 @@ sed -e "s|@EXECUTABLE@|$EXEC|" -e "s|@VERSION@|$VERSION|" -e "s|@BUILD@|$BUILD|"
   -e "s|@SOURCE_URL@|$ESCLOP_SOURCE_URL|" -e "s|@SPARKLE_PUBLIC_KEY@|${ESCLOP_SPARKLE_PUBLIC_KEY:-$SPARKLE_PUBLIC_KEY}|" \
   Scripts/templates/Info.plist.in > "$APP/Contents/Info.plist"
 plutil -lint -s "$APP/Contents/Info.plist"
+# Open With offers L'Esclop for media; it must never take over as their default app.
+[ "$(plutil -extract CFBundleDocumentTypes.0.LSHandlerRank raw "$APP/Contents/Info.plist")" = Alternate ]
 # The Finder Quick Actions' titles in each language (Info.plist's NSServices hold the English).
 for strings in Scripts/templates/ServicesMenu/*.lproj; do
   mkdir -p "$APP/Contents/Resources/$(basename "$strings")"

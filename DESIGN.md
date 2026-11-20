@@ -76,6 +76,11 @@ stays while one failure is left, headed with the single card's words ("Not optim
 failure under the pointer, focused or open stays its own card until it is left, so nothing
 changes under the pointer. Failures never hide on their own.
 Dismissal pauses while the object is hovered, focused, dragged or open.
+A copied web address of media is offered, never fetched on its own (owner's decision,
+2026-11-20): a cream notice with the file name, its host and "Download and optimise" in charcoal,
+for 4 s, once per address a session, with no sound and no focus. Its click, like any download,
+shows the aqua working card from the start ("Downloading…", the share received, Stop), which
+gives its place to the file's own card when the file arrives.
 
 ## Menu bar panel
 
@@ -285,25 +290,33 @@ system backgrounds with a contrasting border.
 ## Accessibility
 Every hover action is also reachable by keyboard and VoiceOver as a named action. The popover
 supports arrow keys, Return, Escape and the listed ⌘ shortcuts. VoiceOver announces each result
-once ("Optimised, 612 kB, 75 % smaller").
+once ("Optimised, 612 kB, 75 % smaller"). While VoiceOver is on, or a card has the keyboard
+focus, results do not hide on a timer. With Differentiate without colour on, work in progress
+(aqua) and a decision to make (amber) also carry a symbol.
 
 ## Keys
 A result takes Clop's keys, with Clop's modifiers, where it has the action: on the card the
 pointer moved onto and rests on (after 200 ms, with no click, and the app in front keeps its
 window; a card that appears or moves under a still pointer waits for it to move), and on the
-card with the keys (a click, or the "Go to the newest result" hotkey, unset by default, in
-Settings › General, with a Set… link on the last onboarding page). The hotkey lends the keys:
+card with the keys (a click, or the "Go to the newest result" hotkey, ⌃⇧N by default, in
+Settings › General and on the last onboarding page). "Show the last result" (unset by default)
+brings back the newest result that is not on screen. The hotkey lends the keys:
 Esc on the card, or Undo, Copy or Save (by key or by click), gives them back to the app in
 front and the card stays. Space alone: Quick Look (again to close). With ⌘: ⌘Z Undo · ⌘C Copy ·
-⌘F Show in Finder · ⌘D Compare · ⌘K Crop · ⌘S Save · ⌘⌫ Dismiss (the file stays) · ⌘− smaller
+⌘R or ⌘F Show in Finder (⌘R, Finder's own, is the one shown) · ⌘D Compare · ⌘K Crop · ⌘S Save ·
+⌘A Optimise harder · ⌘O Open · ⌘U Upload (Settings › Uploads while there is no target) · ⌘X the
+playback speed, in the options (video and audio) · ⌘⌫ Dismiss (the file stays) · ⌘− smaller
 (75 %, 50 %, then a tenth at a time to 10 %) · ⌘1–⌘9 that size (10 %–90 %), each from the
-original. Letters never go alone: a pointer resting on a card must not take what the person
+original. Clop's ⌘R Rename and ⌘E Edit are not taken: ⌘R is Show in Finder, and there is no
+editor setting. A card key that does nothing on the card with the keys, or in its options (⌘S
+with no Save), beeps. Letters never go alone: a pointer resting on a card must not take what the person
 types into the app in front. While it rests there, ⌘Z, ⌘C, ⌘S and the rest act on the card,
-not on that app. On the card with the keys also Return (detail, then its charcoal button), Esc
-(innermost first) and ⌘R (Show in Finder). The resting pointer holds no key while any card's
+not on that app. On the card with the keys also Return (detail, then its charcoal button) and Esc
+(innermost first). The resting pointer holds no key while any card's
 menu, options, name, loupe or drag has the keys, or while a field of L'Esclop is being typed
 in. The "…" menu shows a row's key at its end (Compare ⌘D), and a button's tooltip names its key
-("Undo  ⌘Z"). Quick Look is also a VoiceOver action, and Space on a Recent row in the menu bar
+("Undo  ⌘Z"); a control in the options whose key works on the result says so ("(⌘A on the
+result)"). Quick Look is also a VoiceOver action, and Space on a Recent row in the menu bar
 panel is Quick Look too. The hover keys are Carbon hotkeys
 held only while the pointer rests, so they need no permission; a key the layout types only with
 Shift or Option (the digits on AZERTY) is skipped.

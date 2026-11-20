@@ -308,8 +308,8 @@ enum ResultWriter {
     }
 }
 
-/// Applies `backupRetentionDays` at most once an hour per process, after a new backup, and once
-/// at app launch.
+/// Applies `backupRetentionDays` at most once an hour per process, after a new backup, and in
+/// the app at launch and every hour after (`prune`).
 public enum BackupPruner {
     private static let lock = NSLock()
     nonisolated(unsafe) private static var last: [String: Date] = [:]
@@ -330,19 +330,26 @@ public enum BackupPruner {
         }
     }
 
-    /// At launch, so old originals go even when no new in-place job runs: backups older than
-    /// `days`, and whatever L'Esclop left in its temporary folder (copied images, optimised
-    /// copies, downloads, dropped files, work and estimate folders, a pipeline's or a Shortcut's
-    /// files) not touched for as long. A folder that holds only folders (`clipboard`, `results`,
-    /// `downloads` …) holds one per item: each goes on its own date. Anything else goes on its
-    /// own. Blocks; call it off the main actor. 0 days keeps everything.
-    // ponytail: "keep backups forever" keeps the temporary folder forever too, since a restore
-    // may need a copy there; give it its own limit if someone keeps backups forever and it grows.
-    public static func pruneAtLaunch(days: Int, backups: BackupStore, temporary: URL = Paths.temporary, now: Date = Date()) {
-        guard days > 0 else { return }
-        let removed = backups.prune(olderThan: days, now: now)
-        if removed > 0 { Log.backups.info("Pruned \(removed) backups older than \(days) days") }
-        let cutoff = now.addingTimeInterval(-Double(days) * 86400)
+    /// The temporary folder's own limit, in days: it goes after this long even when backups are
+    /// kept for ever.
+    // ponytail: a copied file's result lives there; Undo of a copy older than a week finds its
+    // place gone while its backup lasts. Follow the backups' days if people undo older copies.
+    public static let temporaryDays = 7
+
+    /// The app's sweep, at launch and hourly, so old originals go even when no new in-place job
+    /// runs: backups older than `days` (0 keeps them), and whatever L'Esclop left in its temporary
+    /// folder (copied images, optimised copies, downloads, dropped files, work and estimate
+    /// folders, a pipeline's or a Shortcut's files) not touched for `days`, or `temporaryDays`
+    /// when that is shorter or backups are kept for ever. A folder that holds only folders (`clipboard`, `results`, `downloads` …)
+    /// holds one per item: each goes on its own date. Anything else goes on its own. Blocks;
+    /// call it off the main actor.
+    public static func prune(days: Int, backups: BackupStore, temporary: URL = Paths.temporary, now: Date = Date()) {
+        if days > 0 {
+            let removed = backups.prune(olderThan: days, now: now)
+            if removed > 0 { Log.backups.info("Pruned \(removed) backups older than \(days) days") }
+        }
+        let limit = days > 0 ? min(days, temporaryDays) : temporaryDays
+        let cutoff = now.addingTimeInterval(-Double(limit) * 86400)
         let fm = FileManager.default
         let keys: [URLResourceKey] = [.contentModificationDateKey, .isDirectoryKey]
         func children(_ folder: URL) -> [URL] { (try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: keys)) ?? [] }

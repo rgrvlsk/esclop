@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The watched-folder editor in the Images pane: a folder being watched, one on a disk that is
-// not connected, one macOS keeps L'Esclop out of, and the screenshot location offered because it
-// is not in the list. ESCLOP_LANGUAGE=ca draws it in Catalan.
+// not connected, one macOS keeps L'Esclop out of, the skip rules under each (the Desktop's
+// filled in), and the screenshot location offered because it is not in the list. ESCLOP_LANGUAGE=ca draws it in Catalan.
 
 import AppKit
 import EsclopCore
@@ -27,6 +27,9 @@ import Testing
         let settings = TestSettings()
         let model = SettingsViewModel(provider: RegistrySettingsProvider(store: settings.store), extraRows: SettingsPaneView.extraRows)
         model.set("imageDirs", to: .array(["~/Desktop", "/Volumes/Archive/Screenshots", Self.locked.path].map(JSONValue.string)))
+        // The Desktop skips GIFs and HEICs and takes images from 200 px on its longer side.
+        let rules = FolderRules(folder: "~/Desktop", skipFormats: ["gif", "heic"], minPixels: 200)
+        model.set(EsclopSettings.watchedFolderRules.key, to: .array(FolderRules.replacing(rules, in: []).map(JSONValue.string)))
         let descriptor = try #require(model.descriptors.first { $0.key == "imageDirs" })
         // The row as the Images pane draws it, alone: the whole pane would need a scroll, which
         // takes a varying time to land.

@@ -27,7 +27,9 @@ The command line and the MCP server are inside the app, at
 (screenshots and screen recordings by default), and keeps every original restorable. Each file
 shows a floating result with its saving; its detail and options convert, resize, crop, compare,
 upload or run a pipeline. Many files at once go to a batch window. A copied file is optimised as
-a copy, so the file on disk stays as it is; hold ⌥ while dropping to keep the originals.
+a copy, so the file on disk stays as it is; hold ⌥ while dropping to keep the originals. Copying
+a media link offers to download it; nothing is fetched until you click (or until you choose
+"Download and optimise" in Settings › Clipboard).
 
 The cards take Clop's keys while the pointer rests on them: Space Quick Look, ⌘Z Undo, ⌘C Copy,
 ⌘F Show in Finder, ⌘D Compare, ⌘K Crop, ⌘S Save, ⌘⌫ Dismiss, ⌘- and ⌘1–⌘9 to downscale.

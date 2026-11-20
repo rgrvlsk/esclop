@@ -82,7 +82,7 @@ public enum ShortcutActions {
         let model = try await ready()
         try check(operation, files, options: options)
         let jobs = files.map { job(operation, for: $0, options: options, factory: model.factory) }
-        let batch = !options.hideResult && jobs.count >= model.batchThreshold ? model.openBatch(origin: .shortcuts) : nil
+        let batch = jobs.allSatisfy(\.request.showResultUI) && jobs.count >= model.batchThreshold ? model.openBatch(origin: .shortcuts) : nil
         // Every file shows in the window at once, waiting, before its job starts.
         for file in files { batch?.add(file, bytes: AppModel.size(of: file)) }
         let reports = await withTaskGroup(of: (Int, JobReport).self) { group in
@@ -94,6 +94,8 @@ public enum ShortcutActions {
             return reports.compactMap { $0 }
         }
         var outputs: [URL] = []
+        var failures: [String] = []
+        var optimised = 0
         for (file, report) in zip(files, reports) {
             if let failure = report.failures.first {
                 if case .alreadySmaller = failure.error {
@@ -107,10 +109,22 @@ public enum ShortcutActions {
                 if let partial = report.results.first, partial.backup != nil {
                     message += " " + Strings.format("The steps before it already changed the file (%@); Recent Results can put the original back.", partial.output.path)
                 }
-                throw Failure(message: message)
+                failures.append(files.count == 1 ? message : Strings.format("%@: %@", file.lastPathComponent, message))
             } else if let result = report.results.first {
                 outputs.append(result.output)
+                optimised += 1
             }
+        }
+        // A file that fails fails the action, which then returns nothing: the error names every
+        // file that failed and says the others are done, so the person knows what changed.
+        if !failures.isEmpty {
+            var message = failures.joined(separator: "\n")
+            if optimised > 0 {
+                message += "\n" + (optimised == 1
+                    ? Strings.text("Another file was optimised; Recent Results has it.")
+                    : Strings.format("%d other files were optimised; Recent Results has them.", optimised))
+            }
+            throw Failure(message: message)
         }
         if options.copy, !outputs.isEmpty { model.writeClipboard(files: outputs) }
         return outputs
@@ -182,7 +196,7 @@ public enum ShortcutActions {
         }
         var job = factory.job(for: file, origin: .shortcuts, aggressive: operation == .optimise(harder: true), location: location)
         if let compression = options.compression { job.request.quality = compression.quality }
-        job.request.showResultUI = !options.hideResult
+        if options.hideResult { job.request.showResultUI = false }
         job.request.removeAudio = options.removeAudio && MediaKind.of(file) == .video
         switch operation {
         case .optimise: break

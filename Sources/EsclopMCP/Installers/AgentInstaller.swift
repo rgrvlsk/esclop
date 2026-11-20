@@ -129,6 +129,9 @@ public enum AgentCatalog {
                         container: ["extensions"], style: .gooseExtension, homeEvidence: ["~/.config/goose"], apps: ["Goose.app"], binaries: ["goose"]),
         AgentDefinition(id: "vscode", name: "VS Code", configPaths: ["~/Library/Application Support/Code/User/mcp.json"], format: .json,
                         container: ["servers"], style: .typedStdio, homeEvidence: ["~/Library/Application Support/Code"], apps: ["Visual Studio Code.app"], binaries: []),
+        // Insiders keeps its own user folder: "the intermediate folder name is Code - Insiders".
+        AgentDefinition(id: "vscode-insiders", name: "VS Code Insiders", configPaths: ["~/Library/Application Support/Code - Insiders/User/mcp.json"], format: .json,
+                        container: ["servers"], style: .typedStdio, homeEvidence: ["~/Library/Application Support/Code - Insiders"], apps: ["Visual Studio Code - Insiders.app"], binaries: []),
         AgentDefinition(id: "amp", name: "Amp", configPaths: ["~/.config/amp/settings.json"], format: .json,
                         container: ["amp.mcpServers"], style: .standard, homeEvidence: ["~/.config/amp", "~/.amp"], apps: [], binaries: ["amp"]),
         AgentDefinition(id: "droid", name: "Factory Droid", configPaths: ["~/.factory/mcp.json"], format: .json,
@@ -140,11 +143,15 @@ public enum AgentCatalog {
                         container: ["mcpServers"], style: .standard, homeEvidence: ["~/.gemini/antigravity"], apps: ["Antigravity.app"], binaries: ["agy"]),
         AgentDefinition(id: "kimi", name: "Kimi Code", configPaths: ["~/.kimi-code/mcp.json"], format: .json,
                         container: ["mcpServers"], style: .standard, homeEvidence: ["~/.kimi-code"], apps: [], binaries: ["kimi"]),
+        // Crush reads its legacy JSON beside its newer `crushrc` and merges them; only the JSON is a
+        // file L'Esclop can edit without running Bash.
+        AgentDefinition(id: "crush", name: "Crush", configPaths: ["~/.config/crush/crush.json"], format: .json,
+                        container: ["mcp"], style: .typedStdio, homeEvidence: ["~/.config/crush", "~/.local/share/crush"], apps: [], binaries: ["crush"]),
     ]
 
     public static func agent(_ id: String) -> AgentDefinition? {
         let key = id.lowercased()
-        let aliases = ["claude": "claude-code", "chatgpt": "codex", "codex-cli": "codex", "github-copilot": "copilot", "copilot-cli": "copilot", "gemini-cli": "gemini", "code": "vscode", "devin": "windsurf", "agy": "antigravity", "kimi-code": "kimi"]
+        let aliases = ["claude": "claude-code", "chatgpt": "codex", "codex-cli": "codex", "github-copilot": "copilot", "copilot-cli": "copilot", "gemini-cli": "gemini", "code": "vscode", "code-insiders": "vscode-insiders", "insiders": "vscode-insiders", "devin": "windsurf", "agy": "antigravity", "kimi-code": "kimi"]
         return all.first { $0.id == (aliases[key] ?? key) }
     }
 }

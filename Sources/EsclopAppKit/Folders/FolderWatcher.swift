@@ -10,7 +10,8 @@ import Foundation
 
 /// Sendable by hand: its owner sets and clears `stream` on the main actor; FSEvents calls back on `queue`.
 final class FolderWatcher: @unchecked Sendable {
-    typealias Handler = @Sendable ([URL]) -> Void
+    /// New files, and those of them renamed into place (written elsewhere first, so whole).
+    typealias Handler = @Sendable (_ files: [URL], _ renamed: Set<URL>) -> Void
 
     private var stream: FSEventStreamRef?
     private let queue = DispatchQueue(label: "dev.esclop.folder-watcher")
@@ -74,6 +75,13 @@ final class FolderWatcher: @unchecked Sendable {
         return flags & (kFSEventStreamEventFlagItemCreated | kFSEventStreamEventFlagItemRenamed | kFSEventStreamEventFlagItemModified) != 0
     }
 
+    /// Renamed and not written under this name: how macOS saves a screenshot (a temporary name,
+    /// then a rename) and how an atomic write lands.
+    static func isRenamedIntoPlace(_ flags: FSEventStreamEventFlags) -> Bool {
+        let flags = Int(flags)
+        return flags & kFSEventStreamEventFlagItemRenamed != 0 && flags & kFSEventStreamEventFlagItemModified == 0
+    }
+
     private static let callback: FSEventStreamCallback = { _, info, count, paths, flags, _ in
         guard let info else { return }
         let watcher = Unmanaged<FolderWatcher>.fromOpaque(info).takeUnretainedValue()
@@ -82,21 +90,26 @@ final class FolderWatcher: @unchecked Sendable {
             rootChanged()
         }
         if watcher.everyChange {
-            watcher.handler(list.map { URL(fileURLWithPath: $0) })
+            watcher.handler(list.map { URL(fileURLWithPath: $0) }, [])
             return
         }
         var files: [URL] = []
+        var renamed = Set<URL>()
         for index in 0 ..< count where index < list.count && isNewFile(flags[index]) {
             // A rename fires for both the old and the new name; only a path that exists is new.
-            if FileManager.default.fileExists(atPath: list[index]) { files.append(URL(fileURLWithPath: list[index])) }
+            guard FileManager.default.fileExists(atPath: list[index]) else { continue }
+            let file = URL(fileURLWithPath: list[index])
+            files.append(file)
+            if isRenamedIntoPlace(flags[index]) { renamed.insert(file) }
         }
-        if !files.isEmpty { watcher.handler(files) }
+        if !files.isEmpty { watcher.handler(files, renamed) }
     }
 }
 
 /// Waits until a file stops changing: size and modification date the same over consecutive
-/// checks, and the file can be opened. A screenshot is written in one go; a download or a
-/// recording grows for a while.
+/// checks, and the file can be opened. A screenshot arrives whole; a download or a recording
+/// grows for a while, and a copy over the network can stall for most of a second and go on, so
+/// a file that did not arrive whole must also go `quiet` without a change.
 enum FileSettle {
     enum Outcome: Equatable {
         case steady
@@ -116,20 +129,36 @@ enum FileSettle {
         return Snapshot(size: (attributes[.size] as? NSNumber)?.intValue ?? 0, modified: attributes[.modificationDate] as? Date ?? .distantPast)
     }
 
-    /// Steady once the file has been still for `steadyChecks` checks `interval` apart and opens.
+    /// The time a file that may still be growing must go without a change.
+    static let quiet: TimeInterval = 1.5
+
+    /// A file that arrived whole needs only the still checks: renamed into place (a screenshot),
+    /// a screenshot by its folder and name, or already a second older than when it was first
+    /// seen (moved or copied in with its date). Anything else may still be growing.
+    static func arrivedWhole(renamed: Bool, isScreenshot: Bool, modified: Date?, firstSeen: Date) -> Bool {
+        if renamed || isScreenshot { return true }
+        guard let modified else { return false }
+        return firstSeen.timeIntervalSince(modified) >= 1
+    }
+
+    /// Steady once the file has been still for `steadyChecks` checks `interval` apart, its
+    /// modification date is `quiet` old, and it opens. `now` and `sleep` are a clock tests replace.
     static func wait(
-        for url: URL, interval: Duration = .milliseconds(300), steadyChecks: Int = 2, timeout: Duration = .seconds(180)
+        for url: URL, interval: Duration = .milliseconds(300), steadyChecks: Int = 2, quiet: TimeInterval = quiet,
+        timeout: Duration = .seconds(180), now: () -> Date = Date.init,
+        sleep: (Duration) async -> Void = { try? await Task.sleep(for: $0) }
     ) async -> Outcome {
-        let clock = ContinuousClock()
-        let deadline = clock.now + timeout
+        let deadline = now().addingTimeInterval(Double(timeout.components.seconds) + Double(timeout.components.attoseconds) / 1e18)
         var last = snapshot(url)
         var steady = 0
-        while clock.now < deadline, !Task.isCancelled {
-            try? await Task.sleep(for: interval)
-            guard let now = snapshot(url) else { return .unsettled }
-            if now == last, now.size > 0 {
+        while now() < deadline, !Task.isCancelled {
+            await sleep(interval)
+            guard let current = snapshot(url) else { return .unsettled }
+            if current == last, current.size > 0 {
                 steady += 1
-                guard steady >= steadyChecks else { continue }
+                // A date in the future (another clock, on a network disk) waits for the checks alone.
+                let age = now().timeIntervalSince(current.modified)
+                guard steady >= steadyChecks, age >= quiet || age < -1 else { continue }
                 do {
                     try FileHandle(forReadingFrom: url).close()
                     return .steady
@@ -139,7 +168,7 @@ enum FileSettle {
                 }
             } else {
                 steady = 0
-                last = now
+                last = current
             }
         }
         return .unsettled
