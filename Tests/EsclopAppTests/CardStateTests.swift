@@ -28,7 +28,7 @@ import Testing
 
     @Test func aCopiedImageComesBackFromRecentAsOne() throws {
         let harness = Harness()
-        let file = Paths.temporary.appendingPathComponent("clipboard-\(UUID().uuidString).png")
+        let file = Paths.temporary.appendingPathComponent("clipboard/\(UUID().uuidString).png")
         let result = OptimisationResult(source: file, output: file, kind: .image, bytesBefore: 2_000, bytesAfter: 1_000, startedAt: Date(), finishedAt: Date())
         harness.model.show(result)
         let card = try #require(harness.model.cards.last)

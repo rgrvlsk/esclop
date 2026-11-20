@@ -35,7 +35,7 @@ struct SettingsPaneView: View {
                 }
                 ForEach(model.groups(in: pane)) { group in
                     Section {
-                        ForEach(group.settings, id: \.key) { setting in
+                        ForEach(group.settings.filter { !Self.besideHotkeys.contains($0.key) }, id: \.key) { setting in
                             SettingRow(descriptor: setting, model: model, actions: actions)
                         }
                     } header: {
@@ -68,6 +68,9 @@ struct SettingsPaneView: View {
         }
     }
 
+    /// Registry settings shown with the keyboard shortcuts instead of their section's group.
+    static let besideHotkeys = [EsclopSettings.cardKeysUnderPointer.key]
+
     static var intro: [SettingsPane: String] {
         [.agents: Strings.text("AI agents such as Claude, Codex and Cursor use L’Esclop through its MCP server: they can optimise, convert and crop files, and write pipelines. Connect an agent here, then restart it.")]
     }
@@ -80,6 +83,9 @@ struct SettingsPaneView: View {
                     KeyboardShortcuts.Recorder(hotkey.title, name: hotkey.name)
                         .id(Hotkeys.rowID(hotkey.name))
                         .highlighted(model.highlighted == Hotkeys.rowID(hotkey.name))
+                }
+                ForEach(Self.besideHotkeys, id: \.self) { key in
+                    if let setting = model.descriptor(key) { SettingRow(descriptor: setting, model: model, actions: actions) }
                 }
             }
         case .advanced:

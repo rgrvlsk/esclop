@@ -95,12 +95,12 @@ import UniformTypeIdentifiers
 
     @Test func summariesInEnglishAndCatalan() {
         let shot = Suggestion.choice(for: .screenshot, input: .png)
-        #expect(shot.summary(input: .png, locale: en) == "PNG · Adaptive · strip metadata")
-        #expect(shot.summary(input: .png, locale: ca) == "PNG · Adaptativa · sense metadades")
-        #expect(Suggestion.choice(for: .screenRecording, input: .mov).summary(input: .mov, locale: en) == "HEVC · 30 fps · strip metadata")
-        #expect(Suggestion.choice(for: .pdfExport, input: .pdf).summary(input: .pdf, locale: ca) == "PDF · 150 DPI · conserva el text")
-        #expect(Suggestion.choice(for: .voiceMemo, input: .m4a).summary(input: .m4a, locale: en) == "AAC · 96 kbps · −16\u{00A0}LUFS")
-        #expect(Suggestion.choice(for: .photos, input: .heic).summary(input: .heic, note: "strip location", locale: en) == "JPEG · Adaptive · strip location")
+        #expect(shot.summary(input: .png, locale: en) == "PNG ·\u{00A0}Adaptive ·\u{00A0}strip metadata")
+        #expect(shot.summary(input: .png, locale: ca) == "PNG ·\u{00A0}Adaptativa ·\u{00A0}sense metadades")
+        #expect(Suggestion.choice(for: .screenRecording, input: .mov).summary(input: .mov, locale: en) == "HEVC ·\u{00A0}30 fps ·\u{00A0}strip metadata")
+        #expect(Suggestion.choice(for: .pdfExport, input: .pdf).summary(input: .pdf, locale: ca) == "PDF ·\u{00A0}150 DPI ·\u{00A0}conserva el text")
+        #expect(Suggestion.choice(for: .voiceMemo, input: .m4a).summary(input: .m4a, locale: en) == "AAC ·\u{00A0}96 kbps ·\u{00A0}−16\u{00A0}LUFS")
+        #expect(Suggestion.choice(for: .photos, input: .heic).summary(input: .heic, note: "strip location", locale: en) == "JPEG ·\u{00A0}Adaptive ·\u{00A0}strip location")
     }
 
     @Test func choicesBecomeRequests() {
@@ -147,8 +147,8 @@ import UniformTypeIdentifiers
         #expect(ClipboardRule.checkboxTitle(origin: .screenshot, inputType: png, locale: ca) == "Aplica-ho sempre a les captures de pantalla PNG")
         #expect(ClipboardRule.checkboxTitle(origin: .photos, inputType: UTType.heic.identifier, locale: ca) == "Aplica-ho sempre a les fotos HEIC")
         let rule = ClipboardRule(origin: .screenshot, inputType: png, choice: OptimiseChoice(format: .webp))
-        #expect(rule.tooltip(locale: en) == "Rule: PNG screenshots → WebP · Adaptive")
-        #expect(rule.promise(locale: ca) == "Les properes captures PNG es convertiran a WebP · Adaptativa")
+        #expect(rule.tooltip(locale: en) == "Rule: PNG screenshots → WebP ·\u{00A0}Adaptive")
+        #expect(rule.promise(locale: ca) == "Les properes captures PNG es convertiran a WebP ·\u{00A0}Adaptativa")
     }
 
     @Test func aRuleAppliesToTheNextScreenshotUntilUnticked() async throws {
@@ -213,7 +213,7 @@ import UniformTypeIdentifiers
         let undo: [CardPresentation.Action] = copied.result?.backup != nil ? [.undo] : []
         #expect(copied.presentation.tools == [.copy] + undo + [.more])
         #expect(dropped.presentation.tools == [.reveal] + undo + [.more])
-        #expect(CardPresentation.tools(for: .finder, undo: false) == [.reveal, .more], "no Undo without a backup")
+        #expect(CardPresentation.tools(copied: false, undo: false) == [.reveal, .more], "no Undo without a backup")
         #expect(Set(dropped.presentation.actions).count == dropped.presentation.actions.count, "each action once")
     }
 }

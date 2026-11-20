@@ -144,7 +144,7 @@ on that one file. It replaces a long context menu. It is not the menu-bar menu. 
 - **Actions:** rows, each with a round symbol, what it does and what it gives, and a play button:
   the person's pipelines ("Your pipeline"), Upload ("Copies a link"; Set Up Uploads… without a
   target, with a chevron since it opens Settings), Copy Link after an upload, Share… ("AirDrop, Mail, Messages"), shelf and upload apps
-  when installed; then flat rows Copy ⌘C, Save as… ⌘S, Quick Look ⌘Y and Show in Finder ⌘R
+  when installed; then flat rows Copy ⌘C, Save as… ⇧⌘S, Quick Look ⌘Y and Show in Finder ⌘R
   with their keys, Run a Shortcut › and Open with ›, and a dashed "Edit Pipelines…". Pipelines
   are listed only for the kinds they do something for. The keys work from every tab;
   Compare is the detail's loupe; how long results stay visible is in Settings.

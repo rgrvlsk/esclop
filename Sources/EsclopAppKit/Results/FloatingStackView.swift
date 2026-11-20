@@ -36,7 +36,8 @@ struct FloatingStackView: View {
                     interact: { model.interact(card, $0) },
                     options: { OptionsModel(card: card, app: model) },
                     press: { model.press($0, on: card) },
-                    keysTaken: keysTaken
+                    keysTaken: keysTaken,
+                    pointerKeys: EsclopSettings.cardKeysUnderPointer.value(in: model.settings)
                 )
                 .zIndex(card.machine.hovering || card.machine.showsHoverButtons || card.machine.level == .detail ? 1 : 0)
                 .transition(

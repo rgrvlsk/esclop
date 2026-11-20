@@ -81,16 +81,6 @@
         }
       }
     },
-    "%@ exported documents": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "documents %@ exportats"
-          }
-        }
-      }
-    },
     "%@ file": {
       "localizations": {
         "ca": {
@@ -1291,16 +1281,6 @@
         }
       }
     },
-    "Always apply to %@ exported documents": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aplica-ho sempre als documents %@"
-          }
-        }
-      }
-    },
     "Always apply to %@ graphics with transparency": {
       "localizations": {
         "ca": {
@@ -1357,6 +1337,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aplica-ho sempre a les notes de veu %@"
+          }
+        }
+      }
+    },
+    "Always apply to exported PDFs": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplica-ho sempre als PDF exportats"
           }
         }
       }
@@ -2481,6 +2471,16 @@
         }
       }
     },
+    "Could not move %@ to the Trash": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha pogut moure %@ a la Paperera"
+          }
+        }
+      }
+    },
     "Could not reach %@: %@": {
       "localizations": {
         "ca": {
@@ -2596,7 +2596,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Personalitzat…"
+            "value": "A mida…"
           }
         }
       }
@@ -3851,6 +3851,16 @@
         }
       }
     },
+    "It changed after optimising. The new result starts from the original.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Havia canviat després d’optimitzar-la. El resultat nou parteix de l’original."
+          }
+        }
+      }
+    },
     "It is optimised at once and put back on the clipboard, smaller.": {
       "localizations": {
         "ca": {
@@ -4721,16 +4731,6 @@
         }
       }
     },
-    "Next %@ exported documents will become %@": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Els propers documents %@ es convertiran a %@"
-          }
-        }
-      }
-    },
     "Next %@ graphics with transparency will become %@": {
       "localizations": {
         "ca": {
@@ -4807,6 +4807,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pàgina següent"
+          }
+        }
+      }
+    },
+    "Next exported PDFs will become %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els propers PDF exportats es convertiran a %@"
           }
         }
       }
@@ -9741,6 +9751,16 @@
         }
       }
     },
+    "exported PDFs": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PDF exportats"
+          }
+        }
+      }
+    },
     "files": {
       "localizations": {
         "ca": {
@@ -10277,6 +10297,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Limita els fotogrames per segon"
+          }
+        }
+      }
+    },
+    "setting.cardKeysUnderPointer.summary": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mentre el punter reposa sobre un resultat, l’Espai l’obre a Vista ràpida i ⌘C, ⌘Z, ⌘S i les altres tecles hi actuen, no a l’app del davant."
+          }
+        }
+      }
+    },
+    "setting.cardKeysUnderPointer.title": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tecles del resultat sota el punter"
           }
         }
       }

@@ -90,7 +90,9 @@ public struct OptionsPopover: View {
     private var shortcuts: some View {
         Group {
             Button("") { model.app.perform(.copy, on: model.card) }.keyboardShortcut("c")
-            Button("") { model.app.saveAs(model.card) }.keyboardShortcut("s")
+            // ⌘S means what it means on the card: Save to Downloads, where the card offers it.
+            Button("") { _ = model.app.press("s", on: model.card) }.keyboardShortcut("s")
+            Button("") { model.app.saveAs(model.card) }.keyboardShortcut("s", modifiers: [.command, .shift])
             Button("") { model.app.perform(.reveal, on: model.card) }.keyboardShortcut("r")
             Button("") { model.app.perform(.undo, on: model.card) }.keyboardShortcut("z")
             // ⌘Y as in Finder: a bare Space would take the key from a focused tile or checkbox.

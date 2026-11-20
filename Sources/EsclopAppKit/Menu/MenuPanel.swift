@@ -106,13 +106,26 @@ public struct MenuPanel: View {
     public static let width: CGFloat = 316
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            header
-            saved
-            if model.paused { PausedLine { model.setPaused(false) } }
-            if let batch = model.batch, batch.isRunning { working(batch) }
-            recent
-            commands
+        ScrollViewReader { proxy in
+            VStack(alignment: .leading, spacing: 10) {
+                header
+                saved
+                if model.paused { PausedLine { model.setPaused(false) } }
+                if let batch = model.batch, batch.isRunning { working(batch) }
+                recent
+                commands
+            }
+            // The panel is one stop for the keys, as a menu is: the arrows move through Recent and
+            // on into the commands, even with Recent empty; Return runs the row, Space is Quick
+            // Look on a result (as on a card and in Finder). No focus ring; the row's wash shows
+            // where it is.
+            .focusable()
+            .focused($listFocused)
+            .focusEffectDisabled()
+            .onKeyPress(.downArrow) { move(1, proxy) }
+            .onKeyPress(.upArrow) { move(-1, proxy) }
+            .onKeyPress(.return) { open(results) }
+            .onKeyPress(.space) { quickLook(results) }
         }
         .padding(12)
         .frame(width: Self.width)
@@ -277,9 +290,12 @@ public struct MenuPanel: View {
 
     // MARK: Recent
 
+    /// The recent results the panel lists.
+    private var results: [OptimisationResult] { Array(model.recent.prefix(Self.recentLimit)) }
+
     private var recent: some View {
         let working = model.cards.filter(\.isWorking)
-        let results = Array(model.recent.prefix(Self.recentLimit))
+        let results = results
         return VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(Strings.text("Recent")).sectionLabel()
@@ -301,35 +317,19 @@ public struct MenuPanel: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
             } else {
-                ScrollViewReader { proxy in
-                    let rows = VStack(spacing: 0) {
-                        ForEach(working, id: \.id) { card in WorkingRow(card: card) }
-                        ForEach(results, id: \.id) { result in
-                            RecentRow(result: result, model: model, highlighted: highlighted == .result(result.id), close: actions.close) {
-                                hover(.result(result.id), $0)
-                            }
-                                .id(result.id)
+                let rows = VStack(spacing: 0) {
+                    ForEach(working, id: \.id) { card in WorkingRow(card: card) }
+                    ForEach(results, id: \.id) { result in
+                        RecentRow(result: result, model: model, highlighted: highlighted == .result(result.id), close: actions.close) {
+                            hover(.result(result.id), $0)
                         }
+                            .id(result.id)
                     }
-                    Group {
-                        if working.count + results.count > Self.rowsShown {
-                            ScrollView { rows }.frame(height: CGFloat(Self.rowsShown) * RecentRow.height)
-                        } else {
-                            rows
-                        }
-                    }
-                    // The list is one stop for the keys, as a menu is: the arrows move on into the
-                    // commands, Return runs the row, Space is Quick Look on a result (as on a card
-                    // and in Finder). No focus ring; the row's wash shows where it is.
-                    // ponytail: with nothing in Recent there is no list, so the arrows do not
-                    // reach the commands. Trigger: the keys moving up to the panel.
-                    .focusable()
-                    .focused($listFocused)
-                    .focusEffectDisabled()
-                    .onKeyPress(.downArrow) { move(1, in: results, proxy) }
-                    .onKeyPress(.upArrow) { move(-1, in: results, proxy) }
-                    .onKeyPress(.return) { open(results) }
-                    .onKeyPress(.space) { quickLook(results) }
+                }
+                if working.count + results.count > Self.rowsShown {
+                    ScrollView { rows }.frame(height: CGFloat(Self.rowsShown) * RecentRow.height)
+                } else {
+                    rows
                 }
             }
         }
@@ -337,14 +337,20 @@ public struct MenuPanel: View {
         .background(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous).fill(Surface.tile))
     }
 
-    private func move(_ step: Int, in results: [OptimisationResult], _ proxy: ScrollViewProxy) -> KeyPress.Result {
-        let items = results.map { Item.result($0.id) } + [.optimiseFiles, .optimiseClipboard]
-        let current = highlighted.flatMap(items.firstIndex)
-        let index = current.map { min(max($0 + step, 0), items.count - 1) } ?? (step > 0 ? 0 : items.count - 1)
-        highlighted = items[index]
+    private func move(_ step: Int, _ proxy: ScrollViewProxy) -> KeyPress.Result {
+        let next = Self.item(after: highlighted, by: step, results: results.map(\.id))
+        highlighted = next
         keyedAt = NSEvent.mouseLocation
-        if case let .result(id) = items[index] { proxy.scrollTo(id) }
+        if case let .result(id) = next { proxy.scrollTo(id) }
         return .handled
+    }
+
+    /// The row an arrow moves to: through the recent results, then the two commands, stopping at
+    /// either end; from no row, the first (down) or the last (up).
+    static func item(after current: Item?, by step: Int, results: [UUID]) -> Item {
+        let items = results.map(Item.result) + [.optimiseFiles, .optimiseClipboard]
+        let index = current.flatMap(items.firstIndex).map { min(max($0 + step, 0), items.count - 1) } ?? (step > 0 ? 0 : items.count - 1)
+        return items[index]
     }
 
     private func open(_ results: [OptimisationResult]) -> KeyPress.Result {

@@ -62,7 +62,14 @@ final class DropTargetView: NSView {
         let flags = NSEvent.modifierFlags
         state?.harder = flags.contains(.command)
         state?.keepOriginals = flags.contains(.option)
-        return target == nil ? [] : .copy
+        return target == nil ? [] : Self.operation(for: sender.draggingSourceOperationMask)
+    }
+
+    /// What the drop answers, from what the source allows: a copy where it can (the files stay
+    /// where they are), else whatever it offers, so a drag with ⌘ held (Finder then offers a move
+    /// only) is not refused. L'Esclop never moves a dropped file either way.
+    static func operation(for mask: NSDragOperation) -> NSDragOperation {
+        [.copy, .generic, .move].first { mask.contains($0) } ?? []
     }
 }
 

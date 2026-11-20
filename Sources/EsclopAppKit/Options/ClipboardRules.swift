@@ -51,6 +51,14 @@ public struct ClipboardRule: Codable, Hashable, Identifiable, Sendable {
     static func phrase(_ phrase: Phrase, origin: FileOrigin, inputType: String, summary: String = "", locale: Locale) -> String {
         let format = OutputFormat.of(type: inputType)?.displayName
             ?? UTType(inputType)?.preferredFilenameExtension?.uppercased() ?? inputType
+        // An exported document is a PDF: "exported PDFs", never "PDF exported documents".
+        if origin == .pdfExport {
+            switch phrase {
+            case .subject: return Strings.text("exported PDFs", locale: locale)
+            case .checkbox: return Strings.text("Always apply to exported PDFs", locale: locale)
+            case .promise: return Strings.format("Next exported PDFs will become %@", summary, locale: locale)
+            }
+        }
         let noun: String
         switch origin {
         case .screenshot: noun = "screenshots"
@@ -59,7 +67,7 @@ public struct ClipboardRule: Codable, Hashable, Identifiable, Sendable {
         case .graphic: noun = "graphics with transparency"
         case .animatedGIF: noun = "animated GIFs"
         case .screenRecording: noun = "screen recordings"
-        case .pdfExport: noun = "exported documents"
+        case .pdfExport: noun = "exported PDFs"
         case .voiceMemo: noun = "voice memos"
         case .unknown: noun = "copied files"
         }

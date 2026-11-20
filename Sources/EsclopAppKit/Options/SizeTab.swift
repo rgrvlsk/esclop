@@ -124,7 +124,7 @@ struct FitChips: View {
         SectionLabel(title: Strings.text("Fit under"))
         FlowRow {
             ForEach(Self.targets, id: \.self) { bytes in
-                Chip(title: Figures.bytes(bytes)) { model.fit(under: bytes) }
+                Chip(title: Figures.bytes(bytes), selected: model.card.fit == bytes) { model.fit(under: bytes) }
                     .disabled(model.card.isWorking || (model.card.result?.bytesAfter ?? .max) <= bytes && model.card.result != nil)
             }
             Chip(title: Strings.text("Custom…"), selected: custom) { custom.toggle() }

@@ -48,7 +48,9 @@ public final class DropZoneState {
     /// The line under the tiles: what a drop does. Over a preset zone, its pipeline runs: ⌘
     /// changes nothing there, so the line names the pipeline instead.
     public var title: String {
-        if let hoveredZone { return Strings.format("Drop to run “%@”", hoveredZone) }
+        if let hoveredZone {
+            return Strings.format("Drop to run “%@”", zones.first { $0.name == hoveredZone }?.title ?? hoveredZone)
+        }
         return plainTitle
     }
 

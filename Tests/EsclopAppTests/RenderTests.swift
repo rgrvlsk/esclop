@@ -175,6 +175,9 @@ import Testing
         }
         // One the app shows: ⌃⇧C with nothing copied.
         try render(object(card(.notice(title: Strings.text("Nothing to optimise"), detail: Strings.text("Copy an image or a file first.")))), name: "result-notice", scheme: scheme)
+        // A re-run that set an edited version aside says where it went.
+        let trashed = card(.notice(title: Strings.text("Your edited version is in the Trash"), detail: Strings.text("It changed after optimising. The new result starts from the original.")))
+        try render(object(trashed), name: "result-notice-trash", scheme: scheme)
         // A watched folder's burst, with its one action.
         let tooMany = card(.notice(
             title: WatchedFolders.tooManyTitle(.image, count: 4),
@@ -231,7 +234,11 @@ import Testing
         }
         var unreadable = LoupeState()
         unreadable.unreadable = true
+        // A photo dropped from Safari lives in L'Esclop's temporary folder: a copied image's actions.
+        let promised = Paths.temporary.appendingPathComponent("dropped/1a2b3c4d/Beach.jpg")
+        let fromSafari = open(card(.done(saved(promised)), source: promised, origin: .dropZone))
         let details: [(String, ResultCard)] = [
+            ("detail-dropped-temporary", fromSafari),
             ("detail-loupe", loupe(LoupeState())),
             ("detail-loupe-unreadable", loupe(unreadable)),
             ("detail-dropped", photo),

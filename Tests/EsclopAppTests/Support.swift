@@ -94,7 +94,11 @@ struct ShrinkingEngine: OptimisationEngine {
     func convert(_ source: URL, to format: OutputFormat, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { try await optimise(source, request: request, progress: progress) }
     func downscale(_ source: URL, factor: Double, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { try await optimise(source, request: request, progress: progress) }
     func crop(_ source: URL, to size: CropSize, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { try await optimise(source, request: request, progress: progress) }
-    func fit(_ source: URL, underBytes: Int, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult { try await optimise(source, request: request, progress: progress) }
+    func fit(_ source: URL, underBytes: Int, request: OptimisationRequest, progress: @Sendable (OptimisationProgress) -> Void) async throws -> OptimisationResult {
+        var request = request
+        request.targetBytes = underBytes
+        return try await optimise(source, request: request, progress: progress)
+    }
     func stripMetadata(_ source: URL, request: OptimisationRequest) async throws -> OptimisationResult { try await optimise(source, request: request) { _ in } }
     func supports(_ url: URL) -> Bool { true }
 }

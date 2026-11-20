@@ -119,6 +119,14 @@ import Testing
         #expect(size.width > 0)
     }
 
+    /// General › Keyboard shortcuts with the switch for the card keys under the pointer.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func keyboardShortcuts(scheme: ColorScheme) async throws {
+        let model = model(TestSettings())
+        model.open(SettingsRoute(pane: .general, row: EsclopSettings.cardKeysUnderPointer.key))
+        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-keyboard-shortcuts", scheme: scheme, settle: .milliseconds(600))
+    }
+
     /// Floating results › Preset zones: a saved pipeline and a template on, the rest off.
     @Test(arguments: [ColorScheme.light, .dark])
     func presetZones(scheme: ColorScheme) async throws {

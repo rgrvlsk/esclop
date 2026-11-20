@@ -244,27 +244,24 @@ import Testing
         #expect(again.sources == [file], "from the original")
     }
 
-    /// Restore is not offered while a crop, downscale or fit stands on the result.
-    @Test func noRestoreAfterACropDownscaleOrFit() async throws {
+    /// Restore is offered after a downscale and a fit: its re-run makes both again, with the
+    /// metadata kept.
+    @Test func restoreAfterADownscaleAndAFitKeepsThem() async throws {
         let harness = Harness()
         _ = await harness.model.run(harness.job(harness.temp.file("a.jpg", bytes: 100_000)))
         let card = try #require(harness.model.cards.first)
-        card.removedMetadata = [.location]
-        #expect(card.presentation.restorable)
         harness.model.perform(.downscale, on: card)
         #expect(await eventually { harness.requests.requests.count == 2 && card.result != nil })
-        card.removedMetadata = [.location]
-        #expect(!card.presentation.restorable)
-        #expect(!FloatingResultView.actions(card.presentation, level: .detail).contains(.keepMetadata), "nor for VoiceOver")
-        harness.model.perform(.keepMetadata, on: card)
-        try await Task.sleep(for: .milliseconds(200))
-        #expect(harness.requests.requests.count == 2, "and the action does nothing")
-
-        // Another choice keeps the scale; Original takes it off.
-        harness.model.downscale(card, to: 1)
+        harness.model.fit(card, under: 20_000)
         #expect(await eventually { harness.requests.requests.count == 3 && card.result != nil })
         card.removedMetadata = [.location]
-        #expect(card.presentation.restorable, "a plain run offers it again")
+        #expect(card.presentation.restorable)
+        #expect(FloatingResultView.actions(card.presentation, level: .detail).contains(.keepMetadata), "and for VoiceOver")
+        harness.model.perform(.keepMetadata, on: card)
+        #expect(await eventually { harness.requests.requests.count == 4 && card.result != nil })
+        let again = try #require(harness.requests.requests.last)
+        #expect(again.stripMetadata == false)
+        #expect(again.downscale == 0.5 && again.targetBytes == 20_000, "the scale and the fit made again")
     }
 
     @Test func convertAndDownscaleRunAgainFromTheOriginal() async throws {
