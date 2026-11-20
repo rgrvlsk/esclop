@@ -114,7 +114,7 @@ public struct MenuPanel: View {
                 header
                 saved
                 if model.paused { PausedLine { model.setPaused(false) } }
-                if let batch = model.batch { batchRow(batch) }
+                if let batch = model.batch, !batch.rows.isEmpty { batchRow(batch) }
                 recent
                 commands
             }

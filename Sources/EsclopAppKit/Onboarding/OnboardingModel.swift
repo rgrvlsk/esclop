@@ -127,13 +127,13 @@ public final class OnboardingModel {
         clipboardAccess = readClipboardAccess()
         loginStatus = readLoginStatus()
         // Again only once its page read it: reading the Desktop is what makes macOS ask.
-        if step == .permissions, desktopAccess != .unknown { checkDesktop() }
+        if step == .permissions, desktopAccess != .unknown { Task { await checkDesktop() } }
     }
 
     /// Whether L’Esclop may read the Desktop, as Settings' folder rows see it; unknown until the
     /// Permissions page shows.
     public private(set) var desktopAccess: Access = .unknown
-    @ObservationIgnored var readDesktopAccess: @MainActor () -> Access = {
+    @ObservationIgnored var readDesktopAccess: @Sendable () -> Access = {
         guard let desktop = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first else { return .unknown }
         switch FolderStatus.check(desktop) {
         case .watching: return .allowed
@@ -142,8 +142,11 @@ public final class OnboardingModel {
         }
     }
 
-    public func checkDesktop() {
-        desktopAccess = readDesktopAccess()
+    /// Off the main actor: macOS holds the read until the person answers its question, and the
+    /// page explaining it must be drawn by then.
+    public func checkDesktop() async {
+        let read = readDesktopAccess
+        desktopAccess = await Task.detached(priority: .userInitiated) { read() }.value
     }
 
     /// macOS 15.4 and later can ask before every programmatic read of the clipboard.

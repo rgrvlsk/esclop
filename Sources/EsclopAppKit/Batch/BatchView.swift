@@ -15,6 +15,8 @@ public struct BatchView: View {
     let app: AppModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// The row under the pointer: Space shows it in Quick Look, as in Finder and the menu.
+    /// ponytail: set by hover, so a wheel scroll under a still pointer keeps the row it left until
+    /// the pointer moves; clear it on scroll if that misleads.
     @State private var pointed: BatchRow.ID?
     @FocusState private var focused: Bool
 

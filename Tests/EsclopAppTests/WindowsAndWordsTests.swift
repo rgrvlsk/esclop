@@ -72,6 +72,9 @@ import Testing
         #expect(item.result.backup == item.entry.backup)
         await originals.restore(item)
         #expect(AppModel.size(of: file) == 100_000)
+        // A backup with no output named never matches the file there, which goes to the Trash.
+        let bare = BackupEntry(id: UUID(), original: file, backup: harness.temp.url.appendingPathComponent("elsewhere.png"), output: nil, requestID: nil, createdAt: Date(), bytes: 100_000)
+        #expect(OriginalsModel.items([bare], log: harness.model.service.results).first?.result.bytesAfter == -1)
     }
 
     /// W4: a result written beside its original has no backup: restoring says why in a sentence
@@ -87,11 +90,11 @@ import Testing
             return
         }
         #expect(title == "Could not restore Poster.png")
-        #expect(detail == "The original was never changed. It is still beside the new file.")
+        #expect(detail == "The original was never changed. It is still where it was.")
         #expect(FileManager.default.fileExists(atPath: output.path), "nothing moved")
         let inPlace = OptimisationResult(source: source, output: source, kind: .image, bytesBefore: 100_000, bytesAfter: 40_000, startedAt: Date(), finishedAt: Date())
         #expect(AppModel.noBackupMessage(for: inPlace) == "L’Esclop kept no copy of this original.")
-        #expect(Strings.text("The original was never changed. It is still beside the new file.", locale: Locale(identifier: "ca")).hasPrefix("L’original no s’ha tocat mai"))
+        #expect(Strings.text("The original was never changed. It is still where it was.", locale: Locale(identifier: "ca")).hasPrefix("L’original no s’ha tocat mai"))
     }
 
     /// W5: Open at login is a Settings › General row the search finds, in both languages.
@@ -131,19 +134,18 @@ import Testing
 
     /// W6: the Desktop's status is read only on the Permissions page, where reading it makes
     /// macOS ask; coming back from System Settings reads it again there.
-    @Test func theDesktopStatusIsReadOnItsPage() {
+    @Test func theDesktopStatusIsReadOnItsPage() async {
         let model = OnboardingModel(defaults: settings.store.defaults)
-        var reads = 0
-        model.readDesktopAccess = { reads += 1; return .denied }
+        model.readDesktopAccess = { .denied }
         model.refreshAccess()
-        #expect(reads == 0)
-        #expect(model.desktopAccess == .unknown)
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(model.desktopAccess == .unknown, "not read before its page")
         model.go(to: .permissions)
-        model.checkDesktop()
+        await model.checkDesktop()
         #expect(model.desktopAccess == .denied)
         model.readDesktopAccess = { .allowed }
         NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: nil)
-        #expect(model.desktopAccess == .allowed)
+        #expect(await eventually { model.desktopAccess == .allowed })
     }
 
     /// W8: accents fold on both sides of the search.

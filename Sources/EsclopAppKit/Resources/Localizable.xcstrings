@@ -8171,12 +8171,12 @@
         }
       }
     },
-    "The original was never changed. It is still beside the new file.": {
+    "The original was never changed. It is still where it was.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "L’original no s’ha tocat mai. Encara és al costat del fitxer nou."
+            "value": "L’original no s’ha tocat mai. Encara és on era."
           }
         }
       }

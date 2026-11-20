@@ -290,7 +290,7 @@ struct PermissionsPage: View {
             .formStyle(.grouped)
             .scrollDisabled(true)
         }
-        .onAppear { onboarding.checkDesktop() }
+        .task { await onboarding.checkDesktop() }
     }
 }
 

@@ -47,11 +47,17 @@ final class OriginalsModel {
         let logged = Dictionary(log.recent(limit: .max).compactMap { result in result.backup.map { ($0.standardizedFileURL.path, result) } }, uniquingKeysWith: { newest, _ in newest })
         return entries.map { entry in
             let output = entry.output ?? entry.original
+            // ponytail: a rebuilt result has no logged id, so restoring it does not withdraw the
+            // cleared line from the saving totals; the manifest would need the result id for that.
             let result = logged[entry.backup.standardizedFileURL.path] ?? OptimisationResult(
                 id: entry.id, source: entry.original, output: output, backup: entry.backup, kind: MediaKind.of(entry.original) ?? .image,
                 // Done when the backup was made: anything at the path changed after that goes to
-                // the Trash on restore, never overwritten.
-                bytesBefore: entry.bytes, bytesAfter: AppModel.size(of: output), startedAt: entry.createdAt, finishedAt: entry.createdAt,
+                // the Trash on restore. A backup with no output named (a file a template's output
+                // replaced) matches no size, so what is there always goes to the Trash.
+                // ponytail: its restored card then calls that file an edited version; give the
+                // no-output case its own words if templates overwriting files get common.
+                bytesBefore: entry.bytes, bytesAfter: entry.output == nil ? -1 : AppModel.size(of: output),
+                startedAt: entry.createdAt, finishedAt: entry.createdAt,
                 requestID: entry.requestID
             )
             return OriginalItem(entry: entry, result: result, inPlace: isInPlace(entry))

@@ -367,7 +367,7 @@ public final class AppModel {
     /// Why a result with no backup has no original to put back.
     static func noBackupMessage(for result: OptimisationResult) -> String {
         result.output.standardizedFileURL != result.source.standardizedFileURL
-            ? Strings.text("The original was never changed. It is still beside the new file.")
+            ? Strings.text("The original was never changed. It is still where it was.")
             : Strings.text("L’Esclop kept no copy of this original.")
     }
 
