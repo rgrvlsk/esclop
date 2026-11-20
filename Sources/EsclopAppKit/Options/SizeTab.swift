@@ -124,8 +124,11 @@ struct FitChips: View {
         SectionLabel(title: Strings.text("Fit under"))
         FlowRow {
             ForEach(Self.targets, id: \.self) { bytes in
-                Chip(title: Figures.bytes(bytes), selected: model.card.fit == bytes) { model.fit(under: bytes) }
-                    .disabled(model.card.isWorking || (model.card.result?.bytesAfter ?? .max) <= bytes && model.card.result != nil)
+                // A kept fit leaves every chip open: another target replaces it, its own takes it off.
+                Chip(title: Figures.bytes(bytes), selected: model.card.fit == bytes) {
+                    if model.card.fit == bytes { model.app.removeFit(model.card) } else { model.fit(under: bytes) }
+                }
+                .disabled(model.card.isWorking || model.card.fit == nil && (model.card.result?.bytesAfter ?? .max) <= bytes && model.card.result != nil)
             }
             Chip(title: Strings.text("Custom…"), selected: custom) { custom.toggle() }
         }

@@ -99,11 +99,12 @@ public final class ResultCard: Identifiable {
     var cancelWork: (() -> Void)?
     var timer: Task<Void, Never>?
 
-    /// A copied image, or a file that lives only in L'Esclop's temporary folder (a promised or
-    /// downloaded drop), which macOS clears: its actions are a copied image's (Copy, Save to
-    /// Downloads, Save as…), never Show in Finder or Move to Trash on a folder that goes away.
+    /// A copied image, or a file shown from L'Esclop's temporary folder (a promised or downloaded
+    /// drop optimised in place, or the temporary output location), which macOS clears: its
+    /// actions are a copied image's (Copy, Save to Downloads, Save as…), never Show in Finder or
+    /// Move to Trash on a folder that goes away.
     var actsAsCopiedImage: Bool {
-        origin == .clipboard || source.resolvingSymlinksInPath().path.hasPrefix(Paths.temporary.resolvingSymlinksInPath().path + "/")
+        origin == .clipboard || shownFile.standardizedFileURL.path.hasPrefix(Paths.temporary.standardizedFileURL.path + "/")
     }
 
     /// The two files the loupe shows, while both are there.

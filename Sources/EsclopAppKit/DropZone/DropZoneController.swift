@@ -66,10 +66,10 @@ final class DropTargetView: NSView {
     }
 
     /// What the drop answers, from what the source allows: a copy where it can (the files stay
-    /// where they are), else whatever it offers, so a drag with ⌘ held (Finder then offers a move
-    /// only) is not refused. L'Esclop never moves a dropped file either way.
+    /// where they are), else generic, which is all ⌘ held leaves in the mask, so that drag is not
+    /// refused. Never a move: L'Esclop only reads a dropped file.
     static func operation(for mask: NSDragOperation) -> NSDragOperation {
-        [.copy, .generic, .move].first { mask.contains($0) } ?? []
+        [.copy, .generic].first { mask.contains($0) } ?? []
     }
 }
 

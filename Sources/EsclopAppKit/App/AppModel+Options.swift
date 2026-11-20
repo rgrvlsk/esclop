@@ -59,6 +59,11 @@ extension AppModel {
         reprocess(card) { $0.operation = .fit(underBytes: bytes) }
     }
 
+    /// The chosen Fit chip again: the fit comes off, the crop and the scale stay.
+    public func removeFit(_ card: ResultCard) {
+        reprocess(card) { $0.operation = .optimise }
+    }
+
     public func crop(_ card: ResultCard, to size: CropSize) {
         reprocess(card) { $0.request.crop = size }
     }

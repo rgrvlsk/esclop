@@ -95,8 +95,13 @@ import Testing
         harness.model.apply(choice, to: card)
         #expect(await eventually { harness.requests.requests.count == 3 && card.result != nil })
         #expect(harness.requests.requests.last?.targetBytes == 20_000, "fitted again")
-        harness.model.downscale(card, to: 1)
+        harness.model.removeFit(card)
         #expect(await eventually { harness.requests.requests.count == 4 && card.result != nil })
+        #expect(harness.requests.requests.last?.targetBytes == nil && card.fit == nil, "its chip again takes it off")
+        harness.model.fit(card, under: 20_000)
+        #expect(await eventually { harness.requests.requests.count == 5 && card.result != nil })
+        harness.model.downscale(card, to: 1)
+        #expect(await eventually { harness.requests.requests.count == 6 && card.result != nil })
         #expect(harness.requests.requests.last?.targetBytes == nil && card.fit == nil, "Original takes it off")
     }
 
@@ -124,6 +129,7 @@ import Testing
     @Test func theDropAnswersWhatTheSourceAllows() throws {
         #expect(DropTargetView.operation(for: .every) == .copy)
         #expect(DropTargetView.operation(for: [.generic, .move]) == .generic)
+        #expect(DropTargetView.operation(for: .move) == [], "never a move")
         #expect(DropTargetView.operation(for: []) == [])
         let temp = TempDir()
         let view = DropTargetView(frame: .zero)
@@ -132,8 +138,8 @@ import Testing
         view.state = state
         let drag = FakeDrag([temp.file("a.png")])
         defer { drag.draggingPasteboard.releaseGlobally() }
-        drag.draggingSourceOperationMask = .move
-        #expect(view.draggingEntered(drag) == .move)
+        drag.draggingSourceOperationMask = .generic
+        #expect(view.draggingEntered(drag) == .generic, "⌘ held")
     }
 
     /// Over a built-in preset zone the line names it in the person's language.
