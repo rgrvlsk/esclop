@@ -51,6 +51,8 @@ run; `--command <path>` installs a different `esclop` binary.
 | Amp | `amp` | `~/.config/amp/settings.json` (`amp.mcpServers`) | JSON |
 | Factory Droid | `droid` | `~/.factory/mcp.json` | JSON |
 | Qwen Code | `qwen` | `~/.qwen/settings.json` | JSON |
+| Antigravity (app and `agy` CLI) | `antigravity` | `~/.gemini/config/mcp_config.json` (as Clop uses; some guides name `~/.gemini/antigravity/mcp_config.json`, so check Antigravity → Settings → Open MCP Config if it does not load) | JSON |
+| Kimi Code | `kimi` | `~/.kimi-code/mcp.json` | JSON |
 | Warp | `warp` | none: Warp → Settings → AI → MCP Servers → Add, paste the JSON `esclop mcp install warp` prints | manual |
 
 For manual setup, use the installed CLI path. Replace `/path/to/esclop` below with its
@@ -162,6 +164,14 @@ for `esclop_crop` or `esclop_fit_under_size`, a ratio for `esclop_crop_pdf`), th
 person through the client (MCP elicitation). The question waits 120 seconds
 (`ESCLOP_MCP_ELICIT_TIMEOUT` changes it). If the client cannot ask, or nobody answers, the tool
 fails with `needsInput` and the options, so the agent can ask in the chat and call again.
+
+### Progress
+
+A tool call that carries `_meta.progressToken` gets `notifications/progress` while its files are
+worked on: `progress` counts finished work in files (1.5 is one file done and half of the next),
+`total` is the number of files, `message` names the file. Clients that reset their timeout on
+progress (the MCP spec allows it) then wait for a long video instead of giving up. Without a
+token nothing is sent.
 
 ## Troubleshooting
 

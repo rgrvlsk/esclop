@@ -61,6 +61,8 @@ final class FinderServices: NSObject {
     // MARK: Handling
 
     func handle(_ action: Action, files: [URL]) {
+        // ponytail: a folder is listed on the main actor, all of it; list it off the main actor if
+        // a large folder (a whole Pictures folder) shows as a hang.
         let media = PathInput.expand(files, recursive: true).filter { MediaKind.of($0) != nil }
         guard !media.isEmpty else {
             return model.notice(Strings.text("Nothing to optimise"), Strings.text("Choose images, videos, PDFs or audio files in Finder."))

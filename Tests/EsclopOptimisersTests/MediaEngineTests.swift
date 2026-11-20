@@ -21,6 +21,31 @@ import UniformTypeIdentifiers
         #expect(info.audio != nil)
         #expect(abs((info.duration ?? 0) - 1) < 0.2)
         #expect(result.backup != nil)
+        #expect(result.steps.contains("Removed metadata"), "stripping is the default for videos")
+    }
+
+    /// The bundled ffmpeg cannot tone-map: with Keep HDR off, HDR video stays 10-bit HDR and says
+    /// so, rather than becoming 8-bit H.264 still tagged HDR.
+    @Test func hdrVideoStaysHDRWhenThisBuildCannotMakeItSDR() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let mov = world.file("hlg.mov")
+        try await ProcessRunner.run(.ffmpeg, [
+            "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=d=1:s=640x360:r=30",
+            // The frames carry the HLG tags, so VideoToolbox writes them into the stream, as a
+            // camera does (the bundled ffmpeg has no hevc_metadata filter).
+            "-vf", "scale=out_primaries=bt2020:out_transfer=arib-std-b67:out_color_matrix=bt2020nc",
+            "-c:v", "hevc_videotoolbox", "-profile:v", "main10", "-pix_fmt", "p010le", "-q:v", "90", "-tag:v", "hvc1",
+            mov.path,
+        ])
+        #expect(try await Inspect.media(mov).video?.isHDR == true)
+        try EsclopSettings.keepHDR.set(false, in: world.settings)
+        let result = try await world.engine.convert(mov, to: .mp4, request: world.request(mov, location: .temporary), progress: { _ in })
+        let video = try #require(try await Inspect.media(result.output).video)
+        #expect(video.codec == "hevc")
+        #expect(video.pixelFormat?.contains("10") == true, "\(video.pixelFormat ?? "none")")
+        #expect(video.colorTransfer == "arib-std-b67")
+        #expect(result.steps.contains("Kept HDR: this build cannot convert HDR to SDR"))
     }
 
     /// A damaged video says so plainly: no ffprobe output, no path (UI check, F3).
@@ -518,6 +543,10 @@ import UniformTypeIdentifiers
         #expect(video?.width == 640)
         #expect(video?.height == 360)
         #expect(result.steps.contains("Not enlarged to 2560x1440; kept 640x360"))
+        // A 4:3 size crops to 480x360 and goes no further: no resize line for a no-op scale.
+        let cropped = try await world.engine.crop(mov, to: CropSize(width: 1920, height: 1440), request: world.request(mov, location: .temporary), progress: { _ in })
+        #expect(cropped.steps.contains("Cropped to 480x360"), "\(cropped.steps)")
+        #expect(!cropped.steps.contains { $0.hasPrefix("Resized to") }, "\(cropped.steps)")
         // An aspect crop whose width rounds odd (640x360 at 9:16 is 203x360) is no enlargement.
         let portrait = try await world.engine.crop(mov, to: CropSize(aspectRatio: "9:16"), request: world.request(mov, location: .temporary), progress: { _ in })
         #expect(!portrait.steps.contains { $0.hasPrefix("Not enlarged") }, "\(portrait.steps)")
@@ -583,18 +612,26 @@ import UniformTypeIdentifiers
         let noise = world.file("noise.wav")
         try Fixture.noiseWAV(noise)
         try await ProcessRunner.run(.ffmpeg, [
-            "-hide_banner", "-loglevel", "error", "-y", "-i", noise.path,
+            "-hide_banner", "-loglevel", "error", "-y", "-i", noise.path, "-f", "lavfi", "-i", "color=c=red:s=64x64:d=1",
+            "-map", "0:a", "-map", "1:v", "-frames:v", "1", "-c:v", "mjpeg", "-disposition:v", "attached_pic",
             "-c:a", "libmp3lame", "-b:a", "320k", "-metadata", "title=Cançó", "-metadata", "artist=Grup", mp3.path,
         ])
         try EsclopSettings.stripMetadata.set(true, in: world.settings)
         let kept = try await world.engine.optimise(mp3, request: world.request(mp3, location: .temporary), progress: { _ in })
         #expect(try await ffprobe(kept.output)["format"]?["tags"]?["title"]?.stringValue == "Cançó")
         #expect(kept.steps.contains { $0.hasPrefix("Encoded VBR, about ") })
+        #expect(!kept.steps.contains("Removed metadata"))
 
         var strip = world.request(mp3, location: .temporary)
         strip.stripMetadata = true
         let stripped = try await world.engine.optimise(mp3, request: strip, progress: { _ in })
         #expect(try await ffprobe(stripped.output)["format"]?["tags"]?["title"] == nil)
+        // One rule for the cover: it stays (as the cover-art setting says) unless `strip` runs.
+        #expect(stripped.steps.contains("Removed metadata"))
+        #expect(try await Inspect.media(stripped.output).hasCoverArt)
+        let bare = try await world.engine.stripMetadata(mp3, request: world.request(mp3, location: .temporary))
+        #expect(bare.steps == ["Removed metadata and artwork"])
+        #expect(try await !Inspect.media(bare.output).hasCoverArt)
     }
 
     /// Audio downscale scales the source's bitrate (it used to ignore the factor).

@@ -240,13 +240,16 @@ public struct RegistrySettingsProvider: SettingsProvider {
     }
 
     public func resetValue(forKey key: String) throws -> JSONValue {
-        _ = try descriptor(forKey: key)
+        let descriptor = try descriptor(forKey: key)
         try registry.reset(key, in: store)
-        return try registry.get(key, in: store)
+        // Not read back: a suite that is a path (`ESCLOP_SUPPORT_DIR`) still answers the removed
+        // value in this process when another process wrote it.
+        return descriptor.defaultValue
     }
 }
 
 /// In-memory settings, for tests and previews.
+/// Sendable by hand: `values` is behind `lock`.
 public final class InMemorySettingsProvider: SettingsProvider, @unchecked Sendable {
     private let lock = NSLock()
     private var values: [String: JSONValue]

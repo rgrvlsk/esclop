@@ -179,6 +179,7 @@ extension JSONValue: ExpressibleByStringLiteral, ExpressibleByIntegerLiteral, Ex
 
 /// Where setting values live. `shared` is the app's suite (see `Paths.defaultsSuite`); tests
 /// make their own. A suite name that is a path is a plist there (`<path>.plist`).
+/// Sendable by hand: `UserDefaults` is thread-safe and the rest is immutable.
 public final class SettingsStore: @unchecked Sendable {
     // UserDefaults is documented as thread safe.
     public let defaults: UserDefaults
@@ -366,6 +367,7 @@ public struct AnySetting: Sendable, Identifiable {
 
 /// Every setting esclop knows. Pre-filled with `EsclopSettings.all`; other modules (the app's
 /// appearance settings, for example) add theirs with `register`.
+/// Sendable by hand: `ordered` is behind `lock`.
 public final class SettingsRegistry: @unchecked Sendable {
     public static let shared = SettingsRegistry(EsclopSettings.all)
 

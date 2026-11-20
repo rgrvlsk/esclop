@@ -61,7 +61,7 @@ public enum EsclopSettings {
     )
     public static let keepHDR = Setting<Bool>(
         "keepHDR", default: true, title: "Keep HDR",
-        description: "Keep HDR gain maps and HDR video when the output format can carry them. Off makes photos SDR and video 8-bit, without tone mapping.",
+        description: "Keep HDR gain maps and HDR video when the output format can carry them. Off makes photos SDR; HDR video stays HDR, as this build cannot convert it to SDR.",
         section: .general
     )
 

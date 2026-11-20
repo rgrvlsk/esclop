@@ -156,20 +156,28 @@ pub struct Carry {
 pub fn carry(meta: &SourceMeta, out: &OutputParams, upright: bool) -> Carry {
     let keep = out.keep_list();
     let icc = if !out.strip || keep.contains(&Keep::Icc) { meta.icc.clone() } else { None };
-    let exif = if !out.strip {
-        meta.exif.clone().map(|mut e| {
+    let exif = match &meta.exif {
+        Some(e) if !out.strip => {
+            let mut e = e.clone();
             if upright {
                 meta::exif_set_orientation(&mut e, 1);
             }
-            e
-        })
-    } else {
-        let orientation = (keep.contains(&Keep::Orientation) && !upright).then_some(meta.orientation);
-        meta::kept_exif(meta.exif.as_deref(), orientation, keep.contains(&Keep::Icc))
+            // ponytail: a kept EXIF without XResolution does not get the PNG's or JFIF density;
+            // rebuild it with `kept_exif`'s entries if such sources lose their dpi.
+            Some(e)
+        }
+        _ => {
+            let orientation = (out.strip && keep.contains(&Keep::Orientation) && !upright).then_some(meta.orientation);
+            meta::kept_exif(meta.exif.as_deref(), orientation, keep.contains(&Keep::Icc), meta.density)
+        }
     };
-    // ponytail: XMP may repeat the orientation (tiff:Orientation); upright pixels from a rotated
-    // source drop the packet rather than rewrite it, so no viewer turns them twice.
-    let xmp = (!out.strip && (!upright || meta.orientation == 1)).then(|| meta.xmp.clone()).flatten();
+    // XMP may repeat the orientation (tiff:Orientation): upright pixels get 1 there too, so no
+    // viewer turns them twice. A packet it cannot rewrite goes.
+    let xmp = meta
+        .xmp
+        .clone()
+        .filter(|_| !out.strip)
+        .and_then(|mut x| (!upright || meta.orientation == 1 || meta::xmp_set_orientation(&mut x, 1)).then_some(x));
     Carry { icc, exif, xmp }
 }
 

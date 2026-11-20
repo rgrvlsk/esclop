@@ -135,6 +135,7 @@ struct MediaInfo: Sendable {
 }
 
 /// Reads ffmpeg's `-progress pipe:1` key=value lines and reports a fraction of `duration`.
+/// Sendable by hand: the last fraction and time are behind `lock`.
 final class FFmpegProgress: @unchecked Sendable {
     private let duration: Double
     private let sink: ProgressSink
