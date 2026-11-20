@@ -113,17 +113,25 @@ import UniformTypeIdentifiers
     }
 
     /// The default buttons of onboarding and the agent sheet, outside a window: window renders
-    /// draw them inactive (a test process is never the active app), these show the accent.
+    /// draw them inactive (a test process is never the active app), these show the accent. A test
+    /// process has no bundle accent, so macOS gives it the system's, blue under Multicolour or
+    /// Blue: the case where the app's own accent does not apply. The buttons stay charcoal.
     @Test(arguments: [ColorScheme.light, .dark])
     func primaryButtons(scheme: ColorScheme) async throws {
         let row = HStack(spacing: 12) {
-            Button("Get Started") {}.primaryButton()
-            Button("Continue") {}.primaryButton()
-            Button("Done") {}.primaryButton()
-            Button("Connect") {}.primaryButton()
+            Button(Strings.text("Get Started")) {}.primaryButton()
+            Button(Strings.text("Continue")) {}.primaryButton()
+            Button(Strings.text("Done")) {}.primaryButton()
+            Button(Strings.text("Connect")) {}.primaryButton()
         }
         .padding(OptionsType.padding)
         try await snapshot(row, name: "primary-buttons", scheme: scheme)
+
+        let renderer = ImageRenderer(content: row.environment(\.colorScheme, scheme))
+        renderer.scale = 1
+        let image = try #require(renderer.cgImage)
+        let pixel = try #require(NSBitmapImageRep(cgImage: image).colorAt(x: Int(OptionsType.padding) + 8, y: image.height / 2)?.usingColorSpace(.sRGB))
+        #expect(pixel.blueComponent < pixel.redComponent + 0.08, "system blue: \(pixel)")
     }
 
     @Test(arguments: [ColorScheme.light, .dark])

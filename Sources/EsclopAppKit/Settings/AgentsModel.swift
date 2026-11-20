@@ -100,7 +100,7 @@ public final class AgentsModel {
                 pending = change
                 outcomes[agent.id] = nil
             } else {
-                outcomes[agent.id] = .done(Strings.format("L'Esclop was not in the config of %@.", agent.name))
+                outcomes[agent.id] = .done(Strings.format("L’Esclop was not in the config of %@.", agent.name))
             }
         } catch {
             outcomes[agent.id] = .failed(Self.words(error))
@@ -115,9 +115,9 @@ public final class AgentsModel {
             try installer.apply(change)
             switch change.action {
             case .install:
-                outcomes[change.agentID] = .done(Strings.format("Connected. Restart %@, or start a new session, to load L'Esclop.", change.agentName))
+                outcomes[change.agentID] = .done(Strings.format("Connected. Restart %@, or start a new session, to load L’Esclop.", change.agentName))
             case .uninstall:
-                outcomes[change.agentID] = .done(Strings.format("Disconnected. %@ stops offering L'Esclop after a restart.", change.agentName))
+                outcomes[change.agentID] = .done(Strings.format("Disconnected. %@ stops offering L’Esclop after a restart.", change.agentName))
             }
         } catch {
             outcomes[change.agentID] = .failed(Self.words(error))
@@ -171,7 +171,7 @@ public final class AgentsModel {
         command.map(installer.manualSnippet)
     }
 
-    static var noCommand: String { Strings.text("The esclop command line was not found next to L'Esclop or in the usual bin folders. Reinstall L'Esclop, or build it with swift build --product esclop.") }
+    static var noCommand: String { Strings.text("The esclop command line was not found next to L’Esclop or in the usual bin folders. Reinstall L’Esclop, or build it with swift build --product esclop.") }
 
     /// The test result in the app's language, from the report's figures (the CLI prints the
     /// library's English `summary`).
