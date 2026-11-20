@@ -460,6 +460,17 @@ final class Flag: @unchecked Sendable {
         rig.folders.stop()
     }
 
+    /// "Show floating results" off: a batch-sized burst goes to Recent only, with no batch window.
+    @Test func aBurstOpensNoBatchWithFloatingResultsOff() async throws {
+        let rig = try Rig()
+        try EsclopSettings.showFloatingResults.set(false, in: rig.harness.settings.store)
+        let landed = (1 ... rig.harness.model.batchThreshold).map { rig.land("q \($0).png") }
+        rig.folders.received(landed)
+        #expect(await eventually { rig.harness.model.recent.count == landed.count })
+        #expect(rig.harness.model.batch == nil && rig.harness.model.cards.isEmpty)
+        rig.folders.stop()
+    }
+
     @Test func savingAPipelineWithAFolderTriggerStartsWatchingIt() throws {
         let rig = try Rig()
         let other = TempDir()

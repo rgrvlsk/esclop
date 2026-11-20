@@ -942,6 +942,8 @@ public final class AppModel {
             }
             card.loupe = nil
             var job = factory.job(for: source, origin: origin, location: wasClipboardImage ? .inPlace : nil)
+            // Its card is on screen, whatever "Show floating results" says; Retry shows it too.
+            job.request.showResultUI = true
             if besideOriginal, job.request.location == .inPlace { job.request.location = .sameFolder }
             choice.apply(to: &job.request)
             job.request.crop = kept.crop
