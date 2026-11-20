@@ -115,9 +115,13 @@ public struct EsclopEngine: OptimisationEngine {
         _ = try? FileManager.default.replaceItemAt(url, withItemAt: produced.url)
     }
 
-    /// Renders every page to PNG or JPEG into `folder`. Returns the files in page order.
-    public func extractPDFPages(_ source: URL, format: OutputFormat = .png, dpi: Int = 144, to folder: URL) async throws -> [URL] {
-        try PDFEngine(env: env).extractPages(source, format: format, dpi: dpi, to: folder)
+    /// Renders pages (1-based, all when nil) to PNG or JPEG files in `folder`, each optimised
+    /// where it is. Without a format, a page that is one photo becomes a JPEG, others PNG.
+    /// Returns the files in page order. `esclop pdf pages` and the pipelines both export here.
+    public func extractPDFPages(_ source: URL, pages: [Int]? = nil, format: OutputFormat?, dpi: Double = 144, to folder: URL) async throws -> [URL] {
+        let written = try PDFEngine(env: env).extractPages(source, pages: pages, format: format, dpi: dpi, to: folder)
+        for page in written { await optimiseNewImage(page) }
+        return written
     }
 
     /// Re-encodes a video (or audio file) at `kbps` kbit/s.

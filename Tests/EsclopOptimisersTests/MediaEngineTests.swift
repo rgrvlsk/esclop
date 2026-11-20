@@ -269,6 +269,24 @@ import UniformTypeIdentifiers
         #expect(PDFDocument(url: result.output) != nil)
     }
 
+    /// The pipelines' page export (`extractPDFPages`, which `esclop pdf pages` also uses)
+    /// optimises every page it writes: it used to leave them as rendered.
+    @Test func exportedPagesAreOptimised() async throws {
+        let world = try await TestWorld(realEngine: true)
+        defer { Task { await world.finish() } }
+        let pdf = world.file("doc.pdf")
+        try Fixture.pdf(pdf, pages: 2)
+        for format in [OutputFormat.png, .jpeg] {
+            let plain = try PDFEngine(env: world.engine.env).extractPages(pdf, format: format, dpi: 72, to: world.file("plain-\(format)"))
+            let pages = try await world.engine.extractPDFPages(pdf, format: format, dpi: 72, to: world.file("pages-\(format)"))
+            #expect(pages.map(\.lastPathComponent) == plain.map(\.lastPathComponent))
+            for (page, rendered) in zip(pages, plain) {
+                #expect(Inspect.bytes(page) < Inspect.bytes(rendered), "\(page.lastPathComponent)")
+                #expect(Inspect.type(page) == Inspect.type(rendered))
+            }
+        }
+    }
+
     @Test func dpiStopsAndAdaptiveChoice() {
         #expect(EsclopEngine.pdfDPIStops == [300, 250, 200, 150, 100, 72, 48])
         #expect(PDFResolution.stepDown(from: 300) == 250)
@@ -313,6 +331,48 @@ import UniformTypeIdentifiers
         let second = try engine.extractPages(pdf, format: .png, dpi: 18, to: folder)
         #expect(first.map(\.lastPathComponent) == ["doc-1.png", "doc-2.png", "doc-3.png"])
         #expect(second.map(\.lastPathComponent) == ["doc-1 2.png", "doc-2 2.png", "doc-3 2.png"])
+    }
+
+    /// Chosen pages only, at the asked resolution; a page outside the document fails.
+    @Test func exportsTheChosenPages() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let pdf = world.file("doc.pdf")
+        try Fixture.pdf(pdf, pages: 3)
+        let engine = PDFEngine(env: world.engine.env)
+        let written = try engine.extractPages(pdf, pages: [1, 3], format: .png, dpi: 144, to: world.file("pages"))
+        #expect(written.map(\.lastPathComponent) == ["doc-1.png", "doc-3.png"])
+        #expect(Inspect.size(written[0])! == (1224, 1584))
+        #expect(throws: EsclopError.self) { try engine.extractPages(pdf, pages: [9], format: .png, dpi: 72, to: world.folder) }
+    }
+
+    /// Without a format, a page that is one photo exports as JPEG (named .jpg) and others as PNG.
+    @Test func aPhotoPageExportsAsJPEG() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let pdf = world.file("scan.pdf")
+        var box = CGRect(x: 0, y: 0, width: 200, height: 100)
+        let context = try #require(CGContext(pdf as CFURL, mediaBox: &box, nil))
+        let photo = try #require(CGContext(
+            data: nil, width: 64, height: 32, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+        ))
+        photo.setFillColor(CGColor(red: 0.8, green: 0.3, blue: 0.1, alpha: 1))
+        photo.fill(CGRect(x: 0, y: 0, width: 32, height: 32))
+        let image = try #require(photo.makeImage())
+        context.beginPDFPage(nil)
+        context.draw(image, in: box)
+        context.endPDFPage()
+        context.beginPDFPage(nil)
+        context.setFillColor(CGColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1))
+        context.fill(box.insetBy(dx: 20, dy: 20))
+        context.endPDFPage()
+        context.closePDF()
+        let engine = PDFEngine(env: world.engine.env)
+        let written = try engine.extractPages(pdf, format: nil, dpi: 72, to: world.file("pages"))
+        #expect(written.map(\.lastPathComponent) == ["scan-1.jpg", "scan-2.png"])
+        let forced = try engine.extractPages(pdf, pages: [2], format: .jpeg, dpi: 72, to: world.file("jpeg"))
+        #expect(forced.map(\.lastPathComponent) == ["scan-2.jpg"])
     }
 }
 
