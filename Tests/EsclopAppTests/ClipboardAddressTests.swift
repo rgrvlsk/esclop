@@ -128,12 +128,11 @@ final class FakeDownload: @unchecked Sendable {
     @Test func somethingCopiedDuringTheDownloadStays() async throws {
         let harness = Harness()
         let file = harness.temp.file("cove.png")
-        let pasteboard = harness.pasteboard
         // The person copies a note while the address downloads.
         harness.model.download = { _ in
             await MainActor.run {
-                pasteboard.clearContents()
-                pasteboard.setString("a note", forType: .string)
+                harness.pasteboard.clearContents()
+                harness.pasteboard.setString("a note", forType: .string)
             }
             return file
         }
