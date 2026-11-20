@@ -2,7 +2,8 @@
 //
 // A web address the person asked for (`esclop optimise https://…`, an image dropped from a
 // browser) is downloaded into L'Esclop's temporary folder and optimised there as a local file.
-// Only on such a request: PRODUCT.md allows network operations only when the person asks.
+// Only on such a request, or a copied address of media while `optimiseURLClipboard` is on: the
+// one exception PRODUCT.md makes to network operations only when the person asks.
 
 import EsclopCore
 import Foundation

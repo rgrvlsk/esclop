@@ -6,6 +6,7 @@ import Foundation
 import SwiftUI
 import Testing
 
+@MainActor
 @Suite struct DesignTokenTests {
     @Test func theFigureWritesPercentagesAsTheLocaleDoes() {
         let english = Figure.percentParts(75, locale: Locale(identifier: "en_GB"))

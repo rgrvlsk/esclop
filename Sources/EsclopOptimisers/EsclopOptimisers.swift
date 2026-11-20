@@ -101,6 +101,20 @@ public struct EsclopEngine: OptimisationEngine {
         return try await run(.crop, source, request: request, progress: { _ in })
     }
 
+    /// Optimises an image this process just made (an exported PDF page) where it is, when that
+    /// makes it smaller, in its own format: no backup and no result record, since nothing is
+    /// replaced that anyone had. On any failure the file stays as it was.
+    public func optimiseNewImage(_ url: URL) async {
+        guard let work = try? WorkFolder(root: env.workRoot) else { return }
+        defer { work.remove() }
+        let request = OptimisationRequest(sources: [url], origin: .cli, adaptiveImageFormat: false)
+        let plan = Plan(operation: .optimise, request: request, env: env)
+        guard let produced = try? await ImageEngine(env: env).process(url, plan: plan, work: work, progress: .none),
+              OutputFormat.of(url: produced.url) == OutputFormat.of(url: url), fileSize(produced.url) < fileSize(url)
+        else { return }
+        _ = try? FileManager.default.replaceItemAt(url, withItemAt: produced.url)
+    }
+
     /// Renders every page to PNG or JPEG into `folder`. Returns the files in page order.
     public func extractPDFPages(_ source: URL, format: OutputFormat = .png, dpi: Int = 144, to folder: URL) async throws -> [URL] {
         try PDFEngine(env: env).extractPages(source, format: format, dpi: dpi, to: folder)

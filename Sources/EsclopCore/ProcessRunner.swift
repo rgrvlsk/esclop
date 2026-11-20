@@ -501,6 +501,7 @@ struct LineSplitter {
 // MARK: - Long-lived children
 
 /// A child process kept running between requests, such as `esclop-engine serve`.
+/// Sendable by hand: the output and exit state are behind `lock`.
 public final class RunningProcess: @unchecked Sendable {
     public let name: String
     /// stdout, one element per line, in order. Finishes when the child closes stdout.

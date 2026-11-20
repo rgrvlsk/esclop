@@ -105,6 +105,8 @@ enum Output {
         if nothingDone, failures.allSatisfy({ $0.code == "fileNotFound" }) { return 66 }
         if nothingDone, failures.allSatisfy({ $0.code == "toolMissing" }) { return 69 }
         if nothingDone, failures.allSatisfy({ $0.code == "unreadable" }) { return 65 }
+        // `-o photo.jpg --to webp`, a video to WebP: the request was wrong for every file (usage).
+        if nothingDone, failures.allSatisfy({ $0.code == "invalidArgument" }) { return 64 }
         return 1
     }
 
@@ -163,6 +165,7 @@ struct ConfigError: Error {
 }
 
 /// Progress on stderr, one rewritten line, only on a terminal.
+/// Sendable by hand: `shown` is behind `lock`.
 final class ProgressLine: @unchecked Sendable {
     private let enabled: Bool
     private let lock = NSLock()
@@ -188,6 +191,7 @@ final class ProgressLine: @unchecked Sendable {
 }
 
 /// Calls `handler` once on Ctrl-C, then exits with 130.
+/// Sendable by hand: `source` changes only in `init` and `cancel`, on the command's own task.
 final class InterruptHandler: @unchecked Sendable {
     private var source: DispatchSourceSignal?
 

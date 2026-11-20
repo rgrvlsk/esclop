@@ -248,9 +248,11 @@ Swift code reads typed values: `EsclopSettings.stripMetadata.value` (or `.value(
 | `optimisePDFClipboard` | Bool | `false` | clipboard | Optimise copied PDFs |
 | `optimiseAudioClipboard` | Bool | `false` | clipboard | Optimise copied audio |
 | `optimiseImagePathClipboard` | Bool | `false` | clipboard | Optimise copied image paths |
+| `optimiseURLClipboard` | Bool | `true` | clipboard | Download copied web addresses |
 | `clipboardIgnoredAppBundleIds` | [String] | `[]` | clipboard | Ignored apps |
 | `clipboardRules` | [String] | `[]` | clipboard | Clipboard rules |
 | `autoCopyToClipboard` | Bool | `true` | clipboard | Copy results to the clipboard |
+| `appendClipboardResults` | Bool | `false` | clipboard | Gather clipboard results |
 | `pauseAutomaticOptimisations` | Bool | `false` | automation | Pause automatic optimisation |
 | `enableAutomaticImageOptimisations` | Bool | `true` | images | Watch folders for images |
 | `enableAutomaticVideoOptimisations` | Bool | `true` | video | Watch folders for videos |

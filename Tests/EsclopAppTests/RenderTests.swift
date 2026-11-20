@@ -6,6 +6,7 @@
 
 import AppKit
 import EsclopCore
+import EsclopIPC
 @testable import EsclopAppKit
 import SwiftUI
 import Testing
@@ -185,6 +186,24 @@ import Testing
         ))
         tooMany.optimiseAnyway = {}
         try render(object(tooMany), name: "result-notice-action", scheme: scheme)
+    }
+
+    /// A copied web address, downloaded and optimised: a copied file's card (Copy on hover;
+    /// Save to Downloads and Save As in the detail), and the notice of a refused download.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func downloadedAddress(scheme: ColorScheme) throws {
+        let cove = WebDownload.folder.appendingPathComponent("3f9a1c2e/cove.jpg")
+        let hovered = card(.done(saved(cove)), source: cove)
+        hovered.machine.pointerEntered(at: Date())
+        let detail = card(.done(saved(cove)), source: cove)
+        detail.machine.openDetail(at: Date())
+        try render(object(hovered), name: "result-address-hover", scheme: scheme)
+        try render(object(detail), name: "result-address-detail", scheme: scheme)
+        let refused = card(.notice(
+            title: Strings.text("Could not download the copied address"),
+            detail: CardPresentation.message(for: EsclopError.other("https://example.com/cove.jpg is not an image, video, PDF or audio file (text/html)"))
+        ))
+        try render(object(refused), name: "result-address-refused", scheme: scheme)
     }
 
     /// The detail (pr2-detail-card): a dropped photo shows its folder, a copied screenshot goes back

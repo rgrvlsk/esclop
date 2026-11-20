@@ -267,7 +267,7 @@ struct ImageEngine: Sendable {
         var reply: EngineReply?
         do {
             reply = try await encode(input, inputFormat: inputFormat, to: output, target: target, curves: curves, strip: strip, work: work, report: report)
-            steps.append(encodeStep(target, curves: curves))
+            steps.append(reply?.raw["lossy"] == .bool(false) ? "Optimised without loss" : encodeStep(target, curves: curves))
         } catch EsclopError.alreadySmaller where input != source && inputFormat == target {
             // The optimiser could not beat the resized intermediate; that file is the answer.
             try FileManager.default.copyItem(at: input, to: output)
@@ -298,6 +298,10 @@ struct ImageEngine: Sendable {
         // print keeps the size it shows and prints at.
         if [.png, .jpeg].contains(OutputFormat.of(url: produced.url)), let dpi = ImageInfo.probe(produced.url)?.dpi, abs(dpi - info.dpi) >= 0.5 {
             ImageIOCodec.setDensity(produced.url, dpi: info.dpi)
+        }
+        // Last: every ImageIO rewrite above leaves the APP13 block out.
+        if !strip, input != source, sourceFormat == .jpeg, OutputFormat.of(url: produced.url) == .jpeg {
+            ImageIOCodec.copyIPTC(from: source, to: produced.url)
         }
         return produced
     }
@@ -678,6 +682,57 @@ extension ImageIOCodec {
             return
         }
         _ = try? FileManager.default.replaceItemAt(target, withItemAt: staging)
+    }
+
+    /// Copies the IPTC record (keywords, captions, credits) of a JPEG's Photoshop APP13 segments,
+    /// which `copyMetadata` leaves out, into another JPEG that has none, after its leading APP
+    /// segments. Only that resource goes: APP13 can also hold a thumbnail of the uncropped picture.
+    /// ponytail: IPTC split across two APP13 segments (over about 64 KB) or after a non-8BIM
+    /// resource is left out, and an unpadded odd last record is copied as it is; pad and join
+    /// segments if such files turn up.
+    static func copyIPTC(from source: URL, to target: URL) {
+        guard let original = try? Data(contentsOf: source), var output = try? Data(contentsOf: target) else { return }
+        let prefix = [UInt8]("Photoshop 3.0\0".utf8)
+        let bytes = [UInt8](original)
+        var records: [UInt8] = []
+        for segment in jpegHeaderSegments(original) where segment.marker == 0xED {
+            var at = segment.range.lowerBound + 4
+            guard bytes[at...].starts(with: prefix) else { continue }
+            at += prefix.count
+            // 8BIM, resource id, a Pascal name padded to even, a size, the data padded to even.
+            while at + 7 <= segment.range.upperBound, bytes[at ..< at + 4] == [0x38, 0x42, 0x49, 0x4D] {
+                let id = Int(bytes[at + 4]) << 8 | Int(bytes[at + 5])
+                let sizeAt = at + 6 + (Int(bytes[at + 6]) + 2) / 2 * 2
+                guard sizeAt + 4 <= segment.range.upperBound else { break }
+                let size = bytes[sizeAt ..< sizeAt + 4].reduce(0) { $0 << 8 | Int($1) }
+                let end = sizeAt + 4 + (size + 1) / 2 * 2
+                guard end <= segment.range.upperBound || sizeAt + 4 + size == segment.range.upperBound else { break }
+                if id == 0x0404 { records += bytes[at ..< min(end, segment.range.upperBound)] }
+                at = end
+            }
+        }
+        let header = jpegHeaderSegments(output)
+        let length = 2 + prefix.count + records.count
+        guard !records.isEmpty, length <= 0xFFFF, !header.contains(where: { $0.marker == 0xED }) else { return }
+        let at = header.prefix { (0xE0 ... 0xEC).contains($0.marker) }.last?.range.upperBound ?? 2
+        output.insert(contentsOf: [0xFF, 0xED, UInt8(length >> 8), UInt8(length & 0xFF)] + prefix + records, at: at)
+        try? output.write(to: target, options: .atomic)
+    }
+
+    /// The marker segments before the image data (start of scan), each with its marker and
+    /// length bytes; empty for a file that is not a JPEG.
+    static func jpegHeaderSegments(_ data: Data) -> [(marker: UInt8, range: Range<Int>)] {
+        let bytes = [UInt8](data)
+        guard bytes.starts(with: [0xFF, 0xD8]) else { return [] }
+        var segments: [(marker: UInt8, range: Range<Int>)] = []
+        var offset = 2
+        while offset + 4 <= bytes.count, bytes[offset] == 0xFF, bytes[offset + 1] != 0xDA {
+            let end = offset + 2 + (Int(bytes[offset + 2]) << 8 | Int(bytes[offset + 3]))
+            guard end <= bytes.count else { break }
+            segments.append((bytes[offset + 1], offset ..< end))
+            offset = end
+        }
+        return segments
     }
 }
 

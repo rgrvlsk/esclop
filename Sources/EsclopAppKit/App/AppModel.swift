@@ -26,6 +26,8 @@ public final class AppModel {
     static let writeProtection: TimeInterval = 3
     /// Every pasteboard read and write for results, and what the clipboard holds.
     @ObservationIgnored let clipboard: ClipboardKeeper
+    /// Fetches a copied web address (`WebDownload.fetch`); a fake in tests.
+    @ObservationIgnored var download: @Sendable (URL) async throws -> URL = { try await WebDownload.fetch($0) }
     /// Shows the batch window when a batch starts.
     @ObservationIgnored var onBatch: ((Batch) -> Void)?
 

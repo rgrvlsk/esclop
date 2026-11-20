@@ -80,6 +80,9 @@ pub struct SourceMeta {
     /// The XMP packet (title, keywords, ratings), as stored.
     pub xmp: Option<Vec<u8>>,
     pub orientation: u8,
+    /// Dots per inch (X, Y) from a PNG's pHYs or a JPEG's JFIF header, for an output whose EXIF
+    /// would otherwise have no resolution.
+    pub density: Option<(f64, f64)>,
 }
 
 #[derive(Debug, Clone)]
@@ -185,6 +188,7 @@ pub fn source_meta(bytes: &[u8], fmt: Format) -> SourceMeta {
                 m.icc = p.icc();
                 m.exif = p.exif().map(<[u8]>::to_vec);
                 m.xmp = p.xmp().map(<[u8]>::to_vec);
+                m.density = meta::jfif_dpi(&p);
             }
         }
         Format::Webp => {
@@ -201,8 +205,11 @@ pub fn source_meta(bytes: &[u8], fmt: Format) -> SourceMeta {
                 m.icc = d.icc_profile().ok().flatten();
                 m.exif = d.exif_metadata().ok().flatten().map(|e| meta::tiff_payload(&e).to_vec());
             }
-            if fmt == Format::Png {
-                m.xmp = meta::png_chunks(bytes).ok().and_then(|c| meta::png_xmp(&c).map(<[u8]>::to_vec));
+            if fmt == Format::Png
+                && let Ok(c) = meta::png_chunks(bytes)
+            {
+                m.xmp = meta::png_xmp(&c).map(<[u8]>::to_vec);
+                m.density = meta::png_dpi(&c);
             }
         }
         _ => {}

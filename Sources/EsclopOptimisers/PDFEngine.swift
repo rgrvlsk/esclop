@@ -164,6 +164,9 @@ struct PDFEngine: Sendable {
 
     /// Renders pages to PNG or JPEG files in `folder` (`<name>-<page>.<ext>`, or the next free
     /// name), all of them or none: a page that cannot be rendered fails the whole export.
+    /// ponytail: the pipelines' page exporter; `esclop pdf pages` uses `PDFPageTools.exportPages`,
+    /// which also optimises each page and names JPEGs `.jpg`. Give export one owner (this one
+    /// calling `optimiseNewImage`) when either side changes again.
     func extractPages(_ source: URL, format: OutputFormat, dpi: Int, to folder: URL) throws -> [URL] {
         try extractPages(source, format: format, dpi: dpi, to: folder, render: Self.render)
     }
