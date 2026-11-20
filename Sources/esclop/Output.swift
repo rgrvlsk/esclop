@@ -219,11 +219,11 @@ final class InterruptHandler: @unchecked Sendable {
 /// unchanged (exit 0, as a file already as small as it gets) with a reason that names `--force`.
 func runFileJob(
     _ operation: JobOperation, files: FileOptions, global: GlobalOptions, skipOptimised: Bool = false,
-    configure: (inout OptimisationRequest) -> Void = { _ in }
+    keep: (URL) -> Bool = { _ in true }, configure: (inout OptimisationRequest) -> Void = { _ in }
 ) async throws {
     try await runJob(
         operation, inputs: files.inputs, printing: global.printing, context: global.context(), skipOptimised: skipOptimised,
-        downloadInto: files.downloadFolder
+        downloadInto: files.downloadFolder, keep: keep
     ) { request in
         request.location = files.location
         if files.locationFromSettings { request.locationFromSettings = true }
@@ -236,12 +236,13 @@ func runFileJob(
 
 func runJob(
     _ operation: JobOperation, inputs: FileInputs, printing: Printing, context: @autoclosure () -> ServiceContext,
-    skipOptimised: Bool = false, downloadInto: URL? = nil, configure: (inout OptimisationRequest) -> Void, finished: (JobReport) -> Void
+    skipOptimised: Bool = false, downloadInto: URL? = nil, keep: (URL) -> Bool = { _ in true },
+    configure: (inout OptimisationRequest) -> Void, finished: (JobReport) -> Void
 ) async throws {
     guard !inputs.items.isEmpty else { throw ValidationError("Give at least one file or folder.") }
     try await guarded(printing) {
         var downloaded: Set<String> = []
-        var sources = try await inputs.sources(into: downloadInto) { downloaded.insert($0.path) }
+        var sources = try await inputs.sources(into: downloadInto) { downloaded.insert($0.path) }.filter(keep)
         let optimised = skipOptimised ? sources.filter(OptimisedMark.isMarked) : []
         sources.removeAll { optimised.contains($0) }
         let skipped = optimised.map { source in

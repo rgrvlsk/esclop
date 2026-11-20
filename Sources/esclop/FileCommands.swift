@@ -14,6 +14,7 @@ import Foundation
 struct Optimise: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "optimise", abstract: "Optimise images, videos, PDFs and audio files.",
+        discussion: "`esclop optimise image|video|pdf|audio <files>` takes one kind only: a file of another kind is refused, and folders give only their files of that kind. (A file named `image` in the working directory is still that file.)",
         aliases: ["optimize"]
     )
 
@@ -42,17 +43,39 @@ struct Optimise: AsyncParsableCommand {
     @Flag(inversion: .prefixedNo, help: "Images: also try a PNG without transparency as JPEG and keep the JPEG when it is much smaller. Without either flag the \"adaptive image format\" setting decides.")
     var adaptive: Bool?
 
+    @OptionGroup var bitrate: BitrateOption
+
+    /// `esclop optimise image ...`: a first word that names a kind, and no file, is that kind.
+    var onlyKind: MediaKind? {
+        guard let first = files.inputs.items.first, let kind = MediaKind(rawValue: first), !FileManager.default.fileExists(atPath: first) else { return nil }
+        return kind
+    }
+
     func validate() throws {
+        if let kind = onlyKind {
+            // A file of another kind is refused, so a script that means images never changes a video.
+            for item in files.inputs.items.dropFirst() where (try? WebDownload.address(item)) == nil {
+                var isFolder: ObjCBool = false
+                guard let url = try? PathInput.url(item), !FileManager.default.fileExists(atPath: url.path, isDirectory: &isFolder) || !isFolder.boolValue,
+                      MediaKind.of(url) != kind else { continue }
+                throw ValidationError("\(item) is not \(kind == .pdf ? "a PDF" : kind == .video ? "a video" : kind == .image ? "an image" : "an audio file"): `esclop optimise \(kind.rawValue)` takes nothing else.")
+            }
+            if files.inputs.items.count == 1 { throw ValidationError("Give at least one file or folder after `\(kind.rawValue)`.") }
+        }
         if let downscaleFactor, !(0.05 ... 1).contains(downscaleFactor) { throw ValidationError("--downscale-factor is between 0.05 and 1.") }
         if let crop { _ = try parseCrop(crop) }
         if let playbackSpeedFactor, playbackSpeedFactor <= 0 { throw ValidationError("--playback-speed-factor must be positive.") }
     }
 
     func run() async throws {
+        // `optimise image ...`: other files from folders are left out.
+        let kind = onlyKind
+        var files = files
+        if kind != nil { files.inputs.items.removeFirst() }
         let crop = try self.crop.map(parseCrop)
         // A stronger level than the regular one is a request to optimise again.
         let again = force || quality.quality.factor > CompressionQuality.normal.factor
-        try await runFileJob(.optimise, files: files, global: global, skipOptimised: !again) { request in
+        try await runFileJob(.optimise, files: files, global: global, skipOptimised: !again, keep: { kind == nil || MediaKind.of($0) == kind }) { request in
             request.quality = quality.quality
             request.adaptiveImageFormat = adaptive
             request.stripMetadata = quality.stripMetadata ? true : nil
@@ -61,10 +84,36 @@ struct Optimise: AsyncParsableCommand {
             request.pdfDPI = pdfDPI
             request.removeAudio = removeAudio
             request.playbackSpeed = playbackSpeedFactor
+            bitrate.apply(to: &request)
             if pdfDPI != nil { noteFlag("--pdf-dpi", appliesTo: [.pdf], "PDFs", sources: request.sources) }
             if removeAudio { noteFlag("--remove-audio", appliesTo: [.video], "videos", sources: request.sources) }
             if playbackSpeedFactor != nil { noteFlag("--playback-speed-factor", appliesTo: [.video, .audio], "videos and audio", sources: request.sources) }
         }
+    }
+}
+
+/// `--bitrate`: the video bitrate for videos, the audio bitrate for audio files.
+struct BitrateOption: ParsableArguments {
+    @Option(help: ArgumentHelp("Videos and audio: target bitrate in kbit/s, the video stream's for videos and the audio's for audio files.", valueName: "kbps"))
+    var bitrate: Int?
+
+    func validate() throws {
+        if let bitrate, !(8 ... 200_000).contains(bitrate) { throw ValidationError("--bitrate is in kbit/s, from 8 to 200000.") }
+    }
+
+    func apply(to request: inout OptimisationRequest) {
+        guard let bitrate else { return }
+        let kinds = Set(request.sources.compactMap(MediaKind.of))
+        if kinds.contains(.video) { request.videoBitrateKbps = bitrate }
+        if kinds.contains(.audio) {
+            // One request has one audio bitrate, which is also every video's soundtrack's.
+            if kinds.contains(.video) {
+                note("--bitrate sets the video stream's bitrate here; give audio files a command of their own for theirs")
+            } else {
+                request.audioBitrateKbps = bitrate
+            }
+        }
+        noteFlag("--bitrate", appliesTo: [.video, .audio], "videos and audio", sources: request.sources)
     }
 }
 
@@ -77,6 +126,7 @@ struct Convert: AsyncParsableCommand {
 
     @OptionGroup var files: FileOptions
     @OptionGroup var quality: QualityOptions
+    @OptionGroup var bitrate: BitrateOption
     @OptionGroup var global: GlobalOptions
 
     func run() async throws {
@@ -84,6 +134,7 @@ struct Convert: AsyncParsableCommand {
             request.format = to
             request.quality = quality.quality
             request.stripMetadata = quality.stripMetadata ? true : nil
+            bitrate.apply(to: &request)
         }
     }
 }
