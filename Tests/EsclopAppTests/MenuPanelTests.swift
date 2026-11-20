@@ -65,19 +65,34 @@ import Testing
     }
 
     /// The gear's Pause L'Esclop and the ⌃⇧P hotkey turn the same setting on and off (council
-    /// C4-F1): pausing no longer takes Settings.
-    @Test func theGearAndTheHotkeyPauseAndResume() {
+    /// C4-F1): pausing no longer takes Settings. The hotkey also posts a short notice.
+    @Test func theGearAndTheHotkeyPauseAndResume() throws {
         let harness = Harness()
         #expect(KeyboardShortcuts.Name.togglePause.defaultShortcut == .init(.p, modifiers: [.control, .shift]), "Clop's key")
         let others = Hotkeys.all.map(\.name).filter { $0 != .togglePause }.compactMap(\.defaultShortcut)
         #expect(!others.contains(.init(.p, modifiers: [.control, .shift])))
+        func notice() -> (String, String)? {
+            guard case let .notice(title, detail)? = harness.model.cards.last?.phase else { return nil }
+            return (title, detail)
+        }
+        // The hotkey says what it did: nothing else on screen shows it.
+        // The key as this keyboard layout names it.
+        let key = try #require(KeyboardShortcuts.Name.togglePause.shortcut)
         Hotkeys.action(for: .togglePause)(harness.model)
         #expect(harness.model.paused)
         #expect(EsclopSettings.pauseAutomaticOptimisations.value(in: harness.settings.store))
-        // The gear's item, as wired in `MenuPanel`.
-        harness.model.togglePause()
+        #expect(notice()?.0 == Strings.text("Paused") && notice()?.1 == Strings.format("%@ to resume", "\(key)"))
+        let deadline = try #require(harness.model.cards.last?.machine.nextDeadline)
+        #expect(deadline.timeIntervalSince(harness.model.now()) <= 2.01, "about two seconds")
+        Hotkeys.action(for: .togglePause)(harness.model)
         #expect(!harness.model.paused)
-        #expect(!EsclopSettings.pauseAutomaticOptimisations.value(in: harness.settings.store))
+        #expect(notice()?.0 == Strings.text("Resumed"))
+        #expect(harness.model.cards.count == 1, "the second notice replaces the first")
+        // The gear's item, as wired in `MenuPanel`: the open panel's line shows it, no notice.
+        harness.model.cards.forEach(harness.model.dismiss)
+        harness.model.togglePause()
+        #expect(harness.model.paused)
+        #expect(harness.model.cards.isEmpty)
         #expect(Hotkeys.all.contains { $0.name == .togglePause }, "listed in Settings › General with the other hotkeys")
     }
 

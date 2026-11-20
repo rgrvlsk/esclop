@@ -187,8 +187,22 @@ public final class AppModel {
         pauseChanged(value)
     }
 
-    /// The gear's Pause L'Esclop / Resume L'Esclop and the ⌃⇧P hotkey.
+    /// The gear's Pause L'Esclop / Resume L'Esclop.
     public func togglePause() { setPaused(!paused) }
+
+    /// The hotkey (`key`, ⌃⇧P by default): neither the glyph nor a closed panel shows the change,
+    /// so a notice says it for two seconds.
+    public func togglePause(announcing key: String) {
+        togglePause()
+        if paused {
+            notice(Strings.text("Paused"), Strings.format("%@ to resume", key))
+        } else {
+            notice(Strings.text("Resumed"), Strings.text("Copies and watched folders are optimised again."))
+        }
+        guard let card = cards.last else { return }
+        card.machine.notice(at: now(), hideAfter: hideDelayOverride.map(Self.seconds) ?? 2)
+        reschedule(card)
+    }
 
     /// `showInScreenshots`: unless it is on, as in Clop, the cards, the drop zone and the menu bar
     /// panel stay out of screenshots and screen recordings.

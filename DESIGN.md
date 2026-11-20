@@ -106,8 +106,10 @@ the app, so the app in front keeps its windows, but it takes the keys, so ⌘O w
   Clipboard Harder ⌃⇧A.
 
 Pausing is a setting (the gear, the ⌃⇧P hotkey as in Clop, Settings, Shortcuts, `esclop settings
-set`); there is no paused state on the glyph. While it is on, the panel shows one line under
-Saved, "Paused · Resume", and Resume turns the setting off (owner's decision, 2026-11-14).
+set`); there is no paused state on the glyph. The hotkey says what it did in a notice for two
+seconds ("Paused" with the key to resume, or "Resumed"). While it is on, the panel shows one
+line under Saved, "Paused · Resume", and Resume turns the setting off (owner's decision,
+2026-11-14).
 
 ## Options popover
 Opens from the "…" button of the floating result, anchored to it with a popover arrow, and acts

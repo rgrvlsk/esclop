@@ -2,8 +2,9 @@
 //
 // Global hotkeys, with Clop 3.5's default keys: Control-Shift-C optimises the clipboard,
 // Control-Shift-A optimises it harder, Control-Shift-P pauses automatic optimisation or resumes
-// it (the same setting as Settings, Shortcuts and the CLI). "Go to the newest result" has no key
-// until one is set: it gives the newest card the keys. People change them in Settings.
+// it (the same setting as Settings, Shortcuts and the CLI) and says so in a notice. "Go to the
+// newest result" has no key until one is set: it gives the newest card the keys. People change
+// them in Settings.
 // A pipeline's `hotkey:` (front matter) runs that pipeline on the clipboard; those keys follow the
 // pipeline files and are registered again whenever they change.
 
@@ -34,7 +35,7 @@ public enum Hotkeys {
         switch name {
         case .optimiseClipboardHarder: return { $0.optimiseClipboardNow(aggressive: true) }
         case .focusNewestResult: return { $0.focusNewestResult() }
-        case .togglePause: return { $0.togglePause() }
+        case .togglePause: return { $0.togglePause(announcing: KeyboardShortcuts.Name.togglePause.shortcut.map { "\($0)" } ?? "⌃⇧P") }
         default: return { $0.optimiseClipboardNow(aggressive: false) }
         }
     }
