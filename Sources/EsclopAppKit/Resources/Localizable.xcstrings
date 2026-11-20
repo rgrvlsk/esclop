@@ -411,6 +411,16 @@
         }
       }
     },
+    "%@: %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: %@"
+          }
+        }
+      }
+    },
     "%d %%": {
       "localizations": {
         "ca": {
@@ -8537,6 +8547,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "La còpia de l’original ja no hi és."
+          }
+        }
+      }
+    },
+    "The other %d files were optimised; Recent Results has them.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els altres %d fitxers s’han optimitzat; els trobaràs a Resultats recents."
+          }
+        }
+      }
+    },
+    "The other file was optimised; Recent Results has it.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’altre fitxer s’ha optimitzat; el trobaràs a Resultats recents."
           }
         }
       }
