@@ -319,3 +319,19 @@ enum Schema {
         ["type": "array", "items": ["type": "string"], "description": .string(description)]
     }
 }
+
+public extension OptimisationRequest {
+    /// The kbit/s range `--bitrate` and the MCP `bitrate` take.
+    static let bitrates = 8 ... 200_000
+
+    /// One bitrate for a request, as `--bitrate` sets it: the video stream's for videos, the
+    /// audio's for audio files. A request with both has one audio bitrate, every video's
+    /// soundtrack's too, so audio files keep theirs; false then.
+    @discardableResult
+    mutating func setBitrate(_ kbps: Int) -> Bool {
+        let kinds = Set(sources.compactMap(MediaKind.of))
+        if kinds.contains(.video) { videoBitrateKbps = kbps }
+        if kinds.contains(.audio), !kinds.contains(.video) { audioBitrateKbps = kbps }
+        return !(kinds.contains(.audio) && kinds.contains(.video))
+    }
+}

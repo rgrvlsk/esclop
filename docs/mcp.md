@@ -95,8 +95,8 @@ default when the setting says in place or names a specific folder.
 
 | Tool | What it does | Example arguments |
 |---|---|---|
-| `esclop_optimise` | Compress files. Lossy settings can change image quality. Optional `aggressive`, `compression` (0-100, higher is smaller), `downscale`, `removeAudio`, `playbackSpeed`, `pdfDPI`, `stripMetadata`. | `{"paths": ["~/Desktop/shot.png"]}` |
-| `esclop_convert` | Change format: `format` is webp, avif, jpeg, png, heic, gif, tiff, bmp, mp4, mov, webm, mkv, hevc, av1, gif-video, mp3, aac, m4a, opus, flac, wav. | `{"paths": ["clip.mov"], "format": "mp4"}` |
+| `esclop_optimise` | Compress files. Lossy settings can change image quality. Optional `aggressive`, `compression` (0-100, higher is smaller), `downscale`, `removeAudio`, `playbackSpeed`, `pdfDPI`, `bitrate` (kbit/s, as the CLI's `--bitrate`), `stripMetadata`. | `{"paths": ["~/Desktop/shot.png"]}` |
+| `esclop_convert` | Change format: `format` is webp, avif, jpeg, png, heic, gif, tiff, bmp, mp4, mov, webm, mkv, hevc, av1, gif-video, mp3, aac, m4a, opus, flac, wav. Optional `bitrate` (kbit/s). | `{"paths": ["clip.mov"], "format": "mp4"}` |
 | `esclop_downscale` | Scale down by `factor` (0.5 is half the width and height). | `{"paths": ["~/Pictures/big"], "recursive": true, "factor": 0.5}` |
 | `esclop_crop` | Exact `width`/`height`, `longEdge`, or `aspectRatio` (16:9), `smart` to keep the subject. | `{"paths": ["card.png"], "width": 1200, "height": 630}` |
 | `esclop_fit_under_size` | Shrink until each file is under `maxSize` (2MB, 500KB, bytes). | `{"paths": ["video.mp4"], "maxSize": "25MB"}` |

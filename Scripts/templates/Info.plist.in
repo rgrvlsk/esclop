@@ -42,8 +42,9 @@
 			</array>
 		</dict>
 	</array>
-	<!-- Open With and a drop on the app's icon: the files go as a drop on the drop zone does.
-	     Alternate, so L'Esclop is offered and never becomes the default app for any of them. -->
+	<!-- Open With and a drop on the app's icon: the files go as a drop on the drop zone does, a
+	     folder with the media inside it. Alternate, so L'Esclop is offered and never becomes the
+	     default app for any of them. -->
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
@@ -59,6 +60,7 @@
 				<string>public.movie</string>
 				<string>public.audio</string>
 				<string>com.adobe.pdf</string>
+				<string>public.folder</string>
 			</array>
 		</dict>
 	</array>

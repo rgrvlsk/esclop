@@ -51,14 +51,23 @@ struct Optimise: AsyncParsableCommand {
         return kind
     }
 
+    static func refusal(_ kind: MediaKind) -> String {
+        "is not \(kind == .pdf ? "a PDF" : kind == .video ? "a video" : kind == .image ? "an image" : "an audio file"): `esclop optimise \(kind.rawValue)` takes nothing else"
+    }
+
     func validate() throws {
         if let kind = onlyKind {
             // A file of another kind is refused, so a script that means images never changes a video.
-            for item in files.inputs.items.dropFirst() where (try? WebDownload.address(item)) == nil {
-                var isFolder: ObjCBool = false
-                guard let url = try? PathInput.url(item), !FileManager.default.fileExists(atPath: url.path, isDirectory: &isFolder) || !isFolder.boolValue,
-                      MediaKind.of(url) != kind else { continue }
-                throw ValidationError("\(item) is not \(kind == .pdf ? "a PDF" : kind == .video ? "a video" : kind == .image ? "an image" : "an audio file"): `esclop optimise \(kind.rawValue)` takes nothing else.")
+            for item in files.inputs.items.dropFirst() {
+                if let address = try? WebDownload.address(item) {
+                    // A path that names no kind is downloaded; `runJob` removes what arrives of another kind.
+                    guard let named = MediaKind.of(address), named != kind else { continue }
+                } else {
+                    var isFolder: ObjCBool = false
+                    guard let url = try? PathInput.url(item), !FileManager.default.fileExists(atPath: url.path, isDirectory: &isFolder) || !isFolder.boolValue,
+                          MediaKind.of(url) != kind else { continue }
+                }
+                throw ValidationError("\(item) \(Self.refusal(kind)).")
             }
             if files.inputs.items.count == 1 { throw ValidationError("Give at least one file or folder after `\(kind.rawValue)`.") }
         }
@@ -75,7 +84,8 @@ struct Optimise: AsyncParsableCommand {
         let crop = try self.crop.map(parseCrop)
         // A stronger level than the regular one is a request to optimise again.
         let again = force || quality.quality.factor > CompressionQuality.normal.factor
-        try await runFileJob(.optimise, files: files, global: global, skipOptimised: !again, keep: { kind == nil || MediaKind.of($0) == kind }) { request in
+        let keep: (URL) -> Bool = { kind == nil || MediaKind.of($0) == kind }
+        try await runFileJob(.optimise, files: files, global: global, skipOptimised: !again, keep: keep, refusal: kind.map(Self.refusal)) { request in
             request.quality = quality.quality
             request.adaptiveImageFormat = adaptive
             request.stripMetadata = quality.stripMetadata ? true : nil
@@ -98,20 +108,13 @@ struct BitrateOption: ParsableArguments {
     var bitrate: Int?
 
     func validate() throws {
-        if let bitrate, !(8 ... 200_000).contains(bitrate) { throw ValidationError("--bitrate is in kbit/s, from 8 to 200000.") }
+        if let bitrate, !OptimisationRequest.bitrates.contains(bitrate) { throw ValidationError("--bitrate is in kbit/s, from 8 to 200000.") }
     }
 
     func apply(to request: inout OptimisationRequest) {
         guard let bitrate else { return }
-        let kinds = Set(request.sources.compactMap(MediaKind.of))
-        if kinds.contains(.video) { request.videoBitrateKbps = bitrate }
-        if kinds.contains(.audio) {
-            // One request has one audio bitrate, which is also every video's soundtrack's.
-            if kinds.contains(.video) {
-                note("--bitrate sets the video stream's bitrate here; give audio files a command of their own for theirs")
-            } else {
-                request.audioBitrateKbps = bitrate
-            }
+        if !request.setBitrate(bitrate) {
+            note("--bitrate sets the video stream's bitrate here; give audio files a command of their own for theirs")
         }
         noteFlag("--bitrate", appliesTo: [.video, .audio], "videos and audio", sources: request.sources)
     }

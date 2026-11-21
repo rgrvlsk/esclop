@@ -59,6 +59,20 @@ public enum ToolCatalog {
         return Schema.object(properties, required: required)
     }
 
+    static let bitrateSchema = Schema.integer(
+        "Videos and audio: target bitrate in kbit/s, the video stream's for videos and the audio's for audio files.",
+        minimum: OptimisationRequest.bitrates.lowerBound, maximum: OptimisationRequest.bitrates.upperBound
+    )
+
+    /// `bitrate`, as the CLI's `--bitrate`.
+    static func applyBitrate(_ call: ToolCall, to request: inout OptimisationRequest) throws {
+        guard let kbps = try call.arguments.int("bitrate") else { return }
+        guard OptimisationRequest.bitrates.contains(kbps) else {
+            throw ToolFailure("bitrate is in kbit/s, from 8 to 200000", code: "invalidArgument")
+        }
+        request.setBitrate(kbps)
+    }
+
     static let fileAnnotations = MCP.Tool.Annotations(readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false)
     static let readAnnotations = MCP.Tool.Annotations(readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false)
     static let writeAnnotations = MCP.Tool.Annotations(readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false)
@@ -84,6 +98,7 @@ public enum ToolCatalog {
                     "removeAudio": Schema.bool("Videos: drop the audio track."),
                     "playbackSpeed": Schema.number("Videos: speed factor, 2 is twice as fast.", minimum: 0.1, maximum: 16),
                     "pdfDPI": Schema.integer("PDFs: resolution for images inside, e.g. 150. Lower is smaller.", minimum: 36, maximum: 600),
+                    "bitrate": bitrateSchema,
                 ]),
                 annotations: fileAnnotations
             ),
@@ -96,6 +111,7 @@ public enum ToolCatalog {
                 request.removeAudio = call.arguments.bool("removeAudio") ?? false
                 request.playbackSpeed = try call.arguments.double("playbackSpeed")
                 request.pdfDPI = try call.arguments.int("pdfDPI")
+                try applyBitrate(call, to: &request)
                 return try await runJob(call, .optimise, request)
             }
         ),
@@ -113,6 +129,7 @@ public enum ToolCatalog {
                 """,
                 inputSchema: fileSchema([
                     "format": Schema.string("Target format.", enum: OutputFormat.allCases.map(\.rawValue)),
+                    "bitrate": bitrateSchema,
                 ]),
                 annotations: fileAnnotations
             ),
@@ -137,6 +154,7 @@ public enum ToolCatalog {
                 }
                 var request = try makeRequest(call, files: files)
                 request.format = format
+                try applyBitrate(call, to: &request)
                 return try await runJob(call, .convert(format), request)
             }
         ),

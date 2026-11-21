@@ -55,7 +55,8 @@ public struct AppPipelineHost: PipelineHost {
         ("atoll", "Atoll", ["com.Ebullioscopic.Atoll"]),
     ]
     public static let uploadApps: [(name: String, title: String, bundleIDs: [String])] = [
-        ("dropshare", "Dropshare", ["net.mkswap.Dropshare5", "net.mkswap.Dropshare5-setapp"]),
+        // Setapp's Dropshare has had two bundle ids; `handOver` also looks the app up by name, as Clop does.
+        ("dropshare", "Dropshare", ["net.mkswap.Dropshare5", "net.mkswap.Dropshare5-setapp", "net.mkswap.Dropshare-setapp"]),
     ]
 
     public func perform(_ action: PipelineHostAction, file: URL, options: PipelineRunOptions) async throws -> PipelineHostOutcome {
@@ -116,7 +117,9 @@ public struct AppPipelineHost: PipelineHost {
         guard let entry = apps.first(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) else {
             return .unavailable(Strings.format("L’Esclop does not know the app “%@”.", name))
         }
-        guard let app = await desktop.installed(entry.bundleIDs).first else {
+        var found = await desktop.installed(entry.bundleIDs).first
+        if found == nil { found = await desktop.app(named: entry.title, toOpen: file) }
+        guard let app = found else {
             return .unavailable(Strings.format("%@ is not installed.", entry.title))
         }
         try await desktop.open(file, with: app)

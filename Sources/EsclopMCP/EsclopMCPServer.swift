@@ -29,12 +29,23 @@ public actor ClientState {
     public var current: Snapshot { snapshot }
 }
 
-/// Counts tool calls in flight, so `serve` can let them finish after the client closes stdin.
+/// The tool calls in flight: when the client closes stdin, `serve` stops them (a job the app runs
+/// too) and lets each answer.
 actor InFlight {
-    private var count = 0
-    func enter() { count += 1 }
-    func leave() { count -= 1 }
-    var isIdle: Bool { count == 0 }
+    private var calls: [UUID: Task<CallTool.Result, Never>] = [:]
+    var isIdle: Bool { calls.isEmpty }
+
+    /// Runs a call as a task of its own, which `stopAll` cancels as the client's cancel does.
+    func run(_ call: @escaping @Sendable () async -> CallTool.Result) async -> CallTool.Result {
+        let id = UUID()
+        let task = Task { await call() }
+        calls[id] = task
+        let result = await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
+        calls[id] = nil
+        return result
+    }
+
+    func stopAll() { calls.values.forEach { $0.cancel() } }
 }
 
 public struct EsclopMCPServer: Sendable {
@@ -90,12 +101,19 @@ public struct EsclopMCPServer: Sendable {
 
     /// Serves stdin/stdout until the client closes stdin and every call has answered.
     public func serveStdio() async throws {
-        let inFlight = InFlight()
         log("serving on stdio (esclop \(EsclopVersion.string))")
-        let server = try await start(transport: StdioTransport(), inFlight: inFlight)
+        try await serve(transport: StdioTransport())
+    }
+
+    /// Serves until the client goes. Nobody waits for its jobs then: they stop, the app's too,
+    /// and each call still answers (the transport keeps writing).
+    func serve(transport: any Transport) async throws {
+        let inFlight = InFlight()
+        let server = try await start(transport: transport, inFlight: inFlight)
         await server.waitUntilCompleted()
-        // stdin closed. Calls already running still answer: the transport keeps writing.
-        let deadline = Date().addingTimeInterval(3600)
+        await inFlight.stopAll()
+        // ponytail: a call that arrives as stdin closes may start after stopAll; it has 30 s.
+        let deadline = Date().addingTimeInterval(30)
         while !(await inFlight.isIdle), Date() < deadline {
             try? await Task.sleep(nanoseconds: 20_000_000)
         }
@@ -120,37 +138,7 @@ public struct EsclopMCPServer: Sendable {
         }
 
         await server.withMethodHandler(CallTool.self) { [weak server] params in
-            await inFlight.enter()
-            defer { Task { await inFlight.leave() } }
-            guard let spec = ToolCatalog.byName[params.name] else {
-                return ToolOutput("Unknown tool \(params.name). Tools: \(ToolCatalog.all.map(\.tool.name).joined(separator: ", "))", isError: true).result
-            }
-            var call = ToolCall(
-                name: params.name, arguments: ToolArguments(params.arguments), service: service,
-                elicitor: elicitor, client: await client.current
-            )
-            // A client that sent a progress token hears how the job goes, in order, and nothing
-            // after the result: a long video then does not hit the client's timeout.
-            let (updates, sink) = AsyncStream<ProgressNotification.Parameters>.makeStream()
-            var sender: Task<Void, Never>?
-            if let token = params._meta?.progressToken {
-                call.progress = { progress, total, message in
-                    sink.yield(.init(progressToken: token, progress: progress, total: total, message: message))
-                }
-                sender = Task { for await update in updates { try? await server?.notify(ProgressNotification.message(update)) } }
-            }
-            let output: ToolOutput
-            do {
-                output = try await spec.run(call)
-            } catch let failure as ToolFailure {
-                output = ToolOutput(failure.message, structured: ["error": .string(failure.message), "code": .string(failure.code)], isError: true)
-            } catch {
-                let wrapped = EsclopError.wrap(error)
-                output = ToolOutput(wrapped.description, structured: ["error": .string(wrapped.description), "code": .string(wrapped.code)], isError: true)
-            }
-            sink.finish()
-            await sender?.value
-            return output.result
+            await inFlight.run { [weak server] in await Self.call(params, server: server, service: service, elicitor: elicitor, client: client) }
         }
 
         await server.withMethodHandler(ListResources.self) { _ in
@@ -169,6 +157,39 @@ public struct EsclopMCPServer: Sendable {
         await server.withMethodHandler(GetPrompt.self) { params in
             try MCPPrompts.get(params.name, arguments: params.arguments ?? [:])
         }
+    }
+
+    /// One tool call: its result, or its failure as an error result.
+    static func call(_ params: CallTool.Parameters, server: Server?, service: EsclopService, elicitor: Elicitor, client: ClientState) async -> CallTool.Result {
+        guard let spec = ToolCatalog.byName[params.name] else {
+            return ToolOutput("Unknown tool \(params.name). Tools: \(ToolCatalog.all.map(\.tool.name).joined(separator: ", "))", isError: true).result
+        }
+        var call = ToolCall(
+            name: params.name, arguments: ToolArguments(params.arguments), service: service,
+            elicitor: elicitor, client: await client.current
+        )
+        // A client that sent a progress token hears how the job goes, in order, and nothing
+        // after the result: a long video then does not hit the client's timeout.
+        let (updates, sink) = AsyncStream<ProgressNotification.Parameters>.makeStream()
+        var sender: Task<Void, Never>?
+        if let token = params._meta?.progressToken {
+            call.progress = { progress, total, message in
+                sink.yield(.init(progressToken: token, progress: progress, total: total, message: message))
+            }
+            sender = Task { for await update in updates { try? await server?.notify(ProgressNotification.message(update)) } }
+        }
+        let output: ToolOutput
+        do {
+            output = try await spec.run(call)
+        } catch let failure as ToolFailure {
+            output = ToolOutput(failure.message, structured: ["error": .string(failure.message), "code": .string(failure.code)], isError: true)
+        } catch {
+            let wrapped = EsclopError.wrap(error)
+            output = ToolOutput(wrapped.description, structured: ["error": .string(wrapped.description), "code": .string(wrapped.code)], isError: true)
+        }
+        sink.finish()
+        await sender?.value
+        return output.result
     }
 }
 

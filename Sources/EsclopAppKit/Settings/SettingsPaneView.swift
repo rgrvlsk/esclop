@@ -112,7 +112,7 @@ struct SettingsPaneView: View {
                     } label: {
                         SettingLabel(
                             title: Strings.text("Settings on another Mac"),
-                            summary: Strings.text("Export saves the settings you changed as a file; Import reads it on the other Mac. Hotkeys and upload keys stay.")
+                            summary: Strings.text("Export saves the settings you changed as a file; Import reads it on the other Mac. Pipelines, hotkeys and upload keys stay on this Mac.")
                         )
                     }
                     .markable(Self.settingsFileRow)
@@ -284,15 +284,58 @@ enum SettingsFilePanels {
         panel.prompt = Strings.text("Import")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
-            let read = try SettingsFile.import(Data(contentsOf: url), into: store)
-            let title = read.values.count == 1 ? Strings.text("Imported 1 setting") : Strings.format("Imported %d settings", read.values.count)
-            let skipped = read.unknown.isEmpty ? "" : Strings.format("Skipped what this version does not know: %@.", read.unknown.joined(separator: ", "))
-            tell(title, skipped)
+            let data = try Data(contentsOf: url)
+            // A shared file must not quietly let agents run scripts or upload: asked first,
+            // without them by default.
+            var allowPermissions = false
+            let turnsOn = try SettingsFile.read(data, for: store).permissions
+            if !turnsOn.isEmpty {
+                let question = permissionsQuestion(turnsOn)
+                let alert = NSAlert()
+                alert.messageText = question.title
+                alert.informativeText = question.detail
+                alert.addButton(withTitle: Strings.text("Import Without Permissions"))
+                alert.addButton(withTitle: Strings.text("Import With Permissions"))
+                alert.addButton(withTitle: Strings.text("Cancel"))
+                switch alert.runModal() {
+                case .alertFirstButtonReturn: break
+                case .alertSecondButtonReturn: allowPermissions = true
+                default: return
+                }
+            }
+            let read = try SettingsFile.import(data, into: store, allowPermissions: allowPermissions)
+            let done = outcome(read, allowedPermissions: allowPermissions)
+            tell(done.title, done.detail)
         } catch let EsclopError.invalidArgument(reason) {
             tell(Strings.text("Could not import the settings"), Strings.text("The file is not one L’Esclop exported, or a value in it is not one its setting takes. Nothing was changed.") + "\n\n" + reason)
         } catch {
             tell(Strings.text("Could not import the settings"), error.localizedDescription)
         }
+    }
+
+    /// The question before an import that turns on agent permissions, naming each.
+    static func permissionsQuestion(_ keys: [String], locale: Locale = Strings.locale) -> (title: String, detail: String) {
+        let list = names(keys, locale: locale).map { "• " + $0 }.joined(separator: "\n")
+        return (
+            Strings.text("This file turns on agent permissions", locale: locale),
+            list + "\n\n" + Strings.text("Turn them on only if you made this file or trust whoever did.", locale: locale)
+        )
+    }
+
+    /// What the import did: how many settings, and what it left out.
+    static func outcome(_ read: SettingsFile.Read, allowedPermissions: Bool, locale: Locale = Strings.locale) -> (title: String, detail: String) {
+        let title = read.values.count == 1 ? Strings.text("Imported 1 setting", locale: locale) : Strings.format("Imported %d settings", read.values.count, locale: locale)
+        var lines: [String] = []
+        if !allowedPermissions, !read.permissions.isEmpty {
+            lines.append(Strings.format("Agent permissions left off: %@.", names(read.permissions, locale: locale).joined(separator: ", "), locale: locale))
+        }
+        if read.isNewer { lines.append(Strings.text("A newer version of L’Esclop wrote this file.", locale: locale)) }
+        if !read.unknown.isEmpty { lines.append(Strings.format("Skipped what this version does not know: %@.", read.unknown.joined(separator: ", "), locale: locale)) }
+        return (title, lines.joined(separator: "\n"))
+    }
+
+    private static func names(_ keys: [String], locale: Locale) -> [String] {
+        keys.map { SettingWords.lookup(SettingWords.titleKey($0), english: SettingsRegistry.shared.setting($0)?.title ?? $0, locale: locale) }
     }
 
     private static func tell(_ title: String, _ detail: String) {

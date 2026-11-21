@@ -361,14 +361,22 @@ final class EndlessDownload: @unchecked Sendable {
         #expect(WebDownload.Refusal.status(url, 404).description == "https://example.com/cove.jpg answered 404", "the CLI keeps its words")
     }
 
-    @Test func theHotkeyLeavesOtherLinksAlone() async throws {
+    /// An address whose path names no kind (`…/media/X?format=jpg`): copying it offers nothing,
+    /// the hotkey downloads it, as Clop's ⌃⇧C does; the content type decides (`WebDownload`).
+    @Test func theHotkeyDownloadsAnAddressWithoutAnExtension() async throws {
         let harness = Harness()
-        let fake = FakeDownload(file: harness.temp.png("cove.png"))
+        let fake = FakeDownload(file: harness.temp.png("X.png"))
         harness.model.download = { try fake.fetch($0, $1) }
-        _ = copy("https://example.com/login?token=abc123", on: harness)
+        let address = "https://pbs.example.com/media/X?format=jpg&name=large"
+        #expect(ClipboardPolicy.address(address) == nil, "a copy alone never fetches it")
+        #expect(ClipboardPolicy.address(address, anyPath: true) == URL(string: address))
+        #expect(ClipboardPolicy.address("See \(address)", anyPath: true) == nil, "still one whole address")
+        let watcher = ClipboardWatcher(pasteboard: harness.pasteboard, policy: ClipboardPolicy(factory: harness.model.factory), frontmostApp: { nil }, onAction: { _ in })
+        _ = copy(address, on: harness)
+        #expect(watcher.poll() == .ignore(.empty), "no offer on copy")
         await harness.model.optimiseClipboard(aggressive: false)
-        #expect(await eventually { harness.model.cards.first?.presentation.capsule == .notice(title: "Nothing to optimise", detail: "Copy an image or a file first.") })
-        #expect(fake.addresses.isEmpty)
+        #expect(await eventually { harness.model.cards.first?.result != nil })
+        #expect(fake.addresses == [URL(string: address)!])
     }
 
     // MARK: Gathering results (appendClipboardResults)
