@@ -25,7 +25,14 @@ struct OriginalItem: Identifiable, Sendable {
 final class OriginalsModel {
     private(set) var items: [OriginalItem] = []
     private(set) var loaded = false
+    /// The names of the originals the last removal could not delete; the window says so.
+    var removalFailures: [String] = []
     @ObservationIgnored let app: AppModel
+    /// Reads the list again when a backup is added or pruned while the window is open, by the
+    /// app, the CLI or an agent.
+    @ObservationIgnored private var watcher: FolderWatcher?
+    /// Counts the loads, so one that ends after a newer one does not put an older list back.
+    @ObservationIgnored private var loads = 0
 
     init(app: AppModel) {
         self.app = app
@@ -37,27 +44,62 @@ final class OriginalsModel {
 
     /// Reads the backups and the log off the main actor.
     func load() async {
-        let (store, log) = (store, app.service.results)
-        items = await Task.detached(priority: .userInitiated) { Self.items(store.entries(), log: log) }.value
+        loads += 1
+        let (store, log, load) = (store, app.service.results, loads)
+        let read = await Task.detached(priority: .userInitiated) { Self.items(store.entries(), log: log) }.value
+        guard load == loads else { return }
+        items = read
         loaded = true
+    }
+
+    /// While the window is open. ponytail: each burst of events (0.3 s apart) reads every
+    /// manifest and the log again, and a big batch with the window open overlaps loads (`loads`
+    /// drops the stale ones). Skip a load while one runs, then run one more, if that shows.
+    func watch() {
+        let root = store.root
+        _ = try? Paths.ensure(root)
+        let watcher = FolderWatcher(everyChange: true) { [weak self] _ in
+            Task { @MainActor in await self?.load() }
+        }
+        watcher.start([root])
+        self.watcher = watcher
+    }
+
+    func stopWatching() {
+        watcher?.stop()
+        watcher = nil
     }
 
     nonisolated static func items(_ entries: [BackupEntry], log: ResultsLog) -> [OriginalItem] {
         // ponytail: the whole log, once per load; it keeps eight days of results.
         let logged = Dictionary(log.recent(limit: .max).compactMap { result in result.backup.map { ($0.standardizedFileURL.path, result) } }, uniquingKeysWith: { newest, _ in newest })
+        let cleared = log.savings().filter { $0.redacted == true }
         return entries.map { entry in
+            if let result = logged[entry.backup.standardizedFileURL.path] {
+                return OriginalItem(entry: entry, result: result, inPlace: isInPlace(entry))
+            }
             let output = entry.output ?? entry.original
-            // ponytail: a rebuilt result has no logged id, so restoring it does not withdraw the
-            // cleared line from the saving totals; the manifest would need the result id for that.
-            let result = logged[entry.backup.standardizedFileURL.path] ?? OptimisationResult(
-                id: entry.id, source: entry.original, output: output, backup: entry.backup, kind: MediaKind.of(entry.original) ?? .image,
-                // Done when the backup was made: anything at the path changed after that goes to
-                // the Trash on restore. A backup with no output named (a file a template's output
-                // replaced) matches no size, so what is there always goes to the Trash.
-                // ponytail: its restored card then calls that file an edited version; give the
-                // no-output case its own words if templates overwriting files get common.
-                bytesBefore: entry.bytes, bytesAfter: entry.output == nil ? -1 : AppModel.size(of: output),
-                startedAt: entry.createdAt, finishedAt: entry.createdAt,
+            let kind = MediaKind.of(entry.original) ?? .image
+            // A backup with no output named (a file a template's output replaced) matches no
+            // size, so what is there always goes to the Trash. ponytail: its restored card then
+            // calls that file an edited version; give the no-output case its own words if
+            // templates overwriting files get common.
+            let bytesAfter = entry.output == nil ? -1 : AppModel.size(of: output)
+            // After Recent › Clear the log keeps each result's sizes and time, not its name. The
+            // backup is made before the encode, so its time would call the result an edit after
+            // a long encode: the first cleared line since the backup with the same sizes judges
+            // it instead. Its own line is one of those, so the time is never later than its own
+            // finish, and anything changed after that still goes to the Trash.
+            let line = cleared.filter { saving in
+                saving.kind == kind && saving.bytesBefore == entry.bytes && saving.bytesAfter == bytesAfter
+                    && saving.finishedAt >= entry.createdAt.addingTimeInterval(-2)
+            }.map(\.finishedAt).min()
+            // ponytail: the rebuilt result keeps the backup's id, never a line's (two files of one
+            // size would swap them), so restoring it leaves the cleared line in the saving totals.
+            let result = OptimisationResult(
+                id: entry.id, source: entry.original, output: output, backup: entry.backup, kind: kind,
+                bytesBefore: entry.bytes, bytesAfter: bytesAfter,
+                startedAt: entry.createdAt, finishedAt: line ?? entry.createdAt,
                 requestID: entry.requestID
             )
             return OriginalItem(entry: entry, result: result, inPlace: isInPlace(entry))
@@ -67,24 +109,50 @@ final class OriginalsModel {
     /// The file at the original's path is the original again: its size, and no converted output
     /// beside it. ponytail: size only, as `holdsOutput` judges by size and date.
     nonisolated static func isInPlace(_ entry: BackupEntry) -> Bool {
+        isInPlace(original: entry.original, bytes: entry.bytes, output: entry.output)
+    }
+
+    /// The same for a result: `AppModel.putBack` skips an original already back.
+    nonisolated static func isInPlace(original: URL, bytes: Int, output: URL?) -> Bool {
         let fm = FileManager.default
-        guard fm.fileExists(atPath: entry.original.path), AppModel.size(of: entry.original) == entry.bytes else { return false }
-        guard let output = entry.output, output.standardizedFileURL != entry.original.standardizedFileURL else { return true }
+        guard fm.fileExists(atPath: original.path), AppModel.size(of: original) == bytes else { return false }
+        guard let output, output.standardizedFileURL != original.standardizedFileURL else { return true }
         return !fm.fileExists(atPath: output.path)
     }
 
-    func restore(_ item: OriginalItem) async {
-        if await app.restore(item.result) { await load() }
+    func restore(_ items: [OriginalItem]) async {
+        var restored = false
+        for item in items where !item.inPlace {
+            if await app.restore(item.result) { restored = true }
+        }
+        if restored { await load() }
     }
 
-    /// Deletes every kept original: none of these files can be restored afterwards.
-    func removeAll() async {
+    /// Deletes kept originals: they can no longer be restored. The ones that could not be
+    /// deleted are named in `removalFailures`.
+    func remove(_ items: [OriginalItem]) async {
         let (store, entries) = (store, items.map(\.entry))
-        await Task.detached(priority: .userInitiated) { for entry in entries { try? store.delete(entry) } }.value
+        removalFailures = await Task.detached(priority: .userInitiated) {
+            entries.compactMap { entry in
+                do {
+                    try store.delete(entry)
+                    return nil
+                } catch {
+                    return entry.original.lastPathComponent
+                }
+            }
+        }.value
         await load()
     }
 
-    func reveal(_ item: OriginalItem) {
-        app.reveal([item.entry.backup])
+    func removeAll() async { await remove(items) }
+
+    func reveal(_ items: [OriginalItem]) {
+        app.reveal(items.map(\.entry.backup))
+    }
+
+    /// The selected items, in the list's order.
+    func items(_ ids: Set<OriginalItem.ID>) -> [OriginalItem] {
+        items.filter { ids.contains($0.id) }
     }
 }
