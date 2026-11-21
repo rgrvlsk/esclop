@@ -52,7 +52,8 @@ public final class SettingsViewModel {
     public var pane: SettingsPane = .general
     /// The row a deep link or a search result points at; the pane scrolls to it and marks it.
     public var highlighted: String?
-    /// The marked row, once it is in view; the pane scrolls until it is.
+    /// The marked row, once it has been in view; the pane scrolls until it is. Only a new link
+    /// clears it.
     @ObservationIgnored var markInView: String?
     public private(set) var descriptors: [SettingDescriptor] = []
     /// Choices the pickers leave out, by key: the video encoders this ffmpeg lacks. The value

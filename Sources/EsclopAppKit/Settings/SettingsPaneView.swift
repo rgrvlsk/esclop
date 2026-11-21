@@ -246,9 +246,11 @@ private struct MarkableRow: ViewModifier {
             }
             .accessibilityAddTraits(on ? .isSelected : [])
             .onGeometryChange(for: Bool.self) { Self.isInView($0) } action: { inView = $0 }
+            // Only "now in view": a copy of the row the lazy Form makes or drops out of view must
+            // not take back what the shown row said. Seen on the macOS 15 runner, for a row that
+            // does not move; the cause is inferred. A new link clears it (`SettingsViewModel.open`).
             .onChange(of: on && inView, initial: true) { _, shown in
-                guard let model else { return }
-                if shown { model.markInView = id } else if model.markInView == id { model.markInView = nil }
+                if shown { model?.markInView = id }
             }
     }
 
