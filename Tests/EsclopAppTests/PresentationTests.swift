@@ -20,6 +20,38 @@ import Testing
     let ca = Locale(identifier: "ca_ES")
     let nbsp = "\u{00A0}"
 
+    /// Pages as Images only for a PDF of the person's, Extract Cover only for audio with a
+    /// cover; a pages card stands for its folder (HC-37, K2, K3).
+    @Test func besideTheFileActionsAppearOnlyWhereTheyApply() {
+        func card(_ path: String, kind: MediaKind, origin: RequestOrigin = .dropZone) -> ResultCard {
+            let url = URL(fileURLWithPath: path)
+            let result = OptimisationResult(source: url, output: url, backup: URL(fileURLWithPath: "/tmp/backup"), kind: kind, bytesBefore: 2_000_000, bytesAfter: 1_000_000, startedAt: Date(), finishedAt: Date())
+            return ResultCard(jobID: UUID(), source: url, origin: origin, bytesBefore: 2_000_000, phase: .done(result))
+        }
+        #expect(card("/tmp/Dossier.pdf", kind: .pdf).presentation.menu == [.more, .compare, .pagesAsImages, .share, .trash])
+        #expect(!card("/tmp/Beach.jpg", kind: .image).presentation.menu.contains(.pagesAsImages))
+        let song = card("/tmp/Song.mp3", kind: .audio)
+        #expect(!song.presentation.menu.contains(.extractCover), "no cover, no Extract Cover")
+        song.hasCoverArt = true
+        #expect(song.presentation.menu == [.convertOptions, .compare, .extractCover, .share, .trash])
+        let copied = card("/tmp/Song.mp3", kind: .audio, origin: .clipboard)
+        copied.hasCoverArt = true
+        #expect(!copied.presentation.menu.contains(.extractCover), "nothing written beside a copied file")
+        #expect(CardPresentation.Action.pagesAsImages.title == "Pages as Images")
+        #expect(CardPresentation.Action.extractCover.title == "Extract Cover")
+
+        let folder = URL(fileURLWithPath: "/tmp/Dossier pages", isDirectory: true)
+        let pages = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/tmp/Dossier.pdf"), origin: .app, bytesBefore: 2_000_000, phase: .done(OptimisationResult(
+            source: URL(fileURLWithPath: "/tmp/Dossier.pdf"), output: folder, kind: .image, bytesBefore: 2_000_000, bytesAfter: 3_100_000, startedAt: Date(), finishedAt: Date()
+        )))
+        pages.pages = 12
+        let info = CardPresentation(card: pages, locale: en)
+        #expect(info.fileName == "Dossier pages")
+        #expect(info.capsule == .status(symbol: "photo.on.rectangle.angled", text: "12 pages · 3.1\(nbsp)MB"))
+        #expect(info.primary == .reveal && info.secondary == [.copy] && info.menu == [.share, .trash] && info.tools == [.reveal])
+        #expect(pages.shownFile == folder, "Show in Finder, Copy and a drag give the folder")
+    }
+
     @Test func figuresAreWrittenTheWayTheDesignShowsThem() {
         #expect(Figures.bytes(612_000, locale: en) == "612\(nbsp)kB")
         #expect(Figures.bytes(2_400_000, locale: en) == "2.4\(nbsp)MB")

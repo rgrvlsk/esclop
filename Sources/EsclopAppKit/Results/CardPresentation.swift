@@ -46,6 +46,10 @@ public struct CardPresentation: Equatable, Sendable {
         case convertOptions
         /// A watched-folder notice about too many files at once: optimise them after all.
         case optimiseAnyway
+        /// A PDF's pages as optimised images, in a folder beside it (`esclop pdf pages`).
+        case pagesAsImages
+        /// An audio file's cover art as an optimised image beside it, a result of its own.
+        case extractCover
         /// The offer of a copied web address of media: download it, then optimise it.
         case download
 
@@ -76,6 +80,8 @@ public struct CardPresentation: Equatable, Sendable {
             case .trash: return Strings.text("Move to Trash")
             case .convertOptions: return Strings.text("Convert…")
             case .optimiseAnyway: return Strings.text("Optimise Them Anyway")
+            case .pagesAsImages: return Strings.text("Pages as Images")
+            case .extractCover: return Strings.text("Extract Cover")
             case .download: return Strings.text("Download and optimise")
             }
         }
@@ -122,6 +128,8 @@ public struct CardPresentation: Equatable, Sendable {
             case .share: return "square.and.arrow.up"
             case .trash: return "trash"
             case .optimiseAnyway: return "arrow.forward"
+            case .pagesAsImages: return "photo.on.rectangle.angled"
+            case .extractCover: return "photo"
             case .download: return "arrow.down"
             }
         }
@@ -216,6 +224,25 @@ public struct CardPresentation: Equatable, Sendable {
             // A detail left open while the file runs again stops it with its charcoal button.
             primary = .stop
             accessibilityLabel = card.downloading ? f("%@, downloading", name) : f("%@, optimising, %@", name, Figures.bytes(card.bytesBefore, locale: locale))
+        case let .done(result) where card.pages != nil:
+            // A PDF's pages as images: the card stands for their folder, which Show in Finder,
+            // Copy, Share… and a drag give. Nothing to undo, convert or compare.
+            let pages = card.pages ?? 0
+            let count = pages == 1 ? t("1 page") : f("%d pages", pages)
+            fileName = card.displayName ?? result.output.lastPathComponent
+            capsule = .status(symbol: Action.pagesAsImages.symbol, text: f("%@ · %@", count, Figures.bytes(result.bytesAfter, locale: locale)))
+            headline = count
+            caption = fileName
+            tone = .neutral
+            change = Figures.bytes(result.bytesAfter, locale: locale)
+            formats = change
+            tools = [.reveal]
+            primary = .reveal
+            primaryDetail = FileManager.default.displayName(atPath: result.output.deletingLastPathComponent().path)
+            secondary = [.copy]
+            menu = [.share, .trash]
+            actions = [.openDetail, .reveal, .copy, .dismiss]
+            accessibilityLabel = "\(fileName), \(count)"
         case let .done(result):
             fileName = card.displayName ?? result.output.lastPathComponent
             if Figures.isNoSaving(before: result.bytesBefore, after: result.bytesAfter) {
@@ -359,7 +386,10 @@ public struct CardPresentation: Equatable, Sendable {
         let beside: Action = clipboard ? (card.savedCopy == nil ? .save : .reveal) : .copy
         // Trash only for an optimised file of the person's: never a copied image's temporary file,
         // and never an original left as it was or restored.
-        let menu: [Action] = [editing.isEmpty ? .more : .convertOptions] + (compare ? [.compare] : []) + [.share]
+        // What a file of the person's gives beside it: a PDF's pages, an audio file's cover.
+        let extras: [Action] = clipboard ? [] : (MediaKind.of(card.shownFile) == .pdf ? [.pagesAsImages] : [])
+            + (card.hasCoverArt && MediaKind.of(card.shownFile) == .audio ? [.extractCover] : [])
+        let menu: [Action] = [editing.isEmpty ? .more : .convertOptions] + (compare ? [.compare] : []) + extras + [.share]
             + (clipboard ? [.saveAs] : []) + (trash && !clipboard ? [.trash] : [])
         return (clipboard ? .copy : .reveal, detail, [beside] + (undo ? [.undo] : []), menu)
     }

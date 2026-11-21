@@ -207,6 +207,7 @@ Swift code reads typed values: `EsclopSettings.stripMetadata.value` (or `.value(
 | `downscaleRetinaImages` | Bool | `false` | images | Downscale Retina screenshots |
 | `maxImageSizeMB` | Int | `50` | images | Largest image to optimise automatically |
 | `minImageSizeKB` | Int | `50` | images | Smallest image to optimise automatically |
+| `cropSizes` | [String] | `[]` | images | Saved crop sizes |
 | `videoCompression` | Int | `50` | video | Video compression |
 | `videoAggressiveCompression` | Int | `70` | video | Aggressive video compression |
 | `videoEncoder` | VideoEncoder | `h264_videotoolbox` | video | Video encoder |

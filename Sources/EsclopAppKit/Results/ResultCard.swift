@@ -83,6 +83,10 @@ public final class ResultCard: Identifiable {
     /// The card has the keys the hotkey lent it: Esc, or Undo, Copy or Save, gives them back to
     /// the app in front.
     public var lentKeys = false
+    /// An audio file whose original carries cover art: "…" offers Extract Cover.
+    public var hasCoverArt = false
+    /// A PDF's pages saved as images: the card stands for their folder, with this many pages.
+    public var pages: Int?
     /// The detail's picture is a loupe (Compare); nil when it is not.
     public var loupe: LoupeState?
     /// The row of the detail's "…" menu under the pointer or the arrow keys.

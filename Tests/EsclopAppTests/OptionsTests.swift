@@ -5,6 +5,7 @@
 
 import AppKit
 import EsclopCore
+import EsclopIPC
 @testable import EsclopAppKit
 import Foundation
 import ImageIO
@@ -329,6 +330,125 @@ import UniformTypeIdentifiers
     }
 }
 
+/// The Crop tab's Smart framing, saved sizes and paper and device shapes (HC-37, K1).
+@MainActor
+@Suite struct CropTabTests {
+    final class Asked: @unchecked Sendable { var urls: [URL] = [] }
+
+    func options(_ harness: Harness) -> (OptionsModel, URL) {
+        let file = harness.temp.png("photo.png")
+        let result = OptimisationResult(source: file, output: file, kind: .image, bytesBefore: 1000, bytesAfter: 900, startedAt: Date(), finishedAt: Date())
+        let card = ResultCard(jobID: result.id, source: file, origin: .dropZone, bytesBefore: 1000, phase: .done(result))
+        harness.model.add(card)
+        let options = OptionsModel(card: card, app: harness.model)
+        options.facts = FileFacts(width: 3000, height: 2000)
+        return (options, file)
+    }
+
+    /// Smart asks the engine's smart crop where the subject is, on the original, and puts the
+    /// frame there; Centre puts it back in the middle.
+    @Test func smartFramingUsesTheEnginesSubject() async throws {
+        let harness = Harness()
+        let (options, file) = options(harness)
+        let asked = Asked()
+        options.findFocus = { url in
+            asked.urls.append(url)
+            return CGPoint(x: 0.95, y: 0.5)
+        }
+        #expect(options.offersFraming)
+        options.startCrop(aspect: .ratio(1, 1))
+        #expect(options.crop?.rect == CGRect(x: 500, y: 0, width: 2000, height: 2000))
+        await options.setFraming(.smart)
+        #expect(asked.urls == [file])
+        #expect(options.crop?.rect == CGRect(x: 1000, y: 0, width: 2000, height: 2000), "on the subject, inside the picture")
+        options.startCrop(aspect: .preset("iPad"))
+        #expect(options.crop?.rect.maxX == 3000, "a new shape lands on the subject too")
+        await options.setFraming(.centre)
+        #expect(options.crop.map { abs($0.rect.midX - 1500) <= 1 } == true)
+        await options.setFraming(.smart)
+        #expect(asked.urls.count == 1, "Vision looks once per popover")
+        #expect(options.crop?.cropSize?.rect != nil, "the engine cuts the frame that is shown")
+        // A frame resized by hand keeps its size when it moves; a typed size lands on the subject.
+        options.crop?.drag(.bottomLeft, by: CGSize(width: 400, height: -400))
+        let size = try #require(options.crop?.rect.size)
+        await options.setFraming(.centre)
+        #expect(options.crop?.rect.size == size)
+        await options.setFraming(.smart)
+        options.setSize(width: 1080, height: 1080)
+        #expect(options.crop?.rect.maxX == 3000 && options.crop?.typed?.width == 1080)
+    }
+
+    /// Smart that finds nothing goes back to Centre and does not ask again.
+    @Test func smartThatFindsNothingFallsBackToCentre() async {
+        let harness = Harness()
+        let (options, _) = options(harness)
+        let asked = Asked()
+        options.findFocus = { url in
+            asked.urls.append(url)
+            return nil
+        }
+        await options.setFraming(.smart)
+        await options.setFraming(.smart)
+        #expect(options.framing == .centre && asked.urls.count == 1)
+    }
+
+    /// Pages as Images writes every page into "<name> pages" beside the PDF, through the one
+    /// page exporter (which optimises each page), and shows a card that stands for the folder.
+    @Test func pagesAsImagesShowsTheirFolder() async throws {
+        let harness = Harness()
+        let pdf = harness.temp.url.appendingPathComponent("Dossier.pdf")
+        var box = CGRect(x: 0, y: 0, width: 200, height: 300)
+        let context = try #require(CGContext(pdf as CFURL, mediaBox: &box, nil))
+        for shade in [0.2, 0.6] {
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(red: shade, green: 0.4, blue: 0.8, alpha: 1))
+            context.fill(CGRect(x: 20, y: 20, width: 160, height: 260))
+            context.endPDFPage()
+        }
+        context.closePDF()
+        let result = OptimisationResult(source: pdf, output: pdf, kind: .pdf, bytesBefore: 1000, bytesAfter: 900, startedAt: Date(), finishedAt: Date())
+        let card = ResultCard(jobID: result.id, source: pdf, origin: .dropZone, bytesBefore: 1000, phase: .done(result))
+        harness.model.add(card)
+        harness.model.perform(.pagesAsImages, on: card)
+        #expect(await eventually { harness.model.cards.contains { $0.pages == 2 } })
+        let pages = try #require(harness.model.cards.first { $0.pages != nil })
+        let folder = harness.temp.url.appendingPathComponent("Dossier pages", isDirectory: true)
+        #expect(pages.shownFile.standardizedFileURL.path == folder.standardizedFileURL.path)
+        let names = try FileManager.default.contentsOfDirectory(atPath: folder.path).sorted()
+        #expect(names == ["Dossier-1.png", "Dossier-2.png"])
+        #expect(pages.presentation.capsule == .status(symbol: "photo.on.rectangle.angled", text: "2 pages · \(Figures.bytes(pages.result?.bytesAfter ?? 0))"))
+        // Again: a folder of its own, so its Trash never takes the first export.
+        harness.model.perform(.pagesAsImages, on: card)
+        #expect(await eventually { harness.model.cards.filter { $0.pages != nil }.count == 2 })
+        let again = try #require(harness.model.cards.last { $0.pages != nil })
+        #expect(again.shownFile.lastPathComponent == "Dossier pages 2")
+        #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path).count == 2)
+    }
+
+    /// A typed size is kept for next time: five at most, newest first, in one setting.
+    @Test func typedSizesAreSavedNewestFirst() {
+        let harness = Harness()
+        let (options, _) = options(harness)
+        for width in [100, 200, 300, 400, 500, 600] {
+            options.startCrop(aspect: .free)
+            options.setSize(width: width, height: 100)
+            options.applyCrop()
+        }
+        options.startCrop(aspect: .ratio(4, 3))
+        options.applyCrop()
+        #expect(EsclopSettings.cropSizes.value(in: harness.settings.store) == ["600x100", "500x100", "400x100", "300x100", "200x100"])
+        options.useSavedSize(width: 300, height: 100)
+        options.applyCrop()
+        #expect(options.savedSizes.map(\.width) == [300, 600, 500, 400, 200], "used again, it comes first")
+        #expect(options.crop?.typed?.width == 300 && options.crop?.outputWidth == 300 && options.crop?.outputHeight == 100)
+        // Larger than the picture: saved as typed, the crop itself never enlarges.
+        options.setSize(width: 6000, height: 4000)
+        options.applyCrop()
+        #expect(EsclopSettings.cropSizes.value(in: harness.settings.store).first == "6000x4000")
+        #expect(options.crop?.outputWidth == 3000)
+    }
+}
+
 @Suite struct SizeModelTests {
     let recording = MediaFacts(width: 2880, height: 1800, fps: 60, duration: 40, hasAudio: false)
 
@@ -387,6 +507,19 @@ import UniformTypeIdentifiers
         crop.drag(.bottomRight, by: CGSize(width: -100, height: -20))
         #expect(crop.rect.width == crop.rect.height)
         #expect(crop.rect.minX == 50 && crop.rect.minY == 0, "the opposite corner stays put")
+    }
+
+    /// Paper and device shapes are the list `esclop pdf crop` takes, portrait, by name.
+    @Test func paperAndDeviceShapesComeFromTheCLIList() {
+        #expect(AspectRatio.presets.map(\.name) == AspectRatio.paperSizes.map(\.name) + AspectRatio.devices.map(\.name))
+        for preset in AspectRatio.presets {
+            #expect(CropAspect.preset(preset.name).value == preset.width / preset.height)
+        }
+        var crop = CropGeometry(imageWidth: 3000, imageHeight: 2000)
+        crop.setAspect(.preset("A4"))
+        #expect(crop.rect.height == 2000 && abs(crop.rect.width - 2000 * 210 / 297) <= 0.5)
+        crop.setAspect(.ratio(1, 1), focus: CGPoint(x: 0, y: 0))
+        #expect(crop.rect == CGRect(x: 0, y: 0, width: 2000, height: 2000), "a focus at the edge keeps the frame inside")
     }
 
     @Test func typedSizeLocksTheShapeAndScales() {

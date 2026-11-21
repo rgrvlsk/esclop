@@ -3,15 +3,19 @@
 // The crop editor's arithmetic, in image pixels with the origin at the top left: aspect presets
 // that centre the largest rectangle of that shape, a free crop dragged by its corners and edges,
 // moving the whole rectangle, and an output size in pixels. Typing a size of another shape locks
-// the crop to that shape and scales to it, the way Clop's crop field takes "1920x1080".
+// the crop to that shape and scales to it, the way Clop's crop field takes "1920x1080". Paper and
+// device shapes come from the list `esclop pdf crop --paper-size` and `--for-device` take.
 
 import CoreGraphics
 import EsclopCore
+import EsclopIPC
 import Foundation
 
 public enum CropAspect: Hashable, Sendable, Identifiable {
     case free
     case ratio(Int, Int)
+    /// A paper size or device by its name in `AspectRatio.presets`, portrait as the CLI takes it.
+    case preset(String)
 
     public static let presets: [CropAspect] = [.free, .ratio(1, 1), .ratio(4, 3), .ratio(16, 9), .ratio(9, 16), .ratio(3, 2)]
 
@@ -21,13 +25,23 @@ public enum CropAspect: Hashable, Sendable, Identifiable {
         switch self {
         case .free: return Strings.text("Free")
         case let .ratio(w, h): return "\(w):\(h)"
+        case let .preset(name): return name
         }
     }
 
     var value: Double? {
-        if case let .ratio(w, h) = self, w > 0, h > 0 { return Double(w) / Double(h) }
-        return nil
+        switch self {
+        case .free: return nil
+        case let .ratio(w, h): return w > 0 && h > 0 ? Double(w) / Double(h) : nil
+        case let .preset(name): return AspectRatio.presets.first { $0.name == name }.map { $0.width / $0.height }
+        }
     }
+}
+
+/// Where a shape's frame lands in the picture: the middle, or what Vision finds salient (the
+/// engine's smart crop, as in the CLI, Shortcuts and pipelines).
+public enum CropFraming: Sendable {
+    case centre, smart
 }
 
 public struct CropGeometry: Equatable, Sendable {
@@ -41,6 +55,9 @@ public struct CropGeometry: Equatable, Sendable {
     public private(set) var aspect: CropAspect = .free
     /// The output size when it differs from the rectangle (the picture is scaled to it).
     public private(set) var output: (width: Int, height: Int)?
+    /// The size as typed (or chosen from the saved ones), kept until the frame changes shape or
+    /// size: Crop saves it. It can be larger than `output`, which never enlarges.
+    public private(set) var typed: (width: Int, height: Int)?
     /// Smallest side of the rectangle, in pixels.
     static let minimum: CGFloat = 16
 
@@ -52,15 +69,17 @@ public struct CropGeometry: Equatable, Sendable {
 
     public static func == (lhs: CropGeometry, rhs: CropGeometry) -> Bool {
         lhs.imageWidth == rhs.imageWidth && lhs.imageHeight == rhs.imageHeight && lhs.rect == rhs.rect && lhs.aspect == rhs.aspect
-            && lhs.output?.width == rhs.output?.width && lhs.output?.height == rhs.output?.height
+            && lhs.output?.width == rhs.output?.width && lhs.output?.height == rhs.output?.height && lhs.typed?.width == rhs.typed?.width && lhs.typed?.height == rhs.typed?.height
     }
 
     var bounds: CGRect { CGRect(x: 0, y: 0, width: imageWidth, height: imageHeight) }
 
-    /// The largest rectangle of the aspect, centred on the current one and kept inside the image.
-    public mutating func setAspect(_ aspect: CropAspect) {
+    /// The largest rectangle of the aspect, kept inside the image and centred on `focus` (a point
+    /// of the picture from 0 to 1, origin at the top left), else on the current rectangle.
+    public mutating func setAspect(_ aspect: CropAspect, focus: CGPoint? = nil) {
         self.aspect = aspect
         output = nil
+        typed = nil
         guard let ratio = aspect.value else { return }
         var width = CGFloat(imageWidth)
         var height = width / ratio
@@ -68,7 +87,8 @@ public struct CropGeometry: Equatable, Sendable {
             height = CGFloat(imageHeight)
             width = height * ratio
         }
-        rect = Self.rounded(centred(CGSize(width: width, height: height), on: CGPoint(x: rect.midX, y: rect.midY)))
+        let centre = focus.map { CGPoint(x: $0.x * CGFloat(imageWidth), y: $0.y * CGFloat(imageHeight)) } ?? CGPoint(x: rect.midX, y: rect.midY)
+        rect = Self.rounded(centred(CGSize(width: width, height: height), on: centre))
     }
 
     /// Drags one handle by `delta` pixels, keeping the aspect when one is set.
@@ -102,6 +122,7 @@ public struct CropGeometry: Equatable, Sendable {
         }
         rect = Self.rounded(r)
         output = nil
+        typed = nil
     }
 
     /// Moves the whole rectangle, staying inside the image.
@@ -111,14 +132,15 @@ public struct CropGeometry: Equatable, Sendable {
 
     /// The output size typed in pixels. Another shape locks the crop to it; the picture is then
     /// scaled down (never up) to that size.
-    public mutating func setOutput(width: Int, height: Int) {
+    public mutating func setOutput(width: Int, height: Int, focus: CGPoint? = nil) {
         guard width > 0, height > 0 else { return }
         let ratio = Double(width) / Double(height)
         if abs(ratio - Double(rect.width / rect.height)) > 0.005 {
             let divisor = gcd(width, height)
-            setAspect(.ratio(width / divisor, height / divisor))
+            setAspect(.ratio(width / divisor, height / divisor), focus: focus)
         }
         output = Int(rect.width) == width && Int(rect.height) == height ? nil : (min(width, Int(rect.width)), min(height, Int(rect.height)))
+        typed = (width, height)
     }
 
     public var outputWidth: Int { output?.width ?? Int(rect.width) }

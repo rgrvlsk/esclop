@@ -547,7 +547,10 @@ public final class AppModel {
                 row?.state = error == .cancelled ? .cancelled : .failed(CardPresentation.message(for: error))
             }
         }
-        if let card { settle(card) }
+        if let card {
+            settle(card)
+            lookForCover(card)
+        }
         if let batch, !batch.isRunning {
             announce(BatchPresentation(batch: batch).announcement)
             copyLinks(of: batch)
@@ -923,6 +926,10 @@ public final class AppModel {
             openOptions(card)
         case .trash:
             trash(card)
+        case .pagesAsImages:
+            exportPages(card)
+        case .extractCover:
+            extractCover(card)
         case .optimiseAnyway, .download:
             card.noticeAction?.run()
             dismiss(card)
@@ -1120,6 +1127,7 @@ public final class AppModel {
         add(card)
         loadThumbnail(card, url: result.output)
         if let backup = result.backup { loadThumbnail(card, url: backup, original: true) }
+        lookForCover(card)
         settle(card)
         return card
     }

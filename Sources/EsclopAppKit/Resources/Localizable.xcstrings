@@ -311,6 +311,16 @@
         }
       }
     },
+    "%@ · %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %@"
+          }
+        }
+      }
+    },
     "%@, %@": {
       "localizations": {
         "ca": {
@@ -10691,6 +10701,36 @@
         }
       }
     },
+    "Centre": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Al centre"
+          }
+        }
+      }
+    },
+    "Could not extract the cover of %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha pogut extreure la portada de %@"
+          }
+        }
+      }
+    },
+    "Could not save the pages of %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’han pogut desar les pàgines de %@"
+          }
+        }
+      }
+    },
     "date": {
       "localizations": {
         "ca": {
@@ -10741,6 +10781,16 @@
         }
       }
     },
+    "Devices": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dispositius"
+          }
+        }
+      }
+    },
     "endpoint/bucket/file; off: bucket.endpoint/file": {
       "localizations": {
         "ca": {
@@ -10771,6 +10821,16 @@
         }
       }
     },
+    "Extract Cover": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extreu la portada"
+          }
+        }
+      }
+    },
     "files": {
       "localizations": {
         "ca": {
@@ -10787,6 +10847,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "per sota d’1 MB"
+          }
+        }
+      }
+    },
+    "Framing": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enquadrament"
           }
         }
       }
@@ -10961,12 +11031,62 @@
         }
       }
     },
+    "Pages as Images": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pàgines com a imatges"
+          }
+        }
+      }
+    },
+    "Paper": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paper"
+          }
+        }
+      }
+    },
+    "Paper and devices": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paper i dispositius"
+          }
+        }
+      }
+    },
     "pdf for sending": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "PDF per enviar"
+          }
+        }
+      }
+    },
+    "Put the frame in the middle": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posa el marc al mig"
+          }
+        }
+      }
+    },
+    "Put the frame on what stands out": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posa el marc sobre el que destaca"
           }
         }
       }
@@ -10987,6 +11107,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "L’execució d’scripts està desactivada; permet-la a la configuració de L’Esclop."
+          }
+        }
+      }
+    },
+    "Saved %d pages in %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’han desat %d pàgines a %@"
+          }
+        }
+      }
+    },
+    "Saved 1 page in %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’ha desat 1 pàgina a %@"
           }
         }
       }
@@ -11507,6 +11647,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "On van els vídeos convertits"
+          }
+        }
+      }
+    },
+    "setting.cropSizes.summary": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les cinc últimes mides escrites a la pestanya Retalla, de la més nova a la més antiga, com a amplada x alçada. Hi surten per tornar-les a fer servir."
+          }
+        }
+      }
+    },
+    "setting.cropSizes.title": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mides de retall desades"
           }
         }
       }
@@ -12891,6 +13051,16 @@
         }
       }
     },
+    "Smart": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Intel·ligent"
+          }
+        }
+      }
+    },
     "sort screenshots": {
       "localizations": {
         "ca": {
@@ -13837,6 +14007,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "sense metadades"
+          }
+        }
+      }
+    },
+    "The file has no cover art.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El fitxer no té portada."
           }
         }
       }

@@ -25,8 +25,12 @@ system screenshot thumbnail. The look follows [docs/design/targets](docs/design/
    dimensions, the saving at the next size up, and the actions as 1 + 2 + "…": the most likely
    action in charcoal with what it acts on (Show in Finder and the folder, or Copy for a copied
    screenshot), up to two round buttons (Copy, Undo), and "…" for the rest: Convert… (the
-   options: format, size, crop), Compare where there is an original, Share…, then Save as… for a
-   copied image or Move to Trash for a file of the person's. × sits in its own band above the
+   options: format, size, crop), Compare where there is an original, Pages as Images for a PDF
+   and Extract Cover for audio with cover art (a file of the person's only), Share…, then Save
+   as… for a copied image or Move to Trash for a file of the person's. Pages as Images writes the
+   optimised pages into a new "<name> pages" folder beside the PDF and shows a card that stands
+   for the folder ("28 pages"); Extract Cover writes the cover beside the file and optimises it
+   as a result of its own. × sits in its own band above the
    picture; × and Esc close it. The picture is fitted whole, 120 to 200 pt tall.
    In a right-hand corner the row runs the other way, so "…" faces the screen.
 3. **"…" menu.** A panel in the card's fill outside the card, on the screen side, joined to "…"
@@ -146,8 +150,12 @@ on that one file. It replaces a long context menu. It is not the menu-bar menu. 
   for VoiceOver). Custom: width × height that keep the aspect ratio, Return applies; "Never enlarges. Keeps
   the aspect ratio." Then Fit under 500 kB · 1 · 2 · 5 MB · Custom…. A PDF has Fit under only.
 - **Crop:** its own tab, opening on the picture itself with its frame (owner's request: a crop
-  must be seen), the aspect chips over it and the size in pixels under it, Reset and Crop. A PDF
-  crops each page's box to a ratio. Chips are cream, the chosen one charcoal.
+  must be seen), the aspect chips over it and the size in pixels under it, Reset and Crop. After
+  the ratios: the chosen paper size or device, the last five typed sizes (`cropSizes`), and
+  "Paper and devices", the CLI's `--paper-size`/`--for-device` list, portrait. A picture also
+  has Framing, Centre or Smart: Smart moves the frame onto what the engine's smart crop finds,
+  so the frame shown is the one cut. A PDF crops each page's box to a ratio, paper size or
+  device. Chips are cream, the chosen one charcoal.
 - A crop and a scale stay with the file, as Clop keeps its steps: every other choice runs them
   again from the original, until Original (both) or Reset (the crop) takes them off.
 - **Actions:** rows, each with a round symbol, what it does and what it gives, and a play button:
