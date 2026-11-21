@@ -816,7 +816,7 @@ import UniformTypeIdentifiers
             "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=d=1:s=320x240:r=30", "-f", "lavfi", "-i", "sine=d=1",
             "-c:v", "mjpeg", "-q:v", "2", "-pix_fmt", "yuvj420p", "-c:a", "aac", "-movflags", "use_metadata_tags",
             "-metadata", "com.apple.quicktime.location.ISO6709=+41.3800+002.1700/", "-metadata", "com.apple.quicktime.make=Apple",
-            "-metadata", "com.apple.quicktime.model=iPhone 15", mov.path,
+            "-metadata", "com.apple.quicktime.model=iPhone 15", "-metadata", "com.apple.quicktime.location.accuracy.horizontal=65.000000", mov.path,
         ])
         try #require(try await Inspect.media(mov).appleTags.count == 3)
         func tags(_ url: URL) async throws -> [String: String] {
@@ -838,6 +838,7 @@ import UniformTypeIdentifiers
 
         let asMP4 = try await world.engine.convert(mov, to: .mp4, request: keep, progress: { _ in })
         #expect(asMP4.steps.contains(VideoEngine.cameraNotKept))
+        #expect(try await tags(asMP4.output) == ["location": "+41.3800+002.1700/"])
         if let exiftool = Personal.exiftoolURL {
             let read = try await ProcessRunner.run(executable: exiftool, arguments: ["-s", "-s", "-s", "-GPSLatitude", asMP4.output.path])
             #expect(read.stdoutString.contains("41 deg"), "the MP4 keeps the location")

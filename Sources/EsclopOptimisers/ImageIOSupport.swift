@@ -238,7 +238,7 @@ enum ImageIOCodec {
     }
 
     /// Removes EXIF, GPS, XMP and IPTC, keeping the orientation, density, colour profile, every
-    /// page and the gain map. First without touching pixels; ImageIO cannot do that for HEIC,
+    /// page, the gain map and a portrait's depth and mattes. First without touching pixels; ImageIO cannot do that for HEIC,
     /// TIFF or AVIF (it writes the HEIC back unchanged and reports success), so when anything
     /// personal is still there it re-encodes at the highest quality. Returns whether it
     /// re-encoded; the caller reads the result back with `personalMetadata`.
@@ -273,7 +273,7 @@ enum ImageIOCodec {
             throw EsclopError.unsupportedFile("This Mac cannot remove the metadata of \(name) files")
         }
         // ImageIO's AVIF writer refuses quality 1 ("Could not write").
-        try reencode(source, to: url, type: type, quality: type.identifier == "public.avif" ? 0.99 : 1, strip: true, keepGainMap: true)
+        try reencode(source, to: url, type: type, quality: type.identifier == "public.avif" ? 0.99 : 1, strip: true, keepGainMap: true, keepDepth: true)
         return true
     }
 
@@ -301,10 +301,14 @@ enum ImageIOCodec {
             if makerDictionaries.contains(where: { properties[$0] != nil }) { note("maker notes") }
             if let iptc = properties[kCGImagePropertyIPTCDictionary] as? [CFString: Any], !iptc.isEmpty { note("IPTC") }
             // XMP the dictionaries above do not show: Dublin Core, Photoshop, IPTC Core, rights.
+            // ponytail: a list, not "anything but tiff/exif": the HEIC and TIFF re-encodes drop
+            // every XMP tag anyway, and the engine's strip drops the XMP packet. Widen it if a
+            // route is found keeping another namespace.
             let tags = CGImageSourceCopyMetadataAtIndex(source, index, nil).flatMap { CGImageMetadataCopyTags($0) as? [CGImageMetadataTag] } ?? []
             for tag in tags {
                 let prefix = CGImageMetadataTagCopyPrefix(tag) as String? ?? ""
-                if ["dc", "photoshop", "Iptc4xmpCore", "Iptc4xmpExt", "xmpRights", "aux"].contains(prefix) { note("XMP") }
+                // Lightroom keywords and face regions hold people's names.
+                if ["dc", "photoshop", "Iptc4xmpCore", "Iptc4xmpExt", "xmpRights", "aux", "lr", "mwg-rs", "MP"].contains(prefix) { note("XMP") }
             }
         }
         return found
@@ -327,8 +331,9 @@ enum ImageIOCodec {
     }
 
     /// Re-encodes every image at the same size (all pages of a multi-page TIFF, LZW), carrying
-    /// the gain map across when `keepGainMap`. JPEG and HEIC hold gain maps.
-    static func reencode(_ url: URL, to output: URL, type: UTType, quality: Double, strip: Bool, keepGainMap: Bool) throws {
+    /// the gain map across when `keepGainMap`, and a portrait's depth and mattes when `keepDepth`.
+    /// JPEG and HEIC hold gain maps.
+    static func reencode(_ url: URL, to output: URL, type: UTType, quality: Double, strip: Bool, keepGainMap: Bool, keepDepth: Bool = false) throws {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { throw EsclopError.unsupportedFile(url.lastPathComponent) }
         let count = CGImageSourceGetCount(source)
         guard let destination = CGImageDestinationCreateWithURL(output as CFURL, type.identifier as CFString, count, nil) else {
@@ -359,6 +364,18 @@ enum ImageIOCodec {
         }
         if keepGainMap, let auxType = gainMapType(source), let aux = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, auxType) {
             CGImageDestinationAddAuxiliaryDataInfo(destination, auxType, aux)
+        }
+        if keepDepth {
+            for auxType in [
+                kCGImageAuxiliaryDataTypeDepth, kCGImageAuxiliaryDataTypeDisparity, kCGImageAuxiliaryDataTypePortraitEffectsMatte,
+                kCGImageAuxiliaryDataTypeSemanticSegmentationSkinMatte, kCGImageAuxiliaryDataTypeSemanticSegmentationHairMatte,
+                kCGImageAuxiliaryDataTypeSemanticSegmentationTeethMatte, kCGImageAuxiliaryDataTypeSemanticSegmentationSkyMatte,
+                kCGImageAuxiliaryDataTypeSemanticSegmentationGlassesMatte,
+            ] {
+                if let aux = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, auxType) {
+                    CGImageDestinationAddAuxiliaryDataInfo(destination, auxType, aux)
+                }
+            }
         }
         guard CGImageDestinationFinalize(destination) else {
             throw EsclopError.other("Could not write \(output.lastPathComponent)")
