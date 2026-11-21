@@ -364,9 +364,10 @@ final class FakeHandler: AppRequestHandler, @unchecked Sendable {
         let server = AppServer(handler: handler, ports: ports)
         try server.start()
         let client = AppClient(ports: ports)
-        // The fake does not exit, so stop the ports as the app would on terminate. Off the
-        // cooperative pool: on a loaded runner a task's 0.3 s sleep there ended seconds late.
-        DispatchQueue.global().asyncAfter(deadline: .now() + 0.3) { server.stop() }
+        // The fake does not exit, so stop the ports as the app would on terminate. On a queue of
+        // its own: a 0.3 s timer on the cooperative pool or on DispatchQueue.global() waits for a
+        // free worker thread, and on a loaded runner it fired after the 5 s the client waits.
+        DispatchQueue(label: "quit-test").asyncAfter(deadline: .now() + 0.3) { server.stop() }
         try await client.quit(timeout: 5)
         #expect(handler.lock.withLock { handler.quitCalled })
         #expect(!client.isAppRunning)
