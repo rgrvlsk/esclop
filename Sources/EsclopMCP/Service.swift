@@ -137,11 +137,11 @@ public struct EsclopService: Sendable {
             do {
                 // A cancelled call (MCP's notifications/cancelled cancels its task, as Ctrl-C ends
                 // the CLI) stops the app's job too: its ffmpeg would run on otherwise.
-                let app = context.app
+                let app = context.app, jobID = job.id
                 report = try await withTaskCancellationHandler {
                     try await app.perform(job, progress: progress)
                 } onCancel: {
-                    try? app.stop([job.id])
+                    try? app.stop([jobID])
                 }
                 try Task.checkCancellation()
             } catch EsclopError.appNotRunning where !context.app.isAppRunning {
