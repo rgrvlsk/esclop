@@ -420,7 +420,8 @@ struct Restore: AsyncParsableCommand {
             }
             if global.json { Output.json(outcome); return 0 }
             let t = global.terminal
-            print("\(t.green("✓")) \(t.bold(PathInput.abbreviate(URL(fileURLWithPath: outcome.restored)))) restored")
+            let name = t.bold(PathInput.abbreviate(URL(fileURLWithPath: outcome.restored)))
+            print(outcome.alreadyRestored == true ? "\(t.dim("–")) \(name) already restored" : "\(t.green("✓")) \(name) restored")
             if let left = outcome.leftInPlace { note("the result \(PathInput.abbreviate(URL(fileURLWithPath: left))) is still there") }
             return 0
         }
@@ -435,7 +436,7 @@ struct Logs: AsyncParsableCommand {
 
     func run() async throws {
         try await guarded(global) {
-            let excerpt = try EsclopService(global.context()).logs(window: last, limit: lines)
+            let excerpt = try await EsclopService(global.context()).logs(window: last, limit: lines)
             if global.json { Output.json(excerpt); return 0 }
             excerpt.system.forEach { print($0) }
             for (file, tail) in excerpt.files.sorted(by: { $0.key < $1.key }) {

@@ -46,6 +46,8 @@ public struct RestoreReport: Equatable, Sendable {
     public var trashed: [URL] = []
     /// A converted output the Trash refused; it is still at this path.
     public var leftInPlace: URL?
+    /// The original was back already (another process put it back): nothing was touched.
+    public var alreadyRestored = false
 }
 
 public struct BackupStore: Sendable {
@@ -95,6 +97,15 @@ public struct BackupStore: Sendable {
         return updated
     }
 
+    /// When the entry's result was in place: its manifest is written last, by `setOutput`.
+    /// ponytail: a file date, so a backups folder copied with new dates (a migration, a restore
+    /// from Time Machine) moves it later, and an edit made before then is replaced without the
+    /// Trash. Record the time in the manifest if backups are ever moved between Macs.
+    public static func placedAt(_ entry: BackupEntry) -> Date? {
+        let manifest = entry.backup.deletingLastPathComponent().appendingPathComponent(manifestName)
+        return (try? FileManager.default.attributesOfItem(atPath: manifest.path))?[.modificationDate] as? Date
+    }
+
     /// Every backup, newest first. Folders without a readable manifest are skipped.
     public func entries() -> [BackupEntry] {
         let folders = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
@@ -127,6 +138,9 @@ public struct BackupStore: Sendable {
             throw EsclopError.fileNotFound(result.backup?.path ?? result.source.path)
         }
         let original = result.source
+        // Put back already, by whichever process (the CLI, an agent, another window): again would
+        // send the original itself to the Trash as an edit.
+        if Self.holdsOriginal(of: result) { return RestoreReport(alreadyRestored: true) }
         try Paths.ensure(original.deletingLastPathComponent())
         var report = RestoreReport()
         // A name of its own in the same folder (same volume): never another restore's, never a
@@ -180,6 +194,16 @@ public struct BackupStore: Sendable {
         else { return false }
         // Results read back from the shared log carry whole seconds.
         return modified <= result.finishedAt.addingTimeInterval(2)
+    }
+
+    /// Whether the file at the source path is the original again: the backup, byte for byte.
+    /// Reads both files when their sizes agree; call it off the main actor.
+    public static func holdsOriginal(of result: OptimisationResult) -> Bool {
+        guard let backup = result.backup else { return false }
+        let fm = FileManager.default
+        func size(_ url: URL) -> Int? { (try? fm.attributesOfItem(atPath: url.path))?[.size] as? Int }
+        guard let bytes = size(result.source), bytes == size(backup) else { return false }
+        return fm.contentsEqual(atPath: result.source.path, andPath: backup.path)
     }
 
     /// Moves `url` to the Trash and returns where it went. Tests swap it for a folder of their own.

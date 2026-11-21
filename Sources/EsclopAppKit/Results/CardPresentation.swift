@@ -536,7 +536,8 @@ public struct CardPresentation: Equatable, Sendable {
         case let .losslessCannotFit(format):
             return Strings.format("%@ is lossless, so it cannot be fitted to a size.", format)
         case let .other(message):
-            // A sentence the catalogue knows (BackupStore.untrashableEdit) is translated; any
+            // A sentence the catalogue knows (BackupStore.untrashableEdit, EsclopError's
+            // noWritePermission and readOnlyDisk) is translated; any
             // other stays as it is.
             return Strings.text(message)
         case let other:

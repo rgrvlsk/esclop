@@ -92,7 +92,11 @@ import Testing
         let started = Date()
         // A request that times out but stops when cancelled keeps the child.
         await #expect(throws: EsclopError.self) { try await client.call("sleep", params: ["seconds": 30], timeout: 0.3) }
-        #expect(Date().timeIntervalSince(started) < 5)
+        // The call sleeps 30 s; well below that proves the timeout ended the wait. Not a tighter
+        // bound: on CI the whole test process once stalled 5.9 s (run 44878626416; it ended with
+        // the VM's "IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver"), and no timer in
+        // the process fires during such a stall.
+        #expect(Date().timeIntervalSince(started) < 15)
         try await Task.sleep(nanoseconds: 1_500_000_000)
         #expect(await client.childProcessIdentifier == first)
         // One that ignores the cancel holds its worker: after the grace the child is replaced.
@@ -102,7 +106,11 @@ import Testing
         } catch let EsclopError.toolFailed(_, _, stderr) {
             #expect(stderr.contains("within 0.3 s"))
         }
-        try await Task.sleep(nanoseconds: 1_500_000_000)
+        // After the grace (1 s); a stalled pool only delays it.
+        let restartBy = Date().addingTimeInterval(15)
+        while await client.childProcessIdentifier != nil, Date() < restartBy {
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
         #expect(await client.childProcessIdentifier == nil)
         let reply = try await client.call("sleep", params: ["seconds": 0.01])
         #expect(reply.raw["slept"] != nil)

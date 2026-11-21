@@ -384,6 +384,28 @@ final class LockedArray: @unchecked Sendable {
         #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path).filter { $0.contains("esclop-restore") }.isEmpty)
     }
 
+    /// Y1: an original already back (here by an earlier restore, as `esclop restore` would from
+    /// another process) is not put back again: that sent the original itself to the Trash.
+    @Test func anOriginalBackInPlaceIsNotPutBackAgain() throws {
+        let folder = try scratchFolder()
+        var store = BackupStore(root: folder.appendingPathComponent("backups"))
+        let trash = try scratchFolder()
+        store.trash = { url in
+            let moved = trash.appendingPathComponent(UUID().uuidString)
+            try FileManager.default.moveItem(at: url, to: moved)
+            return moved
+        }
+        let file = folder.appendingPathComponent("photo.png")
+        try Data("original".utf8).write(to: file)
+        let entry = try store.backUp(file)
+        try Data("small".utf8).write(to: file)
+        let result = OptimisationResult(source: file, output: file, backup: entry.backup, kind: .image, bytesBefore: 8, bytesAfter: 5, startedAt: Date(), finishedAt: Date())
+        #expect(try store.restore(result) == RestoreReport())
+        #expect(try store.restore(result) == RestoreReport(alreadyRestored: true))
+        #expect(try String(contentsOf: file, encoding: .utf8) == "original")
+        #expect(try FileManager.default.contentsOfDirectory(atPath: trash.path).isEmpty, "nothing went to the Trash")
+    }
+
     @Test func optimisedMark() throws {
         let file = try scratchFolder().appendingPathComponent("a.txt")
         try Data("x".utf8).write(to: file)

@@ -2791,6 +2791,16 @@
         }
       }
     },
+    "Could not restore: %@.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’han pogut restaurar: %@."
+          }
+        }
+      }
+    },
     "Could not save %@": {
       "localizations": {
         "ca": {
@@ -3297,6 +3307,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Edita «%@»"
+          }
+        }
+      }
+    },
+    "Edited versions are in the Trash.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les versions editades són a la Paperera."
           }
         }
       }
@@ -4857,6 +4877,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "L’Esclop no coneix l’app «%@»."
+          }
+        }
+      }
+    },
+    "L’Esclop has no permission to write in that folder.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’Esclop no té permís per escriure en aquesta carpeta."
           }
         }
       }
@@ -7967,6 +7997,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Opció"
+          }
+        }
+      }
+    },
+    "That disk is read-only.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquest disc és només de lectura."
+          }
+        }
+      }
+    },
+    "They are back where they were.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tornen a ser on eren."
           }
         }
       }

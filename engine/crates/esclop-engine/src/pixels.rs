@@ -128,6 +128,9 @@ pub fn detect(bytes: &[u8]) -> Result<Format> {
 /// otherwise only the first frame is decoded.
 pub fn decode(bytes: &[u8], animated: bool, ctx: &Ctx) -> Result<Decoded> {
     let fmt = detect(bytes)?;
+    if fmt == Format::Jpeg {
+        meta::JpegParts::parse(bytes)?.check_complete()?;
+    }
     ctx.progress(0.0, "decode");
     let meta = source_meta(bytes, fmt);
     if animated && is_animated(bytes, fmt) {
