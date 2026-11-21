@@ -9,7 +9,7 @@ into the body of its GitHub release.
 
 The design's floating results, menu bar panel and drop zone; a loupe to compare; copied media
 links offered for download; Originals, Open With and settings you can carry to another Mac.
-0.1.1 installs this update by itself.
+0.1.1 finds this update by itself.
 
 ### Added
 - The detail says what optimising removed from a photo's metadata (location, camera, date) and
@@ -29,11 +29,11 @@ links offered for download; Originals, Open With and settings you can carry to a
 - The menu bar opens the design's panel instead of a system menu: the saving today or over the
   last 7 days on an arc, the batch at work or the last one that ended (Restore All and Retry stay
   one click away), the recent results with Copy and Show in Finder on hover, and Optimise Files
-  and Optimise Clipboard. The gear holds Settings, Pipelines, Originals…, Pause L'Esclop, the
-  tour, updates and Quit.
+  and Optimise Clipboard. The gear holds Settings, Pipelines, Originals…, the backups, Pause
+  L'Esclop, the tour, updates and Quit.
 - Originals… lists every original L'Esclop keeps, with its folder and thumbnail. Space previews
   it; select several to Restore or Remove them. The list follows new and pruned backups while it
-  is open.
+  is open, and says which files it could not remove.
 - The batch window selects rows (⌘A, shift-click, arrows) and optimises the selection again with
   another format or compression, crops it, scales it down, restores it or retries it. A row can
   show as a result, be dragged out, or open in Quick Look with Space. Retry All Failed retries
@@ -49,8 +49,8 @@ links offered for download; Originals, Open With and settings you can carry to a
   Centre or Smart framing that shows where a smart crop cuts.
 - Pages as Images on a PDF result saves every page, optimised, in a folder beside the PDF.
   Extract Cover on an audio result saves its cover art beside the file and optimises it.
-- Settings › General › Menu bar: Show menu bar icon, and Show L'Esclop in screenshots. It is off
-  by default, so result cards, the drop zone and the panel stay out of screenshots and screen
+- Settings › General › Menu bar: Show menu bar icon, and Show L'Esclop in screenshots. The second
+  is off by default, so result cards, the drop zone and the panel stay out of screenshots and screen
   recordings.
 - Open at login is also in Settings › General.
 - "Show floating results" in Settings, and a "Show the last result" hotkey.
@@ -148,8 +148,8 @@ links offered for download; Originals, Open With and settings you can carry to a
 - A crop and a scale stay with the result: another format or quality runs them again from the
   original, until Original or Reset.
 - The options popover does what it shows: Save As never deletes the file, Keep Both saves its
-  copy beside the file, the rule line says what the rule does, and Actions shows only the
-  pipelines for the file's kind.
+  copy beside the file and keeps a crop, scale or Fit, the rule line says what the rule does,
+  and Actions shows only the pipelines for the file's kind.
 - Watched folders work each on their own: a burst of files in one no longer skips files in
   another, and folders that are renamed, deleted or created later are noticed at once. A
   screenshot or other file that arrives whole starts at once; a file still being written must
@@ -161,7 +161,8 @@ links offered for download; Originals, Open With and settings you can carry to a
 - A Shortcuts action whose file fails names every failed file and says how many others were
   optimised.
 - `esclop pdf pages` and a pipeline's `extractPagesAsImages` optimise the pages they write and
-  name them after the PDF (`doc-01.jpg`). `esclop pdf pages` makes a page that is one photo a
+  name them after the PDF, the number padded to the page count (`doc-1.jpg` of 3 pages,
+  `doc-01.jpg` of 12). `esclop pdf pages` makes a page that is one photo a
   JPEG, and `--format` offers only png and jpeg.
 - With Keep HDR off, an HDR video stays HDR and says why: this build cannot convert HDR to SDR.
   Before, it was 8-bit but still tagged HDR.
@@ -198,7 +199,7 @@ links offered for download; Originals, Open With and settings you can carry to a
   takes it off.
 - Recording a result no longer blocks the interface, and the menu opens without reading the
   whole results log. Tool errors go to the system log as private data.
-- The options popover takes the design's shell (`pr4-options-popover-tabs`): round tabs with the
+- The options popover takes the design's shell: round tabs with the
   chosen one fused into the panel, Format · Size · Actions, and no file header. Format shows the
   suggestion as a card with Convert, then the format tiles with their sizes up front: a click
   converts an image at once, a video's tile arms Convert. Rename moved to a click on the detail's
@@ -291,13 +292,14 @@ links offered for download; Originals, Open With and settings you can carry to a
 - Stripping metadata keeps a JPEG's DPI and its EXIF colour space, so Adobe RGB photos keep
   their colours. Keep HDR applies to fit-to-size and to same-size HEIC.
 - A stuck ffmpeg is stopped after five minutes without progress, and not after the Mac sleeps. A
-  file that crashes the image engine no longer fails the other files. Tools stop when L'Esclop
-  quits unexpectedly. A file that crashes the image engine no longer gets another file blamed.
+  file that crashes the image engine no longer fails the other files, or gets another file
+  blamed. Tools stop when L'Esclop quits unexpectedly.
 - Cancelling an MCP tool call stops the job in the app too.
 - `esclop restore` on a file with no recent result points at `esclop recent` and exits 1. A file
   command whose every file was an invalid request exits 64. `esclop convert --help` no longer
   offers `jxl`, and `esclop settings reset` prints the new value. Audio and video say "Removed
-  metadata" when they did, and a lossless pass "Optimised without loss".
+  metadata" when they did, and a lossless pass "Optimised without loss". A video crop no longer prints a resize that does
+  nothing.
 - The detail stays open while its file changes in place, a file at work keeps its place among
   the floating results, and a result never lands out of sight.
 - Recent › Clear reports a failure when the log cannot be read, instead of clearing the list
