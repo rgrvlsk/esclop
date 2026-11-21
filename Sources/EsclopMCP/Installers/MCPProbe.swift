@@ -64,45 +64,65 @@ public enum MCPProbe {
         let started = ContinuousClock.now
         try process.run()
         defer {
+            output.fileHandleForReading.readabilityHandler = nil
             try? input.fileHandleForWriting.close()
             if process.isRunning { process.terminate() }
         }
         func send(_ line: String) throws {
             try input.fileHandleForWriting.write(contentsOf: Data((line + "\n").utf8))
         }
+        // Read by a readability handler, on GCD, not with `FileHandle.bytes`: that waits in read()
+        // on a thread of the task pool, and every such read in the process queues behind it. A
+        // silent server then held the pool, and with it this timeout's own timer.
+        let (chunks, sink) = AsyncStream.makeStream(of: Data.self)
+        output.fileHandleForReading.readabilityHandler = { handle in
+            let data = handle.availableData
+            if data.isEmpty {
+                handle.readabilityHandler = nil
+                sink.finish()
+            } else {
+                sink.yield(data)
+            }
+        }
         try send(#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"\#(protocolVersion)","capabilities":{},"clientInfo":{"name":"esclop-settings-test","version":"\#(EsclopVersion.string)"}}}"#)
 
         let reader = Task<MCPProbeReport, any Error> {
             var initialize: JSONValue?
             var tools: JSONValue?
-            for try await line in output.fileHandleForReading.bytes.lines {
-                let message = JSONValue(parsing: line)
-                // Only responses count: a request echoed back, or a notification, is not an answer.
-                guard message["method"] == nil, message["result"] != nil || message["error"] != nil else { continue }
-                if let error = message["error"]?["message"]?.stringValue {
-                    throw EsclopError.other("The server refused the request: \(error)")
-                }
-                switch message["id"]?.intValue {
-                case 1?:
-                    initialize = message["result"]
-                    try send(#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#)
-                    try send(#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#)
-                case 2?:
-                    tools = message["result"]
-                    try send(#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"esclop_status","arguments":{}}}"#)
-                case 3?:
-                    let status = message["result"]?["structuredContent"]
-                    return MCPProbeReport(
-                        serverName: initialize?["serverInfo"]?["name"]?.stringValue ?? "?",
-                        serverVersion: initialize?["serverInfo"]?["version"]?.stringValue ?? "?",
-                        protocolVersion: initialize?["protocolVersion"]?.stringValue ?? "?",
-                        toolCount: tools?["tools"]?.arrayValue?.count ?? 0,
-                        route: status?["route"]?.stringValue,
-                        appRunning: status?["app"]?["running"]?.boolValue,
-                        elapsed: ContinuousClock.now - started
-                    )
-                default:
-                    continue
+            var pending = Data()
+            for await chunk in chunks {
+                pending.append(chunk)
+                while let newline = pending.firstIndex(of: 0x0A) {
+                    let line = String(decoding: pending[pending.startIndex ..< newline], as: UTF8.self)
+                    pending.removeSubrange(pending.startIndex ... newline)
+                    let message = JSONValue(parsing: line)
+                    // Only responses count: a request echoed back, or a notification, is not an answer.
+                    guard message["method"] == nil, message["result"] != nil || message["error"] != nil else { continue }
+                    if let error = message["error"]?["message"]?.stringValue {
+                        throw EsclopError.other("The server refused the request: \(error)")
+                    }
+                    switch message["id"]?.intValue {
+                    case 1?:
+                        initialize = message["result"]
+                        try send(#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#)
+                        try send(#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#)
+                    case 2?:
+                        tools = message["result"]
+                        try send(#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"esclop_status","arguments":{}}}"#)
+                    case 3?:
+                        let status = message["result"]?["structuredContent"]
+                        return MCPProbeReport(
+                            serverName: initialize?["serverInfo"]?["name"]?.stringValue ?? "?",
+                            serverVersion: initialize?["serverInfo"]?["version"]?.stringValue ?? "?",
+                            protocolVersion: initialize?["protocolVersion"]?.stringValue ?? "?",
+                            toolCount: tools?["tools"]?.arrayValue?.count ?? 0,
+                            route: status?["route"]?.stringValue,
+                            appRunning: status?["app"]?["running"]?.boolValue,
+                            elapsed: ContinuousClock.now - started
+                        )
+                    default:
+                        continue
+                    }
                 }
             }
             throw EsclopError.other("The server closed the connection before answering\(initialize == nil ? "" : " the tool list")")

@@ -25,6 +25,18 @@ import Testing
         #expect(report.summary.contains("answered in"))
     }
 
+    /// The Test button proves what an agent will run: the server gets the given environment and
+    /// nothing more, so no ESCLOP_BIN from L'Esclop that an agent's launch would not have.
+    @Test func theServerGetsExactlyTheGivenEnvironment() async throws {
+        let answers = #"""
+        read -r _; printf '%s\n' "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"x\",\"serverInfo\":{\"name\":\"${MARK-none} ${HOME-none} ${ESCLOP_BIN-none}\",\"version\":\"1\"}}}"
+        read -r _; read -r _; printf '%s\n' '{"jsonrpc":"2.0","id":2,"result":{"tools":[]}}'
+        read -r _; printf '%s\n' '{"jsonrpc":"2.0","id":3,"result":{"structuredContent":{}}}'
+        """#
+        let report = try await MCPProbe.run(ServerCommand(command: "/bin/sh", args: ["-c", answers]), environment: ["MARK": "given"], timeout: .seconds(30))
+        #expect(report.serverName == "given none none")
+    }
+
     @Test func aMissingBinaryIsExplained() async {
         await #expect(throws: (any Error).self) {
             _ = try await MCPProbe.run(ServerCommand(command: "/nonexistent/esclop"))

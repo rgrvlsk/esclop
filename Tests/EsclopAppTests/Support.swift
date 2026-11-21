@@ -171,6 +171,10 @@ struct Harness {
         let revealed = revealed
         model = AppModel(settings: settings.store, service: service, pasteboard: pasteboard, gate: gate) { revealed.urls += $0 }
         model.loadsThumbnails = false
+        // Results hide on the wall clock (10 s for a copy). On a loaded runner the main actor can
+        // be away from a test for longer than that, and the card the test acts on next is gone.
+        // Tests of hiding set their own delay.
+        model.hideDelayOverride = .seconds(600)
         let announcements = announcements
         model.announce = { announcements.texts.append($0) }
     }
