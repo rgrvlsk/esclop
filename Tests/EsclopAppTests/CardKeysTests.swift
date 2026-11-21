@@ -182,14 +182,14 @@ import Testing
         #expect(CardKeys.help(for: .share) == CardPresentation.Action.share.accessibilityName)
     }
 
-    /// The keyboard alone reaches a result: ⌃⇧N out of the box, beside ⌃⇧C and ⌃⇧A. "Show the
-    /// last result" waits for a key.
+    /// The keyboard alone reaches a result: ⌃⇧N out of the box, beside ⌃⇧C, ⌃⇧A and ⌃⇧P (pause).
+    /// "Show the last result" waits for a key.
     @Test func goToTheNewestResultHasAKeyAndShowLastResultIsInSettings() {
         #expect(KeyboardShortcuts.Name.focusNewestResult.defaultShortcut == .init(.n, modifiers: [.control, .shift]))
         let defaults = Hotkeys.all.compactMap(\.name.defaultShortcut)
         #expect(Set(defaults.map(\.description)).count == defaults.count, "no two hotkeys share a key")
         #expect(KeyboardShortcuts.Name.showLastResult.defaultShortcut == nil)
-        #expect(Hotkeys.all.map(\.name) == [.optimiseClipboard, .optimiseClipboardHarder, .focusNewestResult, .showLastResult])
+        #expect(Hotkeys.all.map(\.name) == [.optimiseClipboard, .optimiseClipboardHarder, .focusNewestResult, .togglePause, .showLastResult])
     }
 
     /// "Show floating results" off: a drop's results go to Recent only, a big drop opens no batch

@@ -44,6 +44,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        services.reopen()
+        return false
+    }
+
     func application(_ application: NSApplication, open urls: [URL]) {
         services.open(urls)
     }

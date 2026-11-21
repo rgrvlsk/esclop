@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Global hotkeys, with Clop 3.5's default keys: Control-Shift-C optimises the clipboard,
-// Control-Shift-A optimises it harder. Control-Shift-N, "Go to the newest result", gives the
-// newest card the keys, so the keyboard alone reaches a result. "Show the last result" (Clop's `=`)
-// has no key until one is set. People change them in Settings. There is no pause key:
-// pausing is a setting (Settings, Shortcuts, the CLI), with no state of its own on screen.
+// Control-Shift-A optimises it harder, Control-Shift-P pauses automatic optimisation or resumes
+// it (the same setting as Settings, Shortcuts and the CLI) and says so in a notice.
+// Control-Shift-N, "Go to the newest result", gives the newest card the keys, so the keyboard
+// alone reaches a result. "Show the last result" (Clop's `=`) has no key until one is set.
+// People change them in Settings.
 // A pipeline's `hotkey:` (front matter) runs that pipeline on the clipboard; those keys follow the
 // pipeline files and are registered again whenever they change.
 
@@ -17,6 +18,7 @@ extension KeyboardShortcuts.Name {
     public static let optimiseClipboardHarder = Self("optimiseClipboardHarder", default: .init(.a, modifiers: [.control, .shift]))
     public static let focusNewestResult = Self("focusNewestResult", default: .init(.n, modifiers: [.control, .shift]))
     public static let showLastResult = Self("showLastResult")
+    public static let togglePause = Self("togglePause", default: .init(.p, modifiers: [.control, .shift]))
 }
 
 public enum Hotkeys {
@@ -25,6 +27,7 @@ public enum Hotkeys {
             (.optimiseClipboard, Strings.text("Optimise the clipboard")),
             (.optimiseClipboardHarder, Strings.text("Optimise the clipboard harder")),
             (.focusNewestResult, Strings.text("Go to the newest result")),
+            (.togglePause, Strings.text("Pause or resume automatic optimisation")),
             (.showLastResult, Strings.text("Show the last result")),
         ]
     }
@@ -35,6 +38,7 @@ public enum Hotkeys {
         switch name {
         case .optimiseClipboardHarder: return { $0.optimiseClipboardNow(aggressive: true) }
         case .focusNewestResult: return { $0.focusNewestResult() }
+        case .togglePause: return { $0.togglePause(announcing: KeyboardShortcuts.Name.togglePause.shortcut.map { "\($0)" } ?? "⌃⇧P") }
         case .showLastResult: return { $0.showLastResult() }
         default: return { $0.optimiseClipboardNow(aggressive: false) }
         }

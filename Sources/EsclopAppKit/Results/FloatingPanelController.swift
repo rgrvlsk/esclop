@@ -11,8 +11,13 @@ import SwiftUI
 /// the person clicks into it or presses "Go to the newest result", so its buttons work from the
 /// keyboard. The pointer resting on a card gives it its card keys without that (`HoverKeys`).
 final class FloatingPanel: NSPanel {
-    init(content: NSView) {
+    /// Whether screenshots may show it (`AppModel.windowSharing`), read each time it comes up.
+    private let sharing: () -> NSWindow.SharingType
+
+    init(content: NSView, sharing: @escaping () -> NSWindow.SharingType) {
+        self.sharing = sharing
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
+        sharingType = sharing()
         isFloatingPanel = true
         level = .floating
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
@@ -31,6 +36,11 @@ final class FloatingPanel: NSPanel {
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    override func orderFrontRegardless() {
+        sharingType = sharing()
+        super.orderFrontRegardless()
+    }
 }
 
 @MainActor
@@ -47,7 +57,7 @@ final class FloatingPanelController {
         self.model = model
         hosting = NSHostingView(rootView: PanelRoot(model: model))
         hosting.sizingOptions = []
-        panel = FloatingPanel(content: hosting)
+        panel = FloatingPanel(content: hosting) { [weak model] in model?.windowSharing ?? .none }
         panel.title = "L'Esclop results"
         hosting.rootView = PanelRoot(model: model) { [weak self] size in self?.contentSize = size }
         // A menu closes when the person turns to another window or app, as a system menu does.

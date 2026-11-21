@@ -4,7 +4,7 @@
 // the day's saving, the batch at work, the recent results and the two commands. The gear holds
 // the rest. Owner's decisions: no per-day history; the saving switches between today and the
 // last 7 days, with the other under it; Recent has a quick Clear (privacy). Pausing has no
-// state on the glyph and no hotkey: while it is on (Settings, Shortcuts, the CLI), the panel
+// state on the glyph: while it is on (the gear, ⌃⇧P, Settings, Shortcuts, the CLI), the panel
 // says so in one line with Resume.
 
 import AppKit
@@ -71,6 +71,14 @@ public struct SavingTotals: Equatable, Sendable {
         }
         return totals
     }
+
+    /// The log's savings once loaded. The log loads off the main actor, so until then Recent gives
+    /// the figure: the panel never opens on "0 B" over results with savings.
+    public static func savings(_ log: [ResultsLog.Saving]?, recent: [OptimisationResult]) -> [ResultsLog.Saving] {
+        log ?? recent.map {
+            ResultsLog.Saving(id: $0.id, kind: $0.kind, bytesBefore: $0.bytesBefore, bytesAfter: $0.bytesAfter, finishedAt: $0.finishedAt)
+        }
+    }
 }
 
 public struct MenuPanel: View {
@@ -80,7 +88,8 @@ public struct MenuPanel: View {
     var notch: CGFloat?
 
     @State private var range: SavingRange = .today
-    @State private var savings: [ResultsLog.Saving] = []
+    /// Nil until the log has loaded.
+    @State private var savings: [ResultsLog.Saving]?
     @State private var option = false
     @State private var flags = ModifierFlagsWatcher()
     /// The row the arrows or the pointer are on, one at a time as in a menu: Return runs it.
@@ -161,6 +170,10 @@ public struct MenuPanel: View {
                 .accessibilityAddTraits(.isHeader)
             Spacer()
             Menu {
+                // The panel stays open, so its "Paused · Resume" line shows what changed.
+                Button(model.paused ? Strings.text("Resume L’Esclop") : Strings.text("Pause L’Esclop")) { model.togglePause() }
+                    .globalKeyboardShortcut(.togglePause)
+                Divider()
                 Button(Strings.text("Settings…"), action: run(actions.settings)).keyboardShortcut(",")
                 Button(Strings.text("Pipelines…"), action: run(actions.pipelines))
                 if let originals = actions.originals {
@@ -196,8 +209,9 @@ public struct MenuPanel: View {
     // MARK: Saved
 
     private var saved: some View {
-        let shown = SavingTotals.of(savings, in: range, now: model.now())
-        let other = SavingTotals.of(savings, in: range == .today ? .week : .today, now: model.now())
+        let all = SavingTotals.savings(savings, recent: model.recent)
+        let shown = SavingTotals.of(all, in: range, now: model.now())
+        let other = SavingTotals.of(all, in: range == .today ? .week : .today, now: model.now())
         return VStack(spacing: 6) {
             HStack {
                 Text(Strings.text("Saved")).sectionLabel()

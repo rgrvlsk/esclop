@@ -94,6 +94,20 @@ public enum EsclopSettings {
         section: .general
     )
 
+    // MARK: Menu bar
+
+    public static let showMenubarIcon = Setting<Bool>(
+        "showMenubarIcon", default: true, title: "Show menu bar icon",
+        description: "Off removes the icon from the menu bar. Open L'Esclop again from Finder or Spotlight to reach Settings.",
+        section: .menuBar
+    )
+    /// Clop's `allowClopToAppearInScreenshots`, off by default as there.
+    public static let showInScreenshots = Setting<Bool>(
+        "showInScreenshots", default: false, title: "Show L'Esclop in screenshots",
+        description: "Off keeps the result cards, the drop zone and the menu bar panel out of screenshots and screen recordings.",
+        section: .menuBar
+    )
+
     // MARK: Updates
 
     public static let checkForUpdatesAutomatically = Setting<Bool>(
@@ -622,5 +636,6 @@ public enum EsclopSettings {
         allowOverwriteOriginals.erased, allowDeleteBackups.erased, allowRunScripts.erased, allowSettingsChanges.erased, allowUploads.erased,
         uploadTargets.erased, uploadTarget.erased, uploadAutomatically.erased,
         checkForUpdatesAutomatically.erased, installUpdatesAutomatically.erased,
+        showMenubarIcon.erased, showInScreenshots.erased,
     ]
 }

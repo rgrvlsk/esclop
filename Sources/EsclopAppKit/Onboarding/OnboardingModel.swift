@@ -122,6 +122,9 @@ public final class OnboardingModel {
 
     @ObservationIgnored var readClipboardAccess: @MainActor () -> Access = OnboardingModel.systemClipboardAccess
     @ObservationIgnored var readLoginStatus: @MainActor () -> SMAppService.Status = { SMAppService.mainApp.status }
+    @ObservationIgnored var setLoginItem: @MainActor (Bool) throws -> Void = { on in
+        if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+    }
 
     public func refreshAccess() {
         clipboardAccess = readClipboardAccess()
@@ -170,10 +173,12 @@ public final class OnboardingModel {
         get { loginStatus == .enabled || loginStatus == .requiresApproval }
         set {
             do {
-                if newValue { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+                try setLoginItem(newValue)
                 loginError = nil
             } catch {
-                loginError = Strings.format("macOS did not add L’Esclop to the login items: %@. Add it in System Settings › General › Login Items & Extensions.", error.localizedDescription)
+                loginError = newValue
+                    ? Strings.format("macOS did not add L’Esclop to the login items: %@. Add it in System Settings › General › Login Items & Extensions.", error.localizedDescription)
+                    : Strings.format("macOS did not remove L’Esclop from the login items: %@. Remove it in System Settings › General › Login Items & Extensions.", error.localizedDescription)
             }
             loginStatus = readLoginStatus()
         }

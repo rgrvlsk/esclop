@@ -37,6 +37,11 @@ struct SettingsPaneView: View {
                 }
                 ForEach(model.groups(in: pane)) { group in
                     Section {
+                        // Open at login is a system setting, not a registry one; it leads the
+                        // menu bar rows at the top of General.
+                        if group.section == .menuBar, let login = model.login {
+                            LoginItemRows(onboarding: login)
+                        }
                         ForEach(group.settings.filter { !Self.besideHotkeys.contains($0.key) && SettingsViewModel.editedIn[$0.key] == nil }, id: \.key) { setting in
                             SettingRow(descriptor: setting, model: model, actions: actions)
                         }
@@ -58,11 +63,19 @@ struct SettingsPaneView: View {
                 extras
             }
             .formStyle(.grouped)
+            // The rows mark themselves and say when the mark is in view (`markable`).
+            .environment(model)
             .task(id: model.highlighted) {
                 guard let row = model.highlighted else { return }
-                // Let the pane lay out first when the link also switched panes.
+                // Scroll until the row says it is in view: a scroll before the Form has laid the
+                // pane out finds no row, and on a busy Mac that takes longer than any fixed wait
+                // (council C7-F1). Each try waits for the last one's animation; about five seconds.
                 try? await Task.sleep(for: .milliseconds(80))
-                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) { proxy.scrollTo(row, anchor: .center) }
+                for _ in 0 ..< 15 where model.markInView != row {
+                    guard !Task.isCancelled else { return }
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) { proxy.scrollTo(row, anchor: .center) }
+                    try? await Task.sleep(for: .milliseconds(350))
+                }
                 try? await Task.sleep(for: .seconds(2.5))
                 guard !Task.isCancelled else { return }
                 withAnimation(Motion.crossfade) { model.highlighted = nil }
@@ -80,16 +93,10 @@ struct SettingsPaneView: View {
     @ViewBuilder private var extras: some View {
         switch pane {
         case .general:
-            if let login = model.login {
-                Section {
-                    LoginItemRows(onboarding: login, rowID: Self.openAtLoginRow, highlighted: model.highlighted == Self.openAtLoginRow)
-                }
-            }
             Section(Strings.text("Keyboard shortcuts")) {
                 ForEach(Hotkeys.all, id: \.name.rawValue) { hotkey in
                     KeyboardShortcuts.Recorder(hotkey.title, name: hotkey.name)
-                        .id(Hotkeys.rowID(hotkey.name))
-                        .highlighted(model.highlighted == Hotkeys.rowID(hotkey.name))
+                        .markable(Hotkeys.rowID(hotkey.name))
                 }
                 ForEach(Self.besideHotkeys, id: \.self) { key in
                     if let setting = model.descriptor(key) { SettingRow(descriptor: setting, model: model, actions: actions) }
@@ -108,8 +115,7 @@ struct SettingsPaneView: View {
                             summary: Strings.text("Export saves the settings you changed as a file; Import reads it on the other Mac. Hotkeys and upload keys stay.")
                         )
                     }
-                    .id(Self.settingsFileRow)
-                    .highlighted(model.highlighted == Self.settingsFileRow)
+                    .markable(Self.settingsFileRow)
                 }
             }
         case .advanced:
@@ -141,8 +147,7 @@ struct SettingsPaneView: View {
                 } label: {
                     SettingLabel(title: Strings.text("Reset every setting"), summary: Strings.text("Puts every setting back to its default, including the agent permissions. Hotkeys stay."))
                 }
-                .id(Self.resetAllRow)
-                .highlighted(model.highlighted == Self.resetAllRow)
+                .markable(Self.resetAllRow)
                 .confirmationDialog(Strings.text("Reset every setting to its default?"), isPresented: $confirmingReset) {
                     Button(Strings.text("Reset All Settings"), role: .destructive) { model.resetAll() }
                 } message: {
@@ -216,16 +221,45 @@ struct SettingLabel: View {
 }
 
 extension View {
-    /// The mark a deep link puts on its row: an accent wash behind it that fades.
-    func highlighted(_ on: Bool) -> some View {
-        background {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Ink.charcoal.opacity(on ? 0.16 : 0))
-                .padding(.horizontal, -8)
-                .padding(.vertical, -5)
-                .allowsHitTesting(false)
-        }
-        .accessibilityAddTraits(on ? .isSelected : [])
+    /// A row a deep link or a search result can name: the pane scrolls to `id`, and while the
+    /// Settings model points at it, a wash behind it that fades.
+    func markable(_ id: String) -> some View { modifier(MarkableRow(id: id)) }
+}
+
+/// The row's mark, and whether it is in view, for the pane that scrolls to it.
+private struct MarkableRow: ViewModifier {
+    let id: String
+    /// Settings' model; none on the tour, which marks nothing.
+    @Environment(SettingsViewModel.self) private var model: SettingsViewModel?
+    @State private var inView = false
+
+    func body(content: Content) -> some View {
+        let on = model?.highlighted == id
+        content
+            .id(id)
+            .background {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Ink.charcoal.opacity(on ? 0.16 : 0))
+                    .padding(.horizontal, -8)
+                    .padding(.vertical, -5)
+                    .allowsHitTesting(false)
+            }
+            .accessibilityAddTraits(on ? .isSelected : [])
+            .onGeometryChange(for: Bool.self) { Self.isInView($0) } action: { inView = $0 }
+            // Only "now in view": a copy of the row the lazy Form makes or drops out of view must
+            // not take back what the shown row said. Seen on the macOS 15 runner, for a row that
+            // does not move; the cause is inferred. A new link clears it (`SettingsViewModel.open`).
+            .onChange(of: on && inView, initial: true) { _, shown in
+                if shown { model?.markInView = id }
+            }
+    }
+
+    /// Whole inside the scroll view's visible part, or filling it.
+    nonisolated static func isInView(_ proxy: GeometryProxy) -> Bool {
+        guard let visible = proxy.bounds(of: .scrollView) else { return false }
+        let row = CGRect(origin: .zero, size: proxy.size)
+        let shown = visible.intersection(row).height
+        return shown >= row.height - 1 || shown >= visible.height - 1
     }
 }
 

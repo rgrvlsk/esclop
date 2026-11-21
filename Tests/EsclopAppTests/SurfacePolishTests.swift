@@ -156,8 +156,8 @@ import Testing
         #expect(request.format == .webp)
     }
 
-    /// The drop answers with what the source allows: with ⌘ held Finder offers a move only, and
-    /// a drop that answered "copy" was refused.
+    /// The drop answers with what the source allows: with ⌘ held Finder offers a move only, with
+    /// ⌘⌥ a link only, and a drop that answered "copy" was refused.
     @Test func theDropAnswersWhatTheSourceAllows() throws {
         #expect(DropTargetView.operation(for: .every) == .copy)
         #expect(DropTargetView.operation(for: [.generic, .move]) == .generic)
@@ -170,8 +170,14 @@ import Testing
         view.state = state
         let drag = FakeDrag([temp.file("a.png")])
         defer { drag.draggingPasteboard.releaseGlobally() }
+        // What AppKit leaves in Finder's mask for each modifier the zone advertises.
         drag.draggingSourceOperationMask = .generic
-        #expect(view.draggingEntered(drag) == .generic, "⌘ held")
+        #expect(view.draggingEntered(drag) == .generic, "⌘ held: harder")
+        drag.draggingSourceOperationMask = .copy
+        #expect(view.draggingEntered(drag) == .copy, "⌥ held: keep the originals")
+        drag.draggingSourceOperationMask = .link
+        #expect(view.draggingEntered(drag) == .link, "⌘⌥ held: both")
+        #expect(view.performDragOperation(drag))
     }
 
     /// Over a built-in preset zone the line names it in the person's language.

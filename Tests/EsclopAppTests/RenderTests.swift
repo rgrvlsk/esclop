@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Renders the floating result's states and the drop zone, light and dark, with ImageRenderer. Set
-// ESCLOP_RENDER_DIR to keep the PNGs (they go with UI pull requests); otherwise they land in a
-// temporary folder and the test only checks that every state draws at the designed width.
+// ESCLOP_RENDER_DIR to keep the PNGs (they go with UI pull requests); otherwise nothing is written
+// and the test only checks that every state draws at the designed width (`keepRender`).
 
 import AppKit
 import EsclopCore
@@ -13,13 +13,6 @@ import Testing
 
 @MainActor
 @Suite struct RenderTests {
-    static let folder: URL = {
-        if let path = ProcessInfo.processInfo.environment["ESCLOP_RENDER_DIR"], !path.isEmpty {
-            return URL(fileURLWithPath: path, isDirectory: true)
-        }
-        return FileManager.default.temporaryDirectory.appendingPathComponent("esclop-renders-\(UUID().uuidString)", isDirectory: true)
-    }()
-
     /// A stand-in photo of a cove, drawn, not captured: full-bleed and saturated like the
     /// targets' pictures, so the card's inset, radii and glow read as they will on a real photo.
     static let cove: NSImage = NSImage(size: NSSize(width: 420, height: 280), flipped: false) { rect in
@@ -107,9 +100,7 @@ import Testing
         let renderer = ImageRenderer(content: framed)
         renderer.scale = 2
         let image = try #require(renderer.cgImage, "\(name) did not render")
-        try FileManager.default.createDirectory(at: Self.folder, withIntermediateDirectories: true)
-        let data = try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
-        try data.write(to: Self.folder.appendingPathComponent("\(name)-\(scheme == .dark ? "dark" : "light").png"))
+        try keepRender(NSBitmapImageRep(cgImage: image), name: name, scheme: scheme)
         return CGSize(width: CGFloat(image.width) / 2 - 48, height: CGFloat(image.height) / 2 - 76)
     }
 
@@ -366,10 +357,11 @@ import Testing
         try render(DropZoneView(state: DropZoneState(fileCount: 3)), name: "drop-zone", scheme: scheme)
         try render(DropZoneView(state: DropZoneState(fileCount: 3, hovering: true)), name: "drop-zone-hover", scheme: scheme)
         try render(DropZoneView(state: DropZoneState(fileCount: 1, hovering: true, harder: true)), name: "drop-zone-harder", scheme: scheme)
-        // Preset zones: four in the grid with one under the drag, and three on the other side.
+        // Preset zones: four in the grid with one under the drag, and three on the other side. A
+        // long name is cut in its middle.
         let zones = [
             PresetZone(name: "to WebP", icon: "photo", builtIn: true), PresetZone(name: "fit under 1 MB", icon: "arrow.down.circle", builtIn: true),
-            PresetZone(name: "Screenshots for the blog post", icon: "camera.viewfinder"), PresetZone(name: "Share", icon: "square.and.arrow.up"),
+            PresetZone(name: "Screenshots for the blog post header images", icon: "camera.viewfinder"), PresetZone(name: "Share", icon: "square.and.arrow.up"),
         ]
         let four = try render(DropZoneView(state: DropZoneState(fileCount: 2, zones: zones, hoveredZone: "fit under 1 MB")), name: "drop-zone-presets", scheme: scheme)
         #expect(four.width > DropTiles.plainWidth * 4, "the zones sit beside the plain target")
@@ -393,9 +385,7 @@ import Testing
         let renderer = ImageRenderer(content: view.padding(.horizontal, 12).frame(height: 24).background(background).environment(\.colorScheme, scheme))
         renderer.scale = 2
         let image = try #require(renderer.cgImage)
-        try FileManager.default.createDirectory(at: Self.folder, withIntermediateDirectories: true)
-        let data = try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
-        try data.write(to: Self.folder.appendingPathComponent("\(name)-\(scheme == .dark ? "dark" : "light").png"))
+        try keepRender(NSBitmapImageRep(cgImage: image), name: name, scheme: scheme)
     }
 
     /// The detail's "…" menu rows, in the card's fill: a row with a card key shows it at its end.

@@ -7,6 +7,8 @@ import EsclopMCP
 import EsclopPipelines
 @testable import EsclopAppKit
 import Foundation
+import SwiftUI
+import Testing
 
 /// A temporary folder removed when the value goes away.
 final class TempDir: @unchecked Sendable {
@@ -233,4 +235,23 @@ func eventually(_ timeout: Duration = .seconds(60), _ condition: () -> Bool) asy
         try? await Task.sleep(for: .milliseconds(10))
     }
     return true
+}
+
+// MARK: Renders
+
+/// Where renders keep their PNGs: `ESCLOP_RENDER_DIR`, for pull requests. Without it a render is
+/// drawn and encoded but written nowhere, so a test run leaves no folder behind, passed or failed.
+let renderFolder: URL? = ProcessInfo.processInfo.environment["ESCLOP_RENDER_DIR"].flatMap {
+    $0.isEmpty ? nil : URL(fileURLWithPath: $0, isDirectory: true)
+}
+
+/// Encodes a render as PNG and writes `<name>-<light|dark>.png` into `folder` when there is one.
+@discardableResult
+func keepRender(_ rep: NSBitmapImageRep, name: String, scheme: ColorScheme, in folder: URL? = renderFolder) throws -> URL? {
+    let data = try #require(rep.representation(using: .png, properties: [:]), "\(name) did not encode")
+    guard let folder else { return nil }
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let url = folder.appendingPathComponent("\(name)-\(scheme == .dark ? "dark" : "light").png")
+    try data.write(to: url)
+    return url
 }

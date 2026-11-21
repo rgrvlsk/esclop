@@ -70,8 +70,10 @@ public struct DropZoneView: View {
                     DropTile(hovered: state.hoveredZone == zone.name, width: DropTiles.zoneWidth) {
                         Image(systemName: zone.icon).font(.system(size: 15, weight: .medium))
                     } label: {
-                        Text(zone.title)
+                        // A long name keeps its start and its end; the tooltip has all of it.
+                        Text(zone.title).truncationMode(.middle)
                     }
+                    .help(zone.title)
                     .reportFrame(zone.name, to: state)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(Strings.format("Preset zone: %@", zone.title))

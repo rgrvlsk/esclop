@@ -53,7 +53,7 @@ public enum SettingsPane: String, CaseIterable, Identifiable, Hashable, Sendable
     /// The registry sections this pane lists, in order.
     public var sections: [SettingsSection] {
         switch self {
-        case .general: return [.general, .output, .backups, .updates]
+        case .general: return [.menuBar, .general, .output, .backups, .updates]
         case .images: return [.images]
         case .video: return [.video]
         case .pdf: return [.pdf]
@@ -101,6 +101,7 @@ public enum SettingsPane: String, CaseIterable, Identifiable, Hashable, Sendable
     /// The heading a registry section gets inside its pane; nil when the pane has only that one.
     public func heading(for section: SettingsSection) -> String? {
         switch section {
+        case .menuBar: return Strings.text("Menu bar")
         case .general: return Strings.text("Every file")
         case .output: return Strings.text("Where results go")
         case .backups: return Strings.text("Backups")

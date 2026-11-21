@@ -54,9 +54,7 @@ import UniformTypeIdentifiers
         }
         let rep = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
         host.cacheDisplay(in: host.bounds, to: rep)
-        try FileManager.default.createDirectory(at: RenderTests.folder, withIntermediateDirectories: true)
-        let data = try #require(rep.representation(using: .png, properties: [:]))
-        try data.write(to: RenderTests.folder.appendingPathComponent("\(name)-\(scheme == .dark ? "dark" : "light").png"))
+        try keepRender(rep, name: name, scheme: scheme)
         return CGSize(width: host.bounds.width - 40, height: host.bounds.height - 40)
     }
 

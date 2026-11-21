@@ -24,6 +24,8 @@ public final class AppServices {
     let originalsWindow: OriginalsWindowController
     public let folders: WatchedFolders
     private var folderSettings: DefaultsObserver?
+    /// The menu bar rows of Settings › General: the glyph and the screenshots switch.
+    private var menuBarSettings: DefaultsObserver?
     private var pipelineFiles: FolderWatcher?
     /// A disk with watched folders mounted or went away.
     private var volumeObservers: [NSObjectProtocol] = []
@@ -113,6 +115,13 @@ public final class AppServices {
         folderSettings = DefaultsObserver(defaults: settings.defaults, keys: WatchedFolders.settingKeys) { [weak folders] _ in
             Task { @MainActor in folders?.refresh(retryDenied: true) }
         }
+        // Changed here or by `esclop settings set` in another process.
+        menuBarSettings = DefaultsObserver(defaults: settings.defaults, keys: [EsclopSettings.showMenubarIcon.key, EsclopSettings.showInScreenshots.key]) { [weak self] _ in
+            Task { @MainActor in
+                self?.statusItem?.applyMenuBarIcon()
+                self?.model.applyWindowSharing()
+            }
+        }
         // A pipeline saved, attached to a folder or deleted (here, by the CLI or by an agent).
         pipelineFiles = FolderWatcher(everyChange: true) { [weak folders, weak pipelinesWindow, weak model] _, _ in
             Task { @MainActor in
@@ -177,9 +186,23 @@ public final class AppServices {
         updater.start()
 
         onboarding.showIfFirstRun()
+        model.windowsForSnapshots = snapshots != nil
         snapshots?.start()
         log.info("L'Esclop \(EsclopVersion.string, privacy: .public) is running")
         releaseHeldFiles()
+    }
+
+    /// L'Esclop opened again from Finder or Spotlight while it runs: the panel under the glyph, or
+    /// Settings at the switch that shows the glyph when it is hidden, so the app is never lost.
+    // ponytail: a cold launch with the glyph hidden shows nothing (macOS sends reopen only to a
+    // running app), as a login launch must; a second open shows Settings. Show Settings at launch
+    // too if people get lost there.
+    public func reopen() {
+        if let statusItem, statusItem.isIconVisible {
+            statusItem.open()
+        } else {
+            settingsWindow.show(SettingsRoute(pane: .general, row: EsclopSettings.showMenubarIcon.key))
+        }
     }
 
     /// The end of `start`: files opened before it go now, later ones at once.

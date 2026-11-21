@@ -52,6 +52,9 @@ public final class SettingsViewModel {
     public var pane: SettingsPane = .general
     /// The row a deep link or a search result points at; the pane scrolls to it and marks it.
     public var highlighted: String?
+    /// The marked row, once it has been in view; the pane scrolls until it is. Only a new link
+    /// clears it.
+    @ObservationIgnored var markInView: String?
     public private(set) var descriptors: [SettingDescriptor] = []
     /// Choices the pickers leave out, by key: the video encoders this ffmpeg lacks. The value
     /// stays valid (the CLI and agents may set it); the engine says which encoder ran instead.
@@ -201,6 +204,8 @@ public final class SettingsViewModel {
 
     public func open(_ route: SettingsRoute) {
         if let pane = route.pane { self.pane = pane }
+        // A row that left while marked (another pane) never said so: start the new link afresh.
+        markInView = nil
         highlighted = route.row
     }
 

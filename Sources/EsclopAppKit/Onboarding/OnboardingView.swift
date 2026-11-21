@@ -69,7 +69,7 @@ public struct OnboardingView: View {
         switch step {
         case .welcome: WelcomePage(icon: icon)
         case .automatic: AutomaticPage(settings: settings, actions: actions)
-        case .permissions: PermissionsPage(onboarding: onboarding, actions: actions)
+        case .permissions: PermissionsPage(onboarding: onboarding, settings: settings, actions: actions)
         case .agents: AgentsPage(agents: agents, settings: settings, actions: actions)
         case .done:
             DonePage { name in
@@ -247,8 +247,21 @@ struct AutomaticPage: View {
 /// What macOS will ask for, why, and the one switch that is a system setting (open at login).
 struct PermissionsPage: View {
     let onboarding: OnboardingModel
+    let settings: SettingsViewModel
     let actions: SettingsActions
     @Environment(\.openURL) private var openURL
+    @Environment(\.screenshotLocation) private var screenshotLocation
+
+    private var imageFolders: [String] {
+        settings.value(EsclopSettings.imageDirs.key)?.arrayValue?.compactMap(\.stringValue) ?? []
+    }
+
+    private var screenshotsElsewhere: Bool { Self.elsewhere(screenshotLocation) }
+
+    /// Screenshots land in another folder than the Desktop (Screenshot's Options › Save to).
+    static func elsewhere(_ screenshotLocation: String) -> Bool {
+        WatchPlan.canonical(screenshotLocation).path != WatchPlan.canonical("~/Desktop").path
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -281,8 +294,17 @@ struct PermissionsPage: View {
                     } label: {
                         SettingLabel(
                             title: Strings.text("Files in Desktop, Documents and Downloads"),
-                            summary: Strings.text("macOS will ask to let L’Esclop see your Desktop: that is where screenshots land, and L’Esclop watches it for new ones. It asks again the first time L’Esclop replaces a file in Documents or Downloads. If you say no, the Desktop is left alone; Settings › Images shows how to allow it later.")
+                            summary: screenshotsElsewhere
+                                ? Strings.text("macOS will ask to let L’Esclop see your Desktop, which it watches for new images. It asks again the first time L’Esclop replaces a file in Documents or Downloads. If you say no, the Desktop is left alone; Settings › Images shows how to allow it later.")
+                                : Strings.text("macOS will ask to let L’Esclop see your Desktop: that is where screenshots land, and L’Esclop watches it for new ones. It asks again the first time L’Esclop replaces a file in Documents or Downloads. If you say no, the Desktop is left alone; Settings › Images shows how to allow it later.")
                         )
+                    }
+                    // Screenshots saved elsewhere: that folder, offered as in Settings › Images. Screen
+                    // recordings there are offered in Settings › Video, not here.
+                    if screenshotsElsewhere, let folder = FolderListEditor.unwatched(screenshotLocation, in: imageFolders) {
+                        ScreenshotFolderRow(folder: folder) {
+                            settings.set(EsclopSettings.imageDirs.key, to: .array((imageFolders + [folder]).map(JSONValue.string)))
+                        }
                     }
                     LoginItemRows(onboarding: onboarding)
                 }
@@ -298,9 +320,6 @@ struct PermissionsPage: View {
 /// on the same model, with what macOS still waits for and why it refused.
 struct LoginItemRows: View {
     let onboarding: OnboardingModel
-    /// Settings' row id, which a deep link or a search result scrolls to and marks.
-    var rowID: String?
-    var highlighted = false
 
     var body: some View {
         TitledToggle(
@@ -308,8 +327,7 @@ struct LoginItemRows: View {
             subtitle: Strings.text("Keep L’Esclop in the menu bar after a restart, so copies are optimised from the start."),
             isOn: Binding(get: { onboarding.opensAtLogin }, set: { onboarding.opensAtLogin = $0 })
         )
-        .id(rowID)
-        .highlighted(highlighted)
+        .markable(SettingsPaneView.openAtLoginRow)
         if onboarding.loginNeedsApproval {
             LabeledContent {
                 Button(Strings.text("Open Login Items")) { SMAppService.openSystemSettingsLoginItems() }

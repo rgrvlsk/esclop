@@ -16,17 +16,13 @@ import Testing
 
 @MainActor
 @Suite(.serialized) struct SettingsRenderTests {
-    static let folder: URL = {
-        if let path = ProcessInfo.processInfo.environment["ESCLOP_RENDER_DIR"], !path.isEmpty {
-            return URL(fileURLWithPath: path, isDirectory: true)
-        }
-        return FileManager.default.temporaryDirectory.appendingPathComponent("esclop-renders-\(UUID().uuidString)", isDirectory: true)
-    }()
-
     /// Draws the view in a light and a dark window at once, so both share one wait; writes
     /// `<name>-light.png` and `<name>-dark.png` and returns the content sizes in points.
     @discardableResult
-    static func renderBoth(_ view: (ColorScheme) -> some View, size: CGSize, name: String, settle: Duration = .milliseconds(250)) async throws -> [CGSize] {
+    static func renderBoth(
+        _ view: (ColorScheme) -> some View, size: CGSize, name: String, settle: Duration = .milliseconds(250),
+        before: (() async throws -> Void)? = nil
+    ) async throws -> [CGSize] {
         _ = NSApplication.shared
         let schemes: [ColorScheme] = [.light, .dark]
         let windows = schemes.map { scheme in
@@ -43,6 +39,8 @@ import Testing
             return window
         }
         try await Task.sleep(for: settle)
+        // What happens in the open windows before the pictures.
+        try await before?()
         var sizes: [CGSize] = []
         for (scheme, window) in zip(schemes, windows) {
             window.contentView?.layoutSubtreeIfNeeded()
@@ -52,16 +50,17 @@ import Testing
                 window.close()
             }
             guard let image = WindowSnapshots.image(of: window) else { continue }
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            let data = try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
-            try data.write(to: folder.appendingPathComponent("\(name)-\(scheme == .dark ? "dark" : "light").png"))
+            try keepRender(NSBitmapImageRep(cgImage: image), name: name, scheme: scheme)
         }
         return sizes
     }
 
     /// Draws `view` in a window of `size` with the scheme's appearance; returns the PNG's size in points.
     @discardableResult
-    static func renderWindow(_ view: some View, size: CGSize, name: String, scheme: ColorScheme, settle: Duration = .milliseconds(250)) async throws -> CGSize {
+    static func renderWindow(
+        _ view: some View, size: CGSize, name: String, scheme: ColorScheme, settle: Duration = .milliseconds(250),
+        before: (() async throws -> Void)? = nil
+    ) async throws -> CGSize {
         _ = NSApplication.shared
         // A fixed screenshot location: the machine's own stays out of the pictures.
         let host = NSHostingView(rootView: view.environment(\.screenshotLocation, "~/Desktop").environment(\.colorScheme, scheme))
@@ -77,6 +76,8 @@ import Testing
         // SwiftUI fills the AppKit controls in over a few run loop turns; sleeping on the main
         // actor lets the main run loop turn.
         try await Task.sleep(for: settle)
+        // What happens in the open window before the picture.
+        try await before?()
         host.layoutSubtreeIfNeeded()
         let bounds = host.bounds
         // A runner without a window server session gives no image: the layout still ran.
@@ -88,10 +89,26 @@ import Testing
         let rep = NSBitmapImageRep(cgImage: image)
         window.orderOut(nil)
         window.close()
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let data = try #require(rep.representation(using: .png, properties: [:]))
-        try data.write(to: folder.appendingPathComponent("\(name)-\(scheme == .dark ? "dark" : "light").png"))
+        try keepRender(rep, name: name, scheme: scheme)
         return bounds.size
+    }
+
+    /// Without ESCLOP_RENDER_DIR a render writes nothing: test runs left a folder of PNGs in the
+    /// temporary folder each time, 2.4 GB over a day of runs on one Mac.
+    @Test func aRenderWithoutTheFolderLeavesNothing() async throws {
+        let temp = FileManager.default.temporaryDirectory
+        func entries() -> Set<String> { Set((try? FileManager.default.contentsOfDirectory(atPath: temp.path)) ?? []) }
+        let rep = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 2, pixelsHigh: 2, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        let before = entries()
+        #expect(try keepRender(rep, name: "probe", scheme: .light, in: nil) == nil)
+        if renderFolder == nil {
+            try await Self.renderWindow(Text(verbatim: "probe"), size: CGSize(width: 80, height: 40), name: "probe", scheme: .light)
+        }
+        // The renders' old folders, not BatchRenderTests' own `esclop-render-backup`.
+        #expect(entries().subtracting(before).filter { $0.hasPrefix("esclop-renders-") }.isEmpty)
+        // With a folder, the PNG lands there under its name.
+        let folder = TempDir()
+        #expect(try keepRender(rep, name: "probe", scheme: .dark, in: folder.url)?.lastPathComponent == "probe-dark.png")
     }
 
     func model(_ settings: TestSettings) -> SettingsViewModel {
@@ -115,8 +132,40 @@ import Testing
     func updates(scheme: ColorScheme) async throws {
         let model = model(TestSettings())
         model.open(SettingsRoute(pane: .general, row: "installUpdatesAutomatically"))
-        let size = try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-updates", scheme: scheme, settle: .milliseconds(600))
+        let size = try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-updates", scheme: scheme, settle: .milliseconds(600)) {
+            // While the window is open: a closed one never reports the row (council C7-F1).
+            #expect(await eventually(.seconds(10)) { model.markInView == "installUpdatesAutomatically" }, "scrolled into view and marked")
+        }
         #expect(size.width > 0)
+    }
+
+    /// Search hits and links to rows low in General, with the window already open on another pane:
+    /// each row comes into view marked, however late the pane lays out (council C7-F1). The picture
+    /// is the last one, the pause hotkey.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func linksReachRowsLowInGeneral(scheme: ColorScheme) async throws {
+        let settings = TestSettings()
+        let model = model(settings)
+        model.login = OnboardingModel(defaults: settings.store.defaults)
+        model.pane = .images
+        let rows = [
+            "installUpdatesAutomatically", EsclopSettings.cardKeysUnderPointer.key, SettingsPaneView.openAtLoginRow,
+            // Twice: again after the pane was left while it was marked.
+            EsclopSettings.showInScreenshots.key, EsclopSettings.showInScreenshots.key, Hotkeys.rowID(.togglePause),
+        ]
+        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-link-low-row", scheme: scheme, settle: .milliseconds(400)) {
+            for row in rows {
+                // Away while the last row is still marked, as a person moving on would be.
+                model.pane = .images
+                try await Task.sleep(for: .milliseconds(150))
+                model.query = row
+                let hit = try #require(model.hits.first { $0.id == row }, "the search finds \(row)")
+                model.query = ""
+                model.open(hit)
+                #expect(model.markInView == nil, "\(row): a new link waits for its row to say it is in view")
+                #expect(await eventually(.seconds(10)) { model.markInView == row }, "\(row) in view and marked")
+            }
+        }
     }
 
     /// General › Keyboard shortcuts with the switch for the card keys under the pointer.
@@ -124,7 +173,9 @@ import Testing
     func keyboardShortcuts(scheme: ColorScheme) async throws {
         let model = model(TestSettings())
         model.open(SettingsRoute(pane: .general, row: EsclopSettings.cardKeysUnderPointer.key))
-        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-keyboard-shortcuts", scheme: scheme, settle: .milliseconds(600))
+        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-keyboard-shortcuts", scheme: scheme, settle: .milliseconds(600)) {
+            #expect(await eventually(.seconds(10)) { model.markInView == EsclopSettings.cardKeysUnderPointer.key }, "scrolled into view and marked")
+        }
     }
 
     /// General › Settings on another Mac: Export… and Import…, reached by its search row.
