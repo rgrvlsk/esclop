@@ -100,12 +100,17 @@ final class EndlessDownload: @unchecked Sendable {
             "http://172.20.0.1/a.png", "http://169.254.1.1/a.png", "http://100.64.0.1/a.png", "http://[::1]/a.png",
             "http://[fe80::1]/a.png", "http://[fd00::2]/a.png", "http://[::ffff:192.168.0.1]/a.png", "http://nas.local/a.png", "http://printer/a.png",
             "http://127.1/a.png", "http://0x7f.0.0.1/a.png", "http://0177.0.0.1/a.png",
+            // Y8: an IPv4 address inside an IPv6 one is judged as that IPv4 address.
+            "http://[::127.0.0.1]/a.png", "http://[::ffff:10.0.0.1]/a.png", "http://[64:ff9b::192.168.1.4]/a.png", "http://[64:ff9b::a00:1]/a.png",
         ] {
             let url = try #require(URL(string: local))
             #expect(WebDownload.isLocal(url), "\(local)")
             #expect(policy.decide(copy(), content: { .address(url) }) == .ignore(.localAddress), "\(local)")
         }
-        for remote in ["https://example.com/a.png", "https://203.0.113.9/a.png", "https://[2001:db8::1]/a.png", "https://172.32.0.1/a.png"] {
+        for remote in [
+            "https://example.com/a.png", "https://203.0.113.9/a.png", "https://[2001:db8::1]/a.png", "https://172.32.0.1/a.png",
+            "https://[64:ff9b::203.0.113.9]/a.png", "https://[::203.0.113.9]/a.png",
+        ] {
             #expect(!WebDownload.isLocal(try #require(URL(string: remote))), "\(remote)")
         }
     }

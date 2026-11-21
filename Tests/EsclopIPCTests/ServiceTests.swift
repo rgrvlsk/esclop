@@ -277,6 +277,19 @@ final class EventLog: @unchecked Sendable {
         #expect(PathInput.expand([temp.url], recursive: true, extensions: ["jpg"]) == [b.standardizedFileURL])
     }
 
+    /// Y2: a link given by name is optimised as the file it points at, relative or absolute.
+    @Test func aLinkExpandsToItsTarget() throws {
+        let temp = TempDir()
+        let photo = temp.file("photos/photo.png")
+        let relative = temp.url.appendingPathComponent("photos/relative.png")
+        let absolute = temp.url.appendingPathComponent("absolute.png")
+        try FileManager.default.createSymbolicLink(atPath: relative.path, withDestinationPath: "photo.png")
+        try FileManager.default.createSymbolicLink(atPath: absolute.path, withDestinationPath: photo.path)
+        let real = photo.resolvingSymlinksInPath().path
+        #expect(PathInput.expand([relative, absolute, photo], recursive: false).map { $0.resolvingSymlinksInPath().path } == [real, real, real])
+        #expect(PathInput.expand([relative, absolute], recursive: false).allSatisfy { $0.lastPathComponent == "photo.png" })
+    }
+
     @Test func settingValues() throws {
         let bool = AgentPermission.allowRunScripts.descriptor
         #expect(try bool.parse("on") == .bool(true))

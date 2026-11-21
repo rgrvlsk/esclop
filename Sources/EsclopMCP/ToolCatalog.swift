@@ -709,7 +709,7 @@ public enum ToolCatalog {
                 annotations: readAnnotations
             ),
             run: { call in
-                let excerpt = try call.service.logs(window: call.arguments.string("window") ?? "10m", limit: try call.arguments.int("limit") ?? 200)
+                let excerpt = try await call.service.logs(window: call.arguments.string("window") ?? "10m", limit: try call.arguments.int("limit") ?? 200)
                 var lines = excerpt.system
                 for (file, tail) in excerpt.files.sorted(by: { $0.key < $1.key }) { lines.append("== \(file)"); lines += tail }
                 if let note = excerpt.note { lines.append(note) }

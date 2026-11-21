@@ -73,7 +73,6 @@ final class OriginalsModel {
     nonisolated static func items(_ entries: [BackupEntry], log: ResultsLog) -> [OriginalItem] {
         // ponytail: the whole log, once per load; it keeps eight days of results.
         let logged = Dictionary(log.recent(limit: .max).compactMap { result in result.backup.map { ($0.standardizedFileURL.path, result) } }, uniquingKeysWith: { newest, _ in newest })
-        let cleared = log.savings().filter { $0.redacted == true }
         return entries.map { entry in
             if let result = logged[entry.backup.standardizedFileURL.path] {
                 return OriginalItem(entry: entry, result: result, inPlace: isInPlace(entry))
@@ -85,21 +84,16 @@ final class OriginalsModel {
             // calls that file an edited version; give the no-output case its own words if
             // templates overwriting files get common.
             let bytesAfter = entry.output == nil ? -1 : AppModel.size(of: output)
-            // After Recent › Clear the log keeps each result's sizes and time, not its name. The
-            // backup is made before the encode, so its time would call the result an edit after
-            // a long encode: the first cleared line since the backup with the same sizes judges
-            // it instead. Its own line is one of those, so the time is never later than its own
-            // finish, and anything changed after that still goes to the Trash.
-            let line = cleared.filter { saving in
-                saving.kind == kind && saving.bytesBefore == entry.bytes && saving.bytesAfter == bytesAfter
-                    && saving.finishedAt >= entry.createdAt.addingTimeInterval(-2)
-            }.map(\.finishedAt).min()
-            // ponytail: the rebuilt result keeps the backup's id, never a line's (two files of one
-            // size would swap them), so restoring it leaves the cleared line in the saving totals.
+            // The backup is made before the encode, so its time would call the result an edit
+            // after a long encode (with the names cleared, or older than the log keeps). The
+            // manifest is written again once the result is in place (`BackupStore.setOutput`):
+            // that is its finish, and anything changed after it still goes to the Trash.
+            // ponytail: the rebuilt result keeps the backup's id, never a cleared line's (two files
+            // of one size would swap them), so restoring it leaves the cleared line in the totals.
             let result = OptimisationResult(
                 id: entry.id, source: entry.original, output: output, backup: entry.backup, kind: kind,
                 bytesBefore: entry.bytes, bytesAfter: bytesAfter,
-                startedAt: entry.createdAt, finishedAt: line ?? entry.createdAt,
+                startedAt: entry.createdAt, finishedAt: entry.output == nil ? entry.createdAt : BackupStore.placedAt(entry) ?? entry.createdAt,
                 requestID: entry.requestID
             )
             return OriginalItem(entry: entry, result: result, inPlace: isInPlace(entry))
@@ -121,11 +115,7 @@ final class OriginalsModel {
     }
 
     func restore(_ items: [OriginalItem]) async {
-        var restored = false
-        for item in items where !item.inPlace {
-            if await app.restore(item.result) { restored = true }
-        }
-        if restored { await load() }
+        if await app.restore(items.filter { !$0.inPlace }.map(\.result)) > 0 { await load() }
     }
 
     /// Deletes kept originals: they can no longer be restored. The ones that could not be
@@ -147,8 +137,9 @@ final class OriginalsModel {
 
     func removeAll() async { await remove(items) }
 
+    /// The original where it is once back in place, the kept copy otherwise.
     func reveal(_ items: [OriginalItem]) {
-        app.reveal(items.map(\.entry.backup))
+        app.reveal(items.map { $0.inPlace ? $0.entry.original : $0.entry.backup })
     }
 
     /// The selected items, in the list's order.

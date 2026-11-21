@@ -368,9 +368,10 @@ public final class AppModel {
     }
 
     /// Puts one batch file's original back, without a floating result. When that fails the row
-    /// keeps its result and its saving and shows why.
+    /// keeps its result and its saving and shows why, also when the backup is gone (Optimise
+    /// Again on such a row stops there).
     public func restore(_ row: BatchRow) async {
-        guard let result = row.result, row.canRestore else { return }
+        guard let result = row.result, result.backup != nil else { return }
         row.restoreError = nil
         do {
             // `putBack` marks the latest batch's rows; this one may be from a batch Clear forgot.
@@ -399,26 +400,30 @@ public final class AppModel {
     /// result for the same file would get the newer original), with the copying off the main actor.
     /// One at a time per result, whichever window asks (a double click in Recent, the card's Undo,
     /// Compare's Restore Original): a second would put the original back twice and send it to the
-    /// Trash as an edit, so it throws `RestoreUnderWay`. Nor is an original put back again while
-    /// it is still in place: that too would send it to the Trash as an edit. True when a version
-    /// edited after optimising went to the Trash on the way. The current batch's rows with the
-    /// result show it restored, whichever window restored it.
+    /// Trash as an edit, so it throws `RestoreUnderWay`. An original already back, whichever
+    /// process put it back (`esclop restore`, an agent), is only marked restored
+    /// (`BackupStore.holdsOriginal`). True when a version edited after optimising went to the
+    /// Trash on the way. The current batch's rows with the result show it restored, whichever
+    /// window restored it.
     @discardableResult
     private func putBack(_ result: OptimisationResult) async throws -> Bool {
         let keys = Self.restoreKeys(of: result)
-        if !restoredIDs.isDisjoint(with: keys),
-           OriginalsModel.isInPlace(original: result.source, bytes: result.bytesBefore, output: result.output) {
-            return false
-        }
         guard restoringIDs.isDisjoint(with: keys) else { throw RestoreUnderWay() }
         restoringIDs.formUnion(keys)
         defer { restoringIDs.subtract(keys) }
         let (service, restoreBackup) = (service, restoreBackup)
-        let outcome = try await Task.detached { try await restoreBackup(service, result) }.value
+        let outcome = try await Task.detached { () -> RestoreOutcome? in
+            BackupStore.holdsOriginal(of: result) ? nil : try await restoreBackup(service, result)
+        }.value
         restoredIDs.formUnion(keys)
         forget(result)
-        noteWritten([result.source, result.output])
-        let editInTrash = Self.editWentToTrash(trashed: outcome.movedToTrash?.count ?? 0, restoring: result)
+        if outcome != nil {
+            noteWritten([result.source, result.output])
+        } else {
+            // Put back outside this app: out of the saving and Recent, as the service's restore does.
+            service.results.append([], withdrawing: [result], wait: false)
+        }
+        let editInTrash = Self.editWentToTrash(trashed: outcome?.movedToTrash?.count ?? 0, restoring: result)
         markRestored(result, editInTrash: editInTrash)
         return editInTrash
     }
@@ -1127,6 +1132,42 @@ public final class AppModel {
             notice(Strings.format("Could not restore %@", result.source.lastPathComponent), CardPresentation.message(for: error))
             return false
         }
+    }
+
+    /// Puts several originals back (Originals' selection) with one notice for them all, not a
+    /// card each; one alone shows its card, as `restore(_:)`. Returns how many came back.
+    @discardableResult
+    func restore(_ results: [OptimisationResult]) async -> Int {
+        guard results.count > 1 else {
+            guard let result = results.first else { return 0 }
+            return await restore(result) ? 1 : 0
+        }
+        var back: [OptimisationResult] = [], failed: [String] = [], why: String?, edits = 0
+        for result in results {
+            do {
+                if try await putBack(result) { edits += 1 }
+                back.append(result)
+            } catch is RestoreUnderWay {
+                continue
+            } catch {
+                failed.append(result.source.lastPathComponent)
+                why = why ?? CardPresentation.message(for: error)
+            }
+        }
+        // Every one was under way from another window, which says how it went.
+        guard !back.isEmpty || !failed.isEmpty else { return 0 }
+        await putBackOnClipboard(back.map { ($0.output, $0.source) })
+        let names = failed.joined(separator: ", ")
+        guard !back.isEmpty else {
+            notice(Strings.format("Could not restore %@", names), why ?? "")
+            return 0
+        }
+        var detail: [String] = []
+        if edits > 0 { detail.append(Strings.text("Edited versions are in the Trash.")) }
+        if !failed.isEmpty { detail.append(Strings.format("Could not restore: %@.", names)) }
+        if detail.isEmpty { detail.append(Strings.text("They are back where they were.")) }
+        notice(back.count == 1 ? Strings.text("1 original restored") : Strings.format("%d originals restored", back.count), detail.joined(separator: " "))
+        return back.count
     }
 
     /// The floating result for `result`, shown again when it had gone (the compare window runs
