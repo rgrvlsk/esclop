@@ -68,6 +68,7 @@ import Testing
     /// C4-F1): pausing no longer takes Settings. The hotkey also posts a short notice.
     @Test func theGearAndTheHotkeyPauseAndResume() throws {
         let harness = Harness()
+        harness.model.hideDelayOverride = nil // this test checks the notice's own 2 s
         #expect(KeyboardShortcuts.Name.togglePause.defaultShortcut == .init(.p, modifiers: [.control, .shift]), "Clop's key")
         let others = Hotkeys.all.map(\.name).filter { $0 != .togglePause }.compactMap(\.defaultShortcut)
         #expect(!others.contains(.init(.p, modifiers: [.control, .shift])))
@@ -87,6 +88,8 @@ import Testing
         Hotkeys.action(for: .togglePause)(harness.model)
         #expect(!harness.model.paused)
         #expect(notice()?.0 == Strings.text("Resumed"))
+        let resumedDeadline = try #require(harness.model.cards.last?.machine.nextDeadline)
+        #expect(resumedDeadline.timeIntervalSince(harness.model.now()) <= 2.01, "about two seconds too")
         #expect(harness.model.cards.count == 1, "the second notice replaces the first")
         // The gear's item, as wired in `MenuPanel`: the open panel's line shows it, no notice.
         harness.model.cards.forEach(harness.model.dismiss)

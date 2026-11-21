@@ -206,13 +206,10 @@ public final class AppModel {
     public func togglePause(announcing key: String) {
         togglePause()
         if paused {
-            notice(Strings.text("Paused"), Strings.format("%@ to resume", key))
+            notice(Strings.text("Paused"), Strings.format("%@ to resume", key), hideAfter: 2)
         } else {
-            notice(Strings.text("Resumed"), Strings.text("Copies and watched folders are optimised again."))
+            notice(Strings.text("Resumed"), Strings.text("Copies and watched folders are optimised again."), hideAfter: 2)
         }
-        guard let card = cards.last else { return }
-        card.machine.notice(at: now(), hideAfter: hideDelayOverride.map(Self.seconds) ?? 2)
-        reschedule(card)
     }
 
     /// `showInScreenshots`: unless it is on, as in Clop, the cards, the drop zone and the menu bar
