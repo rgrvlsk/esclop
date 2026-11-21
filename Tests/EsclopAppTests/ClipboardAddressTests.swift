@@ -140,8 +140,9 @@ final class EndlessDownload: @unchecked Sendable {
         pasteboard.clearContents()
         pasteboard.setData(pngData(), forType: .png)
         pasteboard.setString("https://example.com/cove.jpg", forType: .URL)
-        guard case .image = ClipboardPolicy.read(pasteboard) else {
-            Issue.record("expected the copied pixels")
+        let debugRead = ClipboardPolicy.read(pasteboard)
+        guard case .image = debugRead else {
+            Issue.record("expected the copied pixels, got \(debugRead) types \(pasteboard.types ?? [])")
             return
         }
     }
@@ -165,6 +166,7 @@ final class EndlessDownload: @unchecked Sendable {
     /// before the click, the clipboard is not touched, and each address is offered once.
     @Test func anOfferFetchesNothingUntilItsClick() async throws {
         let harness = Harness()
+        harness.model.hideDelayOverride = nil // this test checks the offer's own 4 s
         let fake = FakeDownload(file: harness.temp.file("cove.png"))
         harness.model.download = { try fake.fetch($0, $1) }
         let address = try #require(URL(string: "https://images.example.com/cove.png"))
