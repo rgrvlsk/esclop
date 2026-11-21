@@ -104,7 +104,8 @@ import Testing
         if renderFolder == nil {
             try await Self.renderWindow(Text(verbatim: "probe"), size: CGSize(width: 80, height: 40), name: "probe", scheme: .light)
         }
-        #expect(entries().subtracting(before).filter { $0.hasPrefix("esclop-render") }.isEmpty)
+        // The renders' old folders, not BatchRenderTests' own `esclop-render-backup`.
+        #expect(entries().subtracting(before).filter { $0.hasPrefix("esclop-renders-") }.isEmpty)
         // With a folder, the PNG lands there under its name.
         let folder = TempDir()
         #expect(try keepRender(rep, name: "probe", scheme: .dark, in: folder.url)?.lastPathComponent == "probe-dark.png")
