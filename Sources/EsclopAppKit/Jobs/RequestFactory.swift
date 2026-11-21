@@ -30,7 +30,7 @@ public struct RequestFactory: Sendable {
     /// temporary copy in place, so the backup is the original). A copied file is optimised as a
     /// copy in the temporary folder, as Clop does: copying is not a request to change the original.
     /// Otherwise, without `location`, a result in another format follows "Converted … go".
-    // Those copies go at launch with the backups' age rule (`BackupPruner.pruneAtLaunch`).
+    // Those copies go with the app's sweep (`BackupPruner.prune`).
     public func job(
         for source: URL, origin: RequestOrigin, aggressive: Bool = false, location: OutputLocation? = nil
     ) -> OptimisationJob {

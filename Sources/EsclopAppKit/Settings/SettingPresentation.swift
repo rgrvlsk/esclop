@@ -103,6 +103,8 @@ public enum SettingPresentation {
         "bottomRight": "Bottom right", "bottomLeft": "Bottom left", "topRight": "Top right", "topLeft": "Top left",
         // PlaybackSpeedFrames
         "keepFrames": "Keep every frame", "dropFrames": "Keep the frame rate",
+        // CopiedAddressAction
+        "offer": "Offer to download", "download": "Download and optimise", "ignore": "Do nothing",
         // AudioCoverArt
         "optimise": "Optimise it", "remove": "Remove it", "keep": "Keep it as it is",
         // VideoEncoder

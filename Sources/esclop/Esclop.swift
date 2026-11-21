@@ -125,6 +125,8 @@ struct FileInputs: ParsableArguments {
                 continue
             } catch let error as EsclopError {
                 throw error
+            } catch let refusal as WebDownload.Refusal {
+                throw EsclopError.other(refusal.description)
             } catch {
                 throw EsclopError.other("Could not download \(item): \(error.localizedDescription)")
             }

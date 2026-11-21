@@ -27,6 +27,8 @@ public final class AppServices {
     private var pipelineFiles: FolderWatcher?
     /// A disk with watched folders mounted or went away.
     private var volumeObservers: [NSObjectProtocol] = []
+    /// The hourly sweep of old backups and temporary files (`BackupPruner.prune`).
+    private var sweep: Task<Void, Never>?
     let watcher: ClipboardWatcher
     let server: AppServer
     /// Pictures of the app's windows on request; only with ESCLOP_SNAPSHOT_DIR set.
@@ -145,9 +147,14 @@ public final class AppServices {
             folders.refresh()
         }
         PipelineEditorModel.removeLeftovers()
-        let retention = EsclopSettings.backupRetentionDays.value(in: model.settings)
         let backups = BackupStore(root: model.service.context.locations.backups)
-        Task.detached(priority: .utility) { BackupPruner.pruneAtLaunch(days: retention, backups: backups) }
+        let settings = model.settings
+        sweep = Task.detached(priority: .utility) {
+            while !Task.isCancelled {
+                BackupPruner.prune(days: EsclopSettings.backupRetentionDays.value(in: settings), backups: backups)
+                try? await Task.sleep(for: .seconds(3600))
+            }
+        }
         try? FileManager.default.createDirectory(at: model.service.context.pipelines.directory, withIntermediateDirectories: true)
         pipelineFiles?.start([model.service.context.pipelines.directory])
         let workspace = NSWorkspace.shared.notificationCenter
@@ -180,6 +187,7 @@ public final class AppServices {
 
     public func stop() {
         server.stop()
+        sweep?.cancel()
         watcher.stop()
         dropZone.stop()
         folders.stop()

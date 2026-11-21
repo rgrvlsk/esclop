@@ -88,13 +88,25 @@ struct DropIntake {
         return (count, kinds)
     }
 
+    /// The promised files and web addresses still to arrive.
+    var remoteCount: Int { promises.reduce(0) { $0 + $1.promisedTypes.count } + addresses.count }
+
+    /// What a working card calls the files still to arrive: the address's name, "Dropped file",
+    /// or "3 files".
+    var remoteName: String {
+        if remoteCount > 1 { return Strings.format("%d files", remoteCount) }
+        return addresses.first?.lastPathComponent ?? Strings.text("Dropped file")
+    }
+
     /// Hands the local files to `deliver`: dropped files as they are, promised files once
     /// written into a new folder under `folder`, addresses once `download` has fetched them. The
     /// promises are asked for and the downloads started before this returns, so call it while
-    /// the drop is under way. Files go ahead as they arrive, gathered while they come within
+    /// the drop is under way. `waiting` hears how many are still to arrive after each one. The
+    /// function returned stops it: the downloads stop, and a promised or downloaded file not
+    /// handed over yet, or arriving later, is deleted (a promise itself cannot be stopped). Files go ahead as they arrive, gathered while they come within
     /// `gather` of each other, so a drop of many photos is one batch and a slow video or a file
     /// that never comes holds back no other. Failures come with the files they arrived beside.
-    // Promised and downloaded files go with the launch sweep (`BackupPruner.pruneAtLaunch`).
+    // Promised and downloaded files go with the app's sweep (`BackupPruner.prune`).
     // ponytail: a legacy promise
     // is taken to list one type per file (unverified); one listing fewer would lose the rest.
     // Files more than `gather` apart are separate batches, each counted against
@@ -104,13 +116,17 @@ struct DropIntake {
         into folder: URL = Paths.temporary.appendingPathComponent("dropped", isDirectory: true),
         gather: Duration = .milliseconds(500),
         download: @escaping @Sendable (URL) async throws -> URL = { try await WebDownload.fetch($0) },
+        waiting: @escaping @MainActor (Int) -> Void = { _ in },
         deliver: @escaping @MainActor (_ files: [URL], _ failures: [any Error]) -> Void
-    ) {
+    ) -> @MainActor () -> Void {
         // The reader runs once per promised type; a promise of no type is not asked for.
         let asked = promises.filter { !$0.promisedTypes.isEmpty }
         let promised = asked.reduce(0) { $0 + $1.promisedTypes.count }
         let expected = promised + addresses.count
-        guard expected > 0 else { return deliver(files, []) }
+        guard expected > 0 else {
+            deliver(files, [])
+            return {}
+        }
         let (results, sink) = AsyncStream.makeStream(of: Result<URL, any Error>.self)
         do {
             if !asked.isEmpty {
@@ -120,25 +136,41 @@ struct DropIntake {
         } catch {
             for _ in 0 ..< promised { sink.yield(.failure(error)) }
         }
-        for address in addresses {
+        let downloads = addresses.map { address in
             Task {
                 do { sink.yield(.success(try await download(address))) } catch { sink.yield(.failure(error)) }
             }
         }
         let batch = Batch(files: files)
+        let local = Set(files)
         Task { @MainActor in
             var left = expected
             batch.handOver(after: gather, to: deliver)
             for await result in results {
-                switch result {
-                case let .success(url): batch.files.append(url)
-                case let .failure(error): batch.failures.append(error)
-                }
                 left -= 1
+                if batch.stopped {
+                    if case let .success(url) = result { AppModel.discardDownload(url) }
+                } else {
+                    switch result {
+                    case let .success(url): batch.files.append(url)
+                    case let .failure(error): batch.failures.append(error)
+                    }
+                    waiting(left)
+                }
                 if left == 0 { break }
-                batch.handOver(after: gather, to: deliver)
+                if !batch.stopped { batch.handOver(after: gather, to: deliver) }
             }
             batch.flush?.cancel()
+            if !batch.stopped { batch.hand(to: deliver) }
+        }
+        return {
+            guard !batch.stopped else { return }
+            batch.stopped = true
+            batch.flush?.cancel()
+            downloads.forEach { $0.cancel() }
+            for file in batch.files where !local.contains(file) { AppModel.discardDownload(file) }
+            batch.files.removeAll { !local.contains($0) }
+            batch.failures = []
             batch.hand(to: deliver)
         }
     }
@@ -148,6 +180,8 @@ struct DropIntake {
         var files: [URL]
         var failures: [any Error] = []
         var flush: Task<Void, Never>?
+        /// Stop was pressed: what still arrives is deleted.
+        var stopped = false
 
         init(files: [URL]) { self.files = files }
 
