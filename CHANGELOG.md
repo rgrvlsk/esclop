@@ -162,8 +162,8 @@ links offered for download; Originals, Open With and settings you can carry to a
   optimised.
 - `esclop pdf pages` and a pipeline's `extractPagesAsImages` optimise the pages they write and
   name them after the PDF, the number padded to the page count (`doc-1.jpg` of 3 pages,
-  `doc-01.jpg` of 12). `esclop pdf pages` makes a page that is one photo a
-  JPEG, and `--format` offers only png and jpeg.
+  `doc-01.jpg` of 12). `esclop pdf pages` makes a page that is one photo a JPEG, and `--format`
+  offers only png and jpeg.
 - With Keep HDR off, an HDR video stays HDR and says why: this build cannot convert HDR to SDR.
   Before, it was 8-bit but still tagged HDR.
 - Settings hides the software video encoders the bundled ffmpeg does not have, and the details
@@ -298,8 +298,8 @@ links offered for download; Originals, Open With and settings you can carry to a
 - `esclop restore` on a file with no recent result points at `esclop recent` and exits 1. A file
   command whose every file was an invalid request exits 64. `esclop convert --help` no longer
   offers `jxl`, and `esclop settings reset` prints the new value. Audio and video say "Removed
-  metadata" when they did, and a lossless pass "Optimised without loss". A video crop no longer prints a resize that does
-  nothing.
+  metadata" when they did, and a lossless pass "Optimised without loss". A video crop no longer
+  prints a resize that does nothing.
 - The detail stays open while its file changes in place, a file at work keeps its place among
   the floating results, and a result never lands out of sight.
 - Recent › Clear reports a failure when the log cannot be read, instead of clearing the list
