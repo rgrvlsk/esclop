@@ -67,6 +67,28 @@ import Testing
         }
     }
 
+    /// Ten files where one fails: the action fails with that file's name and reason and says the
+    /// other nine are done, instead of naming only the first failure.
+    @Test func aFailedFileAmongManyNamesItAndTheFinishedOnes() async throws {
+        let harness = Harness(failing: ["7.png", "8.png"])
+        let files = (1 ... 10).map { harness.temp.file("\($0).png") }
+        await withModel(harness) {
+            do {
+                _ = try await ShortcutActions.run(.optimise(harder: false), on: files)
+                Issue.record("expected the action to fail")
+            } catch let failure as ShortcutActions.Failure {
+                let lines = failure.message.components(separatedBy: "\n")
+                #expect(lines.count == 3)
+                #expect(lines[0].hasPrefix("7.png: ") && lines[0].contains("ffmpeg"))
+                #expect(lines[1].hasPrefix("8.png: "))
+                #expect(lines[2] == "8 other files were optimised; Recent Results has them.")
+            } catch {
+                Issue.record("unexpected \(error)")
+            }
+        }
+        #expect(harness.requests.requests.count == 10, "every file ran")
+    }
+
     @Test func anActionWaitsForTheAppToStart() async throws {
         let harness = Harness()
         ShortcutActions.model = nil

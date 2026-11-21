@@ -282,3 +282,19 @@ struct FakePromise: FilePromise {
         }
     }
 }
+
+@MainActor @Suite struct OpenWithTests {
+    /// Open With and a drop on the app's icon reach `open` as file URLs: they go the drop zone's
+    /// way (here a file it does not handle, so nothing runs and the drop's notice says why).
+    @Test func openedFilesAreADrop() async throws {
+        let services = AppServices(settings: TestSettings().store)
+        let temp = TempDir()
+        // Before launch finishes (Open With on a closed app) the files wait for `start`.
+        services.open([temp.file("notes.txt", bytes: 10)])
+        #expect(services.model.cards.isEmpty)
+        services.releaseHeldFiles()
+        #expect(services.model.cards.last?.presentation.capsule == .notice(title: "Nothing to optimise", detail: "Drop images, videos, PDFs or audio files."))
+        services.open([temp.file("more.txt", bytes: 10)])
+        #expect(services.model.cards.count == 1, "once started, files go at once")
+    }
+}

@@ -94,6 +94,8 @@ public enum ShortcutActions {
             return reports.compactMap { $0 }
         }
         var outputs: [URL] = []
+        var failures: [String] = []
+        var optimised = 0
         for (file, report) in zip(files, reports) {
             if let failure = report.failures.first {
                 if case .alreadySmaller = failure.error {
@@ -107,10 +109,22 @@ public enum ShortcutActions {
                 if let partial = report.results.first, partial.backup != nil {
                     message += " " + Strings.format("The steps before it already changed the file (%@); Recent Results can put the original back.", partial.output.path)
                 }
-                throw Failure(message: message)
+                failures.append(files.count == 1 ? message : Strings.format("%@: %@", file.lastPathComponent, message))
             } else if let result = report.results.first {
                 outputs.append(result.output)
+                optimised += 1
             }
+        }
+        // A file that fails fails the action, which then returns nothing: the error names every
+        // file that failed and says the others are done, so the person knows what changed.
+        if !failures.isEmpty {
+            var message = failures.joined(separator: "\n")
+            if optimised > 0 {
+                message += "\n" + (optimised == 1
+                    ? Strings.text("Another file was optimised; Recent Results has it.")
+                    : Strings.format("%d other files were optimised; Recent Results has them.", optimised))
+            }
+            throw Failure(message: message)
         }
         if options.copy, !outputs.isEmpty { model.writeClipboard(files: outputs) }
         return outputs

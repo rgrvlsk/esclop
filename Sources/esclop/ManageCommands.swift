@@ -73,7 +73,7 @@ struct Pipeline: AsyncParsableCommand {
         @OptionGroup var global: GlobalOptions
 
         func run() async throws {
-            try await runFileJob(.pipeline(pipeline), files: files, global: global) { $0.pipeline = pipeline }
+            try await runFileJob(.pipeline(pipeline), files: files, global: global, configure: { $0.pipeline = pipeline })
         }
     }
 
@@ -225,7 +225,7 @@ struct PipelineListing: Codable {
 struct Settings: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "Read and change L'Esclop's settings.",
-        subcommands: [Schema.self, Get.self, Set.self, Reset.self], defaultSubcommand: Schema.self
+        subcommands: [Schema.self, Get.self, Set.self, Reset.self, Export.self, Import.self], defaultSubcommand: Schema.self
     )
 
     struct Schema: AsyncParsableCommand {
@@ -289,6 +289,55 @@ struct Settings: AsyncParsableCommand {
             try await guarded(global) {
                 let stored = try EsclopService(global.context()).resetSetting(key)
                 if global.json { Output.json(["key": JSONValue.string(key), "value": stored]) } else { print("\(key) = \(stored.plain) (default)") }
+                return 0
+            }
+        }
+    }
+}
+
+extension Settings {
+    struct Export: AsyncParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Write the settings you changed to a JSON file, for another Mac.",
+            discussion: "Only the keys you set are written; the other Mac keeps its own defaults for the rest. Hotkeys and upload keys are not settings and stay."
+        )
+        @Argument(help: "The file to write; standard output without one.") var file: String?
+        @OptionGroup var global: GlobalOptions
+
+        func run() async throws {
+            try await guarded(global) {
+                let data = try SettingsFile.export(from: .shared)
+                guard let file else {
+                    print(String(decoding: data, as: UTF8.self))
+                    return 0
+                }
+                let url = try PathInput.url(file)
+                try data.write(to: url, options: .atomic)
+                if global.json { Output.json(["file": JSONValue.string(url.path)]) } else { print("Wrote the settings to \(PathInput.abbreviate(url))") }
+                return 0
+            }
+        }
+    }
+
+    struct Import: AsyncParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Read settings from a file `esclop settings export` wrote. Applies immediately.",
+            discussion: "Every value is checked first: one a setting does not take changes nothing. Keys this version does not know are skipped and named."
+        )
+        @Argument(help: "The settings file.") var file: String
+        @OptionGroup var global: GlobalOptions
+
+        func run() async throws {
+            try await guarded(global) {
+                let url = try PathInput.url(file)
+                guard let data = FileManager.default.contents(atPath: url.path) else { throw EsclopError.fileNotFound(url.path) }
+                let read = try SettingsFile.import(data, into: .shared)
+                if global.json {
+                    Output.json(["imported": JSONValue.array(read.values.keys.sorted().map(JSONValue.string)), "unknown": .array(read.unknown.map(JSONValue.string))])
+                    return 0
+                }
+                print(read.values.count == 1 ? "Imported 1 setting." : "Imported \(read.values.count) settings.")
+                if !read.unknown.isEmpty { note("skipped what this version does not know: \(read.unknown.joined(separator: ", "))") }
                 return 0
             }
         }

@@ -27,6 +27,8 @@ public final class AppServices {
     private var pipelineFiles: FolderWatcher?
     /// A disk with watched folders mounted or went away.
     private var volumeObservers: [NSObjectProtocol] = []
+    private var isStarted = false
+    private var heldFiles: [URL] = []
     /// The hourly sweep of old backups and temporary files (`BackupPruner.prune`).
     private var sweep: Task<Void, Never>?
     let watcher: ClipboardWatcher
@@ -61,7 +63,8 @@ public final class AppServices {
             // On the clipboard queue, marked as L'Esclop's own write, so the watcher leaves it alone.
             copy: { [weak model] text in Task { await model?.copyToClipboard(text: text) } },
             supportFolder: model.service.context.locations.support,
-            openPipelines: { [weak model] in model?.onOpenPipelines?(nil) }
+            openPipelines: { [weak model] in model?.onOpenPipelines?(nil) },
+            settingsStore: settings
         ))
         let pipelinesWindow = PipelineEditorWindowController(model: PipelineEditorModel(
             store: model.service.context.pipelines, app: model
@@ -111,7 +114,7 @@ public final class AppServices {
             Task { @MainActor in folders?.refresh(retryDenied: true) }
         }
         // A pipeline saved, attached to a folder or deleted (here, by the CLI or by an agent).
-        pipelineFiles = FolderWatcher(everyChange: true) { [weak folders, weak pipelinesWindow, weak model] _ in
+        pipelineFiles = FolderWatcher(everyChange: true) { [weak folders, weak pipelinesWindow, weak model] _, _ in
             Task { @MainActor in
                 folders?.refresh()
                 pipelinesWindow?.model.reload()
@@ -176,11 +179,24 @@ public final class AppServices {
         onboarding.showIfFirstRun()
         snapshots?.start()
         log.info("L'Esclop \(EsclopVersion.string, privacy: .public) is running")
+        releaseHeldFiles()
     }
 
-    /// Handles `esclop://` links: `esclop://settings/...` opens the Settings window there.
+    /// The end of `start`: files opened before it go now, later ones at once.
+    func releaseHeldFiles() {
+        isStarted = true
+        if !heldFiles.isEmpty { open(heldFiles) }
+        heldFiles = []
+    }
+
+    /// Handles `esclop://` links (`esclop://settings/...` opens the Settings window there) and
+    /// files: Open With and a drop on the app's icon (Info.plist's document types) optimise
+    /// them as a drop on the drop zone does.
     public func open(_ urls: [URL]) {
-        for url in urls where !settingsWindow.open(url) && !pipelinesWindow.open(url) && !compareWindow.open(url) && !dropZone.open(url) {
+        let files = urls.filter(\.isFileURL)
+        // Open With on a closed app sends the files before launch finishes: they wait for `start`.
+        if !files.isEmpty { if isStarted { model.optimiseDropped(files, harder: false) } else { heldFiles += files } }
+        for url in urls where !url.isFileURL && !settingsWindow.open(url) && !pipelinesWindow.open(url) && !compareWindow.open(url) && !dropZone.open(url) {
 
             log.info("Ignored a link L'Esclop does not handle: \(url.absoluteString, privacy: .private)")
         }

@@ -58,7 +58,7 @@ final class OriginalsModel {
     func watch() {
         let root = store.root
         _ = try? Paths.ensure(root)
-        let watcher = FolderWatcher(everyChange: true) { [weak self] _ in
+        let watcher = FolderWatcher(everyChange: true) { [weak self] _, _ in
             Task { @MainActor in await self?.load() }
         }
         watcher.start([root])

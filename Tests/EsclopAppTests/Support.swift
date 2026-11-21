@@ -76,6 +76,8 @@ struct ShrinkingEngine: OptimisationEngine {
     var factor = 0.4
     var backups: URL
     var failure: EsclopError?
+    /// Names of the files that fail (with `failure`, ffmpeg missing without one); nil when all do.
+    var failing: Set<String>?
     var delay: Duration = .zero
     var log: RequestLog?
     /// Where `.temporary` results go; `.sameFolder` ones go beside the source, the rest in place.
@@ -86,7 +88,11 @@ struct ShrinkingEngine: OptimisationEngine {
         log?.add(request)
         progress(OptimisationProgress(requestID: request.id, source: source, fraction: 0.5))
         if delay > .zero { try await Task.sleep(for: delay) }
-        if let failure { throw failure }
+        if let failing {
+            if failing.contains(source.lastPathComponent) { throw failure ?? .toolMissing("ffmpeg") }
+        } else if let failure {
+            throw failure
+        }
         let started = Date()
         let before = AppModel.size(of: source)
         if request.location == .temporary, let temporaryRoot {
@@ -147,12 +153,12 @@ struct Harness {
         var texts: [String] = []
     }
 
-    init(failure: EsclopError? = nil, delay: Duration = .zero, gate: WorkGate = WorkGate(limit: 4)) {
+    init(failure: EsclopError? = nil, failing: Set<String>? = nil, delay: Duration = .zero, gate: WorkGate = WorkGate(limit: 4)) {
         let locations = EsclopLocations(support: temp.url.appendingPathComponent("support", isDirectory: true))
         let service = EsclopService(ServiceContext(
             origin: .app,
             engine: ShrinkingEngine(
-                backups: locations.backups, failure: failure, delay: delay, log: requests,
+                backups: locations.backups, failure: failure, failing: failing, delay: delay, log: requests,
                 temporaryRoot: temp.url.appendingPathComponent("esclop-temporary", isDirectory: true),
                 fitRefusal: fitRefusal
             ),

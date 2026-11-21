@@ -139,6 +139,9 @@ import Testing
         #expect(model.hits.contains { $0.id == "enableClipboardOptimiser" })
         model.query = "images"
         #expect(model.hits.contains { $0.id == "imageCompression" }, "the English pane name")
+        // The folder rules are edited under each folder: the search lands on the folder list.
+        model.query = "esclopignore"
+        #expect(model.hits.map(\.id) == ["imageDirs"] && model.hits.first?.pane == .images)
     }
 
     @Test func refusedValuesAreRephrasedWithoutTouchingTheCLI() {

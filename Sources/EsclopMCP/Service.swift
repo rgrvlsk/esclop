@@ -135,7 +135,15 @@ public struct EsclopService: Sendable {
         var report: JobReport
         if routesThroughApp {
             do {
-                report = try await context.app.perform(job, progress: progress)
+                // A cancelled call (MCP's notifications/cancelled cancels its task, as Ctrl-C ends
+                // the CLI) stops the app's job too: its ffmpeg would run on otherwise.
+                let app = context.app, jobID = job.id
+                report = try await withTaskCancellationHandler {
+                    try await app.perform(job, progress: progress)
+                } onCancel: {
+                    try? app.stop([jobID])
+                }
+                try Task.checkCancellation()
             } catch EsclopError.appNotRunning where !context.app.isAppRunning {
                 // The app quit between the check and the send: do the work here instead.
                 report = await executor.run(job) { if case let .progress(p) = $0 { progress(p) } }
