@@ -33,19 +33,25 @@ public actor ClientState {
 /// too) and lets each answer.
 actor InFlight {
     private var calls: [UUID: Task<CallTool.Result, Never>] = [:]
+    private var stopped = false
     var isIdle: Bool { calls.isEmpty }
 
     /// Runs a call as a task of its own, which `stopAll` cancels as the client's cancel does.
     func run(_ call: @escaping @Sendable () async -> CallTool.Result) async -> CallTool.Result {
         let id = UUID()
         let task = Task { await call() }
+        // A call that arrives as stdin closes stops too.
+        if stopped { task.cancel() }
         calls[id] = task
         let result = await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
         calls[id] = nil
         return result
     }
 
-    func stopAll() { calls.values.forEach { $0.cancel() } }
+    func stopAll() {
+        stopped = true
+        calls.values.forEach { $0.cancel() }
+    }
 }
 
 public struct EsclopMCPServer: Sendable {
@@ -112,7 +118,6 @@ public struct EsclopMCPServer: Sendable {
         let server = try await start(transport: transport, inFlight: inFlight)
         await server.waitUntilCompleted()
         await inFlight.stopAll()
-        // ponytail: a call that arrives as stdin closes may start after stopAll; it has 30 s.
         let deadline = Date().addingTimeInterval(30)
         while !(await inFlight.isIdle), Date() < deadline {
             try? await Task.sleep(nanoseconds: 20_000_000)

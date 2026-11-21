@@ -101,6 +101,8 @@ struct Session {
         #expect(session.engine.requests.last?.audioBitrateKbps == 96 && session.engine.requests.last?.videoBitrateKbps == nil)
         let refused = try await session.call("esclop_optimise", ["paths": .array([.string(video.path)]), "bitrate": 2])
         #expect(refused.isError && refused.text.contains("kbit/s"))
+        let mixed = try await session.call("esclop_optimise", ["paths": .array([.string(video.path), .string(audio.path)]), "bitrate": 96])
+        #expect(mixed.isError && mixed.text.contains("a call of its own"), "the audio files would keep theirs without a word")
     }
 
     /// A call with a progress token hears how its files go, rising, all before the result; a

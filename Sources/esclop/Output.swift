@@ -88,7 +88,8 @@ enum Output {
             summary.results.forEach { print(terminal.line($0, fullPath: downloaded.contains($0.source))) }
             summary.failures.forEach { print(terminal.line($0)) }
             // A pipeline step that did not run says so; the JSON has it in `steps`.
-            summary.results.flatMap(\.steps).compactMap(skippedNote).forEach(note)
+            var noted: Set<String> = []
+            summary.results.flatMap(\.steps).compactMap(skippedNote).filter { noted.insert($0).inserted }.forEach(note)
             if summary.results.count > 1 {
                 print(terminal.dim("Total \(ByteSize.format(summary.bytesBefore)) → \(ByteSize.format(summary.bytesAfter)) (−\(ResultSummary.percentText(summary.savedPercent))%) over \(summary.results.count) files"))
             }
@@ -257,7 +258,8 @@ func runJob(
         // `optimise image`) was asked for by name: it is refused, and every download goes again.
         if let refusal, let rejected = sources.first(where: { downloaded.contains($0.path) && !keep($0) }) {
             downloaded.forEach { try? FileManager.default.removeItem(atPath: $0) }
-            throw EsclopError.invalidArgument("\(PathInput.abbreviate(rejected)) was downloaded but \(refusal); it was removed.")
+            let removed = downloaded.count == 1 ? "it was removed" : "the \(downloaded.count) downloads were removed"
+            throw EsclopError.invalidArgument("\(PathInput.abbreviate(rejected)) was downloaded but \(refusal); \(removed).")
         }
         sources = sources.filter(keep)
         let optimised = skipOptimised ? sources.filter(OptimisedMark.isMarked) : []

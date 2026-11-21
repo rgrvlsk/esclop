@@ -108,7 +108,8 @@ struct BitrateOption: ParsableArguments {
     var bitrate: Int?
 
     func validate() throws {
-        if let bitrate, !OptimisationRequest.bitrates.contains(bitrate) { throw ValidationError("--bitrate is in kbit/s, from 8 to 200000.") }
+        let range = OptimisationRequest.bitrates
+        if let bitrate, !range.contains(bitrate) { throw ValidationError("--bitrate is in kbit/s, from \(range.lowerBound) to \(range.upperBound).") }
     }
 
     func apply(to request: inout OptimisationRequest) {

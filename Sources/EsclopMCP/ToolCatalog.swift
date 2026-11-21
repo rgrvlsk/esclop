@@ -60,17 +60,20 @@ public enum ToolCatalog {
     }
 
     static let bitrateSchema = Schema.integer(
-        "Videos and audio: target bitrate in kbit/s, the video stream's for videos and the audio's for audio files.",
+        "Videos and audio: target bitrate in kbit/s, the video stream's for videos and the audio's for audio files. Videos and audio files together are refused: one kind per call.",
         minimum: OptimisationRequest.bitrates.lowerBound, maximum: OptimisationRequest.bitrates.upperBound
     )
 
     /// `bitrate`, as the CLI's `--bitrate`.
     static func applyBitrate(_ call: ToolCall, to request: inout OptimisationRequest) throws {
         guard let kbps = try call.arguments.int("bitrate") else { return }
-        guard OptimisationRequest.bitrates.contains(kbps) else {
-            throw ToolFailure("bitrate is in kbit/s, from 8 to 200000", code: "invalidArgument")
+        let range = OptimisationRequest.bitrates
+        guard range.contains(kbps) else {
+            throw ToolFailure("bitrate is in kbit/s, from \(range.lowerBound) to \(range.upperBound)", code: "invalidArgument")
         }
-        request.setBitrate(kbps)
+        guard request.setBitrate(kbps) else {
+            throw ToolFailure("bitrate cannot go to videos and audio files in one call: give each kind a call of its own", code: "invalidArgument")
+        }
     }
 
     static let fileAnnotations = MCP.Tool.Annotations(readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false)
