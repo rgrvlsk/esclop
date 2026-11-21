@@ -196,7 +196,7 @@ struct PDFEngine: Sendable {
                 throw EsclopError.other("Could not render page \(wanted[index]) of \(source.lastPathComponent)")
             }
             let jpeg = formats[index] == .jpeg
-            try ImageIOCodec.write(image, to: url, type: jpeg ? .jpeg : .png, quality: jpeg ? 0.9 : nil, strip: true)
+            try ImageIOCodec.write(image, to: url, type: jpeg ? .jpeg : .png, quality: jpeg ? 0.9 : nil, strip: true, dpi: dpi)
         }
     }
 

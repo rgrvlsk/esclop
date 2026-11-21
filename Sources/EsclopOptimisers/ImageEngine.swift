@@ -605,14 +605,20 @@ struct ImageEngine: Sendable {
             throw Self.unreadableOrUnsupported(source)
         }
         let output = work.file(stem: "stripped", ext: source.pathExtension.isEmpty ? format.fileExtension : source.pathExtension)
+        var step = "Removed metadata"
         if format == .gif {
             try await ProcessRunner.run(.gifsicle, ["--no-comments", "--no-names", "--no-extensions", "--output", output.path, source.path], locator: env.tools)
         } else if Self.engineReadable.contains(format), let caps = await env.images.capabilitiesIfAvailable(), caps.supports("metadata.strip") {
             try await env.images.call("metadata.strip", input: source, output: output, params: ["keep": ["icc", "orientation"]])
-        } else {
-            try ImageIOCodec.stripMetadata(source, to: output)
+        } else if try ImageIOCodec.stripMetadata(source, to: output) {
+            step = "Removed metadata (re-encoded at the highest quality)"
         }
-        return Produced(url: output, width: info.width, height: info.height, duration: nil, steps: ["Removed metadata"], allowLarger: true)
+        // Whatever wrote it, the result is read back: a strip never says it removed what stayed.
+        let left = ImageIOCodec.personalMetadata(output)
+        guard left.isEmpty else {
+            throw EsclopError.other("Could not remove the metadata of \(source.lastPathComponent): \(left.joined(separator: ", ")) stayed")
+        }
+        return Produced(url: output, width: info.width, height: info.height, duration: nil, steps: [step], allowLarger: true)
     }
 }
 

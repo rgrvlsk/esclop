@@ -51,6 +51,8 @@ struct VideoEngine: Sendable {
         /// Subtitle streams the container can carry: their index among the source's subtitles,
         /// and `copy` or the encoder that rewrites them as the container's text subtitles.
         var subtitles: [(index: Int, codec: String)] = []
+        /// `appleTagArgs` when not stripping.
+        var appleTags: [String] = []
     }
 
     // MARK: Optimise, convert, downscale, crop
@@ -97,10 +99,23 @@ struct VideoEngine: Sendable {
         }
     }
 
-    /// Not stripping still loses QuickTime keys (com.apple.quicktime.location.ISO6709, make,
-    /// model): ffmpeg's `use_metadata_tags` writes them in a form AVFoundation cannot read and
-    /// hides the ordinary tags (title, artist) from it too. Keeping them needs a copy outside ffmpeg.
-    static let locationNotKept = "Location and camera were not kept"
+    /// ffmpeg drops an iPhone's QuickTime keys (com.apple.quicktime.location.ISO6709, make, model)
+    /// from MOV and MP4; its `use_metadata_tags` writes them in a form AVFoundation cannot read and
+    /// hides the ordinary tags (title, artist) from it too. So, when not stripping, they go under
+    /// ffmpeg's own names: a MOV gets the ©xyz, ©mak and ©mod atoms AVFoundation and exiftool
+    /// read, an MP4 only the location (loci). Matroska copies the keys as tags of their own.
+    static func appleTagArgs(_ info: MediaInfo, container: OutputFormat) -> [String] {
+        guard [.mov, .mp4, .hevc, .av1].contains(container) else { return [] }
+        return info.appleTags.sorted { $0.key < $1.key }.flatMap { ["-metadata", "\($0.key)=\($0.value)"] }
+    }
+
+    /// The step line for what of `appleTagArgs` the container still loses: an MP4's camera.
+    static func appleTagsLost(_ info: MediaInfo, container: OutputFormat) -> String? {
+        guard [.mp4, .hevc, .av1].contains(container), info.appleTags["make"] != nil || info.appleTags["model"] != nil else { return nil }
+        return cameraNotKept
+    }
+
+    static let cameraNotKept = "Camera make and model were not kept"
     /// Shown as the message (and translated); see Localizable.xcstrings.
     static let subtitlesReason = "Videos with subtitles this format cannot keep are left as they are."
 
@@ -253,7 +268,7 @@ struct VideoEngine: Sendable {
         let reencodeAudio = !removeAudio && (speed != nil || loudness != nil || container == .webm || request.audioBitrateKbps != nil
             || env.value(EsclopSettings.convertAudioToAAC) || !info.streams("audio").allSatisfy { audioFits($0.codec, in: container) })
         if let kbps = request.videoBitrateKbps { steps.append("Video bitrate \(kbps) kbit/s") }
-        if plan.strip { steps.append("Removed metadata") } else if info.hasAppleLocationOrCamera { steps.append(Self.locationNotKept) }
+        if plan.strip { steps.append("Removed metadata") } else if let lost = Self.appleTagsLost(info, container: container) { steps.append(lost) }
 
         return EncodeSettings(
             container: container, codec: codec, factor: factor, videoBitrate: request.videoBitrateKbps,
@@ -261,7 +276,8 @@ struct VideoEngine: Sendable {
             audioBitrate: request.audioBitrateKbps, reencodeAudio: reencodeAudio, strip: plan.strip,
             hdr: video.isHDR ? video : nil, width: width, height: height,
             loudness: loudness, watermark: plan.watermark,
-            extraVideoTracks: max(0, info.streams("video").count - 1), trackFilters: trackFilters, subtitles: subtitles
+            extraVideoTracks: max(0, info.streams("video").count - 1), trackFilters: trackFilters, subtitles: subtitles,
+            appleTags: plan.strip ? [] : Self.appleTagArgs(info, container: container)
         )
     }
 
@@ -433,9 +449,8 @@ struct VideoEngine: Sendable {
         // Stripping removes what describes the person (location, device, dates); track languages
         // and chapters describe the content and stay. ponytail: other per-stream tags (an MKV
         // track title, mkvmerge's statistics date) stay too; list them here if one proves personal.
-        args += settings.strip ? ["-map_metadata:g", "-1", "-metadata:s", "creation_time="] : ["-map_metadata", "0"]
+        args += settings.strip ? ["-map_metadata:g", "-1", "-metadata:s", "creation_time="] : ["-map_metadata", "0"] + settings.appleTags
         args += ["-map_chapters", settings.speed == nil ? "0" : "-1"]
-        // Not stripping still loses the QuickTime keys; see `locationNotKept`.
         if [.mp4, .mov, .hevc, .av1].contains(settings.container) { args += ["-movflags", "+faststart"] }
         args += ["-progress", "pipe:1", "-nostats", output.path]
         return args
@@ -552,8 +567,8 @@ struct VideoEngine: Sendable {
         // MOV/MP4. Subtitles go along when the container takes them as a copy.
         var args = ["-hide_banner", "-nostdin", "-y", "-i", source.path, "-map", "0:v"]
         var steps = ["Removed audio"]
-        if !plan.strip, info.hasAppleLocationOrCamera { steps.append(Self.locationNotKept) }
         let container = OutputFormat.of(url: output) ?? .mp4
+        if !plan.strip, let lost = Self.appleTagsLost(info, container: container) { steps.append(lost) }
         let subtitles = info.streams("subtitle").map(\.codec)
         let kept = subtitles.indices.filter { subtitleFits(subtitles[$0], in: container) }
         for index in kept { args += ["-map", "0:s:\(index)"] }
@@ -564,7 +579,7 @@ struct VideoEngine: Sendable {
         args += ["-c", "copy"]
         // As in `arguments` (see its ponytail on other per-stream tags): stripping keeps the
         // track languages.
-        args += plan.strip ? ["-map_metadata:g", "-1", "-metadata:s", "creation_time="] : ["-map_metadata", "0"]
+        args += plan.strip ? ["-map_metadata:g", "-1", "-metadata:s", "creation_time="] : ["-map_metadata", "0"] + Self.appleTagArgs(info, container: container)
         if ["mp4", "mov", "m4v"].contains(source.pathExtension.lowercased()) { args += ["-movflags", "+faststart"] }
         args += ["-progress", "pipe:1", "-nostats", output.path]
         try await ProcessRunner.run(.ffmpeg, args, options: FFmpegProgress(duration: info.duration, sink: progress).options, locator: env.tools)
