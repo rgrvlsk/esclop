@@ -97,16 +97,18 @@ public struct FolderRules: Codable, Equatable, Sendable {
     }
 }
 
-/// A watched folder's `.esclopignore`, or Clop's `.clopignore`: gitignore-style patterns for
-/// names to leave alone, one per line. `#` starts a comment, `!` takes a name back, the last
+/// A watched folder's `.esclopignore`, or Clop's `.clopignore`, and for one kind of file
+/// `.esclopignore-image` (or `-video`, `-pdf`, `-audio`) and Clop 3.5's `.clopignore-image` and
+/// so on: gitignore-style patterns for names to leave alone, one per line. `#` starts a comment, `!` takes a name back, the last
 /// pattern that matches wins, and case does not matter, as on a Mac disk. Only files directly in
 /// the folder are watched, so a pattern matches the name; a leading `/` is allowed.
 public enum IgnoreFile {
     public static let names = [".esclopignore", ".clopignore"]
 
-    /// The patterns of both files in `folder`, in order. Read at each new file: they are small.
-    public static func patterns(in folder: URL) -> [String] {
-        names.flatMap { name -> [String] in
+    /// The patterns of the files in `folder` that apply to `kind`, in order: the files for every
+    /// kind first. Read at each new file: they are small.
+    public static func patterns(in folder: URL, for kind: MediaKind? = nil) -> [String] {
+        (names + (kind.map { kind in names.map { "\($0)-\(kind.rawValue)" } } ?? [])).flatMap { name -> [String] in
             guard let text = try? String(contentsOf: folder.appendingPathComponent(name), encoding: .utf8) else { return [] }
             return text.components(separatedBy: .newlines)
         }

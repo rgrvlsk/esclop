@@ -182,6 +182,28 @@ final class LocalServer: @unchecked Sendable {
         #expect(try (parse(["optimise", address, "-o", "/tmp/"]) as Optimise).files.downloadFolder == nil)
     }
 
+    /// `optimise image <address>`: an address that names another kind is refused before any
+    /// download; one that names none and serves a video is removed again and refused (exit 64).
+    @Test func optimiseImageRefusesAnAddressOfAnotherKind() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-kind-\(UUID().uuidString.prefix(8))", isDirectory: true)
+        let support = folder.appendingPathComponent(".support", isDirectory: true)
+        try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let server = try await LocalServer(contentType: "video/mp4", body: Data(repeating: 0, count: 64))
+        defer { server.stop() }
+
+        #expect(throws: (any Error).self) { try parse(["optimise", "image", "http://127.0.0.1:\(server.port)/clip.mp4"]) as Optimise }
+        let named = try await runEsclop(["optimise", "image", "--no-color", "-n", "http://127.0.0.1:\(server.port)/clip.mp4"], environment: ["ESCLOP_SUPPORT_DIR": support.path], in: folder)
+        #expect(named.exitCode == 64, "\(named.output)")
+        #expect(server.connections == 0, "nothing was downloaded")
+
+        let run = try await runEsclop(["optimise", "image", "--no-color", "-n", "http://127.0.0.1:\(server.port)/clip"], environment: ["ESCLOP_SUPPORT_DIR": support.path], in: folder)
+        #expect(run.exitCode == 64, "\(run.output)")
+        #expect(run.output.contains("is not an image") && run.output.contains("removed"), "\(run.output)")
+        let left = try FileManager.default.contentsOfDirectory(atPath: folder.path).filter { $0 != ".support" }
+        #expect(left.isEmpty, "the download goes again: \(left)")
+    }
+
     /// Only http and https are downloaded; another scheme is refused rather than read as a path.
     @Test func otherSchemesAreRefused() async throws {
         for address in ["ftp://example.com/a.png", "smb://server/share/b.png"] {

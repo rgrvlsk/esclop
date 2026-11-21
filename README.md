@@ -30,7 +30,8 @@ upload or run a pipeline. Many files at once go to a batch window. A copied file
 a copy, so the file on disk stays as it is; hold ⌥ while dropping to keep the originals.
 
 Copying the web address of an image, video, PDF or audio file offers to download it: nothing is
-fetched until you click. Optimise Clipboard (⌃⇧C) downloads it at once. Settings › Clipboard ›
+fetched until you click. Optimise Clipboard (⌃⇧C) downloads any copied address at once, also one
+without a file extension, and keeps it when it serves media. Settings › Clipboard ›
 Copied web addresses can download on its own or do nothing instead.
 
 The cards take Clop's keys while the pointer rests on them: Space Quick Look, ⌘Z Undo, ⌘C Copy,

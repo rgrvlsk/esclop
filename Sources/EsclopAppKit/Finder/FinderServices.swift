@@ -105,10 +105,8 @@ final class FinderServices: NSObject {
     /// A folder can hold far more than the person had in mind, and the files change in place:
     /// past the batch threshold, ask once. A selection of files only goes ahead as it is.
     func confirmed(_ action: Action, _ media: [URL], in selection: [URL]) -> Bool {
-        let folders = selection.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true }
         let count = action == .convertToWebP ? media.filter { MediaKind.of($0) == .image }.count : media.count
-        guard !folders.isEmpty, count > model.batchThreshold else { return true }
-        let place = folders.count == 1 ? folders[0].lastPathComponent : Strings.format("%d folders", folders.count)
+        guard count > model.batchThreshold, let place = Self.folders(in: selection) else { return true }
         switch action {
         case .optimise, .optimiseHarder:
             return confirm(Strings.format("Optimise %d files in %@?", count, place), Strings.text("Optimise"))
@@ -117,6 +115,13 @@ final class FinderServices: NSObject {
         case .runPipeline:
             return confirm(Strings.format("Run a pipeline on %d files in %@?", count, place), Strings.text("Continue"))
         }
+    }
+
+    /// The folder's name, or "3 folders", when the selection holds folders.
+    static func folders(in selection: [URL]) -> String? {
+        let folders = selection.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true }
+        guard !folders.isEmpty else { return nil }
+        return folders.count == 1 ? folders[0].lastPathComponent : Strings.format("%d folders", folders.count)
     }
 
     static func ask(_ question: String, button: String) -> Bool {

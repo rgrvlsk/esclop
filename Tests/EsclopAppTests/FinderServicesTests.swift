@@ -41,14 +41,14 @@ import Testing
         }
     }
 
-    /// Open With and a drop on the Dock icon: offered for every kind L'Esclop optimises, never as
-    /// their default app.
+    /// Open With and a drop on the Dock icon: offered for every kind L'Esclop optimises and for
+    /// folders (as the drop zone and Quick Actions take them), never as their default app.
     @Test func infoPlistOffersOpenWithNeverAsTheDefault() throws {
         let url = Self.root.appendingPathComponent("Scripts/templates/Info.plist.in")
         let plist = try PropertyListSerialization.propertyList(from: Data(contentsOf: url), format: nil) as? [String: Any]
         let types = try #require(plist?["CFBundleDocumentTypes"] as? [[String: Any]])
         #expect(types.allSatisfy { $0["LSHandlerRank"] as? String == "Alternate" && $0["CFBundleTypeRole"] as? String == "Viewer" })
-        #expect(Set(types.flatMap { $0["LSItemContentTypes"] as? [String] ?? [] }) == ["public.image", "public.movie", "public.audio", "com.adobe.pdf"])
+        #expect(Set(types.flatMap { $0["LSItemContentTypes"] as? [String] ?? [] }) == ["public.image", "public.movie", "public.audio", "com.adobe.pdf", "public.folder"])
     }
 
     @Test func everyServiceTitleHasCatalan() throws {
@@ -114,6 +114,30 @@ import Testing
         #expect(asked.count == 2, "a selection of files does not ask")
         services.handle(.runPipeline, files: [folder])
         #expect(asked.count == 2, "no pipeline for Finder: nothing to ask about")
+    }
+
+    /// "Optimise Files…" on a folder asks as ⌃O does; a folder on the Dock icon takes its media.
+    @Test func aChosenLargeFolderAsksOnceAndADockFolderIsTaken() async throws {
+        let harness = Harness()
+        var asked: [String] = []
+        var answer = false
+        harness.model.confirmFolders = { question, _ in asked.append(question); return answer }
+        let count = harness.model.batchThreshold + 1
+        let files = (1 ... count).map { harness.temp.file("Shoot/\($0).png") }
+        let folder = files[0].deletingLastPathComponent()
+        harness.model.optimiseChosen([folder])
+        #expect(asked == ["Optimise \(count) files in Shoot?"])
+        #expect(harness.model.batch == nil && harness.requests.requests.isEmpty, "nothing runs after a no")
+        answer = true
+        harness.model.optimiseChosen([folder])
+        #expect(await eventually { harness.requests.requests.count == count })
+        harness.model.optimiseChosen((1 ... count).map { harness.temp.file("loose/\($0).png") })
+        #expect(asked.count == 2, "a selection of files does not ask")
+
+        let dock = Harness()
+        let small = [dock.temp.file("Dropped/a.png"), dock.temp.file("Dropped/b.mov"), dock.temp.file("Dropped/notes.txt")]
+        dock.model.optimiseDropped([small[0].deletingLastPathComponent()], harder: false)
+        #expect(await eventually { dock.requests.requests.flatMap(\.sources).count == 2 })
     }
 
     @Test func webPConvertsOnlyImagesAndOtherFilesAreLeftWithANotice() async throws {

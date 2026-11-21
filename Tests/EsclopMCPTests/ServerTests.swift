@@ -90,6 +90,21 @@ struct Session {
         #expect(session.engine.requests.last?.locationFromSettings != true)
     }
 
+    /// `bitrate`, as the CLI's `--bitrate`: the video stream's for videos, the audio's for audio.
+    @Test func bitrateGoesToTheStreamItNames() async throws {
+        let session = try await Session.start()
+        defer { Task { await session.stop() } }
+        let video = session.temp.file("clip.mov"), audio = session.temp.file("talk.mp3")
+        _ = try await session.call("esclop_optimise", ["paths": .array([.string(video.path)]), "bitrate": 800])
+        #expect(session.engine.requests.last?.videoBitrateKbps == 800)
+        _ = try await session.call("esclop_convert", ["paths": .array([.string(audio.path)]), "format": "mp3", "bitrate": 96])
+        #expect(session.engine.requests.last?.audioBitrateKbps == 96 && session.engine.requests.last?.videoBitrateKbps == nil)
+        let refused = try await session.call("esclop_optimise", ["paths": .array([.string(video.path)]), "bitrate": 2])
+        #expect(refused.isError && refused.text.contains("kbit/s"))
+        let mixed = try await session.call("esclop_optimise", ["paths": .array([.string(video.path), .string(audio.path)]), "bitrate": 96])
+        #expect(mixed.isError && mixed.text.contains("a call of its own"), "the audio files would keep theirs without a word")
+    }
+
     /// A call with a progress token hears how its files go, rising, all before the result; a
     /// call without one hears nothing.
     @Test func progressIsSentOnlyWhenAsked() async throws {
@@ -354,5 +369,34 @@ final class HoldingApp: AppRequestHandler, @unchecked Sendable {
         try await client.cancelRequest(call.requestID, reason: "the person stopped it")
         while !app.stoppedJobs.contains(job), Date() < deadline { try await Task.sleep(nanoseconds: 20_000_000) }
         #expect(app.stoppedJobs == [job])
+    }
+
+    /// The client goes (stdin closes): nobody waits for the job the app runs, so it stops.
+    @Test func aClosedClientStopsTheAppsJob() async throws {
+        let temp = TempDir()
+        let ports = IPCPorts(prefix: "dev.esclop.test.close.\(UUID().uuidString.prefix(6))")
+        let app = HoldingApp()
+        let appServer = AppServer(handler: app, ports: ports)
+        try appServer.start()
+        defer { appServer.stop() }
+        let locations = EsclopLocations(support: temp.url.appendingPathComponent("support", isDirectory: true))
+        let service = EsclopService(ServiceContext(
+            origin: .mcp, engine: FakeEngine(), engineName: "fake", settings: InMemorySettingsProvider(),
+            pipelines: PipelineStore(directory: locations.pipelines, useTrash: false), locations: locations,
+            app: AppClient(ports: ports), useApp: true
+        ))
+        let (clientTransport, serverTransport) = await InMemoryTransport.createConnectedPair()
+        let serving = Task { try await EsclopMCPServer(service: service).serve(transport: serverTransport) }
+        let client = Client(name: "esclop-tests", version: "1")
+        _ = try await client.connect(transport: clientTransport)
+
+        _ = try await client.send(CallTool.request(.init(name: "esclop_optimise", arguments: ["paths": .array([.string(temp.file("long.mov").path)])])))
+        let deadline = Date().addingTimeInterval(60)
+        while app.startedJobs.isEmpty, Date() < deadline { try await Task.sleep(nanoseconds: 20_000_000) }
+        let job = try #require(app.startedJobs.first)
+        await client.disconnect()
+        while !app.stoppedJobs.contains(job), Date() < deadline { try await Task.sleep(nanoseconds: 20_000_000) }
+        #expect(app.stoppedJobs == [job])
+        try await serving.value
     }
 }

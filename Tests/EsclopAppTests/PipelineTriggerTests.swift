@@ -268,6 +268,18 @@ import UniformTypeIdentifiers
         #expect(AppModel.shelfApps.contains("com.Ebullioscopic.Atoll"))
     }
 
+    /// Dropshare from Setapp: either of its bundle ids, or the app found by its name, as Clop does.
+    @Test func dropshareFromSetappIsFound() async throws {
+        let setapp = FakeDesktop(installed: ["net.mkswap.Dropshare-setapp"])
+        #expect(try await perform(.upload(app: "dropshare"), on: setapp) == .handled(nil))
+        #expect(setapp.calls.withLock { $0.opened.map(\.1.lastPathComponent) } == ["net.mkswap.Dropshare-setapp.app"])
+        let byName = URL(fileURLWithPath: "/Applications/Setapp/Dropshare.app")
+        let named = FakeDesktop(apps: ["Dropshare": byName])
+        #expect(try await perform(.upload(app: "dropshare"), on: named) == .handled(nil))
+        #expect(named.calls.withLock { $0.opened.map(\.1) } == [byName])
+        #expect(try await perform(.upload(app: "dropshare"), on: FakeDesktop()) == .unavailable("Dropshare is not installed."))
+    }
+
     @Test func aForkIsPresentedAndSharingSaysWhyNot() async throws {
         let desktop = FakeDesktop()
         let file = temp.png("fork.png")

@@ -270,6 +270,36 @@ final class KeyWatcher: NSObject, @unchecked Sendable {
         #expect(EsclopSettings.batchWindowFrom.value(in: store) == 6)
     }
 
+    /// A shared file turns on agent permissions only when asked to; turning one off needs no ask.
+    @Test func agentPermissionsComeOnlyWhenAllowed() throws {
+        let store = scratchStore()
+        try EsclopSettings.allowDeleteBackups.set(true, in: store)
+        let data = Data(#"""
+        {"format": "esclop-settings", "version": 1, "settings": {"batchWindowFrom": 6, "allowRunScripts": true, "allowUploads": true,
+         "allowDeleteBackups": true, "allowOverwriteOriginals": false}}
+        """#.utf8)
+        let read = try SettingsFile.import(data, into: store)
+        #expect(read.permissions == ["allowRunScripts", "allowUploads"], "one already on is not turned on")
+        #expect(Set(read.values.keys) == ["batchWindowFrom", "allowDeleteBackups", "allowOverwriteOriginals"])
+        #expect(!EsclopSettings.allowRunScripts.value(in: store) && !EsclopSettings.allowUploads.value(in: store))
+        #expect(EsclopSettings.batchWindowFrom.value(in: store) == 6)
+        let allowed = try SettingsFile.import(data, into: store, allowPermissions: true)
+        #expect(allowed.permissions == ["allowRunScripts", "allowUploads"])
+        #expect(EsclopSettings.allowRunScripts.value(in: store) && EsclopSettings.allowUploads.value(in: store))
+        #expect(try SettingsFile.import(data, into: store).permissions.isEmpty, "nothing left to turn on")
+    }
+
+    @Test func aNewerFileIsNamedAndABadChoiceListsTheChoices() throws {
+        let store = scratchStore()
+        let newer = try SettingsFile.import(Data(#"{"format": "esclop-settings", "version": 2, "settings": {}}"#.utf8), into: store)
+        #expect(newer.isNewer && newer.version == 2)
+        #expect(try !SettingsFile.read(SettingsFile.export(from: store)).isNewer)
+        let bad = Data(#"{"format": "esclop-settings", "version": 1, "settings": {"optimiseURLClipboard": "always"}}"#.utf8)
+        #expect { try SettingsFile.import(bad, into: store) } throws: { error in
+            (error as? EsclopError)?.description.contains("must be one of offer, download, ignore") == true
+        }
+    }
+
     /// A bad file changes nothing: not JSON, another format, or one value a setting does not take.
     @Test func aBadFileIsRefusedWhole() throws {
         let store = scratchStore()

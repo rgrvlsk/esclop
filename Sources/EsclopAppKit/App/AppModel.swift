@@ -28,6 +28,8 @@ public final class AppModel {
     @ObservationIgnored let clipboard: ClipboardKeeper
     /// Fetches a copied web address (`WebDownload.fetch`); a fake in tests.
     @ObservationIgnored var download: @Sendable (URL, WebDownload.Terms) async throws -> URL = { try await WebDownload.fetch($0, terms: $1) }
+    /// "Optimise Files…" asks before many files from folders; an alert in the app, recorded in tests.
+    @ObservationIgnored var confirmFolders: @MainActor (_ question: String, _ button: String) -> Bool = FinderServices.ask
     /// Copied addresses offered this session: each is offered once.
     @ObservationIgnored var offeredAddresses: Set<URL> = []
     /// Shows the batch window when a batch starts.
