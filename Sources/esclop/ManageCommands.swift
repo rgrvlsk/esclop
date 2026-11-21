@@ -73,7 +73,7 @@ struct Pipeline: AsyncParsableCommand {
         @OptionGroup var global: GlobalOptions
 
         func run() async throws {
-            try await runFileJob(.pipeline(pipeline), files: files, global: global) { $0.pipeline = pipeline }
+            try await runFileJob(.pipeline(pipeline), files: files, global: global, configure: { $0.pipeline = pipeline })
         }
     }
 

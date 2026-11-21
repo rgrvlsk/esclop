@@ -191,20 +191,22 @@ import Testing
         let temp = TempDir()
         let file = temp.file("export.mov", bytes: 1000)
         let finished = Flag()
-        let writer = Task.detached {
-            try await Task.sleep(for: .milliseconds(700))
-            let handle = try FileHandle(forWritingTo: file)
-            try handle.seekToEnd()
-            try handle.write(contentsOf: Data(repeating: 0x41, count: 1000))
-            try handle.close()
+        // The copier is another process: its own thread, so a loaded cooperative pool cannot
+        // hold the second write past the 1.5 s the wait asks for (it once came 13 s late on CI).
+        Thread {
+            Thread.sleep(forTimeInterval: 0.7)
+            if let handle = try? FileHandle(forWritingTo: file) {
+                _ = try? handle.seekToEnd()
+                try? handle.write(contentsOf: Data(repeating: 0x41, count: 1000))
+                try? handle.close()
+            }
             finished.set()
-        }
+        }.start()
         // Two still checks 150 ms apart would take the stall for the end.
         let settled = await FileSettle.wait(for: file, interval: .milliseconds(150))
         #expect(settled == .steady)
         #expect(finished.isSet, "the wait outlasted the stall")
         #expect(FileSettle.snapshot(file)?.size == 2000)
-        try await writer.value
     }
 
     /// A file moved in with an old date is complete: the checks alone settle it.
