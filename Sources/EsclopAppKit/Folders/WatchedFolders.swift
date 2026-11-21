@@ -237,7 +237,8 @@ public final class WatchedFolders {
         }
         switch decision {
         case .optimise:
-            await model.run(model.factory.job(for: file, origin: .watchedFolder), batch: shared())
+            let job = model.factory.job(for: file, origin: .watchedFolder)
+            await model.run(job, batch: job.request.showResultUI ? shared() : nil)
         case let .pipeline(name, _): await model.runPipeline(name, onWatched: file, batch: shared)
         case .skip: return
         }

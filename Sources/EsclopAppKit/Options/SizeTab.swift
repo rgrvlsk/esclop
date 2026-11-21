@@ -135,13 +135,22 @@ struct FitChips: View {
                 }
                 .disabled(model.card.isWorking || model.card.fit == nil && (model.card.result?.bytesAfter ?? .max) <= bytes && model.card.result != nil)
             }
-            // A kept custom fit is a chosen chip of its own with its value, and takes itself off as a
-            // preset's chip does.
+            // A kept custom fit takes the place of Custom…, with its value: a click opens its field
+            // to change it, a click with the field open takes the fit off, as a preset's chip does.
             if let fit = Self.custom(model.card.fit) {
-                Chip(title: Figures.bytes(fit), selected: true) { model.app.removeFit(model.card) }
-                    .disabled(model.card.isWorking)
+                Chip(title: Figures.bytes(fit), selected: true) {
+                    if custom {
+                        custom = false
+                        model.app.removeFit(model.card)
+                    } else {
+                        model.customFit = String(fit / 1000)
+                        custom = true
+                    }
+                }
+                .disabled(model.card.isWorking)
+            } else {
+                Chip(title: Strings.text("Custom…"), selected: custom) { custom.toggle() }
             }
-            Chip(title: Strings.text("Custom…"), selected: custom) { custom.toggle() }
         }
         if custom {
             HStack {

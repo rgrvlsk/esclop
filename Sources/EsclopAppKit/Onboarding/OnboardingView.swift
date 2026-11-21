@@ -417,8 +417,8 @@ struct DonePage: View {
                                     .font(.title3.weight(.medium))
                                     .monospacedDigit()
                             } else {
-                                // "Go to the newest result" has no key until one is set: this
-                                // opens its row in Settings, so the keyboard alone finds it.
+                                // A hotkey with no key ("Show the last result", or one cleared):
+                                // this opens its row in Settings, so the keyboard alone finds it.
                                 Button(Strings.text("Set…")) { setShortcut(hotkey.name) }
                             }
                         }

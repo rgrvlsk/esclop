@@ -117,6 +117,11 @@ public enum EsclopSettings {
         "followCursorScreen", default: true, title: "Show results on the screen with the pointer",
         description: "Off shows them on the main screen.", section: .interface
     )
+    public static let showFloatingResults = Setting<Bool>(
+        "showFloatingResults", default: true, title: "Show floating results",
+        description: "Off sends results only to Recent and the menu bar panel, as a pipeline that hides its result does.",
+        section: .interface
+    )
     public static let autoHideFloatingResults = Setting<Bool>(
         "autoHideFloatingResults", default: true, title: "Hide results automatically",
         description: "Dismiss result cards after a while unless the pointer is over them.", section: .interface
@@ -577,7 +582,7 @@ public enum EsclopSettings {
 
     public static let all: [AnySetting] = [
         stripMetadata.erased, preserveDates.erased, keepHDR.erased, cardKeysUnderPointer.erased,
-        floatingResultsCorner.erased, followCursorScreen.erased, autoHideFloatingResults.erased,
+        floatingResultsCorner.erased, followCursorScreen.erased, showFloatingResults.erased, autoHideFloatingResults.erased,
         autoHideFloatingResultsAfter.erased, autoHideClipboardResultAfter.erased, batchWindowFrom.erased, enableDragAndDrop.erased, dropZoneOnlyWithOption.erased, presetZones.erased,
         imageCompression.erased, imageAggressiveCompression.erased,
         useAggressiveOptimisationJPEG.erased, useAggressiveOptimisationPNG.erased, useAggressiveOptimisationGIF.erased,

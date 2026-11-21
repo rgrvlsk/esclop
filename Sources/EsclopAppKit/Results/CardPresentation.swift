@@ -499,6 +499,12 @@ public struct CardPresentation: Equatable, Sendable {
             return Strings.format("There is no recent result for %@ to restore.", URL(fileURLWithPath: path).lastPathComponent)
         case .alreadySmaller:
             return Strings.text("The file is already as small as it gets.")
+        case let .cannotFit(target, smallest?):
+            return Strings.format("Could not fit under %@. The smallest attempt was %@.", Figures.bytes(target), Figures.bytes(smallest))
+        case let .cannotFit(target, nil):
+            return Strings.format("Could not fit under %@. No attempt came out smaller than the original.", Figures.bytes(target))
+        case let .losslessCannotFit(format):
+            return Strings.format("%@ is lossless, so it cannot be fitted to a size.", format)
         case let .other(message):
             // A sentence the catalogue knows (BackupStore.untrashableEdit) is translated; any
             // other stays as it is.

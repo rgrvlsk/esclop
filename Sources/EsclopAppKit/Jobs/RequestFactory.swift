@@ -39,6 +39,10 @@ public struct RequestFactory: Sendable {
             location: location ?? (origin == .clipboard ? .temporary : self.location(for: MediaKind.of(source)))
         )
         if location == nil, origin != .clipboard { request.locationFromSettings = true }
+        // "Show floating results" off: results go only to Recent and the menu, as a pipeline's
+        // `hideResult` makes them, and stay out of the batch window too. A card already on screen
+        // still runs again in place (`AppModel.run(reusing:)`).
+        request.showResultUI = EsclopSettings.showFloatingResults.value(in: settings)
         return OptimisationJob(request: request, operation: .optimise)
     }
 

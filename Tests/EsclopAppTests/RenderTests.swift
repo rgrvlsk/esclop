@@ -134,6 +134,27 @@ import Testing
         }
     }
 
+    /// "Differentiate without colour": work in progress carries a symbol beside its words, on the
+    /// card, its detail and the menu's row, not only the aqua. The public key path is read-only
+    /// on macOS 14; SwiftUI's underscored one sets the same value.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func statesWithoutColour(scheme: ColorScheme) throws {
+        let working = card(.working(fraction: 0.45))
+        let detail = card(.working(fraction: 0.45))
+        detail.machine.finished(at: Date(), hideAfter: nil)
+        detail.machine.openDetail(at: Date())
+        detail.machine.restarted()
+        let views: [(String, AnyView)] = [
+            ("differentiate-working", AnyView(object(working))),
+            ("differentiate-working-detail", AnyView(object(detail))),
+            ("differentiate-menu-row", AnyView(WorkingRow(card: card(.working(fraction: 0.45))).frame(width: 320))),
+            ("differentiate-failed", AnyView(object(card(.failed("The file is damaged."))))),
+        ]
+        for (name, view) in views {
+            try render(view.environment(\._accessibilityDifferentiateWithoutColor, true), name: name, scheme: scheme)
+        }
+    }
+
     @Test(arguments: [ColorScheme.light, .dark])
     func ruleGlyphOnTheCapsule(scheme: ColorScheme) throws {
         let ruled = card(.done(saved(after: 410_000)))

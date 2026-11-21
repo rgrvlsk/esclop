@@ -140,8 +140,6 @@ public struct FloatingResultView: View {
             if Self.editingText || keysTaken { return .ignored }
             let modifiers = key.modifiers.subtracting([.capsLock, .numericPad])
             guard key.characters.count == 1, let character = key.characters.first?.lowercased().first else { return .ignored }
-            // ⌘R stays Show in Finder here, beside Clop's ⌘F.
-            if modifiers == .command, character == "r" { return run(.reveal, in: info) }
             guard modifiers == (CardKeys.needsCommand(character) ? .command : []) else { return .ignored }
             return press(character) ? .handled : .ignored
         }
@@ -186,7 +184,13 @@ public struct FloatingResultView: View {
     /// The keys the resting pointer holds for this card now: none while the pointer is away, or
     /// while the options, the "…" menu, the name, the loupe or a drag take keys of their own.
     private var hoverKeys: [Character] {
-        guard pointerKeys, rest.moved, !keysTaken else { return [] }
+        Self.hoverKeys(on: card, switchOn: pointerKeys, moved: rest.moved, taken: keysTaken)
+    }
+
+    /// The "Card keys under the pointer" switch off, a pointer that has not moved on the card, or
+    /// keys another part has: none.
+    static func hoverKeys(on card: ResultCard, switchOn: Bool, moved: Bool, taken: Bool) -> [Character] {
+        guard switchOn, moved, !taken else { return [] }
         return CardKeys.keys(on: card)
     }
 

@@ -79,8 +79,7 @@ enum FitSearch {
             _ = try await attempt(factor, minScale)
         }
         guard let best else {
-            let smallestText = smallest == Int.max ? "nothing smaller than the original" : ByteFormat.string(smallest)
-            throw EsclopError.other("Could not fit under \(ByteFormat.string(target)); the smallest attempt was \(smallestText)")
+            throw EsclopError.cannotFit(underBytes: target, smallest: smallest == Int.max ? nil : smallest)
         }
         return best
     }
