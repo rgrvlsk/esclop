@@ -130,12 +130,12 @@ struct Convert: AsyncParsableCommand {
     @OptionGroup var global: GlobalOptions
 
     func run() async throws {
-        try await runFileJob(.convert(to), files: files, global: global) { request in
+        try await runFileJob(.convert(to), files: files, global: global, configure: { request in
             request.format = to
             request.quality = quality.quality
             request.stripMetadata = quality.stripMetadata ? true : nil
             bitrate.apply(to: &request)
-        }
+        })
     }
 }
 
@@ -177,11 +177,11 @@ struct Downscale: AsyncParsableCommand {
     }
 
     func run() async throws {
-        try await runFileJob(.downscale(factor), files: files, global: global) { request in
+        try await runFileJob(.downscale(factor), files: files, global: global, configure: { request in
             request.downscale = factor
             request.quality = quality.quality
             request.stripMetadata = quality.stripMetadata ? true : nil
-        }
+        })
     }
 }
 
@@ -209,11 +209,11 @@ struct Crop: AsyncParsableCommand {
 
     func run() async throws {
         let size = try cropSize()
-        try await runFileJob(.crop(size), files: files, global: global) { request in
+        try await runFileJob(.crop(size), files: files, global: global, configure: { request in
             request.crop = size
             request.quality = quality.quality
             request.stripMetadata = quality.stripMetadata ? true : nil
-        }
+        })
     }
 }
 
@@ -232,7 +232,7 @@ struct Fit: AsyncParsableCommand {
 
     func run() async throws {
         let bytes = try ByteSize.parse(under)
-        try await runFileJob(.fit(underBytes: bytes), files: files, global: global) { $0.targetBytes = bytes }
+        try await runFileJob(.fit(underBytes: bytes), files: files, global: global, configure: { $0.targetBytes = bytes })
     }
 }
 
@@ -245,7 +245,7 @@ struct Strip: AsyncParsableCommand {
     @OptionGroup var global: GlobalOptions
 
     func run() async throws {
-        try await runFileJob(.stripMetadata, files: files, global: global) { $0.stripMetadata = true }
+        try await runFileJob(.stripMetadata, files: files, global: global, configure: { $0.stripMetadata = true })
     }
 }
 
