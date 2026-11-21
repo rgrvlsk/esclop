@@ -26,8 +26,9 @@ in a floating card and restore the original. CLI and MCP workflows already run w
 - The compare window: split, side by side and flip, zoom with pan in step, the pixel
   difference, video, audio and PDF, keep, restore and try another.
 - Finder Quick Actions through Services: optimise, optimise harder, convert to WebP, run a pipeline.
-- Shortcuts actions through App Intents: optimise, convert, downscale, crop, run a pipeline,
-  get and change a setting, pause or resume.
+- 11 Shortcuts actions through App Intents: Optimise Files, Optimise from URL, Convert Files,
+  Downscale Files, Change Playback Speed, Crop Files, Crop PDF, Run a Pipeline, Get a Setting,
+  Change a Setting, and Pause or Resume.
 - Automatic updates with Sparkle: signed DMGs, a signed appcast on the `appcast` branch, two
   settings and "Check for Updates…".
 - Preset zones beside the drop zone, from pipelines and built-in templates, ordered in Settings;
