@@ -65,8 +65,8 @@ See [the command line page](docs/cli.md) for `optimise <kind>`, `--bitrate` and 
 - The bundled ffmpeg is built under the LGPL, without the x264 and x265 software encoders. Video
   uses the Mac's own (VideoToolbox) encoders; Settings hides the software ones it does not have.
 - A speed change leaves out the chapters of a video or audiobook, because their times would not follow.
-- A re-encoded or muted iPhone video loses its location and camera, even with stripping off: the
-  bundled ffmpeg cannot copy them in a form macOS reads. The details say so.
+- A re-encoded or muted iPhone video saved as MP4 loses its camera make and model, even with
+  stripping off; it keeps its location, and a MOV keeps all three. The details say so.
 - No peer-to-peer send link and no iCloud settings sync yet; both are planned for 0.3.
 
 ### Uninstall and data

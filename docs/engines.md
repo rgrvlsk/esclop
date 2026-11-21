@@ -29,7 +29,7 @@ print(result.output, result.bytesBefore, result.bytesAfter, result.steps)
 | `downscale(_:factor:request:progress:)` | `0 < factor <= 1`. A result that is not smaller throws `alreadySmaller`. |
 | `crop(_:to:request:progress:)` | `CropSize`: width/height (crop to fill), `longEdge`, `aspectRatio` ("16:9", "1.5"), `smart` (Vision saliency picks the focus). PDFs crop their pages' crop box to the aspect ratio without recompressing. |
 | `fit(_:underBytes:request:progress:)` | Lands at or under the size, or throws `.other("Could not fit ...")` with the smallest size reached. A file already under the target is returned untouched. |
-| `stripMetadata(_:request:)` | Lossless where the format allows: images (engine or ImageIO), video/audio (`-c copy -map_metadata -1`), PDF (`pdf.optimise` at compression 0: no image touched, metadata stripped). |
+| `stripMetadata(_:request:)` | Lossless where the format allows: images (engine or ImageIO; HEIC, TIFF and AVIF re-encoded at the highest quality, since ImageIO cannot drop their metadata in place), read back afterwards so the step never claims a strip that did not happen; video/audio (`-c copy -map_metadata -1`, chapters kept), PDF (`pdf.optimise` at compression 0: no image touched, metadata stripped). |
 | `supports(_:)` | Whether the extension is a kind and format the engines handle. |
 
 Extra operations (pipelines reach them through `PipelineMediaOperations`, conformed in

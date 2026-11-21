@@ -126,6 +126,9 @@ struct AudioEngine: Sendable {
                 steps.append("Left out \(info.chapterCount) chapter\(info.chapterCount == 1 ? "" : "s"): their times do not follow a speed change")
             }
         }
+        if info.hasCoverArt, codec.supportsCoverArt, env.value(EsclopSettings.audioCoverArt) == .optimise {
+            steps.append("Recompressed the cover, 600 px at most")
+        }
         if let loudness { steps.append("Normalised loudness to \(String(format: "%g", loudness)) LUFS") }
         if plan.request.stripMetadata == true { steps.append("Removed metadata") }
         // A new codec under the same name (Apple Lossless to AAC in an .m4a) still has to shrink.
@@ -187,7 +190,10 @@ struct AudioEngine: Sendable {
         let output = work.file(stem: "stripped", ext: source.pathExtension.isEmpty ? "m4a" : source.pathExtension)
         try await ProcessRunner.run(.ffmpeg, [
             "-hide_banner", "-nostdin", "-y", "-i", source.path, "-map", "0:a", "-c", "copy",
-            "-map_metadata", "-1", "-map_chapters", "-1", "-progress", "pipe:1", "-nostats", output.path,
+            // The file's and the audio's tags (Ogg and Opus keep theirs on the stream) go; the
+            // chapters and their titles describe the content and stay, as in a video's strip.
+            "-map_metadata:g", "-1", "-map_metadata:s:a", "-1", "-metadata:s", "creation_time=", "-map_chapters", "0",
+            "-progress", "pipe:1", "-nostats", output.path,
         ], options: FFmpegProgress(duration: nil, sink: .none).options, locator: env.tools)
         return Produced(url: output, width: nil, height: nil, duration: nil, steps: ["Removed metadata and artwork"], allowLarger: true)
     }
