@@ -9,8 +9,12 @@ on:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
 
-# No concurrency group: every push gets a run that finishes. Cancelled runs send the same
-# notification as failed ones, and runners cost nothing on a public repository.
+# A new push to a pull request cancels that pull request's older run: superseded runs held the
+# macOS queue, and main's run waited over an hour behind them. Pushes to main and manual runs
+# get a group of their own (the run id), so they are never cancelled, not even while pending.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
