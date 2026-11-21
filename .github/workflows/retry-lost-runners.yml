@@ -29,10 +29,15 @@ jobs:
     steps:
       - name: Rerun when every unsuccessful job never got a runner
         run: |
-          # A run that a newer push replaced (ci's concurrency group cancels it) also ends with
-          # jobs that never got a runner. Rerunning it would bring the old commit back.
-          newest="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci --branch "$BRANCH" --event "$EVENT" --limit 1 --json databaseId --jq '.[0].databaseId')"
-          if [ "$newest" != "$RUN_ID" ]; then echo "A newer ci run ($newest) replaced this one; not rerunning."; exit 0; fi
+          # A pull request run that a newer push replaced (ci's concurrency group cancels it) also
+          # ends with jobs that never got a runner. Rerunning it would bring the old commit back.
+          # Runs on main are never cancelled, so a lost one there is always rerun.
+          # ponytail: matches by head branch name, so two fork PRs from same-named branches share
+          # "newest" and one may miss its rerun; compare head_sha if outside contributors arrive.
+          if [ "$EVENT" = pull_request ]; then
+            newest="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci --branch "$BRANCH" --event "$EVENT" --limit 1 --json databaseId --jq '.[0].databaseId')"
+            if [ "$newest" != "$RUN_ID" ]; then echo "A newer ci run ($newest) replaced this one; not rerunning."; exit 0; fi
+          fi
           jobs="$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/attempts/1/jobs" \
             --jq '.jobs[] | select(.conclusion == "failure" or .conclusion == "cancelled")
                   | "\(if ((.runner_name // "") == "" and (.steps | length) == 0) then "lost" else "real" end) \(.name)"')"
