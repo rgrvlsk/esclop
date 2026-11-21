@@ -155,8 +155,9 @@ exact pixels or crop to a shape. Give at least one size.
 - `smartCrop`: `true` keeps the most interesting region instead of the centre.
 
 `extractPagesAsImages(format?, quality?, location?)` applies to PDFs. Save each page as an image; by default
-next to the PDF. With a single page, the following steps continue on that image; otherwise they
-continue on the PDF.
+next to the PDF. The pages are optimised and named after the PDF, the number padded to the page
+count (`doc-1.jpg` of 3 pages, `doc-01.jpg` of 12), as `esclop pdf pages` names them. With a
+single page, the following steps continue on that image; otherwise they continue on the PDF.
 - `format`: `jpeg` (default) or `png`.
 - `quality`: `low` (72 dpi), `medium` (144 dpi, default) or `high` (216 dpi).
 
