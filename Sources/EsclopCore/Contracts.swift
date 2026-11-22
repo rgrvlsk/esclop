@@ -15,8 +15,10 @@ public enum MediaKind: String, Codable, CaseIterable, Sendable {
     public static func of(_ url: URL) -> MediaKind? {
         let ext = url.pathExtension.lowercased()
         if let type = UTType(filenameExtension: ext), let kind = of(type) { return kind }
-        // A format L'Esclop writes that this macOS has no type for: Opus on macOS 15.
-        return ext.isEmpty ? nil : OutputFormat(name: ext)?.kind
+        // A format L'Esclop writes that this macOS has no type for: Opus on macOS 15. Only the
+        // extensions it writes (and Ogg's), not codec names such as .x265 or .avc.
+        guard let format = OutputFormat(name: ext), format.fileExtension == ext || ["ogg", "oga"].contains(ext) else { return nil }
+        return format.kind
     }
 
     public static func of(_ type: UTType) -> MediaKind? {

@@ -499,5 +499,6 @@ final class LockedArray: @unchecked Sendable {
         }
         #expect(MediaKind.of(URL(fileURLWithPath: "/x/a.ogg")) == .audio)
         #expect(MediaKind.of(URL(fileURLWithPath: "/x/README")) == nil)
+        #expect(MediaKind.of(URL(fileURLWithPath: "/x/log.x265")) == nil, "a codec name is not a file L'Esclop writes")
     }
 }

@@ -170,13 +170,16 @@ enum Personal {
             }
             return blocks + [0]
         }
-        let xmp = #"<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">"#
-            + #"<rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:aux="http://ns.adobe.com/exif/1.0/aux/" aux:SerialNumber="AUX789">"#
-            + "<dc:creator>Secret Person</dc:creator></rdf:Description></rdf:RDF></x:xmpmeta>"
+        // Short, so every value sits inside the first 255-byte sub-block.
+        let xmp = #"<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/""#
+            + #" xmlns:aux="http://ns.adobe.com/exif/1.0/aux/" aux:SerialNumber="AUX789"><dc:creator>Secret Person</dc:creator>"#
+            + "</rdf:Description></x:xmpmeta>"
         let blocks = Data([0x21, 0xFE]) + subBlocks("Taken by Owner Name with BODY123")
             + Data([0x21, 0xFF, 0x0B]) + Data("XMP DataXMP".utf8) + subBlocks(xmp)
         data.insert(contentsOf: blocks, at: data.endIndex - 1)
         try data.write(to: url)
+        // A sub-block length byte inside a value would hide it from `inBytes`.
+        try #require(Set(inBytes(url)) == ["Secret Person", "Owner Name", "BODY123", "AUX789"], "every planted value is plain bytes")
     }
 
     /// What ImageIO still reads, named by tag. Its own reading, not `ImageIOCodec.personalMetadata`.
