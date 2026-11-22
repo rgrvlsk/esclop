@@ -84,12 +84,17 @@ struct PDFEngine: Sendable {
 
     /// `pdf.optimise`: 300 dpi means no downsampling. A result that is not smaller comes back
     /// as the engine's `already_smaller`, which the caller treats like any other optimiser's.
+    /// A strip keeps the title (readers and screen readers show it) unless `keepTitle` is false:
+    /// only Remove metadata itself drops it.
     @discardableResult
-    func engine(_ input: URL, to output: URL, dpi: Int, factor: Int, strip: Bool, progress: ProgressSink) async throws -> EngineReply {
+    func engine(
+        _ input: URL, to output: URL, dpi: Int, factor: Int, strip: Bool, keepTitle: Bool = true, progress: ProgressSink
+    ) async throws -> EngineReply {
         let reply = try await env.images.call("pdf.optimise", input: input, output: output, params: [
             "dpi": .int(dpi < PDFResolution.noDownsampleDPI ? dpi : 0),
             "compression": .int(factor),
             "strip": .bool(strip),
+            "keep": .array(keepTitle ? [.string("title")] : []),
             "allow_larger": true,
         ], timeout: Self.timeout, progress: { progress($0) })
         guard PDFDocument(url: output) != nil else {
@@ -123,7 +128,7 @@ struct PDFEngine: Sendable {
     func stripMetadata(_ source: URL, work: WorkFolder) async throws -> Produced {
         _ = try document(source)
         let output = work.file(stem: "stripped", ext: "pdf")
-        try await engine(source, to: output, dpi: PDFResolution.noDownsampleDPI, factor: 0, strip: true, progress: .none)
+        try await engine(source, to: output, dpi: PDFResolution.noDownsampleDPI, factor: 0, strip: true, keepTitle: false, progress: .none)
         return Produced(url: output, width: nil, height: nil, duration: nil, steps: ["Removed document metadata"], allowLarger: true)
     }
 

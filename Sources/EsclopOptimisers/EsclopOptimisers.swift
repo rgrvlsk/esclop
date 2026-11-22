@@ -263,7 +263,23 @@ public struct EsclopEngine: OptimisationEngine {
             return try alreadyUnder(source, target: target, kind: kind, request: request)
         }
 
-        return try await perform(source, request: request, operation: operation, progress: progress) { plan, work, sink in
+        do {
+            return try await dispatch(operation, kind, source, request: request, progress: progress, adjust: adjust)
+        } catch EsclopError.alreadySmaller
+            where operation != .strip && kind == .image && Plan(operation: operation, request: request, env: env).strip
+            && !ImageIOCodec.personalMetadata(source).isEmpty
+        {
+            // With strip on, a picture that cannot get smaller still loses its location and
+            // camera: the strip is the result, the same size or a little smaller.
+            return try await run(.strip, source, request: request, progress: progress)
+        }
+    }
+
+    private func dispatch(
+        _ operation: Operation, _ kind: MediaKind, _ source: URL, request: OptimisationRequest,
+        progress: @Sendable (OptimisationProgress) -> Void, adjust: @escaping @Sendable (inout Plan) -> Void
+    ) async throws -> OptimisationResult {
+        try await perform(source, request: request, operation: operation, progress: progress) { plan, work, sink in
             var plan = plan
             adjust(&plan)
             let target = plan.format

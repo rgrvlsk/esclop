@@ -351,6 +351,16 @@
         }
       }
     },
+    "%@, already as small as it gets": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, ja no es pot reduir més"
+          }
+        }
+      }
+    },
     "%@, already optimised, kept the original": {
       "localizations": {
         "ca": {
@@ -5047,6 +5057,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Barra de menús"
+          }
+        }
+      }
+    },
+    "Metadata removed": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sense metadades"
+          }
+        }
+      }
+    },
+    "Metadata removed · %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sense metadades · %@"
           }
         }
       }

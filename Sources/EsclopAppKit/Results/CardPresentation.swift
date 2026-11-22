@@ -246,10 +246,18 @@ public struct CardPresentation: Equatable, Sendable {
         case let .done(result):
             fileName = card.displayName ?? result.output.lastPathComponent
             if Figures.isNoSaving(before: result.bytesBefore, after: result.bytesAfter) {
-                // Never "✓ 379 kB · −0 %": a result with no saving reads as already optimised.
-                capsule = .status(symbol: nil, text: f("Already optimised · %@", Figures.bytes(result.bytesAfter, locale: locale)))
-                headline = t("Already optimised")
-                caption = f("%@, left as it was", Figures.bytes(result.bytesAfter, locale: locale))
+                // Never "✓ 379 kB · −0 %": a result with no saving reads as already optimised, or
+                // as what it did when it removed the metadata.
+                let size = Figures.bytes(result.bytesAfter, locale: locale)
+                if Self.removedMetadata(result) {
+                    capsule = .status(symbol: nil, text: f("Metadata removed · %@", size))
+                    headline = t("Metadata removed")
+                    caption = f("%@, already as small as it gets", size)
+                } else {
+                    capsule = .status(symbol: nil, text: f("Already optimised · %@", size))
+                    headline = t("Already optimised")
+                    caption = f("%@, left as it was", size)
+                }
                 tone = .neutral
             } else {
                 capsule = .result(before: result.bytesBefore, after: result.bytesAfter)
@@ -460,11 +468,17 @@ public struct CardPresentation: Equatable, Sendable {
     public static func announcement(for result: OptimisationResult, locale: Locale = Strings.locale) -> String {
         let size = Figures.bytes(result.bytesAfter, locale: locale)
         if Figures.isNoSaving(before: result.bytesBefore, after: result.bytesAfter) {
-            return String(format: Strings.text("Already optimised · %@", locale: locale), locale: locale, size)
+            let key = removedMetadata(result) ? "Metadata removed · %@" : "Already optimised · %@"
+            return String(format: Strings.text(key, locale: locale), locale: locale, size)
         }
         let percent = Figures.percent(before: result.bytesBefore, after: result.bytesAfter, locale: locale).dropFirst()
         let key = result.bytesAfter <= result.bytesBefore ? "Optimised, %@, %@ smaller" : "Optimised, %@, %@ larger"
         return String(format: Strings.text(key, locale: locale), locale: locale, size, String(percent))
+    }
+
+    /// Whether the engine removed metadata, which a result with no saving still did.
+    static func removedMetadata(_ result: OptimisationResult) -> Bool {
+        result.steps.contains { $0.hasPrefix("Removed metadata") || $0 == "Removed document metadata" }
     }
 
     static func dimensions(_ result: OptimisationResult) -> String? {

@@ -254,6 +254,34 @@ import UniformTypeIdentifiers
         #expect(PDFDocument(url: result.output)?.pageCount == 2)
     }
 
+    /// HC-46 H3: optimise with strip on (the default) kept neither the title nor the author;
+    /// readers and screen readers show the title. Remove metadata drops it too.
+    @Test func optimiseKeepsTheTitleAndStripDropsIt() async throws {
+        let world = try await TestWorld(realEngine: true)
+        defer { Task { await world.finish() } }
+        let pdf = world.file("report.pdf")
+        var box = CGRect(x: 0, y: 0, width: 612, height: 792)
+        let info = [kCGPDFContextTitle: "Quarterly report", kCGPDFContextAuthor: "Secret Person", kCGPDFContextCreator: "Writer"] as CFDictionary
+        let context = try #require(CGContext(pdf as CFURL, mediaBox: &box, info))
+        context.beginPDFPage(nil)
+        context.fill(CGRect(x: 36, y: 60, width: 540, height: 20))
+        context.endPDFPage()
+        context.closePDF()
+        func attributes(_ url: URL) -> [AnyHashable: Any] { PDFDocument(url: url)?.documentAttributes ?? [:] }
+        try #require(attributes(pdf)[PDFDocumentAttribute.authorAttribute] as? String == "Secret Person")
+
+        var request = world.request(pdf, location: .temporary)
+        request.stripMetadata = true
+        let optimised = try await world.engine.optimise(pdf, request: request, progress: { _ in })
+        #expect(attributes(optimised.output)[PDFDocumentAttribute.titleAttribute] as? String == "Quarterly report")
+        #expect(attributes(optimised.output)[PDFDocumentAttribute.authorAttribute] == nil)
+        #expect(attributes(optimised.output)[PDFDocumentAttribute.creatorAttribute] == nil)
+
+        let stripped = try await world.engine.stripMetadata(pdf, request: world.request(pdf, location: .temporary))
+        #expect(attributes(stripped.output)[PDFDocumentAttribute.titleAttribute] == nil)
+        #expect(attributes(stripped.output)[PDFDocumentAttribute.authorAttribute] == nil)
+    }
+
     @Test func cropUncropAndPages() async throws {
         let world = try await TestWorld(realEngine: true)
         defer { Task { await world.finish() } }

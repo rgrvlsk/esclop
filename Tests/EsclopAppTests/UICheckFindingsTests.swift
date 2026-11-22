@@ -55,6 +55,15 @@ import UniformTypeIdentifiers
         #expect(info.tone == .neutral)
         #expect(info.headline == "Already optimised", "the detail shows the same footer, so no figure there either")
         #expect(CardPresentation.announcement(for: renders.saved(before: 379_000, after: 378_990), locale: en) == "Already optimised · 379\u{00A0}kB")
+        // HC-46 H1: a strip that saved nothing says what it did.
+        var stripped = renders.saved(before: 379_000, after: 379_000)
+        stripped.steps = ["Removed metadata"]
+        let removed = CardPresentation(card: renders.card(.done(stripped)), locale: en)
+        #expect(removed.capsule == .status(symbol: nil, text: "Metadata removed · 379\u{00A0}kB"))
+        #expect(removed.headline == "Metadata removed")
+        #expect(removed.caption == "379\u{00A0}kB, already as small as it gets")
+        #expect(CardPresentation.announcement(for: stripped, locale: en) == "Metadata removed · 379\u{00A0}kB")
+        #expect(CardPresentation(card: renders.card(.done(stripped)), locale: Locale(identifier: "ca")).headline == "Sense metadades")
         // A real saving, however small, still shows.
         let small = CardPresentation(card: renders.card(.done(renders.saved(before: 100_000, after: 99_000))), locale: en)
         #expect(small.capsule == .result(before: 100_000, after: 99_000))

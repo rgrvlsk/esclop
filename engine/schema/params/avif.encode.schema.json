@@ -80,6 +80,11 @@
           "description": "The EXIF orientation tag, rewritten as a minimal EXIF block.",
           "type": "string",
           "const": "orientation"
+        },
+        {
+          "description": "A PDF's title (`/Title` of the document information), which readers and screen readers\nshow in place of the file name. Only `pdf.optimise` reads it.",
+          "type": "string",
+          "const": "title"
         }
       ]
     }
