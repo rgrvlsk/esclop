@@ -92,7 +92,7 @@ pub fn jpeg(req: &Request, ctx: &Ctx) -> Result<OpResult> {
     let (p, ignored) = parse_params::<JpegParams>(&req.params)?;
     let (bytes, target) = open(req, &p.out)?;
     let parts = meta::JpegParts::parse(&bytes)?;
-    parts.check_complete()?;
+    parts.check_complete(&bytes)?;
     let f = compression(p.compression)?;
     let ceiling = match p.quality {
         None => Some(quality::jpeg_max_quality(f)),

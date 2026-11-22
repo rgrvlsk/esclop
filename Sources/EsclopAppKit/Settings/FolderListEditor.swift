@@ -3,7 +3,8 @@
 // A watched-folder list in its kind's pane: each folder as a row with its icon and path, what
 // is wrong with it when something is (gone, or macOS keeps L'Esclop out), Show in Finder and
 // Stop watching; under each folder what it leaves alone (formats, and pixel sizes for images
-// and videos: `watchedFolderRules`); Add Folder… with an open panel; and, for screenshots and
+// and videos: `watchedFolderRules`) and Ignore Rules…, which edits the folder's `.esclopignore`
+// as plain text; Add Folder… with an open panel; and, for screenshots and
 // screen recordings, the folder macOS saves them to when it is not watched yet. Values go
 // through the settings model.
 
@@ -204,6 +205,7 @@ struct FolderRulesRow: View {
     @State private var formats = ""
     @State private var minPixels = ""
     @State private var maxPixels = ""
+    @State private var editingIgnoreRules = false
     @FocusState private var focused: Bool
 
     var list: [String] { model.descriptor(EsclopSettings.watchedFolderRules.key)?.value?.arrayValue?.compactMap(\.stringValue) ?? [] }
@@ -224,11 +226,18 @@ struct FolderRulesRow: View {
                 Text(verbatim: "–").foregroundStyle(.secondary)
                 field(Strings.text("Largest"), text: $maxPixels, width: 70, label: Strings.format("Largest images and videos %@ takes, in pixels", folder))
             }
+            Spacer()
+            Button(Strings.text("Ignore Rules…")) { editingIgnoreRules = true }
+                .accessibilityLabel(Strings.format("Ignore rules for %@", folder))
         }
         .font(.callout)
         .controlSize(.small)
         .onAppear(perform: load)
         .onChange(of: focused) { if !focused { commit() } }
+        .sheet(isPresented: $editingIgnoreRules) {
+            IgnoreRulesEditor(folder: folder) { editingIgnoreRules = false }
+                .designTint()
+        }
     }
 
     private func field(_ prompt: String, text: Binding<String>, width: CGFloat, label: String) -> some View {
@@ -259,5 +268,60 @@ struct FolderRulesRow: View {
         guard updated != rules, !(updated.isEmpty && rules.isEmpty) else { return load() }
         model.set(EsclopSettings.watchedFolderRules.key, to: .array(FolderRules.replacing(updated, in: list).map(JSONValue.string)))
         load()
+    }
+}
+
+/// A watched folder's `.esclopignore` as plain text, saved on Save (`IgnoreFile.write`).
+struct IgnoreRulesEditor: View {
+    let folder: String
+    let close: () -> Void
+    @State private var text: String
+    @State private var saveError: String?
+
+    init(folder: String, close: @escaping () -> Void) {
+        self.folder = folder
+        self.close = close
+        _text = State(initialValue: IgnoreFile.text(in: WatchPlan.canonical(folder)))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(Strings.format("Ignore Rules for “%@”", URL(fileURLWithPath: folder).lastPathComponent))
+                .font(.title3.weight(.semibold))
+            TextEditor(text: $text)
+                .font(.system(.body, design: .monospaced))
+                .autocorrectionDisabled()
+                .frame(height: 160)
+                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(.separator))
+                .accessibilityLabel(Strings.format("Ignore rules for %@", folder))
+            // A word joiner keeps "!" on the line of the name it takes back.
+            Text(Strings.format("One pattern per line, as in .gitignore: %@ skips every MOV file, %@ takes one back, and %@ starts a comment.", "*.mov", "!\u{2060}intro.mov", "#"))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if let saveError {
+                Label(saveError, systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(Palette.caution)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            HStack {
+                Spacer()
+                Button(Strings.text("Cancel"), role: .cancel, action: close)
+                    .keyboardShortcut(.cancelAction)
+                Button(Strings.text("Save")) {
+                    do {
+                        try IgnoreFile.write(text, in: WatchPlan.canonical(folder))
+                        close()
+                    } catch {
+                        saveError = CardPresentation.message(for: error)
+                    }
+                }
+                .keyboardShortcut(.defaultAction)
+                .primaryButton()
+            }
+        }
+        .padding(20)
+        .frame(width: 460)
     }
 }

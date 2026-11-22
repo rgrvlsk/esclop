@@ -483,6 +483,13 @@ public enum EsclopSettings {
         description: "Put the optimised file back on the clipboard after optimising a copied one.",
         section: .clipboard
     )
+    /// Off by default, unlike Clop: a drop is not a copy, and its results must not replace what
+    /// the person copied unless they ask.
+    public static let copyDroppedResults = Setting<Bool>(
+        "copyDroppedResults", default: false, title: "Copy results of dropped files",
+        description: "Put the results of files dropped on the drop zone or the Dock icon on the clipboard.",
+        section: .clipboard
+    )
     public static let appendClipboardResults = Setting<Bool>(
         "appendClipboardResults", default: false, title: "Gather clipboard results",
         description: "Add each new result to the files L'Esclop last put on the clipboard, so one paste gives them all.",
@@ -628,7 +635,7 @@ public enum EsclopSettings {
         backupRetentionDays.erased,
         enableClipboardOptimiser.erased, optimiseVideoClipboard.erased, optimisePDFClipboard.erased,
         optimiseAudioClipboard.erased, optimiseImagePathClipboard.erased, optimiseURLClipboard.erased,
-        clipboardIgnoredAppBundleIds.erased, clipboardRules.erased, autoCopyToClipboard.erased, appendClipboardResults.erased,
+        clipboardIgnoredAppBundleIds.erased, clipboardRules.erased, autoCopyToClipboard.erased, copyDroppedResults.erased, appendClipboardResults.erased,
         pauseAutomaticOptimisations.erased, enableAutomaticImageOptimisations.erased,
         enableAutomaticVideoOptimisations.erased, enableAutomaticPDFOptimisations.erased,
         enableAutomaticAudioOptimisations.erased, imageDirs.erased, videoDirs.erased, pdfDirs.erased, audioDirs.erased, watchedFolderRules.erased,

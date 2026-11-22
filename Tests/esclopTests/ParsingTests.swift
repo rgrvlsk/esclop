@@ -223,6 +223,27 @@ func rejects(_ arguments: [String]) -> Bool {
         #expect(Output.exitCode(for: .unreadable(kind: .video)) == 65)
     }
 
+    /// V9: a job that failed only because the app was not running exits 69, as the help says;
+    /// with another failure beside it, 1.
+    @Test func aJobThatNeededTheAppExits69() {
+        func summary(_ errors: EsclopError...) -> JobSummary {
+            var report = JobReport(route: "in-process")
+            report.failures = errors.enumerated().map { FileFailure(source: URL(fileURLWithPath: "/x/\($0.offset).png"), error: $0.element) }
+            return JobSummary(operation: "upload", report: report)
+        }
+        #expect(Output.exitCode(for: summary(.appNotRunning, .appNotRunning)) == 69)
+        #expect(Output.exitCode(for: summary(.appNotRunning, .toolMissing("engine"))) == 69)
+        #expect(Output.exitCode(for: summary(.appNotRunning, .other("x"))) == 1)
+    }
+
+    /// V9: `settings set` fails when the value read back is not the one asked for.
+    @Test func aSettingReadBackAsSomethingElseIsNotKept() {
+        #expect(!Settings.unkept("gifFPS", "12", stored: .int(12)))
+        #expect(!Settings.unkept("gifFPS", "12.0", stored: .int(12)), "the stored form of the same value")
+        #expect(Settings.unkept("gifFPS", "12", stored: .int(15)))
+        #expect(!Settings.unkept("appearanceOnlyTheAppKnows", "x", stored: .string("y")), "a key the CLI does not know is the app's to check")
+    }
+
     /// `pdf pages` reports the size of every page it wrote, not of the first.
     @Test func pageExportReportsAllPages() async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-pages-\(UUID().uuidString)", isDirectory: true)

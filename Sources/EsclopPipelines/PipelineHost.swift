@@ -38,7 +38,14 @@ public struct NoopPipelineHost: PipelineHost {
     public init() {}
 
     public func perform(_ action: PipelineHostAction, file: URL, options: PipelineRunOptions) async throws -> PipelineHostOutcome {
-        .unavailable("needs the esclop app")
+        Self.withoutApp(action)
+    }
+
+    /// Why a step that needs the app did not run. Sending a link needs a sharing service no
+    /// version has yet, so the app would not help.
+    public static func withoutApp(_ action: PipelineHostAction) -> PipelineHostOutcome {
+        if case .copyLinkForSending = action { return .unavailable("not available yet (planned for 0.3)") }
+        return .unavailable("needs the L'Esclop app")
     }
 }
 
@@ -58,13 +65,13 @@ public struct CommandLinePipelineHost: PipelineHost {
             guard out.status == 0 else { throw EsclopError.toolFailed(tool: "open", exitCode: out.status, stderr: out.stderr) }
             return .handled(nil)
         case let .copyToClipboard(format, relativeTo):
-            guard format != .imageData else { return .unavailable("copying image data needs the esclop app") }
+            guard format != .imageData else { return .unavailable("copying image data needs the L'Esclop app") }
             let text = clipboardText(file: file, format: format, relativeTo: relativeTo)
             let out = try await commands.run(URL(fileURLWithPath: "/usr/bin/pbcopy"), [], environment: nil, input: Data(text.utf8))
             guard out.status == 0 else { throw EsclopError.toolFailed(tool: "pbcopy", exitCode: out.status, stderr: out.stderr) }
             return .handled("copied \(text)")
         default:
-            return .unavailable("needs the esclop app")
+            return NoopPipelineHost.withoutApp(action)
         }
     }
 }

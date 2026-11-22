@@ -293,7 +293,7 @@ import UniformTypeIdentifiers
     }
 
     @Test func anAgentsRunReachesNoDesktop() async throws {
-        #expect(try await perform(.copyToClipboard(format: .path, relativeTo: nil), on: nil) == .unavailable("needs the esclop app"))
-        #expect(try await perform(.presentFork, on: nil) == .unavailable("needs the esclop app"))
+        #expect(try await perform(.copyToClipboard(format: .path, relativeTo: nil), on: nil) == .unavailable("needs the L'Esclop app"))
+        #expect(try await perform(.presentFork, on: nil) == .unavailable("needs the L'Esclop app"))
     }
 }

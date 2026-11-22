@@ -10,6 +10,42 @@ import EsclopCore
 import EsclopOptimisers
 import Foundation
 import Testing
+import UniformTypeIdentifiers
+
+/// V6: results of dropped files reach the clipboard only when the person turned it on; copied
+/// AVIF pixels are read; a download card for an address with no path names the host.
+@MainActor
+@Suite struct DroppedResultsClipboardTests {
+    @Test func droppedResultsGoOnTheClipboardOnlyWhenAsked() async throws {
+        let harness = Harness()
+        harness.pasteboard.clearContents()
+        harness.pasteboard.setString("what I copied", forType: .string)
+        harness.model.optimiseDropped([harness.temp.file("a.png")], harder: false)
+        #expect(await eventually { harness.model.cards.first?.result != nil })
+        await harness.clipboardSettles()
+        #expect(harness.pasteboard.string(forType: .string) == "what I copied", "off by default")
+
+        try EsclopSettings.copyDroppedResults.set(true, in: harness.settings.store)
+        harness.model.optimiseDropped([harness.temp.file("b.png")], harder: false)
+        let output = { harness.model.cards.compactMap(\.result).first { $0.source.lastPathComponent == "b.png" }?.output }
+        #expect(await eventually { output() != nil && Clipboard.isOwnWrite(harness.pasteboard) })
+        #expect(Clipboard.read(harness.pasteboard, text: false) == .files([try #require(output()).standardizedFileURL]))
+    }
+
+    @Test func copiedAVIFPixelsAreRead() {
+        let board = NSPasteboard.withUniqueName()
+        defer { board.releaseGlobally() }
+        board.clearContents()
+        board.setData(Data([0, 0, 0, 0x1C]), forType: NSPasteboard.PasteboardType("public.avif"))
+        #expect(Clipboard.read(board, text: false) == .image(Data([0, 0, 0, 0x1C]), UTType("public.avif")!))
+    }
+
+    @Test func aDownloadWithNoPathIsNamedByItsHost() {
+        #expect(AppModel.downloadName(URL(string: "https://example.com/")!) == "example.com")
+        #expect(AppModel.downloadName(URL(string: "https://example.com")!) == "example.com")
+        #expect(AppModel.downloadName(URL(string: "https://example.com/shots/a.png")!) == "a.png")
+    }
+}
 
 @MainActor
 @Suite struct ClipboardOwnWriteTests {

@@ -290,6 +290,33 @@ final class EventLog: @unchecked Sendable {
         #expect(PathInput.expand([relative, absolute], recursive: false).allSatisfy { $0.lastPathComponent == "photo.png" })
     }
 
+    /// V1: a link whose target's name says another kind, or none (`store/abc123`), stays a link,
+    /// and a job refuses it in one sentence instead of writing a new file beside the target. A
+    /// folder holding only links says so (they are not followed inside folders).
+    @Test func aLinkToAFileWithoutItsKindIsRefused() async throws {
+        let temp = TempDir()
+        _ = temp.file("store/abc123")
+        _ = temp.file("store/other.jpeg")
+        let unnamed = temp.url.appendingPathComponent("photo.png"), named = temp.url.appendingPathComponent("named.png")
+        try FileManager.default.createSymbolicLink(atPath: unnamed.path, withDestinationPath: "store/abc123")
+        try FileManager.default.createSymbolicLink(atPath: named.path, withDestinationPath: "store/other.jpeg")
+        #expect(PathInput.expand([unnamed], recursive: false) == [unnamed])
+        #expect(PathInput.expand([named], recursive: false).map(\.lastPathComponent) == ["other.jpeg"], "same kind, other name: the target")
+        let report = await JobExecutor(engine: FakeEngine()).run(
+            OptimisationJob(request: OptimisationRequest(sources: [unnamed], origin: .cli), operation: .optimise)
+        )
+        #expect(report.results.isEmpty)
+        #expect(report.failures.map(\.error) == [.leftAsIs(PathInput.unnamedLink)])
+        #expect(try FileManager.default.contentsOfDirectory(atPath: temp.url.appendingPathComponent("store").path).sorted() == ["abc123", "other.jpeg"])
+
+        let links = temp.url.appendingPathComponent("links")
+        try FileManager.default.createDirectory(at: links, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(atPath: links.appendingPathComponent("a.png").path, withDestinationPath: "../store/other.jpeg")
+        #expect(PathInput.holdsOnlyLinks(links))
+        #expect(!PathInput.holdsOnlyLinks(temp.url.appendingPathComponent("store")))
+        #expect(PathInput.onlyLinks(links) == "links holds only links, and links inside a folder are not followed: give the links or their files by name")
+    }
+
     @Test func settingValues() throws {
         let bool = AgentPermission.allowRunScripts.descriptor
         #expect(try bool.parse("on") == .bool(true))

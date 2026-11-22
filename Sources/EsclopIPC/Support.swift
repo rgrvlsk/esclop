@@ -276,8 +276,7 @@ public enum PathInput {
 
     /// Expands folders into the media files inside them. Files pass through even when missing, so
     /// the job reports them; `extensions` (lowercase, no dot) filters what folders contribute. A
-    /// link given by name becomes the file it points at, so the result replaces that file and the
-    /// link keeps pointing at it (the link's own size made every link "already as small").
+    /// link given by name goes through `resolvingLink`.
     /// ponytail: links inside a folder are still skipped, as before; follow them if asked.
     public static func expand(_ urls: [URL], recursive: Bool, extensions: Set<String> = []) -> [URL] {
         var out: [URL] = []
@@ -285,8 +284,7 @@ public enum PathInput {
         for url in urls {
             var isDirectory: ObjCBool = false
             guard fm.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue else {
-                let isLink = (try? fm.destinationOfSymbolicLink(atPath: url.path)) != nil
-                out.append(isLink ? url.resolvingSymlinksInPath() : url)
+                out.append(resolvingLink(url))
                 continue
             }
             let keys: [URLResourceKey] = [.isRegularFileKey]
@@ -306,6 +304,36 @@ public enum PathInput {
         }
         return out
     }
+
+    /// A link becomes the file it points at, so the result replaces that file and the link keeps
+    /// pointing at it (the link's own size made every link "already as small"). Only when the
+    /// target's name says the same kind: a result named from `store/abc123` would be a new file
+    /// beside it, so such a link stays a link, which the job refuses (`isLink`).
+    public static func resolvingLink(_ url: URL) -> URL {
+        guard isLink(url) else { return url }
+        let target = url.resolvingSymlinksInPath()
+        guard let kind = MediaKind.of(target), kind == MediaKind.of(url) else { return url }
+        return target
+    }
+
+    public static func isLink(_ url: URL) -> Bool {
+        (try? FileManager.default.destinationOfSymbolicLink(atPath: url.path)) != nil
+    }
+
+    /// A folder whose entries are all links, which `expand` does not follow.
+    public static func holdsOnlyLinks(_ folder: URL) -> Bool {
+        guard let entries = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil, options: .skipsHiddenFiles),
+              !entries.isEmpty
+        else { return false }
+        return entries.allSatisfy(isLink)
+    }
+
+    public static func onlyLinks(_ folder: URL) -> String {
+        "\(folder.lastPathComponent) holds only links, and links inside a folder are not followed: give the links or their files by name"
+    }
+
+    /// What a job says of a link `resolvingLink` kept: translated by the app.
+    public static let unnamedLink = "A link to a file L’Esclop cannot name: optimise the file itself."
 
     /// `~/...` instead of the home folder, for text people read.
     public static func abbreviate(_ url: URL) -> String { abbreviate(url.path) }

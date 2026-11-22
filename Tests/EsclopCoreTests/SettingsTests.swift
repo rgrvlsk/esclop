@@ -308,11 +308,47 @@ final class KeyWatcher: NSObject, @unchecked Sendable {
         #expect(EsclopSettings.uploadTargets.value(in: store) == [theirs] && EsclopSettings.uploadAutomatically.value(in: store) == ["clipboard"])
         #expect(EsclopSettings.uploadTarget.value(in: store) == "R2")
         let none = try JSONEncoder().encode(["format": JSONValue.string("esclop-settings"), "version": 1, "settings": ["uploadTargets": [], "uploadAutomatically": []]])
-        let cleared = try SettingsFile.import(none, into: store)
-        #expect(cleared.permissions.isEmpty && EsclopSettings.uploadTargets.value(in: store).isEmpty, "back to none needs no ask")
+        // V9: no targets removes the person's own, so it asks; no automatic uploads needs no ask.
+        let kept = try SettingsFile.import(none, into: store)
+        #expect(kept.permissions == ["uploadTargets"] && EsclopSettings.uploadTargets.value(in: store) == [theirs])
+        #expect(EsclopSettings.uploadAutomatically.value(in: store).isEmpty)
+        let cleared = try SettingsFile.import(none, into: store, allowPermissions: true)
+        #expect(cleared.permissions == ["uploadTargets"] && EsclopSettings.uploadTargets.value(in: store).isEmpty)
+        #expect(try SettingsFile.import(none, into: store).permissions.isEmpty, "none already: nothing to ask")
         let first = try JSONEncoder().encode(["format": JSONValue.string("esclop-settings"), "version": 1, "settings": ["uploadTarget": ""]])
         #expect(try SettingsFile.import(first, into: store).permissions == ["uploadTarget"], "an empty default target means the first one, not none")
         #expect(EsclopSettings.uploadTarget.value(in: store) == "R2")
+    }
+
+    /// V9: an import names each key it changed, and each the store read back as something else
+    /// (a value a profile manages); a bad value says "Invalid argument" once.
+    @Test func anImportNamesWhatChangedAndWhatWasNotKept() throws {
+        let store = scratchStore()
+        try EsclopSettings.batchWindowFrom.set(6, in: store)
+        let data = Data(#"{"format": "esclop-settings", "version": 1, "settings": {"batchWindowFrom": 6, "gifFPS": 12.0, "imageDirs": ["~/Shots"]}}"#.utf8)
+        let read = try SettingsFile.import(data, into: store)
+        #expect(read.changed == ["gifFPS", "imageDirs"], "batchWindowFrom was 6 already")
+        #expect(read.unkept.isEmpty, "12.0 is kept as 12")
+
+        let forgetful = SettingsStore(defaults: ForgetfulDefaults(suiteName: "dev.esclop.tests.\(UUID().uuidString)")!)
+        let lost = try SettingsFile.import(data, into: forgetful)
+        #expect(lost.changed.isEmpty)
+        #expect(lost.unkept == ["batchWindowFrom", "gifFPS", "imageDirs"])
+
+        let bad = Data(#"{"format": "esclop-settings", "version": 1, "settings": {"batchWindowFrom": "soon"}}"#.utf8)
+        #expect { try SettingsFile.import(bad, into: store) } throws: { error in
+            let text = (error as? EsclopError)?.description ?? ""
+            return text.components(separatedBy: "Invalid argument").count == 2
+        }
+    }
+
+    /// V9: `settings set` text read back as the store keeps it.
+    @Test func textValuesAreNormalised() throws {
+        let fps = try #require(SettingsRegistry.shared.setting("gifFPS"))
+        #expect(fps.value(text: "12") == .int(12))
+        #expect(fps.value(text: "12.0") == .int(12))
+        #expect(SettingsRegistry.shared.setting("imageDirs")?.value(text: #"["~/Shots"]"#) == .array(["~/Shots"]))
+        #expect(SettingsRegistry.shared.setting("enableClipboardOptimiser")?.value(text: "off") == .bool(false))
     }
 
     @Test func aNewerFileIsNamedAndABadChoiceListsTheChoices() throws {
@@ -335,4 +371,9 @@ final class KeyWatcher: NSObject, @unchecked Sendable {
         }
         #expect(!EsclopSettings.batchWindowFrom.isSet(in: store), "nothing was written")
     }
+}
+
+/// A defaults suite that keeps nothing written to it, as one a configuration profile manages.
+final class ForgetfulDefaults: UserDefaults, @unchecked Sendable {
+    override func set(_ value: Any?, forKey defaultName: String) {}
 }

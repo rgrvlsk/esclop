@@ -168,6 +168,7 @@ public struct BackupStore: Sendable {
             throw error
         }
         OptimisedMark.clear(original)
+        RestoredMark.set(original)
         // Only once the original is back: a converted output with another name goes to the Trash,
         // or stays where it is when the Trash refuses it. Never a permanent removal.
         let output = result.output
@@ -313,5 +314,27 @@ public enum OptimisedMark {
 
     public static func clear(_ url: URL) {
         Xattr.remove(name, at: url)
+    }
+}
+
+/// The marker a restore leaves, so a watched folder does not optimise the original it put back
+/// (the optimised mark is gone). The value is the file's modification date then: once the file
+/// changes, the mark no longer holds.
+public enum RestoredMark {
+    public static let name = "dev.esclop.restored"
+
+    static func set(_ url: URL) {
+        guard let modified = modified(url) else { return }
+        try? Xattr.set(name, Data(String(modified).utf8), at: url)
+    }
+
+    /// Restored, and not changed since.
+    public static func holds(_ url: URL) -> Bool {
+        guard let data = Xattr.get(name, at: url), let marked = Double(String(decoding: data, as: UTF8.self)) else { return false }
+        return modified(url) == marked
+    }
+
+    private static func modified(_ url: URL) -> Double? {
+        ((try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date)?.timeIntervalSinceReferenceDate
     }
 }

@@ -159,7 +159,10 @@ public struct ToolArguments: Sendable {
         let urls = try raw.map { try PathInput.url($0) }
         let extensions = Set(strings(typesKey, splitCommas: true).map { $0.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: ".")) })
         let files = PathInput.expand(urls, recursive: bool(recursiveKey) ?? false, extensions: extensions)
-        guard !files.isEmpty else { throw ToolFailure("No media files found in \(raw.joined(separator: ", "))", code: "fileNotFound") }
+        guard !files.isEmpty else {
+            let links = urls.filter(PathInput.holdsOnlyLinks).map(PathInput.onlyLinks)
+            throw ToolFailure((["No media files found in \(raw.joined(separator: ", "))"] + links).joined(separator: ". "), code: "fileNotFound")
+        }
         return files
     }
 }

@@ -99,6 +99,7 @@ public struct JobExecutor: Sendable {
         progress: @escaping @Sendable (OptimisationProgress) -> Void
     ) async throws -> OptimisationResult {
         guard FileManager.default.fileExists(atPath: source.path) else { throw EsclopError.fileNotFound(source.path) }
+        if PathInput.isLink(source) { throw EsclopError.leftAsIs(PathInput.unnamedLink) }
         let request = job.request
         switch job.operation {
         case .optimise:

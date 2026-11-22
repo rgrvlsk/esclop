@@ -287,7 +287,8 @@ func options(_ tmp: TempDir, scripts: Bool = false) -> PipelineRunOptions {
     let steps: [PipelineStep] = [.copyToClipboard(format: .markdown), .shelveWith(app: "yoink"), .uploadWith(app: "dropshare"), .copyLinkForSending(), .openWith(app: "Preview")]
     let report = await runner(Recorder()).run(steps: steps, on: [png], options: options(tmp))
     #expect(report.files[0].status == .completed)
-    #expect(report.files[0].log.allSatisfy { $0.outcome == .skipped && $0.message == "needs the esclop app" })
+    #expect(report.files[0].log.allSatisfy { $0.outcome == .skipped })
+    #expect(report.files[0].log.map(\.message) == ["needs the L'Esclop app", "needs the L'Esclop app", "needs the L'Esclop app", "not available yet (planned for 0.3)", "needs the L'Esclop app"])
 
     let rec = Recorder()
     _ = await runner(rec, host: RecordingHost(recorder: rec)).run(steps: [.copyToClipboard(relativeTo: "%P")], on: [png], options: options(tmp))

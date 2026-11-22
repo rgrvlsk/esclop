@@ -43,4 +43,23 @@ import Testing
         #expect(sizes.map(\.width) == [640, 640])
         #expect(FolderStatus.check(Self.locked) == .unreadable, "the picture shows the unreadable row")
     }
+
+    /// V7: Ignore Rules… edits the folder's `.esclopignore` as plain text, and Save writes it;
+    /// no patterns remove the file.
+    @Test func ignoreRules() async throws {
+        let folder = URL(fileURLWithPath: "/tmp/esclop-render-\(UUID().uuidString.prefix(6))/Shots", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder.deletingLastPathComponent()) }
+        try IgnoreFile.write("# drafts stay as they are\ndraft-*\n*.mov\n!keep.mov\n", in: folder)
+        #expect(IgnoreFile.text(in: folder) == "# drafts stay as they are\ndraft-*\n*.mov\n!keep.mov\n")
+        let patterns = IgnoreFile.patterns(in: folder)
+        #expect(IgnoreFile.ignores("draft-1.png", patterns: patterns) && IgnoreFile.ignores("clip.MOV", patterns: patterns))
+        #expect(!IgnoreFile.ignores("keep.mov", patterns: patterns) && !IgnoreFile.ignores("photo.png", patterns: patterns))
+        let sizes = try await SettingsRenderTests.renderBoth({ _ in
+            IgnoreRulesEditor(folder: folder.path) {}
+        }, size: CGSize(width: 460, height: 340), name: "settings-ignore-rules")
+        #expect(sizes.map(\.width) == [460, 460])
+        try IgnoreFile.write(" \n", in: folder)
+        #expect(!FileManager.default.fileExists(atPath: folder.appendingPathComponent(".esclopignore").path))
+    }
 }
