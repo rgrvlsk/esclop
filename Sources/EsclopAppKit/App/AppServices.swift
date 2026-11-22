@@ -215,8 +215,9 @@ public final class AppServices {
     }
 
     /// Opened for the CLI or an agent (`AppClient.launchApp`), or as a login item, which the
-    /// launch's Apple event says. ponytail: Sparkle's relaunch after an update counts as a launch
-    /// by hand; pass it the marker too if Settings after an update annoys.
+    /// launch's Apple event says. ponytail: Sparkle's relaunch after an update, and a launch by
+    /// the system for a Shortcut, count as a launch by hand (untested); give them the marker or
+    /// another check if Settings opening then is ever seen.
     public static func launchedQuietly(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool {
         if arguments.contains(AppClient.backgroundLaunch) { return true }
         guard let event = NSAppleEventManager.shared().currentAppleEvent, event.eventID == kAEOpenApplication else { return false }
