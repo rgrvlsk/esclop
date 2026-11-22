@@ -273,9 +273,10 @@ public struct EsclopEngine: OptimisationEngine {
             // camera: the strip is the result, the same size or a little smaller.
             return try await perform(source, request: request, operation: .strip, progress: progress) { _, work, _ in
                 let produced = try await ImageEngine(env: env).stripMetadata(source, work: work)
-                // ponytail: a HEIF the item parser does not read is re-encoded, several times
-                // larger. Nobody asked for that size here, so it stays unchanged, metadata and
-                // all; Remove metadata itself still re-encodes. Widen the parser if one turns up.
+                // ponytail: a picture ImageIO must re-encode to strip (TIFF, BMP, JPEG XL, a HEIF
+                // the item parser does not read) can come out several times larger. Nobody asked
+                // for that size here, so it stays unchanged, metadata and all; Remove metadata
+                // itself still re-encodes. Widen the HEIF parser if such a photo turns up.
                 guard fileSize(produced.url) <= fileSize(source) + fileSize(source) / 100 else { throw EsclopError.alreadySmaller }
                 return produced
             }
