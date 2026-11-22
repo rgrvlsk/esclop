@@ -60,4 +60,21 @@ import Testing
             MenuPanel(model: empty.model, actions: actions, notch: 200).padding(18)
         }, size: CGSize(width: MenuPanel.width + 36, height: 520), name: "menu-panel-empty")
     }
+
+    /// "Show floating results" off: a file at work has no card, and the panel lists it with Stop.
+    @Test func menuPanelCardlessWork() async throws {
+        let harness = Harness(delay: .seconds(600))
+        try EsclopSettings.showFloatingResults.set(false, in: harness.settings.store)
+        let file = harness.temp.file("Report.pdf", bytes: 10)
+        harness.model.record(OptimisationResult(source: file, output: file, kind: .pdf, bytesBefore: 8_100_000, bytesAfter: 5_000_000, startedAt: Date(), finishedAt: Date()))
+        harness.model.optimise([harness.temp.file("Holiday.mov")], origin: .dropZone)
+        #expect(await eventually { harness.model.cardlessWork.first?.fraction == 0.5 })
+        #expect(harness.model.cards.isEmpty)
+        let actions = MenuPanelActions(settings: {}, pipelines: {}, welcome: {}, checkForUpdates: {}, close: {})
+        try await SettingsRenderTests.renderBoth({ _ in
+            MenuPanel(model: harness.model, actions: actions, notch: 200).padding(18)
+        }, size: CGSize(width: MenuPanel.width + 36, height: 600), name: "menu-panel-cardless-work")
+        harness.model.cardlessWork.forEach { $0.stop() }
+        #expect(await eventually { harness.model.cardlessWork.isEmpty })
+    }
 }

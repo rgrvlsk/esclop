@@ -194,15 +194,29 @@ public final class AppServices {
 
     /// L'Esclop opened again from Finder or Spotlight while it runs: the panel under the glyph, or
     /// Settings at the switch that shows the glyph when it is hidden, so the app is never lost.
-    // ponytail: a cold launch with the glyph hidden shows nothing (macOS sends reopen only to a
-    // running app), as a login launch must; a second open shows Settings. Show Settings at launch
-    // too if people get lost there.
     public func reopen() {
         if let statusItem, statusItem.isIconVisible {
             statusItem.open()
         } else {
-            settingsWindow.show(SettingsRoute(pane: .general, row: EsclopSettings.showMenubarIcon.key))
+            showGlyphSwitch()
         }
+    }
+
+    /// Launched with the glyph hidden: Settings at the switch that shows it, as a second open
+    /// does (macOS sends reopen only to a running app). A launch at login stays quiet.
+    public func launched(atLogin: Bool) {
+        guard !atLogin, !model.showsMenuBarIcon else { return }
+        showGlyphSwitch()
+    }
+
+    private func showGlyphSwitch() {
+        settingsWindow.show(SettingsRoute(pane: .general, row: EsclopSettings.showMenubarIcon.key))
+    }
+
+    /// The launch's Apple event says whether the system opened the app as a login item.
+    public static var launchedAtLogin: Bool {
+        guard let event = NSAppleEventManager.shared().currentAppleEvent, event.eventID == kAEOpenApplication else { return false }
+        return event.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
     }
 
     /// The end of `start`: files opened before it go now, later ones at once.

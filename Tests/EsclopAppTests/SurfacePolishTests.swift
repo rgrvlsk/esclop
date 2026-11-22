@@ -78,7 +78,7 @@ import Testing
             return
         }
         #expect(title.hasPrefix("Could not save Copied image"))
-        #expect(harness.announcements.texts.last == title)
+        #expect(harness.announcements.texts.last?.hasPrefix(title) == true)
     }
 
     /// A Fit stays with the card, as the crop does: another choice fits again, Original takes it

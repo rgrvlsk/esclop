@@ -173,17 +173,24 @@ extension AppModel {
 
     /// The "Show last result" hotkey: the newest result in Recent that is not on screen comes
     /// back (the card that hid last, or one that "Show floating results" kept off the screen).
+    /// Pressed again it goes further back, past the results it pushed off the three places, so it
+    /// never goes round in a circle; at the oldest it beeps.
     func showLastResult() {
         let shown = Set(visibleCards.compactMap(\.result?.id))
-        guard let result = recent.first(where: { !shown.contains($0.id) }) else { return beep() }
+        // A new walk once none of the results it brought back is on screen.
+        if walk.broughtBack.isDisjoint(with: shown) { walk = ([], []) }
+        guard let result = recent.first(where: { !shown.contains($0.id) && !walk.pushedOff.contains($0.id) }) else { return beep() }
         show(result)
+        walk.broughtBack.insert(result.id)
+        walk.pushedOff.formUnion(shown.subtracting(visibleCards.compactMap(\.result?.id)))
     }
 
-    /// The "Go to the newest result" hotkey: the newest card takes the keys and VoiceOver's
-    /// cursor, without activating the app.
+    /// The "Go to the newest result" hotkey: the newest card, or notice with an action (a copied
+    /// address's offer, "Optimise anyway"), takes the keys and VoiceOver's cursor, without
+    /// activating the app.
     func focusNewestResult() {
         let newest = visibleCards.last { card in
-            if case .notice = card.phase { return false }
+            if case .notice = card.phase { return card.noticeAction != nil }
             return true
         }
         guard let newest else { return }

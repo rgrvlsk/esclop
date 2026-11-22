@@ -49,10 +49,13 @@ public final class DropZoneState {
     /// changes nothing there, so the line names the pipeline instead.
     public var title: String {
         if let hoveredZone {
-            return Strings.format("Drop to run “%@”", zones.first { $0.name == hoveredZone }?.title ?? hoveredZone)
+            return zones.first { $0.name == hoveredZone }.map(title(over:)) ?? Strings.format("Drop to run “%@”", hoveredZone)
         }
         return plainTitle
     }
+
+    /// The line over a preset zone.
+    func title(over zone: PresetZone) -> String { Strings.format("Drop to run “%@”", zone.title) }
 
     /// What a drop on the plain tile does.
     public var plainTitle: String { harder ? Strings.text("Drop to optimise harder") : Strings.text("Drop to optimise") }

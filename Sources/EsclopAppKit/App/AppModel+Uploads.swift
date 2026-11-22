@@ -79,9 +79,13 @@ extension AppModel {
                 view?.upload = nil
             case let .failure(error):
                 view?.upload = .failed(CardPresentation.message(for: error))
-                self.announce(Strings.format("%@ was not uploaded", file.lastPathComponent))
-                // A result shown nowhere (a quiet pipeline) has no other place to say why.
-                if view == nil { self.notice(Strings.format("%@ was not uploaded", file.lastPathComponent), CardPresentation.message(for: error)) }
+                // A result shown nowhere (a quiet pipeline) has no other place to say why; the
+                // notice is heard as it comes.
+                if view == nil {
+                    self.notice(Strings.format("%@ was not uploaded", file.lastPathComponent), CardPresentation.message(for: error))
+                } else {
+                    self.announce(Strings.format("%@ was not uploaded", file.lastPathComponent))
+                }
             }
             // Whichever upload ends last, whatever its outcome, puts the batch's links on the clipboard.
             if let batch { self.copyLinks(of: batch) }

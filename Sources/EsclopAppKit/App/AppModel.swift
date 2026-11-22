@@ -45,6 +45,17 @@ public final class AppModel {
     public private(set) var recent: [OptimisationResult] = []
     /// Files being optimised right now.
     public private(set) var activeFiles = 0
+    /// Files at work that have no floating result ("Show floating results" off, a quiet pipeline,
+    /// the CLI's or an agent's): the menu bar panel lists them with their Stop.
+    public private(set) var cardlessWork: [WorkingFile] = []
+
+    /// A file at work as the menu bar panel lists it.
+    public struct WorkingFile: Identifiable {
+        public let id: UUID
+        public let name: String
+        public var fraction: Double = 0
+        public let stop: () -> Void
+    }
     /// Mirrors the `pauseAutomaticOptimisations` setting, which the CLI can change too.
     public private(set) var paused: Bool
 
@@ -68,6 +79,8 @@ public final class AppModel {
     @ObservationIgnored public var hideDelayOverride: Duration?
     /// VoiceOver is on: results wait for the person, they never hide on a timer (tests set it).
     @ObservationIgnored var voiceOverRunning: () -> Bool = { NSWorkspace.shared.isVoiceOverEnabled }
+    /// The "Show the last result" hotkey's walk back through Recent (`showLastResult`).
+    @ObservationIgnored var walk: (broughtBack: Set<UUID>, pushedOff: Set<UUID>) = ([], [])
     /// A key that does nothing where it was pressed (tests count them).
     @ObservationIgnored var beep: () -> Void = { NSSound.beep() }
     /// Opens a file in its default app (tests record it).
@@ -130,9 +143,8 @@ public final class AppModel {
     }
 
     /// The newest `limit` cards, oldest first, the files at work before the finished ones, so a
-    /// file at work keeps its Stop while newer results arrive. ponytail: past `limit` files at
-    /// work at once the oldest ones hide, and the menu's working rows have no Stop. Trigger: Stop
-    /// on those rows, if several clipboard and drop jobs at once turn out to be common.
+    /// file at work keeps its Stop while newer results arrive. Past `limit` files at work at once
+    /// the oldest ones hide; the menu's working rows keep their Stop.
     static func newest(_ list: [ResultCard], _ limit: Int) -> [ResultCard] {
         let working = Set(list.filter(\.isWorking).suffix(limit).map(\.id))
         var room = limit - working.count
@@ -297,8 +309,10 @@ public final class AppModel {
             } else {
                 card = job.request.showResultUI ? addCard(for: source, job: job, displayName: displayName, context: context) : nil
             }
-            let task = Task { await self.process(source, job: job, executor: executor, card: card, linksSince: linksSince, events: events, onResult: onResult) }
+            let cardless = card == nil ? UUID() : nil
+            let task = Task { await self.process(source, job: job, executor: executor, card: card, cardless: cardless, linksSince: linksSince, events: events, onResult: onResult) }
             card?.cancelWork = { task.cancel() }
+            if let cardless { cardlessWork.append(WorkingFile(id: cardless, name: displayName ?? source.lastPathComponent) { task.cancel() }) }
             card?.retry = { [weak self, weak card] in
                 guard let self else { return }
                 if let card { self.dismiss(card) }
@@ -490,11 +504,14 @@ public final class AppModel {
     }
 
     private func process(
-        _ source: URL, job: OptimisationJob, executor: JobExecutor, card: ResultCard?, row: BatchRow? = nil, batch: Batch? = nil,
+        _ source: URL, job: OptimisationJob, executor: JobExecutor, card: ResultCard?, cardless: UUID? = nil, row: BatchRow? = nil, batch: Batch? = nil,
         linksSince: Task<Int, Never>? = nil, events: @escaping @Sendable (JobEvent) -> Void, onResult: ((OptimisationResult) -> Void)?
     ) async -> Result<OptimisationResult, PipelineStepFailure> {
         activeFiles += 1
-        defer { activeFiles -= 1 }
+        defer {
+            activeFiles -= 1
+            if let cardless { cardlessWork.removeAll { $0.id == cardless } }
+        }
         // A batch's links go on the clipboard against the clipboard as its first job started.
         if let batch, let linksSince, batch.linksSince == nil { batch.linksSince = await linksSince.value }
         if let batch {
@@ -518,7 +535,7 @@ public final class AppModel {
         if Task.isCancelled {
             outcome = .failure(.cancelled)
         } else {
-            let cardID = card?.id
+            let cardID = card?.id ?? cardless
             do {
                 var result = try await executor.process(source, job: job) { [weak self, weak row] progress in
                     Task { @MainActor in
@@ -577,6 +594,13 @@ public final class AppModel {
             } else {
                 card?.phase = .failed(CardPresentation.message(for: error))
                 row?.state = error == .cancelled ? .cancelled : .failed(CardPresentation.message(for: error))
+                // VoiceOver hears a failure as it hears a result; a batch is told once, at its end.
+                if let card, row == nil, error != .cancelled { announce(card.presentation.accessibilityLabel) }
+                // With no card ("Show floating results" off, a quiet pipeline), what the person
+                // asked for never fails unseen. The CLI, agents and Shortcuts get the error.
+                if card == nil, row == nil, error != .cancelled, Self.tellsFailures(job.request.origin) {
+                    notice(Strings.format("Could not optimise %@", displayName(of: source)), CardPresentation.message(for: error), hideAfter: 8)
+                }
             }
         }
         if let card {
@@ -590,7 +614,23 @@ public final class AppModel {
         return outcome.mapError { PipelineStepFailure(step: failedStep, error: $0, partial: partial) }
     }
 
+    /// The origins whose failures a notice tells when there is no card: what the person did here.
+    nonisolated static func tellsFailures(_ origin: RequestOrigin) -> Bool {
+        switch origin {
+        case .app, .clipboard, .dropZone, .hotkey, .finder: true
+        case .watchedFolder, .cli, .mcp, .shortcuts: false
+        }
+    }
+
+    private func displayName(of source: URL) -> String {
+        Self.isCopiedImage(source) ? Strings.text("Copied image") : source.lastPathComponent
+    }
+
     private func progress(_ fraction: Double, cardID: UUID) {
+        if let index = cardlessWork.firstIndex(where: { $0.id == cardID }) {
+            if fraction > cardlessWork[index].fraction { cardlessWork[index].fraction = fraction }
+            return
+        }
         guard let card = cards.first(where: { $0.id == cardID }), case let .working(current) = card.phase else { return }
         if fraction > current { card.phase = .working(fraction: fraction) }
     }
@@ -723,15 +763,18 @@ public final class AppModel {
 
     /// A short message with no file. It replaces the last plain one. With an `action` it offers
     /// that action, stays `hideAfter` seconds (8 by default) so it can be reached, and no later
-    /// notice takes its place.
+    /// notice takes its place; under VoiceOver it waits for the person (⌃⇧N reaches it). VoiceOver
+    /// says it as it comes.
     public func notice(
         _ title: String, _ detail: String, action: (action: CardPresentation.Action, run: () -> Void)? = nil, hideAfter: TimeInterval? = nil
     ) {
         cards.filter { if case .notice = $0.phase { return $0.noticeAction == nil } else { return false } }.forEach(dismiss)
         let card = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/"), origin: .app, bytesBefore: 0, phase: .notice(title: title, detail: detail))
         card.noticeAction = action
-        card.machine.notice(at: now(), hideAfter: hideDelayOverride.map(Self.seconds) ?? hideAfter ?? (action == nil ? 3 : 8))
+        let waits = action != nil && voiceOverRunning()
+        card.machine.notice(at: now(), hideAfter: waits ? nil : hideDelayOverride.map(Self.seconds) ?? hideAfter ?? (action == nil ? 3 : 8))
         add(card)
+        announce([title, detail, action?.action.title ?? ""].filter { !$0.isEmpty }.joined(separator: ". "))
     }
 
     // MARK: Floating result state

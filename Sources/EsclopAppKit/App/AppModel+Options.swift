@@ -292,10 +292,9 @@ extension AppModel {
         }
     }
 
-    /// Seen and heard: a notice says why a file action failed, VoiceOver reads it.
+    /// Seen and heard: a notice says why a file action failed, and VoiceOver reads it.
     private func failed(_ title: String, _ error: any Error) {
         notice(title, CardPresentation.message(for: error))
-        announce(title)
     }
 
     private static let saveStamp: DateFormatter = {

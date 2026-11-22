@@ -85,19 +85,42 @@ public struct DropZoneView: View {
         }
     }
 
-    private var hintLine: some View {
-        HStack(spacing: 5) {
-            Text(state.title)
-            if !state.hint.isEmpty {
-                Text(verbatim: "·").accessibilityHidden(true)
-                Text(state.hint).foregroundStyle(hintInk)
+    @ViewBuilder private var hintLine: some View {
+        if state.zones.isEmpty {
+            line(state.title, state.hint)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .accessibilityHidden(true)
+        } else {
+            // Over a preset zone the line names its whole pipeline, in two lines at most, since a
+            // tooltip cannot show while the mouse button is down. The tallest line a zone can show
+            // (alone, or shrunk to fit with ⌥'s hint) keeps its room from the start: the panel is
+            // sized once, and the tiles must not move under the drag.
+            ZStack {
+                ForEach(state.zones) { zone in
+                    line(state.title(over: zone), "").lineLimit(2).hidden()
+                    line(state.title(over: zone), Strings.text("The originals stay as they are")).lineLimit(2).hidden()
+                }
+                line(state.title, state.hint).lineLimit(state.hoveredZone == nil ? 1 : 2)
             }
+            .minimumScaleFactor(0.85)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(width: rowWidth)
+            .accessibilityHidden(true)
         }
-        .font(OptionsType.label)
-        .foregroundStyle(PopoverInk.secondary.color)
-        .lineLimit(1)
-        .minimumScaleFactor(0.85)
-        .accessibilityHidden(true)
+    }
+
+    /// One paragraph, so a long pipeline name wraps with its hint.
+    private func line(_ title: String, _ hint: String) -> Text {
+        let text = Text(title).foregroundStyle(PopoverInk.secondary.color)
+        guard !hint.isEmpty else { return text.font(OptionsType.label) }
+        return (text + Text(verbatim: " · ").foregroundStyle(PopoverInk.secondary.color) + Text(hint).foregroundStyle(hintInk)).font(OptionsType.label)
+    }
+
+    /// The tiles' row: the plain target and the zones, 8 pt apart.
+    private var rowWidth: CGFloat {
+        DropTiles.plainWidth + CGFloat(state.zones.count) * (DropTiles.zoneWidth + 8)
     }
 
     /// ⌥ says what it keeps in the primary ink; ⌘'s aggressive settings in the warm colour.

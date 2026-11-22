@@ -344,8 +344,18 @@ public struct MenuPanel: View {
     /// The recent results the panel lists.
     private var results: [OptimisationResult] { Array(model.recent.prefix(Self.recentLimit)) }
 
+    /// Every file at work outside a batch, with its Stop: the cards', and those with no card.
+    private var working: [AppModel.WorkingFile] {
+        model.cards.filter(\.isWorking).map { card in
+            let fraction: Double = if case let .working(value) = card.phase { max(0, value) } else { 0 }
+            return AppModel.WorkingFile(id: card.id, name: card.displayName ?? card.source.lastPathComponent, fraction: fraction) {
+                model.perform(.stop, on: card)
+            }
+        } + model.cardlessWork
+    }
+
     private var recent: some View {
-        let working = model.cards.filter(\.isWorking)
+        let working = working
         let results = results
         return VStack(alignment: .leading, spacing: 4) {
             HStack {
@@ -369,7 +379,7 @@ public struct MenuPanel: View {
                     .padding(.vertical, 10)
             } else {
                 let rows = VStack(spacing: 0) {
-                    ForEach(working, id: \.id) { card in WorkingRow(card: card) }
+                    ForEach(working) { file in WorkingRow(file: file) }
                     ForEach(results, id: \.id) { result in
                         RecentRow(result: result, model: model, highlighted: highlighted == .result(result.id), close: actions.close) {
                             hover(.result(result.id), $0)
@@ -509,17 +519,17 @@ struct ProgressBar: View {
     }
 }
 
-/// A file being optimised now: its name, a bar and the percentage.
+/// A file being optimised now: its name, a bar, the percentage and Stop.
 struct WorkingRow: View {
-    let card: ResultCard
+    let file: AppModel.WorkingFile
 
     var body: some View {
-        let fraction: Double = if case let .working(value) = card.phase { max(0, value) } else { 0 }
+        let fraction = file.fraction
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 5) {
                     StateMark(meaning: .working).font(.system(size: 12, weight: .semibold))
-                    Text(card.displayName ?? card.source.lastPathComponent)
+                    Text(file.name)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Ink.text)
                         .lineLimit(1)
@@ -531,11 +541,17 @@ struct WorkingRow: View {
                 .font(.system(size: 13))
                 .foregroundStyle(Ink.secondary)
                 .monospacedDigit()
+            // The original stays as it was, as the card's Stop leaves it.
+            Button(action: file.stop) { PillButton.face("xmark", size: 28, glyph: 0.45) }
+                .buttonStyle(PressScale())
+                .help(Strings.text("Stop"))
+                .accessibilityHidden(true)
         }
         .padding(.horizontal, 14)
         .frame(height: RecentRow.height)
         .background(Surface.progress.opacity(0.7))
         .accessibilityElement(children: .combine)
+        .accessibilityAction(named: Strings.text("Stop"), file.stop)
     }
 }
 

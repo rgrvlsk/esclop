@@ -95,10 +95,11 @@ public struct FloatingResultMachine: Equatable, Sendable {
         hideDeadline = hideAfter.map { now + $0 }
     }
 
-    public mutating func notice(at now: Date, hideAfter: TimeInterval) {
+    /// nil: it waits for the person (a notice with an action under VoiceOver).
+    public mutating func notice(at now: Date, hideAfter: TimeInterval?) {
         stage = .notice
         self.hideAfter = hideAfter
-        hideDeadline = now + hideAfter
+        hideDeadline = hideAfter.map { now + $0 }
     }
 
     /// The result changed in place (a restore, an upload, shown again): start its time again.

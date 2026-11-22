@@ -221,6 +221,29 @@ import Testing
         #expect(beeps == 1)
     }
 
+    /// With the three places full, each press goes further back through Recent instead of
+    /// bringing back the result the last press pushed off; at the oldest it beeps.
+    @Test func showLastResultWalksBackWithoutCircling() async throws {
+        let harness = Harness()
+        var beeps = 0
+        harness.model.beep = { beeps += 1 }
+        try EsclopSettings.showFloatingResults.set(false, in: harness.settings.store)
+        for index in 1...5 {
+            harness.model.optimise([harness.temp.file("r\(index).png")], origin: .dropZone)
+            #expect(await eventually { harness.model.recent.count == index })
+        }
+        let newestFirst = harness.model.recent.map(\.id)
+        var brought: [UUID] = []
+        for _ in 0..<5 {
+            Hotkeys.action(for: .showLastResult)(harness.model)
+            if let id = harness.model.cards.last?.result?.id { brought.append(id) }
+        }
+        #expect(brought == newestFirst, "each press one further back")
+        #expect(beeps == 0)
+        Hotkeys.action(for: .showLastResult)(harness.model)
+        #expect(beeps == 1, "past the oldest it beeps")
+    }
+
     /// Copy, the result, the hotkey, Z: a copied screenshot is undone from the keyboard alone.
     @Test func aCopiedScreenshotIsUndoneFromTheKeyboard() async throws {
         let harness = Harness()

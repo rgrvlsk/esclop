@@ -2781,6 +2781,16 @@
         }
       }
     },
+    "Could not optimise %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha pogut optimitzar %@"
+          }
+        }
+      }
+    },
     "Could not restore %@": {
       "localizations": {
         "ca": {
