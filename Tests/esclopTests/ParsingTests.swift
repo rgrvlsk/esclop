@@ -245,6 +245,27 @@ func rejects(_ arguments: [String]) -> Bool {
         #expect(export.bytes > PageExport.size(of: URL(fileURLWithPath: export.pages[0])))
     }
 
+    /// The result and total lines, as printed without colour: a growth reads "+33.9%", never "−-33.9%".
+    @Test func resultAndTotalLinesSignTheirPercent() {
+        func result(_ name: String, before: Int, after: Int) -> OptimisationResult {
+            OptimisationResult(
+                source: URL(fileURLWithPath: "/x/\(name)"), output: URL(fileURLWithPath: "/x/\(name)"), kind: .image,
+                bytesBefore: before, bytesAfter: after, startedAt: Date(), finishedAt: Date(), steps: []
+            )
+        }
+        let terminal = Terminal(color: false)
+        func summary(_ results: OptimisationResult...) -> JobSummary {
+            var report = JobReport(route: "in-process")
+            report.results = results
+            return JobSummary(operation: "strip", report: report)
+        }
+        let grew = summary(result("real.heic", before: 25_100_000, after: 33_600_000), result("p.tiff", before: 16_000, after: 3_600))
+        #expect(grew.results.map { terminal.line($0) } == ["✓ real.heic 25.1 MB → 33.6 MB +33.9%", "✓ p.tiff 16.0 KB → 3.6 KB −77.5%"])
+        #expect(terminal.total(grew) == "Total 25.1 MB → 33.6 MB (+33.8%) over 2 files")
+        let shrank = summary(result("a.png", before: 2_000, after: 1_000), result("b.png", before: 2_000, after: 1_000))
+        #expect(terminal.total(shrank) == "Total 4.0 KB → 2.0 KB (−50.0%) over 2 files")
+    }
+
     /// A file already as small as it gets is unchanged, not failed: `set -e` scripts that
     /// optimise twice keep going.
     @Test func alreadySmallestIsNotAFailure() {

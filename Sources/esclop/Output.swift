@@ -33,7 +33,7 @@ struct Terminal {
     func line(_ result: ResultSummary, fullPath: Bool = false) -> String {
         let name = fullPath ? PathInput.abbreviate(URL(fileURLWithPath: result.source)) : URL(fileURLWithPath: result.source).lastPathComponent
         let saved = result.savedBytes >= 0
-        let percent = saved ? "−\(ResultSummary.percentText(result.savedPercent))%" : "+\(ResultSummary.percentText(-result.savedPercent))%"
+        let percent = ResultSummary.signedPercent(result.savedPercent)
         var text = "\(green("✓")) \(bold(name)) \(ByteSize.format(result.bytesBefore)) \(dim("→")) \(ByteSize.format(result.bytesAfter)) \(saved ? green(percent) : yellow(percent))"
         if let link = result.link { return "\(green("✓")) \(bold(name)) \(dim("→")) \(cyan(link))" }
         if result.skippedByFilter { return "\(dim("–")) \(bold(name)) \(dim("skipped by the filter"))" }
@@ -49,10 +49,20 @@ struct Terminal {
         }
         return "\(red("✗")) \(name) \(red(failure.message))"
     }
+
+    /// "Total 25.1 MB → 33.6 MB (+33.9%) over 3 files": a total that grew says so.
+    func total(_ summary: JobSummary) -> String {
+        dim("Total \(ByteSize.format(summary.bytesBefore)) → \(ByteSize.format(summary.bytesAfter)) (\(ResultSummary.signedPercent(summary.savedPercent))) over \(summary.results.count) files")
+    }
 }
 
 extension ResultSummary {
     static func percentText(_ value: Double) -> String { percent(value) }
+
+    /// "−12.3%" for a saving, "+33.8%" for a file or total that grew.
+    static func signedPercent(_ savedPercent: Double) -> String {
+        savedPercent >= 0 ? "−\(percentText(savedPercent))%" : "+\(percentText(-savedPercent))%"
+    }
 }
 
 extension FailureSummary {
@@ -88,7 +98,7 @@ enum Output {
             summary.results.forEach { print(terminal.line($0, fullPath: downloaded.contains($0.source))) }
             summary.failures.forEach { print(terminal.line($0)) }
             if summary.results.count > 1 {
-                print(terminal.dim("Total \(ByteSize.format(summary.bytesBefore)) → \(ByteSize.format(summary.bytesAfter)) (−\(ResultSummary.percentText(summary.savedPercent))%) over \(summary.results.count) files"))
+                print(terminal.total(summary))
             }
             if summary.results.isEmpty, summary.failures.isEmpty { print("No files to process.") }
             if summary.failures.contains(where: { $0.code == "toolMissing" }) {

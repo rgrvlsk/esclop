@@ -315,11 +315,11 @@ enum ImageIOCodec {
     }
 
     /// The camera makers' own dictionaries.
-    static let makerDictionaries = [
+    static var makerDictionaries: [CFString] { [
         kCGImagePropertyMakerAppleDictionary, kCGImagePropertyMakerCanonDictionary, kCGImagePropertyMakerNikonDictionary,
         kCGImagePropertyMakerMinoltaDictionary, kCGImagePropertyMakerFujiDictionary, kCGImagePropertyMakerOlympusDictionary,
         kCGImagePropertyMakerPentaxDictionary,
-    ]
+    ] }
 
     // MARK: HDR
 
