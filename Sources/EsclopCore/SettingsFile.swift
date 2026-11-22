@@ -5,14 +5,20 @@
 // It holds only the keys stored in the suite, so the other Mac keeps its own defaults for the
 // rest. Import checks every value against its setting before it writes any, and skips the keys
 // this version does not know (a newer L'Esclop wrote the file), naming them. A file that turns on
-// an agent permission (Settings › Agents) does so only when the person says so: a shared file
-// must not quietly let agents run scripts or upload.
+// a permission (Settings › Agents, or where and when files are uploaded) does so only when the
+// person says so: a shared file must not quietly let agents run scripts, point a known upload
+// target at another endpoint (its Keychain keys go by its name) or upload on its own.
 
 import Foundation
 
 public enum SettingsFile {
     public static let format = "esclop-settings"
     public static let version = 1
+    /// What only the person may turn on: the agent permissions, and the upload settings (the
+    /// targets, the default one and automatic uploads go together).
+    public static func isPermission(_ setting: AnySetting) -> Bool {
+        setting.section == .agents || setting.section == .uploads
+    }
     /// What the file does not carry, said where it is exported.
     public static let leftBehind = "Pipelines, hotkeys and upload keys are not in the file: they stay on this Mac."
 
@@ -26,8 +32,9 @@ public enum SettingsFile {
     public struct Read: Equatable, Sendable {
         public var values: [String: JSONValue]
         public var unknown: [String]
-        /// The agent permissions the file turns on that are off in the store, by key. After an
-        /// import without `allowPermissions` they are not in `values`: they were skipped.
+        /// The permissions the file turns on (`permissionKeys`, set to other than the store's
+        /// value and the default), by key. After an import without `allowPermissions` they are
+        /// not in `values`: they were skipped.
         public var permissions: [String]
         /// The file's version; above `SettingsFile.version` a newer L'Esclop wrote it.
         public var version: Int
@@ -74,7 +81,10 @@ public enum SettingsFile {
                 throw EsclopError.invalidArgument("\(key) in the file is not a value it takes (\((error as? EsclopError)?.description ?? error.localizedDescription)). Nothing was changed.")
             }
             read.values[key] = value
-            if setting.section == .agents, value == .bool(true), let store, setting.get(in: store) != .bool(true) {
+            // Back to the default (off, no targets) is never a question; but `uploadTarget`'s
+            // default "" picks the first target, so it is.
+            let turnsOff = value == setting.defaultJSON && setting.key != EsclopSettings.uploadTarget.key
+            if isPermission(setting), let store, !turnsOff, value != setting.get(in: store) {
                 read.permissions.append(key)
             }
         }
@@ -83,8 +93,8 @@ public enum SettingsFile {
         return read
     }
 
-    /// Reads a file and applies its values to `store`, all or none. The agent permissions it
-    /// turns on are applied only with `allowPermissions`; without, they are skipped and named.
+    /// Reads a file and applies its values to `store`, all or none. The permissions it turns on
+    /// are applied only with `allowPermissions`; without, they are skipped and named.
     @discardableResult
     public static func `import`(_ data: Data, into store: SettingsStore, allowPermissions: Bool = false, registry: SettingsRegistry = .shared) throws -> Read {
         var read = try read(data, for: store, registry: registry)

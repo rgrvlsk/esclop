@@ -289,6 +289,32 @@ final class KeyWatcher: NSObject, @unchecked Sendable {
         #expect(try SettingsFile.import(data, into: store).permissions.isEmpty, "nothing left to turn on")
     }
 
+    /// Where and when files are uploaded is a permission too: a shared file must not point a known
+    /// target (its Keychain keys go by its name) at another endpoint, nor upload on its own.
+    @Test func uploadSettingsComeOnlyWhenAllowed() throws {
+        let store = scratchStore()
+        let mine = #"{"name":"R2","endpoint":"https://r2.example.com","bucket":"b"}"#
+        try EsclopSettings.uploadTargets.set([mine], in: store)
+        let theirs = #"{"name":"R2","endpoint":"https://elsewhere.example.net","bucket":"b"}"#
+        let file = try JSONEncoder().encode(["format": JSONValue.string("esclop-settings"), "version": 1, "settings": [
+            "uploadTargets": [.string(theirs)], "uploadAutomatically": ["clipboard"], "uploadTarget": "R2", "batchWindowFrom": 6,
+        ]])
+        let read = try SettingsFile.import(file, into: store)
+        #expect(read.permissions == ["uploadAutomatically", "uploadTarget", "uploadTargets"], "the default target goes with the targets")
+        #expect(EsclopSettings.uploadTargets.value(in: store) == [mine], "the known target keeps its endpoint")
+        #expect(EsclopSettings.uploadAutomatically.value(in: store).isEmpty && EsclopSettings.uploadTarget.value(in: store).isEmpty)
+        #expect(EsclopSettings.batchWindowFrom.value(in: store) == 6)
+        try SettingsFile.import(file, into: store, allowPermissions: true)
+        #expect(EsclopSettings.uploadTargets.value(in: store) == [theirs] && EsclopSettings.uploadAutomatically.value(in: store) == ["clipboard"])
+        #expect(EsclopSettings.uploadTarget.value(in: store) == "R2")
+        let none = try JSONEncoder().encode(["format": JSONValue.string("esclop-settings"), "version": 1, "settings": ["uploadTargets": [], "uploadAutomatically": []]])
+        let cleared = try SettingsFile.import(none, into: store)
+        #expect(cleared.permissions.isEmpty && EsclopSettings.uploadTargets.value(in: store).isEmpty, "back to none needs no ask")
+        let first = try JSONEncoder().encode(["format": JSONValue.string("esclop-settings"), "version": 1, "settings": ["uploadTarget": ""]])
+        #expect(try SettingsFile.import(first, into: store).permissions == ["uploadTarget"], "an empty default target means the first one, not none")
+        #expect(EsclopSettings.uploadTarget.value(in: store) == "R2")
+    }
+
     @Test func aNewerFileIsNamedAndABadChoiceListsTheChoices() throws {
         let store = scratchStore()
         let newer = try SettingsFile.import(Data(#"{"format": "esclop-settings", "version": 2, "settings": {}}"#.utf8), into: store)

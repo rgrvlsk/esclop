@@ -72,9 +72,9 @@ import UniformTypeIdentifiers
         #expect(Output.skippedNote("open(app: Preview): skipped") == "open(app: Preview) skipped")
     }
 
-    /// `settings import` skips the agent permissions a file turns on and names them;
+    /// `settings import` skips the permissions a file turns on (agents', uploads') and names them;
     /// `--allow-permissions` applies them. Its own settings suite, never the person's.
-    @Test func importSkipsAgentPermissionsUnlessAllowed() async throws {
+    @Test func importSkipsPermissionsUnlessAllowed() async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-import-\(UUID().uuidString.prefix(8))", isDirectory: true)
         let support = folder.appendingPathComponent("support", isDirectory: true)
         try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
@@ -85,18 +85,18 @@ import UniformTypeIdentifiers
             UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite)
         }
         let file = folder.appendingPathComponent("shared.json")
-        try Data(#"{"format": "esclop-settings", "version": 1, "settings": {"batchWindowFrom": 6, "allowRunScripts": true}}"#.utf8).write(to: file)
+        try Data(#"{"format": "esclop-settings", "version": 1, "settings": {"batchWindowFrom": 6, "allowRunScripts": true, "uploadAutomatically": ["clipboard"]}}"#.utf8).write(to: file)
 
         let skipped = try await runEsclop(["settings", "import", file.path], environment: environment)
         #expect(skipped.exitCode == 0, "\(skipped.output)")
         #expect(skipped.stdoutString == "Imported 1 setting.\n")
-        #expect(skipped.stderrString == "note: skipped agent permissions the file turns on: allowRunScripts (--allow-permissions turns them on)\n")
+        #expect(skipped.stderrString == "note: skipped permissions the file turns on: allowRunScripts, uploadAutomatically (--allow-permissions turns them on)\n")
 
         struct Imported: Decodable { var imported: [String]; var permissionsTurnedOn: [String] }
         let allowed = try await runEsclop(["settings", "import", "--allow-permissions", "--json", file.path], environment: environment)
         let read = try JSONDecoder().decode(Imported.self, from: Data(allowed.stdoutString.utf8))
-        #expect(read.imported == ["allowRunScripts", "batchWindowFrom"], "\(allowed.output)")
-        #expect(read.permissionsTurnedOn == ["allowRunScripts"])
+        #expect(read.imported == ["allowRunScripts", "batchWindowFrom", "uploadAutomatically"], "\(allowed.output)")
+        #expect(read.permissionsTurnedOn == ["allowRunScripts", "uploadAutomatically"])
     }
 
     static func heic(_ url: URL) throws {

@@ -327,12 +327,12 @@ extension Settings {
             abstract: "Read settings from a file `esclop settings export` wrote. Applies immediately.",
             discussion: """
             Every value is checked first: one a setting does not take changes nothing. Keys this version does not know are \
-            skipped and named. Agent permissions the file turns on (allowRunScripts, allowUploads, …) are skipped and named \
-            unless --allow-permissions is given.
+            skipped and named. Permissions the file turns on (agent permissions such as allowRunScripts, and the upload \
+            settings uploadTargets, uploadTarget and uploadAutomatically) are skipped and named unless --allow-permissions is given.
             """
         )
         @Argument(help: "The settings file.") var file: String
-        @Flag(name: .customLong("allow-permissions"), help: "Also turn on the agent permissions the file turns on.") var allowPermissions = false
+        @Flag(name: .customLong("allow-permissions"), help: "Also apply the agent permissions and upload settings the file turns on.") var allowPermissions = false
         @OptionGroup var global: GlobalOptions
 
         func run() async throws {
@@ -351,7 +351,7 @@ extension Settings {
                 print(read.values.count == 1 ? "Imported 1 setting." : "Imported \(read.values.count) settings.")
                 if !read.permissions.isEmpty {
                     let list = read.permissions.joined(separator: ", ")
-                    if allowPermissions { note("turned on agent permissions: \(list)") } else { note("skipped agent permissions the file turns on: \(list) (--allow-permissions turns them on)") }
+                    if allowPermissions { note("turned on permissions: \(list)") } else { note("skipped permissions the file turns on: \(list) (--allow-permissions turns them on)") }
                 }
                 if read.isNewer { note("a newer L’Esclop wrote this file (version \(read.version)); what this version knows was imported") }
                 if !read.unknown.isEmpty { note("skipped what this version does not know: \(read.unknown.joined(separator: ", "))") }

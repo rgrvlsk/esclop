@@ -285,8 +285,8 @@ enum SettingsFilePanels {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             let data = try Data(contentsOf: url)
-            // A shared file must not quietly let agents run scripts or upload: asked first,
-            // without them by default.
+            // A shared file must not quietly let agents run scripts, or redirect or start
+            // uploads: asked first, without them by default.
             var allowPermissions = false
             let turnsOn = try SettingsFile.read(data, for: store).permissions
             if !turnsOn.isEmpty {
@@ -313,11 +313,11 @@ enum SettingsFilePanels {
         }
     }
 
-    /// The question before an import that turns on agent permissions, naming each.
+    /// The question before an import that turns on permissions (agents', uploads'), naming each.
     static func permissionsQuestion(_ keys: [String], locale: Locale = Strings.locale) -> (title: String, detail: String) {
         let list = names(keys, locale: locale).map { "• " + $0 }.joined(separator: "\n")
         return (
-            Strings.text("This file turns on agent permissions", locale: locale),
+            Strings.text("This file turns on permissions", locale: locale),
             list + "\n\n" + Strings.text("Turn them on only if you made this file or trust whoever did.", locale: locale)
         )
     }
@@ -327,7 +327,7 @@ enum SettingsFilePanels {
         let title = read.values.count == 1 ? Strings.text("Imported 1 setting", locale: locale) : Strings.format("Imported %d settings", read.values.count, locale: locale)
         var lines: [String] = []
         if !allowedPermissions, !read.permissions.isEmpty {
-            lines.append(Strings.format("Agent permissions left off: %@.", names(read.permissions, locale: locale).joined(separator: ", "), locale: locale))
+            lines.append(Strings.format("Permissions left off: %@.", names(read.permissions, locale: locale).joined(separator: ", "), locale: locale))
         }
         if read.isNewer { lines.append(Strings.text("A newer version of L’Esclop wrote this file.", locale: locale)) }
         if !read.unknown.isEmpty { lines.append(Strings.format("Skipped what this version does not know: %@.", read.unknown.joined(separator: ", "), locale: locale)) }

@@ -1041,16 +1041,6 @@
         }
       }
     },
-    "Agent permissions left off: %@.": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No s’han activat aquests permisos dels agents: %@."
-          }
-        }
-      }
-    },
     "AI agents": {
       "localizations": {
         "ca": {
@@ -6441,6 +6431,16 @@
         }
       }
     },
+    "Permissions left off: %@.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’han activat aquests permisos: %@."
+          }
+        }
+      }
+    },
     "PNG keeps sharp edges and transparency; its colours are reduced.": {
       "localizations": {
         "ca": {
@@ -8711,12 +8711,12 @@
         }
       }
     },
-    "This file turns on agent permissions": {
+    "This file turns on permissions": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aquest fitxer activa permisos dels agents"
+            "value": "Aquest fitxer activa permisos"
           }
         }
       }
