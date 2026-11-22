@@ -174,7 +174,7 @@ struct SettingsPaneView: View {
             )
         } + AgentCatalog.all.map { agent in
             SettingsViewModel.ExtraRow(
-                id: AgentRow.rowID(agent), title: Strings.format("Connect %@", agent.name), summary: Strings.format("Add L’Esclop’s MCP server to %@.", agent.name),
+                id: AgentRow.rowID(agent), title: Strings.format("Connect %@", agent.shownName), summary: Strings.format("Add L’Esclop’s MCP server to %@.", agent.shownName),
                 pane: .agents, keywords: ["mcp", "install", "agent", "ai", "connect", agent.id]
             )
         } + [
@@ -307,10 +307,23 @@ enum SettingsFilePanels {
             let done = outcome(read, allowedPermissions: allowPermissions)
             tell(done.title, done.detail)
         } catch let EsclopError.invalidArgument(reason) {
-            tell(Strings.text("Could not import the settings"), Strings.text("The file is not one L’Esclop exported, or a value in it is not one its setting takes. Nothing was changed.") + "\n\n" + reason)
+            tell(Strings.text("Could not import the settings"), importFailure(reason))
         } catch {
             tell(Strings.text("Could not import the settings"), error.localizedDescription)
         }
+    }
+
+    /// Why an import was refused, in the person's language: `SettingsFile` says it in English,
+    /// for the CLI. A value a setting does not take names that setting.
+    static func importFailure(_ reason: String, locale: Locale = Strings.locale) -> String {
+        if reason.hasPrefix("This is not an L’Esclop settings file") {
+            return Strings.text("This is not a settings file L’Esclop exported. Nothing was changed.", locale: locale)
+        }
+        if let end = reason.range(of: " in the file is not a value it takes"), SettingsRegistry.shared.setting(String(reason[..<end.lowerBound])) != nil {
+            let name = names([String(reason[..<end.lowerBound])], locale: locale)[0]
+            return Strings.format("The file’s value for “%@” is not one this setting takes. Nothing was changed.", name, locale: locale)
+        }
+        return Strings.text("The file is not one L’Esclop exported, or a value in it is not one its setting takes. Nothing was changed.", locale: locale) + "\n\n" + reason
     }
 
     /// The question before an import that turns on permissions (agents', uploads'), naming each.

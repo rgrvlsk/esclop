@@ -44,6 +44,23 @@ import Testing
         #expect(harness.announcements.texts == ["Batch finished: 5 files, 300\u{00A0}kB saved"], "announced once, at the end")
     }
 
+    /// Downscale leaves a file it would not make smaller as it was and says how many; ⌫ asks
+    /// before it restores more than one row, as Restore All does.
+    @Test func downscaleCountsWhatItLeftAndDeleteAsksForMany() async throws {
+        let harness = Harness()
+        harness.model.optimise(files(harness, 5), origin: .dropZone)
+        let batch = try #require(harness.model.batch)
+        #expect(await eventually { !batch.isRunning })
+        await harness.model.downscale(batch.rows, longSide: 2000)
+        guard case let .notice(title, _)? = harness.model.cards.last?.phase else {
+            Issue.record("no notice")
+            return
+        }
+        #expect(title == "5 left as they were", "the test files have no pixels to scale")
+        #expect(BatchView.asksBeforeRestoring(Array(batch.rows.prefix(2))))
+        #expect(!BatchView.asksBeforeRestoring(Array(batch.rows.prefix(1))))
+    }
+
     @Test func fewFilesStayFloatingResults() async throws {
         let harness = Harness()
         harness.model.optimise(files(harness, 3), origin: .dropZone)

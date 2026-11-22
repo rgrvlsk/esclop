@@ -12,10 +12,16 @@ extension AppModel {
     /// Runs the rows again from their originals, each with the change `change` gives for its
     /// original (the backup while a result stands; nil leaves that row as it is). A row's result
     /// is put back first, so nothing is compressed twice; a row whose restore fails keeps its
-    /// result and says why. Rows at work are left alone.
-    public func rerun(_ rows: [BatchRow], _ change: @escaping (_ original: URL) async -> ((inout OptimisationJob) -> Void)?) async {
+    /// result and says why. Rows at work are left alone. Returns how many `change` left as they
+    /// were.
+    @discardableResult
+    public func rerun(_ rows: [BatchRow], _ change: @escaping (_ original: URL) async -> ((inout OptimisationJob) -> Void)?) async -> Int {
+        var unchanged = 0
         for row in rows where row.isFinished {
-            guard let change = await change(row.result?.backup ?? row.source) else { continue }
+            guard let change = await change(row.result?.backup ?? row.source) else {
+                unchanged += 1
+                continue
+            }
             if case let .done(result) = row.state {
                 if result.backup != nil {
                     await restore(row)
@@ -29,6 +35,7 @@ extension AppModel {
             }
             row.runAgain?(change)
         }
+        return unchanged
     }
 
     /// Optimise Again With: one of the options popover's formats for every row; the rest of how
@@ -49,15 +56,16 @@ extension AppModel {
     }
 
     /// The card's Downscale choices: a long side in pixels, or Half. A file the long side would
-    /// not make smaller (the card does not offer it) stays as it is.
+    /// not make smaller (the card does not offer it) stays as it is, and a notice counts those.
     public func downscale(_ rows: [BatchRow], longSide: Int?) async {
-        await rerun(rows) { original in
+        let left = await rerun(rows) { original in
             let facts = await FileFacts.read(original)
             let long = Double(max(facts.width ?? 0, facts.height ?? 0))
             let factor = longSide.map { Double($0) / long } ?? 0.5
             guard factor < 1, OptionsModel.sizePresets(for: facts).contains(where: { $0.factor == factor }) else { return nil }
             return { $0.request.downscale = factor }
         }
+        if left > 0 { notice(left == 1 ? Strings.text("1 left as it was") : Strings.format("%d left as they were", left), "") }
     }
 
     /// The batch footer's Retry All Failed.

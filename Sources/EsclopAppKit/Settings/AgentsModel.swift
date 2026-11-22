@@ -100,7 +100,7 @@ public final class AgentsModel {
                 pending = change
                 outcomes[agent.id] = nil
             } else {
-                outcomes[agent.id] = .done(Strings.format("L’Esclop was not in the config of %@.", agent.name))
+                outcomes[agent.id] = .done(Strings.format("L’Esclop was not in the config of %@.", agent.shownName))
             }
         } catch {
             outcomes[agent.id] = .failed(Self.words(error))
@@ -191,5 +191,15 @@ public final class AgentsModel {
     static func words(_ error: any Error) -> String {
         if let error = error as? EsclopError { return error.description }
         return String(describing: error)
+    }
+}
+
+extension AgentDefinition {
+    /// The name as Settings shows it: "Codex CLI and ChatGPT desktop" joins its parts with the
+    /// person's language's "and".
+    var shownName: String { shownName(locale: Strings.locale) }
+
+    func shownName(locale: Locale) -> String {
+        name.components(separatedBy: " and ").formatted(.list(type: .and, width: .standard).locale(locale))
     }
 }

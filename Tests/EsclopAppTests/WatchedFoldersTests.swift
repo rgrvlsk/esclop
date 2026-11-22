@@ -593,6 +593,23 @@ final class Flag: @unchecked Sendable {
         rig.folders.stop()
     }
 
+    /// Two bursts in one folder: the newer notice takes the older one's place, and its action
+    /// optimises the files of both.
+    @Test func twoTooLargeBurstsInOneFolderShareANotice() async throws {
+        let rig = try Rig()
+        func actions() -> [ResultCard] { rig.harness.model.cards.filter { $0.noticeAction != nil } }
+        rig.folders.received((1 ... 5).map { rig.land("a \($0).png") })
+        #expect(await eventually { actions().count == 1 })
+        let first = try #require(actions().first)
+        rig.folders.received((1 ... 5).map { rig.land("b \($0).png") })
+        #expect(await eventually { actions().count == 1 && actions()[0].id != first.id }, "the newer notice took its place")
+        let notice = try #require(actions().first)
+        rig.harness.model.perform(.optimiseAnyway, on: notice)
+        #expect(await eventually { rig.harness.requests.requests.count == 10 })
+        #expect(actions().isEmpty)
+        rig.folders.stop()
+    }
+
     /// A batch-sized burst shares one batch window, also in a pipeline's folder (as a drop on a
     /// preset zone does), and bursts that close together share it.
     @Test func burstsShareOneBatchAlsoInAPipelinesFolder() async throws {

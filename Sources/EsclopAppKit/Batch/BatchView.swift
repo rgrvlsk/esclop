@@ -21,6 +21,8 @@ public struct BatchView: View {
     /// ponytail: set by hover, so a wheel scroll under a still pointer keeps the row it left until
     /// the pointer moves; clear it on scroll if that misleads.
     @State private var pointed: BatchRow.ID?
+    /// The rows ⌫ asks about before it puts their originals back, as Restore All asks.
+    @State private var restoring: [BatchRow]?
     @FocusState private var focused: Bool
 
     public init(batch: Batch, app: AppModel) {
@@ -68,7 +70,17 @@ public struct BatchView: View {
                 Task { @MainActor in app.writeClipboard(files: files) }
                 return []
             }
-            .onDeleteCommand { restore(selected) }
+            .onDeleteCommand {
+                let rows = selected.filter(\.canRestore)
+                if Self.asksBeforeRestoring(rows) { restoring = rows } else { restore(rows) }
+            }
+            .alert(
+                Strings.format("Restore %d originals?", restoring?.count ?? 0),
+                isPresented: Binding(get: { restoring != nil }, set: { if !$0 { restoring = nil } })
+            ) {
+                Button(Strings.format("Restore %d originals", restoring?.count ?? 0), role: .destructive) { restore(restoring ?? []) }
+                Button(Strings.text("Cancel"), role: .cancel) {}
+            }
             .onChange(of: batch.rows.map(\.id)) { _, ids in selection.formIntersection(ids) }
             if !selected.isEmpty {
                 Divider()
@@ -96,6 +108,9 @@ public struct BatchView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
     }
+
+    /// ⌫ on one row restores it at once; on more, it asks first.
+    static func asksBeforeRestoring(_ restorable: [BatchRow]) -> Bool { restorable.count > 1 }
 
     private func restore(_ rows: [BatchRow]) {
         let restorable = rows.filter(\.canRestore)
@@ -156,7 +171,7 @@ struct BatchHeader: View {
                 } label: {
                     Label(Strings.text("Restore All"), systemImage: "arrow.uturn.backward")
                 }
-                .disabled(batch.restorable.isEmpty)
+                .disabled(!batch.rows.contains(where: \.canRestore))
                 .alert(Strings.text("Restore all originals?"), isPresented: $confirmingRestore) {
                     Button(Strings.text("Restore All"), role: .destructive) { Task { await app.restoreAll(batch) } }
                     Button(Strings.text("Cancel"), role: .cancel) {}

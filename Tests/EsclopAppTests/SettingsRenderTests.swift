@@ -10,6 +10,7 @@ import EsclopCore
 import EsclopIPC
 import EsclopMCP
 import EsclopPipelines
+import KeyboardShortcuts
 @testable import EsclopAppKit
 import SwiftUI
 import Testing
@@ -95,6 +96,34 @@ import Testing
 
     /// Without ESCLOP_RENDER_DIR a render writes nothing: test runs left a folder of PNGs in the
     /// temporary folder each time, 2.4 GB over a day of runs on one Mac.
+    /// The shortcut recorder's words, in English and in Catalan, fit its 130 pt control:
+    /// "Enregistra una drecera" was cut. The recorder shows ours in the app (Scripts/bundle-app.sh).
+    @Test func theShortcutRecorderWordsFit() async throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let catalan = try #require(NSDictionary(contentsOf: root.appending(path: "assets/KeyboardShortcuts/ca.lproj/Localizable.strings")) as? [String: String])
+        let package = try #require(Bundle(url: Bundle.module.bundleURL.deletingLastPathComponent().appending(path: "KeyboardShortcuts_KeyboardShortcuts.bundle")))
+        let english = try #require(package.url(forResource: "Localizable", withExtension: "strings", subdirectory: nil, localization: "en")
+            .flatMap { NSDictionary(contentsOf: $0) as? [String: String] })
+        let words = ["record_shortcut", "press_shortcut"].flatMap { key in [english, catalan].compactMap { $0[key] } }
+        #expect(words.count == 4)
+        let recorder = KeyboardShortcuts.RecorderCocoa(for: .init("wordsFit"))
+        recorder.frame.size = recorder.intrinsicContentSize
+        let cell = try #require(recorder.cell as? NSSearchFieldCell)
+        let room = cell.searchTextRect(forBounds: recorder.bounds).width
+        #expect(room > 100 && room < 130, "\(room) pt")
+        for text in words {
+            let width = (text as NSString).size(withAttributes: [.font: try #require(recorder.font)]).width
+            #expect(width <= room, "“\(text)” is \(width) pt in \(room) pt")
+        }
+        // The words as they show, in a row of recorders.
+        try await Self.renderBoth({ _ in
+            VStack(alignment: .trailing, spacing: 8) {
+                ForEach(words, id: \.self) { text in RecorderWords(placeholder: text).fixedSize() }
+            }
+            .padding(20)
+        }, size: CGSize(width: 220, height: 180), name: "shortcut-recorder-words")
+    }
+
     @Test func aRenderWithoutTheFolderLeavesNothing() async throws {
         let temp = FileManager.default.temporaryDirectory
         func entries() -> Set<String> { Set((try? FileManager.default.contentsOfDirectory(atPath: temp.path)) ?? []) }
@@ -313,4 +342,17 @@ import Testing
 final class KeyWindow: NSWindow {
     override var isKeyWindow: Bool { true }
     override var isMainWindow: Bool { true }
+}
+
+/// A shortcut recorder showing `placeholder`, for the renders.
+private struct RecorderWords: NSViewRepresentable {
+    let placeholder: String
+
+    func makeNSView(context: Context) -> KeyboardShortcuts.RecorderCocoa {
+        let recorder = KeyboardShortcuts.RecorderCocoa(for: .init("words." + placeholder))
+        recorder.placeholderString = placeholder
+        return recorder
+    }
+
+    func updateNSView(_ recorder: KeyboardShortcuts.RecorderCocoa, context: Context) {}
 }

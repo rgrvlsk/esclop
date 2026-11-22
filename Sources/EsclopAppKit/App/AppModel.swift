@@ -596,8 +596,11 @@ public final class AppModel {
         case let .failure(error):
             events(.failure(FileFailure(source: source, error: error, step: failedStep)))
             if error == .alreadySmaller {
-                card?.phase = .unchanged(bytes: Self.size(of: source))
+                let bytes = Self.size(of: source)
+                card?.phase = .unchanged(bytes: bytes)
                 row?.state = .unchanged
+                // VoiceOver hears that nothing changed, as it hears a saving.
+                if row == nil { announce(Strings.format("Already optimised · %@", Figures.bytes(bytes))) }
             } else {
                 card?.phase = .failed(CardPresentation.message(for: error))
                 row?.state = error == .cancelled ? .cancelled : .failed(CardPresentation.message(for: error))
@@ -766,20 +769,26 @@ public final class AppModel {
         for card in cards where ids.contains(card.jobID) { dismiss(card) }
     }
 
-    /// A short message with no file. It replaces the last plain one. With an `action` it offers
-    /// that action, stays `hideAfter` seconds (8 by default) so it can be reached, and no later
-    /// notice takes its place; under VoiceOver it waits for the person (⌃⇧N reaches it). VoiceOver
-    /// says it as it comes.
+    /// A short message with no file. It replaces the last plain one; with an `action`, the last one
+    /// with the same action and words, so "Optimise anyway" for one folder does not pile up. With
+    /// an `action` it offers that action, stays `hideAfter` seconds (8 by default) so it can be
+    /// reached, and no other notice takes its place; under VoiceOver it waits for the person, and
+    /// VoiceOver hears the key that reaches it ("Control-Shift-N"). VoiceOver says it as it comes.
     public func notice(
         _ title: String, _ detail: String, action: (action: CardPresentation.Action, run: () -> Void)? = nil, hideAfter: TimeInterval? = nil
     ) {
-        cards.filter { if case .notice = $0.phase { return $0.noticeAction == nil } else { return false } }.forEach(dismiss)
+        cards.filter { card in
+            guard case let .notice(shownTitle, shownDetail) = card.phase, card.noticeAction?.action == action?.action else { return false }
+            return action == nil || (shownTitle, shownDetail) == (title, detail)
+        }
+        .forEach(dismiss)
         let card = ResultCard(jobID: UUID(), source: URL(fileURLWithPath: "/"), origin: .app, bytesBefore: 0, phase: .notice(title: title, detail: detail))
         card.noticeAction = action
         let waits = action != nil && voiceOverRunning()
         card.machine.notice(at: now(), hideAfter: waits ? nil : hideDelayOverride.map(Self.seconds) ?? hideAfter ?? (action == nil ? 3 : 8))
         add(card)
-        announce([title, detail, action?.action.title ?? ""].filter { !$0.isEmpty }.joined(separator: ". "))
+        let reach = action == nil ? nil : Hotkeys.spokenKey(.focusNewestResult).map { Strings.format("%@ to go to it", $0) }
+        announce([title, detail, action?.action.title ?? "", reach ?? ""].filter { !$0.isEmpty }.joined(separator: ". "))
     }
 
     // MARK: Floating result state

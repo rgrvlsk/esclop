@@ -32,6 +32,17 @@ public enum Hotkeys {
         ]
     }
 
+    /// "Control-Shift-N": the key set for `name` in words, as VoiceOver should say it (it does
+    /// not read ⌃⇧ out); nil while no key is set.
+    static func spokenKey(_ name: KeyboardShortcuts.Name) -> String? {
+        guard let shortcut = name.shortcut else { return nil }
+        let words: [(NSEvent.ModifierFlags, String)] = [
+            (.control, Strings.text("Control")), (.option, Strings.text("Option")), (.shift, Strings.text("Shift")), (.command, Strings.text("Command")),
+        ]
+        let key = String("\(shortcut)".drop { "⌃⌥⇧⌘".contains($0) })
+        return (words.filter { shortcut.modifiers.contains($0.0) }.map(\.1) + [key]).joined(separator: "-")
+    }
+
     /// What each hotkey does, apart from the key handling so tests can press them.
     @MainActor
     static func action(for name: KeyboardShortcuts.Name) -> (AppModel) -> Void {

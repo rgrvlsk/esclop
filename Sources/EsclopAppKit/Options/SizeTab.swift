@@ -184,12 +184,16 @@ struct CropSection: View {
         // The tab says "Crop"; once a frame is drawn, the line gives the size it makes.
         if let crop = model.crop, model.cropping, crop.cropSize != nil {
             SectionLabel(title: Strings.text("Crop")) {
+                // No "· —" when there is no estimate: the size alone.
+                let estimated = model.cropRequest.map { !model.unavailable.contains($0) } ?? false
                 HStack(spacing: 0) {
-                    Text(verbatim: "\(crop.outputWidth) × \(crop.outputHeight) · ")
-                    EstimateText(model: model, request: model.cropRequest)
+                    Text(verbatim: "\(crop.outputWidth) × \(crop.outputHeight)" + (estimated ? " · " : ""))
+                    EstimateText(model: model, request: model.cropRequest, silentWhenUnavailable: true)
                 }
             }
         }
+        // The shapes, with Turn the frame beside them; then the sizes typed before and the paper
+        // sizes and devices, on a row of their own.
         FlowRow {
             ForEach(CropAspect.presets) { aspect in
                 Chip(title: aspect.title, selected: model.cropping && model.crop?.aspect == aspect) { choose(aspect) }
@@ -212,6 +216,8 @@ struct CropSection: View {
                 .help(Strings.text("Turn the frame"))
                 .accessibilityLabel(Strings.text("Turn the frame"))
             }
+        }
+        FlowRow {
             // Sizes typed before (pixels: not for a PDF's pages).
             if model.kind != .pdf {
                 ForEach(Array(model.savedSizes.enumerated()), id: \.offset) { _, size in
@@ -301,13 +307,17 @@ struct CropEditor: View {
                     let scale = proxy.size.width / CGFloat(crop.imageWidth)
                     let frame = CGRect(x: crop.rect.minX * scale, y: crop.rect.minY * scale, width: crop.rect.width * scale, height: crop.rect.height * scale)
                     ZStack(alignment: .topLeading) {
-                        picture.frame(width: proxy.size.width, height: proxy.size.height).clipped()
-                        // Everything outside the crop dims.
-                        Path { path in
-                            path.addRect(CGRect(origin: .zero, size: proxy.size))
-                            path.addRect(frame)
+                        ZStack(alignment: .topLeading) {
+                            picture.frame(width: proxy.size.width, height: proxy.size.height).clipped()
+                            // Everything outside the crop dims.
+                            Path { path in
+                                path.addRect(CGRect(origin: .zero, size: proxy.size))
+                                path.addRect(frame)
+                            }
+                            .fill(Color.black.opacity(0.45), style: FillStyle(eoFill: true))
                         }
-                        .fill(Color.black.opacity(0.45), style: FillStyle(eoFill: true))
+                        // The picture's corners are round; the handles on its edge stay whole.
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                         Rectangle()
                             .strokeBorder(Color.white, lineWidth: 1.5)
                             .frame(width: frame.width, height: frame.height)
@@ -323,7 +333,6 @@ struct CropEditor: View {
                                 .gesture(drag(scale: scale) { geometry, delta in geometry.drag(handle, by: delta) })
                         }
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
                 .aspectRatio(CGFloat(crop.imageWidth) / CGFloat(crop.imageHeight), contentMode: .fit)
                 .frame(maxHeight: 220)

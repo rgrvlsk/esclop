@@ -417,6 +417,8 @@ import Testing
         try await SettingsRenderTests.renderBoth({ _ in OriginalsView(model: originals) }, size: CGSize(width: 520, height: 360), name: "originals", settle: .seconds(1))
         let two = Set(originals.items.prefix(2).map(\.id))
         try await SettingsRenderTests.renderBoth({ _ in OriginalsView(model: originals, selection: two) }, size: CGSize(width: 520, height: 360), name: "originals-selection", settle: .seconds(1))
+        // Restore and Show in Finder show on hover, as on a batch row.
+        try await SettingsRenderTests.renderBoth({ _ in OriginalsView(model: originals, hovered: originals.items.first?.id) }, size: CGSize(width: 520, height: 360), name: "originals-hover", settle: .seconds(1))
         let empty = OriginalsModel(app: Harness().model)
         await empty.load()
         try await SettingsRenderTests.renderBoth({ _ in OriginalsView(model: empty) }, size: CGSize(width: 520, height: 360), name: "originals-empty")

@@ -6,6 +6,7 @@
 
 import EsclopCore
 import EsclopIPC
+import EsclopMCP
 @testable import EsclopAppKit
 import Foundation
 import Testing
@@ -266,6 +267,28 @@ import Testing
 /// Settings › General › Import… asks before a file turns on permissions, naming each.
 @MainActor
 @Suite struct SettingsImportTests {
+    /// A refused file says why in the person's language; the CLI's English stays out.
+    @Test func aRefusedImportSaysWhyInCatalan() throws {
+        let ca = Locale(identifier: "ca")
+        func reason(_ json: String) -> String? {
+            do { _ = try SettingsFile.read(Data(json.utf8)) } catch let EsclopError.invalidArgument(reason) { return reason } catch {}
+            return nil
+        }
+        let notOurs = try #require(reason("{}"))
+        #expect(SettingsFilePanels.importFailure(notOurs, locale: ca) == "Aquest no és un fitxer de configuració exportat per L’Esclop. No s’ha canviat res.")
+        let wrong = try #require(reason(#"{"format": "esclop-settings", "version": 1, "settings": {"batchWindowFrom": "many"}}"#))
+        let said = SettingsFilePanels.importFailure(wrong, locale: ca)
+        #expect(said.hasPrefix("El valor del fitxer per a «") && !said.contains("batchWindowFrom") && !said.contains("value"), "\(said)")
+        #expect(SettingsFilePanels.importFailure("Something else.", locale: ca).hasSuffix("\n\nSomething else."))
+    }
+
+    /// An agent's name joins its parts with the language's "and".
+    @Test func agentNamesJoinInTheLanguage() throws {
+        let codex = try #require(AgentCatalog.all.first { $0.id == "codex" })
+        #expect(codex.shownName(locale: Locale(identifier: "ca")) == "Codex CLI i ChatGPT desktop")
+        #expect(codex.shownName(locale: Locale(identifier: "en")) == "Codex CLI and ChatGPT desktop")
+    }
+
     @Test func theQuestionNamesEachPermission() {
         let en = SettingsFilePanels.permissionsQuestion(["allowRunScripts", "allowUploads", "uploadAutomatically", "uploadTargets"], locale: Locale(identifier: "en"))
         #expect(en.title == "This file turns on permissions")
