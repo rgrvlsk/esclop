@@ -406,6 +406,25 @@ final class LockedArray: @unchecked Sendable {
         #expect(try FileManager.default.contentsOfDirectory(atPath: trash.path).isEmpty, "nothing went to the Trash")
     }
 
+    /// V2: a restore leaves a mark the watcher honours (the optimised mark is gone), until the
+    /// file changes again.
+    @Test func aRestoredOriginalIsMarkedUntilItChanges() throws {
+        let folder = try scratchFolder()
+        let store = BackupStore(root: folder.appendingPathComponent("backups"))
+        let original = folder.appendingPathComponent("photo.png")
+        try Data("original".utf8).write(to: original)
+        let entry = try store.backUp(original)
+        try Data("optimised".utf8).write(to: original)
+        try OptimisedMark.set(original)
+        let finished = Date().addingTimeInterval(5)
+        let result = OptimisationResult(source: original, output: original, backup: entry.backup, kind: .image, bytesBefore: 8, bytesAfter: 9, startedAt: Date(), finishedAt: finished)
+        try store.restore(result)
+        #expect(!OptimisedMark.isMarked(original))
+        #expect(RestoredMark.holds(original))
+        try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(60)], ofItemAtPath: original.path)
+        #expect(!RestoredMark.holds(original), "changed since: a new file to the watcher")
+    }
+
     @Test func optimisedMark() throws {
         let file = try scratchFolder().appendingPathComponent("a.txt")
         try Data("x".utf8).write(to: file)

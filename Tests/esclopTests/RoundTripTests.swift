@@ -64,8 +64,8 @@ import UniformTypeIdentifiers
         let run = try await runEsclop(["pipeline", "run", "copyLinkForSending -> shelveWith(app: yoink)", "--no-color", "-n", photo.path], environment: ["ESCLOP_SUPPORT_DIR": support.path])
         #expect(run.exitCode == 0, "\(run.output)")
         #expect(run.stderrString == """
-        note: copyLinkForSending skipped: needs the esclop app
-        note: shelveWith(app: yoink) skipped: needs the esclop app
+        note: copyLinkForSending skipped: not available yet (planned for 0.3)
+        note: shelveWith(app: yoink) skipped: needs the L'Esclop app
 
         """)
         #expect(Output.skippedNote("crop(longEdge: 100): done") == nil)
@@ -89,7 +89,7 @@ import UniformTypeIdentifiers
 
         let skipped = try await runEsclop(["settings", "import", file.path], environment: environment)
         #expect(skipped.exitCode == 0, "\(skipped.output)")
-        #expect(skipped.stdoutString == "Imported 1 setting.\n")
+        #expect(skipped.stdoutString == "Changed batchWindowFrom.\n", "each changed key, not a count")
         #expect(skipped.stderrString == "note: skipped permissions the file turns on: allowRunScripts, uploadAutomatically (--allow-permissions turns them on)\n")
 
         struct Imported: Decodable { var imported: [String]; var permissionsTurnedOn: [String] }
@@ -97,6 +97,55 @@ import UniformTypeIdentifiers
         let read = try JSONDecoder().decode(Imported.self, from: Data(allowed.stdoutString.utf8))
         #expect(read.imported == ["allowRunScripts", "batchWindowFrom", "uploadAutomatically"], "\(allowed.output)")
         #expect(read.permissionsTurnedOn == ["allowRunScripts", "uploadAutomatically"])
+    }
+
+    /// V1: a link whose target has no extension is refused in one sentence and writes nothing
+    /// beside the target; a link to a file of the same kind under another name optimises that file.
+    @Test func aLinkIsOptimisedOnlyAsAFileOfItsKind() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-links-\(UUID().uuidString.prefix(8))", isDirectory: true)
+        let support = folder.appendingPathComponent("support", isDirectory: true)
+        let store = folder.appendingPathComponent("store", isDirectory: true)
+        try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: store, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try Self.heic(store.appendingPathComponent("abc123"))
+        try Self.heic(store.appendingPathComponent("picture.HEIC"))
+        let unnamed = folder.appendingPathComponent("photo.heic"), named = folder.appendingPathComponent("named.heic")
+        try FileManager.default.createSymbolicLink(atPath: unnamed.path, withDestinationPath: "store/abc123")
+        try FileManager.default.createSymbolicLink(atPath: named.path, withDestinationPath: "store/picture.HEIC")
+        let before = try Data(contentsOf: store.appendingPathComponent("abc123"))
+
+        let refused = try await runEsclop(["optimise", "--no-color", unnamed.path], environment: ["ESCLOP_SUPPORT_DIR": support.path])
+        #expect(refused.exitCode == 1, "\(refused.output)")
+        #expect(refused.stdoutString == "✗ photo.heic A link to a file L’Esclop cannot name: optimise the file itself.\n")
+        #expect(try FileManager.default.contentsOfDirectory(atPath: store.path).sorted() == ["abc123", "picture.HEIC"], "no file beside the target")
+        #expect(try Data(contentsOf: store.appendingPathComponent("abc123")) == before)
+        #expect(try FileManager.default.destinationOfSymbolicLink(atPath: unnamed.path) == "store/abc123")
+
+        let done = try await runEsclop(["optimise", "--no-color", named.path], environment: ["ESCLOP_SUPPORT_DIR": support.path])
+        #expect(done.exitCode == 0, "\(done.output)")
+        #expect(done.stdoutString.hasPrefix("✓ picture.HEIC"), "\(done.output)")
+        #expect(try FileManager.default.destinationOfSymbolicLink(atPath: named.path) == "store/picture.HEIC", "the link keeps pointing at it")
+    }
+
+    /// V8: a pipeline whose `optimise` saves nothing reports "unchanged", as `optimise` does, and
+    /// adds no row to the recent results.
+    @Test func aPipelineThatChangesNothingIsUnchanged() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-unchanged-\(UUID().uuidString.prefix(8))", isDirectory: true)
+        let support = folder.appendingPathComponent("support", isDirectory: true)
+        try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let photo = folder.appendingPathComponent("photo.heic")
+        try Self.heic(photo)
+        let environment = ["ESCLOP_SUPPORT_DIR": support.path]
+        let first = try await runEsclop(["pipeline", "run", "optimise", "--no-color", photo.path], environment: environment)
+        #expect(first.exitCode == 0 && first.stdoutString.hasPrefix("✓ photo.heic"), "\(first.output)")
+        let again = try await runEsclop(["pipeline", "run", "optimise", "--no-color", photo.path], environment: environment)
+        #expect(again.exitCode == 0, "\(again.output)")
+        #expect(again.stdoutString.hasPrefix("– photo.heic unchanged"), "\(again.output)")
+        let recent = try await runEsclop(["recent", "--json"], environment: environment)
+        struct Row: Decodable { var source: String }
+        #expect(try JSONDecoder().decode([Row].self, from: Data(recent.stdoutString.utf8)).count == 1, "\(recent.output)")
     }
 
     static func heic(_ url: URL) throws {

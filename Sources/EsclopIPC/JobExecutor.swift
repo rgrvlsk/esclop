@@ -99,6 +99,9 @@ public struct JobExecutor: Sendable {
         progress: @escaping @Sendable (OptimisationProgress) -> Void
     ) async throws -> OptimisationResult {
         guard FileManager.default.fileExists(atPath: source.path) else { throw EsclopError.fileNotFound(source.path) }
+        // ponytail: every origin, so a link in a watched folder to a file without an extension
+        // there shows this failure too; skip links in `WatchPlan.decide` if that card is seen.
+        if PathInput.isLink(source) { throw EsclopError.leftAsIs(PathInput.unnamedLink) }
         let request = job.request
         switch job.operation {
         case .optimise:

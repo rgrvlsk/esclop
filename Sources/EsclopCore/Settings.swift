@@ -337,6 +337,7 @@ public struct AnySetting: Sendable, Identifiable {
     private let resetter: @Sendable (SettingsStore) -> Void
     private let isSetter: @Sendable (SettingsStore) -> Bool
     private let validator: @Sendable (JSONValue) throws -> Void
+    private let normaliser: @Sendable (JSONValue) -> JSONValue?
 
     public var id: String { key }
 
@@ -360,6 +361,7 @@ public struct AnySetting: Sendable, Identifiable {
         }
         setter = { store, json in try setting.set(decode(json), in: store) }
         validator = { json in _ = try decode(json) }
+        normaliser = { Value(json: $0)?.json }
         parser = { text in Value(text: text)?.json }
         resetter = { setting.reset(in: $0) }
         isSetter = { setting.isSet(in: $0) }
@@ -376,6 +378,12 @@ public struct AnySetting: Sendable, Identifiable {
             try setter(store, JSONValue(parsing: text))
         }
     }
+
+    /// `json` as the store reads it back (`10.0` is 10), or nil when the setting does not take it.
+    public func normalised(_ json: JSONValue) -> JSONValue? { normaliser(json) }
+
+    /// What command-line text stands for, as `set(text:)` reads it, normalised.
+    public func value(text: String) -> JSONValue? { normaliser(parser(text) ?? JSONValue(parsing: text)) }
 
     public func reset(in store: SettingsStore = .shared) { resetter(store) }
     public func isSet(in store: SettingsStore = .shared) -> Bool { isSetter(store) }

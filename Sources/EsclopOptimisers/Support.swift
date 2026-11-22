@@ -229,10 +229,11 @@ enum ResultWriter {
         if inPlace {
             backup = try env.backups.backUp(source, requestID: request.id)
         }
+        var overwritten: BackupEntry?
         if !replacesSource, fm.fileExists(atPath: destination.path) {
             // A file a template names is about to be overwritten: it is kept too. No backup, no
             // overwrite. (In place, a sibling with the new extension is never replaced.)
-            try env.backups.backUp(destination, requestID: request.id)
+            overwritten = try env.backups.backUp(destination, requestID: request.id)
         }
 
         if env.value(EsclopSettings.preserveDates) {
@@ -241,11 +242,11 @@ enum ResultWriter {
 
         // Stage next to the destination so the final swap stays on one volume.
         let folder = destination.deletingLastPathComponent()
-        try Paths.ensure(folder)
-        StagedFiles.removeLeftovers(in: folder)
         let staging = folder.appendingPathComponent(".\(destination.lastPathComponent).esclop-\(UUID().uuidString.prefix(8))")
-        try fm.moveItem(at: produced.url, to: staging)
         do {
+            try Paths.ensure(folder)
+            StagedFiles.removeLeftovers(in: folder)
+            try fm.moveItem(at: produced.url, to: staging)
             if fm.fileExists(atPath: destination.path) {
                 _ = try fm.replaceItemAt(destination, withItemAt: staging)
             } else {
@@ -253,6 +254,8 @@ enum ResultWriter {
             }
         } catch {
             try? fm.removeItem(at: staging)
+            // Nothing was replaced: a backup of it would list a file never changed in Originals.
+            for entry in [backup, overwritten].compactMap({ $0 }) { try? env.backups.delete(entry) }
             throw error
         }
 

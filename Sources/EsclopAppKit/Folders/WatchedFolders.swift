@@ -161,7 +161,7 @@ public final class WatchedFolders {
                 continue
             }
             let decision = WatchPlan.decide(
-                file, targets: targets, size: size, isMarked: OptimisedMark.isMarked(file),
+                file, targets: targets, size: size, isMarked: OptimisedMark.isMarked(file), restored: RestoredMark.holds(file),
                 justWritten: model.wasJustWritten(file), ignored: Self.isIgnored(file),
                 limits: { self.model.factory.sizeLimits(for: $0) }
             )
@@ -246,7 +246,7 @@ public final class WatchedFolders {
         }
         guard settled == .steady else { return }
         var decision = WatchPlan.decide(
-            file, targets: targets, size: Self.size(of: file), isMarked: OptimisedMark.isMarked(file),
+            file, targets: targets, size: Self.size(of: file), isMarked: OptimisedMark.isMarked(file), restored: RestoredMark.holds(file),
             justWritten: model.wasJustWritten(file), ignored: Self.isIgnored(file),
             limits: { self.model.factory.sizeLimits(for: $0) }
         )

@@ -210,6 +210,12 @@ public struct StorePipelineRunner: PipelineRunning {
             )
         }
         switch file.status {
+        case .completed where untouched && file.log.contains(where: { $0.outcome == .unchanged }):
+            // An engine step found nothing to save and nothing else ran: unchanged, as a plain
+            // optimisation says, not a 0 % result in the recent results.
+            // ponytail: a step skipped beside it (copyLinkForSending in the CLI) loses its note;
+            // carry the log on the failure if someone misses it.
+            throw EsclopError.alreadySmaller
         case .completed, .filtered:
             return result(file.status == .filtered && untouched ? [ResultSummary.filteredStep] : [])
         case .unsupported:

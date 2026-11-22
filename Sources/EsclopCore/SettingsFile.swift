@@ -38,6 +38,10 @@ public enum SettingsFile {
         public var permissions: [String]
         /// The file's version; above `SettingsFile.version` a newer L'Esclop wrote it.
         public var version: Int
+        /// After an import: the keys whose value changed, and those the store did not keep (read
+        /// back as something else: a value a configuration profile manages, for one).
+        public var changed: [String] = []
+        public var unkept: [String] = []
 
         public var isNewer: Bool { version > SettingsFile.version }
 
@@ -78,12 +82,14 @@ public enum SettingsFile {
             do {
                 try setting.validate(value)
             } catch {
-                throw EsclopError.invalidArgument("\(key) in the file is not a value it takes (\((error as? EsclopError)?.description ?? error.localizedDescription)). Nothing was changed.")
+                let reason: String
+                if case let .invalidArgument(why)? = error as? EsclopError { reason = why } else { reason = (error as? EsclopError)?.description ?? error.localizedDescription }
+                throw EsclopError.invalidArgument("\(key) in the file is not a value it takes (\(reason)). Nothing was changed.")
             }
             read.values[key] = value
-            // Back to the default (off, no targets) is never a question; but `uploadTarget`'s
-            // default "" picks the first target, so it is.
-            let turnsOff = value == setting.defaultJSON && setting.key != EsclopSettings.uploadTarget.key
+            // Back to the default (off) is never a question; but `uploadTarget`'s default "" picks
+            // the first target, and no `uploadTargets` removes the person's own, so those are.
+            let turnsOff = value == setting.defaultJSON && setting.key != EsclopSettings.uploadTarget.key && setting.key != EsclopSettings.uploadTargets.key
             if isPermission(setting), let store, !turnsOff, value != setting.get(in: store) {
                 read.permissions.append(key)
             }
@@ -99,7 +105,16 @@ public enum SettingsFile {
     public static func `import`(_ data: Data, into store: SettingsStore, allowPermissions: Bool = false, registry: SettingsRegistry = .shared) throws -> Read {
         var read = try read(data, for: store, registry: registry)
         if !allowPermissions { read.permissions.forEach { read.values[$0] = nil } }
+        let settings = read.values.keys.compactMap { registry.setting($0) }
+        let before = Dictionary(uniqueKeysWithValues: settings.map { ($0.key, $0.get(in: store)) })
         try registry.apply(read.values, in: store)
+        for setting in settings {
+            let now = setting.get(in: store)
+            if now != before[setting.key] { read.changed.append(setting.key) }
+            if let wanted = read.values[setting.key], now != setting.normalised(wanted) { read.unkept.append(setting.key) }
+        }
+        read.changed.sort()
+        read.unkept.sort()
         return read
     }
 }

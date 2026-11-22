@@ -65,6 +65,27 @@ import UniformTypeIdentifiers
         #expect(besideToo.output == world.file("photo.jpg"))
     }
 
+    /// V4: a write the file's folder refuses keeps no backup: Originals would list a file that
+    /// was never replaced (and a large copy from another volume would stay until pruned).
+    @Test func aRefusedWriteKeepsNoBackup() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let locked = world.file("locked")
+        try FileManager.default.createDirectory(at: locked, withIntermediateDirectories: true)
+        let png = locked.appendingPathComponent("photo.png")
+        try Fixture.png(png)
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: locked.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: locked.path) }
+        do {
+            _ = try await world.engine.optimise(png, request: world.request(png), progress: { _ in })
+            Issue.record("the folder refuses the write")
+        } catch {
+            #expect((error as? EsclopError) != .alreadySmaller, "the write failed, not the saving: \(error)")
+        }
+        #expect(world.backups.entries().isEmpty)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: locked.path) == ["photo.png"])
+    }
+
     @Test func retinaScreenshotsAreHalvedWhenAsked() async throws {
         let world = try await TestWorld()
         defer { Task { await world.finish() } }

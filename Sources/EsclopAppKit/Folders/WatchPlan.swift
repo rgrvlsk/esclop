@@ -114,6 +114,25 @@ public enum IgnoreFile {
         }
     }
 
+    /// The folder's own `.esclopignore` ("" when it has none), for Settings' editor.
+    /// ponytail: the editor shows only this file; `.clopignore` and the per-kind files still
+    /// apply unseen. Name them in the sheet if someone is puzzled by a skip.
+    public static func text(in folder: URL) -> String {
+        (try? String(contentsOf: folder.appendingPathComponent(names[0]), encoding: .utf8)) ?? ""
+    }
+
+    /// Writes the folder's `.esclopignore`; text with no patterns removes it. `.clopignore` and
+    /// the files for one kind stay as they are.
+    public static func write(_ text: String, in folder: URL) throws {
+        let file = folder.appendingPathComponent(names[0])
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            if FileManager.default.fileExists(atPath: file.path) { try FileManager.default.removeItem(at: file) }
+            return
+        }
+        try Data((trimmed + "\n").utf8).write(to: file, options: .atomic)
+    }
+
     public static func ignores(_ name: String, patterns: [String]) -> Bool {
         var ignored = false
         for line in patterns {
@@ -147,6 +166,8 @@ public enum WatchDecision: Equatable, Sendable {
 
 public enum WatchSkip: Equatable, Sendable {
     case hidden, unsupported, notWatched, alreadyOptimised, justWritten, tooSmall, tooLarge, empty, insideBackups
+    /// Put back by a restore (the CLI's, an agent's) and not changed since.
+    case restored
     /// The folder's rules or ignore file leave it alone.
     case skippedFormat, ignored, tooFewPixels, tooManyPixels
 }
@@ -204,10 +225,10 @@ public enum WatchPlan {
         }
     }
 
-    /// What a file gets, from cheap facts about it. `size`, `isMarked` and `ignored` (the
-    /// folder's ignore file matches it) are read by the caller.
+    /// What a file gets, from cheap facts about it. `size`, `isMarked`, `restored`
+    /// (`RestoredMark`) and `ignored` (the folder's ignore file matches it) are read by the caller.
     public static func decide(
-        _ file: URL, targets: [WatchTarget], size: Int, isMarked: Bool, justWritten: Bool, ignored: Bool = false,
+        _ file: URL, targets: [WatchTarget], size: Int, isMarked: Bool, restored: Bool = false, justWritten: Bool, ignored: Bool = false,
         limits: (MediaKind) -> (min: Int, max: Int)
     ) -> WatchDecision {
         let name = file.lastPathComponent
@@ -228,6 +249,7 @@ public enum WatchPlan {
         if target.rules?.skips(file) == true { return .skip(.skippedFormat) }
         if justWritten { return .skip(.justWritten) }
         if isMarked { return .skip(.alreadyOptimised) }
+        if restored { return .skip(.restored) }
         if size <= 0 { return .skip(.empty) }
         let limit = limits(kind)
         if !byPipeline {

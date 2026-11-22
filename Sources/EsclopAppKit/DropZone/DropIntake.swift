@@ -95,7 +95,7 @@ struct DropIntake {
     /// or "3 files".
     var remoteName: String {
         if remoteCount > 1 { return Strings.format("%d files", remoteCount) }
-        return addresses.first?.lastPathComponent ?? Strings.text("Dropped file")
+        return addresses.first.map(AppModel.downloadName) ?? Strings.text("Dropped file")
     }
 
     /// Hands the local files to `deliver`: dropped files as they are, promised files once

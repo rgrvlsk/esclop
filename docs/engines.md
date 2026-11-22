@@ -253,6 +253,7 @@ Swift code reads typed values: `EsclopSettings.stripMetadata.value` (or `.value(
 | `clipboardIgnoredAppBundleIds` | [String] | `[]` | clipboard | Ignored apps |
 | `clipboardRules` | [String] | `[]` | clipboard | Clipboard rules |
 | `autoCopyToClipboard` | Bool | `true` | clipboard | Copy results to the clipboard |
+| `copyDroppedResults` | Bool | `false` | clipboard | Copy results of dropped files |
 | `appendClipboardResults` | Bool | `false` | clipboard | Gather clipboard results |
 | `pauseAutomaticOptimisations` | Bool | `false` | automation | Pause automatic optimisation |
 | `enableAutomaticImageOptimisations` | Bool | `true` | images | Watch folders for images |

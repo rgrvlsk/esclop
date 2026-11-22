@@ -33,6 +33,13 @@ import Testing
         }
     }
 
+    /// V2: an original a restore put back (the CLI's, an agent's) is not optimised again.
+    @Test func aRestoredOriginalIsLeftAlone() {
+        let file = folder.appendingPathComponent("photo.png")
+        #expect(WatchPlan.decide(file, targets: targets, size: 100_000, isMarked: false, restored: true, justWritten: false, limits: limits) == .skip(.restored))
+        #expect(WatchPlan.decide(file, targets: targets, size: 100_000, isMarked: false, restored: false, justWritten: false, limits: limits) == .optimise(.image))
+    }
+
     @Test func onlyTheKindsTheListsAskFor() {
         #expect(decide("report.pdf") == .skip(.notWatched), "PDFs are not watched in this folder")
         #expect(decide("notes.txt") == .skip(.unsupported))

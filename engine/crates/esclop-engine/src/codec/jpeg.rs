@@ -9,7 +9,7 @@
 
 use crate::error::{EngineError, Result};
 use mozjpeg_sys::*;
-use std::os::raw::{c_int, c_uint, c_ulong};
+use std::os::raw::{c_int, c_long, c_uint, c_ulong};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::ptr;
 use std::sync::OnceLock;
@@ -45,6 +45,15 @@ pub struct RawSamples {
 /// Decodes a baseline or progressive JPEG to 8-bit samples. Refuses images over `max_pixels`.
 pub fn decode_samples(jpeg: &[u8], max_pixels: u64) -> Result<RawSamples> {
     guarded(|| unsafe { decode_unchecked(jpeg, max_pixels) })
+}
+
+/// Whether libjpeg decodes every row of `jpeg` from data that is there: no warning but the one
+/// for data that ends without an end-of-image marker (JWRN_JPEG_EOF). A scan cut short also
+/// warns that its data ran out (JWRN_HIT_MARKER), and its missing rows come out grey.
+/// ponytail: a progressive file cut exactly between two scans decodes whole at a lower quality
+/// and passes; compare its scans with the frame's components if such a file is ever seen.
+pub fn decodes_every_row(jpeg: &[u8]) -> bool {
+    guarded(|| unsafe { damage_warnings(jpeg) }).is_ok_and(|warnings| warnings == 0)
 }
 
 #[derive(Debug, Clone)]
@@ -220,6 +229,14 @@ extern "C-unwind" fn error_exit(cinfo: &mut jpeg_common_struct) {
 
 extern "C-unwind" fn emit_message(_cinfo: &mut jpeg_common_struct, _level: c_int) {}
 
+/// Counts the warnings (level -1) other than a missing end-of-image marker in `num_warnings`.
+extern "C-unwind" fn count_damage(cinfo: &mut jpeg_common_struct, level: c_int) {
+    let err = unsafe { &mut *cinfo.err };
+    if level < 0 && err.msg_code != JWRN_JPEG_EOF {
+        err.num_warnings += 1;
+    }
+}
+
 fn error_mgr() -> Box<jpeg_error_mgr> {
     unsafe {
         let mut err: Box<jpeg_error_mgr> = Box::new(std::mem::zeroed());
@@ -388,6 +405,31 @@ unsafe fn decode_unchecked(jpeg: &[u8], max_pixels: u64) -> Result<RawSamples> {
     }
 }
 
+/// Decodes `jpeg` a row at a time into one row's memory and returns `count_damage`'s count.
+unsafe fn damage_warnings(jpeg: &[u8]) -> Result<c_long> {
+    unsafe {
+        let mut err = error_mgr();
+        err.emit_message = Some(count_damage);
+        let mut dinfo: Box<jpeg_decompress_struct> = Box::new(std::mem::zeroed());
+        dinfo.common.err = &mut *err;
+        jpeg_create_decompress(&mut *dinfo);
+        let mut d = Decompressor { dinfo, _err: err };
+        jpeg_mem_src(&mut d.dinfo, jpeg.as_ptr(), jpeg.len() as c_ulong);
+        jpeg_read_header(&mut d.dinfo, 1);
+        if d.dinfo.image_width as u64 * d.dinfo.image_height as u64 > crate::pixels::MAX_PIXELS {
+            return Err(EngineError::unsupported("JPEG image too large"));
+        }
+        jpeg_start_decompress(&mut d.dinfo);
+        let mut row = vec![0u8; d.dinfo.output_width as usize * d.dinfo.output_components as usize];
+        while d.dinfo.output_scanline < d.dinfo.output_height {
+            let mut rows = [row.as_mut_ptr()];
+            jpeg_read_scanlines(&mut d.dinfo, rows.as_mut_ptr(), 1);
+        }
+        jpeg_finish_decompress(&mut d.dinfo);
+        Ok(d._err.num_warnings)
+    }
+}
+
 unsafe fn transcode_unchecked(jpeg: &[u8], opts: &TranscodeOptions) -> Result<Vec<u8>> {
     unsafe {
         let mut err = error_mgr();
@@ -516,5 +558,25 @@ mod tests {
         assert_eq!(a.as_raw(), b.as_raw());
         let err = codec().transcode(b"\xFF\xD8\xFF\xE0garbage", &TranscodeOptions { progressive: true, markers: &[] });
         assert!(err.is_err());
+    }
+
+    /// A file missing only its end marker decodes whole; one cut inside its scan does not.
+    #[test]
+    fn every_row_decodes_only_when_only_the_end_marker_is_missing() {
+        for progressive in [false, true] {
+            let opts = EncodeOptions { quality: 90, progressive, fast_scans: false, chroma_full: false, markers: &[] };
+            let whole = codec().encode(&gradient(96, 64), 96, 64, Layout::Rgb, &opts).unwrap();
+            assert!(whole.ends_with(&[0xFF, 0xD9]));
+            assert!(decodes_every_row(&whole));
+            assert!(decodes_every_row(&whole[..whole.len() - 2]), "progressive: {progressive}");
+        }
+        let opts =
+            EncodeOptions { quality: 90, progressive: false, fast_scans: false, chroma_full: false, markers: &[] };
+        let baseline = codec().encode(&gradient(96, 64), 96, 64, Layout::Rgb, &opts).unwrap();
+        assert!(!decodes_every_row(&baseline[..baseline.len() / 2]));
+        let parts = crate::meta::JpegParts::parse(&baseline[..baseline.len() - 2]).unwrap();
+        assert!(parts.check_complete(&baseline[..baseline.len() - 2]).is_ok());
+        let cut = &baseline[..baseline.len() / 2];
+        assert!(crate::meta::JpegParts::parse(cut).unwrap().check_complete(cut).is_err());
     }
 }

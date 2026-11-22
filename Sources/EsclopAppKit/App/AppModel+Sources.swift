@@ -72,7 +72,7 @@ extension AppModel {
     /// the offer is a notice, as a refused drop is; see `AddressRequest`.
     func optimiseAddress(_ address: URL, as request: AddressRequest, aggressive: Bool = false, copy: ClipboardCopy, pipeline: @escaping (URL) -> Pipeline?) async {
         let largest = request == .asked ? WebDownload.largest : MediaKind.of(address).map { factory.sizeLimits(for: $0).max } ?? WebDownload.largest
-        let card = downloadCard(named: address.lastPathComponent, origin: .clipboard)
+        let card = downloadCard(named: Self.downloadName(address), origin: .clipboard)
         let terms = WebDownload.Terms(largest: largest, automatic: request != .asked, progress: card.downloadProgress)
         let download = download
         let transfer = Task { try await download(address, terms) }
@@ -93,6 +93,13 @@ extension AppModel {
             notice(Strings.format("%@ came over insecure http", file.lastPathComponent), Strings.text("It may have been changed on the way."))
         }
         optimise([file], origin: .clipboard, aggressive: aggressive, copy: copy, pipeline: pipeline)
+    }
+
+    /// What a download's card calls it: the address's last part, or its host when the address
+    /// has no path ("example.com/").
+    nonisolated static func downloadName(_ address: URL) -> String {
+        let last = address.lastPathComponent
+        return last.isEmpty || last == "/" ? address.host() ?? address.absoluteString : last
     }
 
     /// A working card for a download (a copied address, a drop's promised or web files), shown
@@ -156,6 +163,8 @@ extension AppModel {
     ) {
         let copyBack = origin == .clipboard && EsclopSettings.autoCopyToClipboard.value(in: settings)
         if copyBack, let copy { holdOnClipboard(copied ?? urls, at: copy.changeCount) }
+        // Results of dropped files go on the clipboard, once all are done, when the person asked.
+        let copyDropped = origin == .dropZone && EsclopSettings.copyDroppedResults.value(in: settings)
         let putBack = PutBack()
         // Copied files the pipeline runs on a copy of, by the copy's path.
         var originals: [String: URL] = [:]
@@ -179,10 +188,13 @@ extension AppModel {
         // Every file shows in the window at once, waiting, before its job starts.
         for item in shown { batch?.add(item.job.request.sources[0], bytes: Self.size(of: item.url)) }
         // Every result, a retried file's too; one retried after the rest went back goes on its own.
-        let onResult: ((OptimisationResult) -> Void)? = copyBack ? { [originals] result in
+        let onResult: ((OptimisationResult) -> Void)? = copyBack || copyDropped ? { [originals] result in
             let replacement = (originals[result.source.path] ?? result.source, result.output)
             putBack.results.append(replacement)
-            if putBack.done { Task { await self.putBackOnClipboard([replacement]) } }
+            guard putBack.done else { return }
+            // ponytail: a dropped file retried after the rest replaces the clipboard with its own
+            // result alone; gather them as `appendClipboardResults` does if someone minds.
+            if copyBack { Task { await self.putBackOnClipboard([replacement]) } } else { self.writeClipboard(files: [result.output]) }
         } : nil
         var runs: [Task<Void, Never>] = []
         for (url, triggered, base) in jobs {
@@ -197,11 +209,15 @@ extension AppModel {
                 await run(job, context: context, batch: job.request.showResultUI ? batch : nil, copy: copy, onResult: onResult)
             })
         }
-        guard copyBack else { return }
+        guard copyBack || copyDropped else { return }
         Task {
             for run in runs { await run.value }
             putBack.done = true
-            await putBackOnClipboard(putBack.results)
+            if copyBack {
+                await putBackOnClipboard(putBack.results)
+            } else if !putBack.results.isEmpty {
+                writeClipboard(files: putBack.results.map(\.new))
+            }
         }
     }
 
@@ -292,9 +308,11 @@ extension AppModel {
         let copy = ClipboardCopy(changeCount: now.count, app: now.app)
         switch content {
         case let .files(urls):
-            let media = urls.filter { MediaKind.of($0) != nil }
+            // A copied link is its file, as a link given to the CLI is; results go back in its place.
+            let files = urls.map(PathInput.resolvingLink)
+            let media = files.filter { MediaKind.of($0) != nil }
             guard !media.isEmpty else { return notice(Strings.text("Nothing to optimise"), Strings.text("The copied files are not images, videos, PDFs or audio.")) }
-            optimise(media, origin: .clipboard, aggressive: aggressive, copy: copy, copied: urls, pipeline: { _ in pipeline })
+            optimise(media, origin: .clipboard, aggressive: aggressive, copy: copy, copied: files, pipeline: { _ in pipeline })
         case let .path(url):
             optimise([url], origin: .clipboard, aggressive: aggressive, copy: copy, pipeline: { _ in pipeline })
         case let .image(data, type), let .base64Image(data, type):
@@ -363,9 +381,15 @@ extension AppModel {
     public func optimiseChosen(_ urls: [URL]) {
         let files = PathInput.expand(urls, recursive: true).filter { MediaKind.of($0) != nil }
         guard !files.isEmpty else { return notice(Strings.text("Nothing to optimise"), Strings.text("Choose images, videos, PDFs or audio files.")) }
-        if files.count > batchThreshold, let place = FinderServices.folders(in: urls),
-           !confirmFolders(Strings.format("Optimise %d files in %@?", files.count, place), Strings.text("Optimise")) { return }
+        guard foldersConfirmed(files, in: urls) else { return }
         optimise(files, origin: .app)
+    }
+
+    /// False when `urls` hold folders, `files` from them are past the batch threshold, and the
+    /// person did not confirm: folders are optimised in place, recursively.
+    func foldersConfirmed(_ files: [URL], in urls: [URL]) -> Bool {
+        guard files.count > batchThreshold, let place = FinderServices.folders(in: urls) else { return true }
+        return confirmFolders(Strings.format("Optimise %d files in %@?", files.count, place), Strings.text("Optimise"))
     }
 
     // MARK: Drop zone
@@ -401,6 +425,8 @@ extension AppModel {
     public func optimiseDropped(_ urls: [URL], harder: Bool, keepOriginals: Bool = false) {
         let files = PathInput.expand(urls, recursive: true).filter { MediaKind.of($0) != nil }
         guard !files.isEmpty else { return notice(Strings.text("Nothing to optimise"), Strings.text("Drop images, videos, PDFs or audio files.")) }
+        // A folder dropped here or on the Dock icon asks as Finder's action does.
+        guard foldersConfirmed(files, in: urls) else { return }
         // Harder is a plain optimisation the person asked for; a plain drop runs a drop-zone pipeline.
         let triggered = harder ? [] : pipelines(for: .dropZone)
         optimiseDrop(files, aggressive: harder, keepOriginals: keepOriginals, pipeline: { Self.first(of: triggered, for: $0) })
@@ -472,6 +498,7 @@ extension AppModel {
     public func runPresetZone(_ name: String, on urls: [URL], keepOriginals: Bool = false) {
         let files = PathInput.expand(urls, recursive: true).filter { MediaKind.of($0) != nil }
         guard !files.isEmpty else { return notice(Strings.text("Nothing to optimise"), Strings.text("Drop images, videos, PDFs or audio files.")) }
+        guard foldersConfirmed(files, in: urls) else { return }
         var zone = (try? service.context.pipelines.resolve(name)) ?? Pipeline(name: name, steps: [])
         zone.name = name
         optimiseDrop(files, aggressive: false, keepOriginals: keepOriginals, pipeline: { _ in zone })

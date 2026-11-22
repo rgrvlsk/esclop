@@ -116,6 +116,24 @@ import Testing
         #expect(asked.count == 2, "no pipeline for Finder: nothing to ask about")
     }
 
+    /// V3: a large folder dropped on the drop zone, the Dock icon or a preset zone asks as
+    /// Finder's action does; a no runs nothing.
+    @Test func aDroppedLargeFolderAsksFirst() async throws {
+        let harness = Harness()
+        var asked: [String] = []
+        var answer = false
+        harness.model.confirmFolders = { question, _ in asked.append(question); return answer }
+        let count = harness.model.batchThreshold + 1
+        let folder = (1 ... count).map { harness.temp.file("Shoot/\($0).png") }[0].deletingLastPathComponent()
+        harness.model.optimiseDropped([folder], harder: false)
+        harness.model.runPresetZone("to WebP", on: [folder])
+        #expect(asked == ["Optimise \(count) files in Shoot?", "Optimise \(count) files in Shoot?"])
+        #expect(harness.model.batch == nil && harness.requests.requests.isEmpty, "nothing runs after a no")
+        answer = true
+        harness.model.optimiseDropped([folder], harder: false)
+        #expect(await eventually { harness.requests.requests.flatMap(\.sources).count == count })
+    }
+
     /// "Optimise Files…" on a folder asks as ⌃O does; a folder on the Dock icon takes its media.
     @Test func aChosenLargeFolderAsksOnceAndADockFolderIsTaken() async throws {
         let harness = Harness()

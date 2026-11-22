@@ -38,6 +38,7 @@ public enum Clipboard {
         (NSPasteboard.PasteboardType(UTType.jpeg.identifier), .jpeg),
         (NSPasteboard.PasteboardType(UTType.heic.identifier), .heic),
         (NSPasteboard.PasteboardType(UTType.webP.identifier), .webP),
+        (NSPasteboard.PasteboardType("public.avif"), UTType("public.avif") ?? .image),
         (.tiff, .tiff),
     ]
 

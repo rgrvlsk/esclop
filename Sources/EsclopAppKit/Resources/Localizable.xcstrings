@@ -941,6 +941,16 @@
         }
       }
     },
+    "A link to a file L’Esclop cannot name: optimise the file itself.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "És un enllaç a un fitxer amb un nom que L’Esclop no pot fer servir: optimitza el fitxer directament."
+          }
+        }
+      }
+    },
     "A name cannot contain “/”, “:” or new lines, or start with “.”.": {
       "localizations": {
         "ca": {
@@ -1907,6 +1917,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Canvia d’opinió"
+          }
+        }
+      }
+    },
+    "Changed: %@.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Han canviat: %@."
           }
         }
       }
@@ -4241,6 +4261,36 @@
         }
       }
     },
+    "Ignore rules for %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regles d’omissió de %@"
+          }
+        }
+      }
+    },
+    "Ignore Rules for “%@”": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regles d’omissió de «%@»"
+          }
+        }
+      }
+    },
+    "Ignore Rules…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regles d’omissió…"
+          }
+        }
+      }
+    },
     "Image": {
       "localizations": {
         "ca": {
@@ -4317,26 +4367,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Importa sense els permisos"
-          }
-        }
-      }
-    },
-    "Imported %d settings": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "S’han importat %d opcions"
-          }
-        }
-      }
-    },
-    "Imported 1 setting": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "S’ha importat 1 opció"
           }
         }
       }
@@ -5711,6 +5741,16 @@
         }
       }
     },
+    "Not kept, because something on this Mac sets them, such as a configuration profile: %@.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’han conservat perquè alguna cosa d’aquest Mac les fixa, com ara un perfil de configuració: %@."
+          }
+        }
+      }
+    },
     "Not optimised": {
       "localizations": {
         "ca": {
@@ -5781,6 +5821,16 @@
         }
       }
     },
+    "Nothing to change": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hi ha res a canviar"
+          }
+        }
+      }
+    },
     "Nothing to compare": {
       "localizations": {
         "ca": {
@@ -5837,6 +5887,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Al resultat sota el punter: Vista ràpida, Desfés, Copia"
+          }
+        }
+      }
+    },
+    "One pattern per line, as in .gitignore: %@ skips every MOV file, %@ takes one back, and %@ starts a comment.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un patró per línia, com a .gitignore: %@ omet tots els fitxers MOV, %@ en recupera un, i %@ comença un comentari."
           }
         }
       }
@@ -8021,6 +8081,36 @@
         }
       }
     },
+    "setting.copyDroppedResults.summary": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posa al porta-retalls els resultats dels fitxers que deixes anar a la zona o a la icona del Dock."
+          }
+        }
+      }
+    },
+    "setting.copyDroppedResults.title": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia els resultats dels fitxers deixats anar"
+          }
+        }
+      }
+    },
+    "Settings imported": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opcions importades"
+          }
+        }
+      }
+    },
     "That disk is read-only.": {
       "localizations": {
         "ca": {
@@ -8757,6 +8847,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aquest fitxer activa permisos"
+          }
+        }
+      }
+    },
+    "This Mac already has every setting in the file.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquest Mac ja té totes les opcions del fitxer."
           }
         }
       }

@@ -276,14 +276,23 @@ import Testing
     }
 
     @Test func theOutcomeSaysWhatWasLeftOff() {
-        let read = SettingsFile.Read(values: ["batchWindowFrom": 6], unknown: ["fromTheFuture"], permissions: ["allowUploads"], version: 2)
+        var read = SettingsFile.Read(values: ["batchWindowFrom": 6], unknown: ["fromTheFuture"], permissions: ["allowUploads"], version: 2)
+        let nothing = SettingsFilePanels.outcome(read, allowedPermissions: false, locale: Locale(identifier: "en"))
+        #expect(nothing.title == "Nothing to change")
+        #expect(nothing.detail.hasPrefix("This Mac already has every setting in the file.\n"))
+        read.changed = ["batchWindowFrom", "gifFPS"]
+        read.unkept = ["gifFPS"]
         let done = SettingsFilePanels.outcome(read, allowedPermissions: false, locale: Locale(identifier: "en"))
-        #expect(done.title == "Imported 1 setting")
+        #expect(done.title == "Settings imported")
         #expect(done.detail == """
+        Changed: Batch window from, GIF frame rate.
+        Not kept, because something on this Mac sets them, such as a configuration profile: GIF frame rate.
         Permissions left off: Agents may upload files.
         A newer version of L’Esclop wrote this file.
         Skipped what this version does not know: fromTheFuture.
         """)
-        #expect(SettingsFilePanels.outcome(read, allowedPermissions: true, locale: Locale(identifier: "en")).detail.hasPrefix("A newer"))
+        #expect(SettingsFilePanels.outcome(read, allowedPermissions: true, locale: Locale(identifier: "en")).detail.contains("GIF frame rate.\nA newer"))
+        let ca = SettingsFilePanels.outcome(read, allowedPermissions: true, locale: Locale(identifier: "ca"))
+        #expect(ca.title == "Opcions importades" && ca.detail.hasPrefix("Han canviat: "))
     }
 }

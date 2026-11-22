@@ -494,6 +494,12 @@ fn errors_use_the_documented_codes() {
     assert_eq!(err_code(&r), "decode");
     let r = one_shot("webp.encode", req(&cut, &d.path("o3.webp"), json!({})));
     assert_eq!(err_code(&r), "decode");
+    // Only the 2-byte end marker missing: every row is there, as Preview shows it.
+    let mut unended = photo_jpeg(300, 300, 90);
+    unended.truncate(unended.len() - 2);
+    let unended = d.write("unended.jpg", &unended);
+    ok(&one_shot("jpeg.optimise", req(&unended, &d.path("o4.jpg"), json!({}))));
+    ok(&one_shot("webp.encode", req(&unended, &d.path("o4.webp"), json!({}))));
     let r = one_shot("webp.encode", req(&jpg, &d.path("nodir/o.webp"), json!({})));
     assert_eq!(err_code(&r), "not_found");
     let r = one_shot("teleport", json!({}));

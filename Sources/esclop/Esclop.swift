@@ -30,6 +30,7 @@ struct EsclopCommand: AsyncParsableCommand {
           65  every file was unreadable (damaged or mislabelled)
           66  every file was missing
           69  something needed is unavailable (the app, the engine, a tool)
+          70  a setting was not kept (settings set, settings import)
           77  not permitted (an agent permission is off)
           130 interrupted
         """,
@@ -136,6 +137,7 @@ struct FileInputs: ParsableArguments {
         var files = PathInput.expand(urls, recursive: recursive, extensions: include)
         if !exclude.isEmpty { files.removeAll { exclude.contains($0.pathExtension.lowercased()) } }
         if skipErrors { files.removeAll { !FileManager.default.fileExists(atPath: $0.path) } }
+        if files.isEmpty { urls.filter(PathInput.holdsOnlyLinks).forEach { note(PathInput.onlyLinks($0)) } }
         return files
     }
 }

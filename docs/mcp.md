@@ -8,7 +8,9 @@ is named `esclop-mcp`; its entry in agent configs is called `esclop`.
 
 When the L'Esclop app is running, the server sends jobs to it: they join the app's queue and
 show the same floating result cards as copied and dropped files, and the app applies the agent
-permissions again. Without the app, the server runs jobs in its own process.
+permissions again. Without the app, the server runs jobs in its own process. The server stops
+when stdin closes, so a one-shot pipe (`printf '…' | esclop mcp serve`) loses the jobs still
+running then: keep stdin open until every reply has come.
 
 ## Install
 

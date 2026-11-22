@@ -274,10 +274,18 @@ struct Settings: AsyncParsableCommand {
         func run() async throws {
             try await guarded(global) {
                 let stored = try await EsclopService(global.context()).setSetting(key, to: value)
+                if Settings.unkept(key, value, stored: stored) { return Settings.notKept([key], global) }
                 if global.json { Output.json(["key": JSONValue.string(key), "value": stored]) } else { print("\(key) = \(stored.plain)") }
                 return 0
             }
         }
+    }
+
+    /// Whether `stored`, the value read back after the write, is not what `text` asked for. Both
+    /// as the store keeps them: a Double 30 comes back from the app as the JSON number 30, an Int.
+    static func unkept(_ key: String, _ text: String, stored: JSONValue, registry: SettingsRegistry = .shared) -> Bool {
+        guard let setting = registry.setting(key), let wanted = setting.value(text: text) else { return false }
+        return wanted != setting.normalised(stored)
     }
 
     struct Reset: AsyncParsableCommand {
@@ -296,6 +304,13 @@ struct Settings: AsyncParsableCommand {
 }
 
 extension Settings {
+    /// Says that the settings store did not keep `keys` and returns the exit code, 70 (EX_SOFTWARE).
+    static func notKept(_ keys: [String], _ global: GlobalOptions) -> Int32 {
+        let message = "The settings store did not keep \(keys.joined(separator: ", ")): something on this Mac sets \(keys.count == 1 ? "it" : "them"), such as a configuration profile"
+        if global.json { Output.json(["error": JSONValue.string(message), "code": "notKept"]) } else { Output.error(message, terminal: global.terminal) }
+        return 70
+    }
+
     struct Export: AsyncParsableCommand {
         static let configuration = CommandConfiguration(
             abstract: "Write the settings you changed to a JSON file, for another Mac.",
@@ -345,17 +360,18 @@ extension Settings {
                     Output.json([
                         "imported": JSONValue.array(read.values.keys.sorted().map(JSONValue.string)), "unknown": .array(read.unknown.map(JSONValue.string)),
                         allowPermissions ? "permissionsTurnedOn" : "permissionsSkipped": permissions,
+                        "changed": .array(read.changed.map(JSONValue.string)), "notKept": .array(read.unkept.map(JSONValue.string)),
                     ])
-                    return 0
+                    return read.unkept.isEmpty ? 0 : 70
                 }
-                print(read.values.count == 1 ? "Imported 1 setting." : "Imported \(read.values.count) settings.")
+                print(read.changed.isEmpty ? "Nothing changed: this Mac has every setting in the file." : "Changed \(read.changed.joined(separator: ", ")).")
                 if !read.permissions.isEmpty {
                     let list = read.permissions.joined(separator: ", ")
                     if allowPermissions { note("turned on permissions: \(list)") } else { note("skipped permissions the file turns on: \(list) (--allow-permissions turns them on)") }
                 }
                 if read.isNewer { note("a newer L’Esclop wrote this file (version \(read.version)); what this version knows was imported") }
                 if !read.unknown.isEmpty { note("skipped what this version does not know: \(read.unknown.joined(separator: ", "))") }
-                return 0
+                return read.unkept.isEmpty ? 0 : Settings.notKept(read.unkept, global)
             }
         }
     }

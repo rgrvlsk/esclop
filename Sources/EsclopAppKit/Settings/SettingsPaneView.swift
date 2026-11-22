@@ -322,10 +322,15 @@ enum SettingsFilePanels {
         )
     }
 
-    /// What the import did: how many settings, and what it left out.
+    /// What the import did: the settings it changed, by name, and what it left out.
     static func outcome(_ read: SettingsFile.Read, allowedPermissions: Bool, locale: Locale = Strings.locale) -> (title: String, detail: String) {
-        let title = read.values.count == 1 ? Strings.text("Imported 1 setting", locale: locale) : Strings.format("Imported %d settings", read.values.count, locale: locale)
-        var lines: [String] = []
+        let title = read.changed.isEmpty ? Strings.text("Nothing to change", locale: locale) : Strings.text("Settings imported", locale: locale)
+        var lines = [read.changed.isEmpty
+            ? Strings.text("This Mac already has every setting in the file.", locale: locale)
+            : Strings.format("Changed: %@.", names(read.changed, locale: locale).joined(separator: ", "), locale: locale)]
+        if !read.unkept.isEmpty {
+            lines.append(Strings.format("Not kept, because something on this Mac sets them, such as a configuration profile: %@.", names(read.unkept, locale: locale).joined(separator: ", "), locale: locale))
+        }
         if !allowedPermissions, !read.permissions.isEmpty {
             lines.append(Strings.format("Permissions left off: %@.", names(read.permissions, locale: locale).joined(separator: ", "), locale: locale))
         }
