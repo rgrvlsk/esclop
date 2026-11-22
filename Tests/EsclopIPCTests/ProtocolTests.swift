@@ -368,7 +368,10 @@ final class FakeHandler: AppRequestHandler, @unchecked Sendable {
         // its own: a 0.3 s timer on the cooperative pool or on DispatchQueue.global() waits for a
         // free worker thread, and on a loaded runner it fired after the 5 s the client waits.
         DispatchQueue(label: "quit-test").asyncAfter(deadline: .now() + 0.3) { server.stop() }
-        try await client.quit(timeout: 5)
+        // ponytail: 15 s, not 5: on CI the whole test process sometimes stalls about 6 s (see
+        // EngineClientTests' timeout test; runs 44878626416, 45046966044, 45050711319) and no timer
+        // fires during a stall. A server that never stops still fails here.
+        try await client.quit(timeout: 15)
         #expect(handler.lock.withLock { handler.quitCalled })
         #expect(!client.isAppRunning)
     }
