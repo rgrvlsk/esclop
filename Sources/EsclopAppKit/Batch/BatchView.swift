@@ -58,12 +58,49 @@ public struct BatchView: View {
                 BatchSelectionMenu(rows: batch.rows.filter { ids.contains($0.id) }, batch: batch, app: app)
             }
             .onKeyPress(.space) { quickLook() }
+            // ⌘C copies the selected files, ⌫ puts their originals back.
+            .onCopyCommand {
+                // As L'Esclop's own copy, after SwiftUI has cleared the clipboard for the empty
+                // list returned here (tried: a write inside this closure is lost).
+                // ponytail: relies on that order, observed on macOS 26; a Copy menu command of
+                // the window's own if an update breaks it.
+                let files = selected.map(\.shownFile)
+                Task { @MainActor in app.writeClipboard(files: files) }
+                return []
+            }
+            .onDeleteCommand { restore(selected) }
             .onChange(of: batch.rows.map(\.id)) { _, ids in selection.formIntersection(ids) }
+            if !selected.isEmpty {
+                Divider()
+                selectionBar
+            }
         }
         .frame(minWidth: 520, idealWidth: 560, minHeight: 360, idealHeight: 520)
         .background(Color(nsColor: .windowBackgroundColor))
         .animation(reduceMotion ? nil : Motion.bar, value: info.barEnd)
         .designTint()
+    }
+
+    private var selected: [BatchRow] { batch.rows.filter { selection.contains($0.id) } }
+
+    /// The selection's main actions under the rows, as in Originals; the rest are in its menu.
+    private var selectionBar: some View {
+        let rows = selected
+        let restorable = rows.filter(\.canRestore), failed = rows.filter(\.canRetry), finished = rows.filter(\.isFinished)
+        return HStack {
+            Spacer()
+            Button(Strings.text("Restore")) { restore(rows) }.disabled(restorable.isEmpty)
+            Button(Strings.text("Try again")) { failed.forEach { $0.retry() } }.disabled(failed.isEmpty)
+            Button(Strings.text("Remove from the List")) { finished.forEach(batch.remove) }.disabled(finished.isEmpty)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private func restore(_ rows: [BatchRow]) {
+        let restorable = rows.filter(\.canRestore)
+        guard !restorable.isEmpty else { return }
+        Task { for row in restorable { await app.restore(row) } }
     }
 
     /// The selected row, else the one under the pointer.

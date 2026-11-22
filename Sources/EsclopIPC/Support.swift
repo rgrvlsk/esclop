@@ -275,14 +275,18 @@ public enum PathInput {
     }
 
     /// Expands folders into the media files inside them. Files pass through even when missing, so
-    /// the job reports them; `extensions` (lowercase, no dot) filters what folders contribute.
+    /// the job reports them; `extensions` (lowercase, no dot) filters what folders contribute. A
+    /// link given by name becomes the file it points at, so the result replaces that file and the
+    /// link keeps pointing at it (the link's own size made every link "already as small").
+    /// ponytail: links inside a folder are still skipped, as before; follow them if asked.
     public static func expand(_ urls: [URL], recursive: Bool, extensions: Set<String> = []) -> [URL] {
         var out: [URL] = []
         let fm = FileManager.default
         for url in urls {
             var isDirectory: ObjCBool = false
             guard fm.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue else {
-                out.append(url)
+                let isLink = (try? fm.destinationOfSymbolicLink(atPath: url.path)) != nil
+                out.append(isLink ? url.resolvingSymlinksInPath() : url)
                 continue
             }
             let keys: [URLResourceKey] = [.isRegularFileKey]

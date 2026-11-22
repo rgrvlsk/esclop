@@ -119,22 +119,25 @@ public struct ClipboardPolicy: Sendable {
     }
 
     /// What is on the pasteboard (`Clipboard.read`), and when nothing else is, a copied web
-    /// address of media (`address`). Without `addresses` no address is read.
-    public static func read(_ pasteboard: NSPasteboard, text readsText: Bool = true, addresses: Bool = true) -> ClipboardContent {
+    /// address of media (`address`). Without `addresses` no address is read; with `anyAddress`
+    /// (the Optimise Clipboard hotkey) any one address is.
+    public static func read(_ pasteboard: NSPasteboard, text readsText: Bool = true, addresses: Bool = true, anyAddress: Bool = false) -> ClipboardContent {
         let content = Clipboard.read(pasteboard, text: readsText)
         guard content == .empty, addresses else { return content }
         let text = pasteboard.string(forType: .URL) ?? pasteboard.string(forType: .string)
-        return text.flatMap(address).map(ClipboardContent.address) ?? .empty
+        return text.flatMap { address($0, anyPath: anyAddress) }.map(ClipboardContent.address) ?? .empty
     }
 
     /// The address `text` is when the whole of it, trimmed, is one http or https address
     /// (`WebDownload.address`) whose path names a kind L'Esclop optimises. Any other link is never
-    /// fetched: a copied sign-in or one-time link must not be opened. Text that only contains an
-    /// address is not one.
-    public static func address(_ text: String) -> URL? {
+    /// fetched on a copy: a copied sign-in or one-time link must not be opened. Text that only
+    /// contains an address is not one. `anyPath` takes an address whatever its path says
+    /// (`…/photo-123?w=800`): only for the hotkey, the person's request, as Clop's ⌃⇧C does;
+    /// the download then refuses what is not media by its content type.
+    public static func address(_ text: String, anyPath: Bool = false) -> URL? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.rangeOfCharacter(from: .whitespacesAndNewlines) == nil,
-              let url = try? WebDownload.address(trimmed), MediaKind.of(url) != nil
+              let url = try? WebDownload.address(trimmed), anyPath || MediaKind.of(url) != nil
         else { return nil }
         return url
     }

@@ -97,6 +97,9 @@ enum Output {
         } else {
             summary.results.forEach { print(terminal.line($0, fullPath: downloaded.contains($0.source))) }
             summary.failures.forEach { print(terminal.line($0)) }
+            // A pipeline step that did not run says so; the JSON has it in `steps`.
+            var noted: Set<String> = []
+            summary.results.flatMap(\.steps).compactMap(skippedNote).filter { noted.insert($0).inserted }.forEach(note)
             if summary.results.count > 1 {
                 print(terminal.total(summary))
             }
@@ -106,6 +109,14 @@ enum Output {
             }
         }
         return exitCode(for: summary)
+    }
+
+    /// "copyLinkForSending skipped: needs the L'Esclop app" for a pipeline log line
+    /// ("copyLinkForSending: skipped (needs the L'Esclop app)"); nil for a step that ran.
+    static func skippedNote(_ step: String) -> String? {
+        guard let marker = step.range(of: ": skipped"), step[marker.upperBound...].isEmpty || step[marker.upperBound...].hasPrefix(" (") else { return nil }
+        let reason = step[marker.upperBound...].dropFirst(2).dropLast()
+        return "\(step[..<marker.lowerBound]) skipped" + (reason.isEmpty ? "" : ": \(reason)")
     }
 
     static func exitCode(for summary: JobSummary) -> Int32 {
@@ -229,11 +240,11 @@ final class InterruptHandler: @unchecked Sendable {
 /// unchanged (exit 0, as a file already as small as it gets) with a reason that names `--force`.
 func runFileJob(
     _ operation: JobOperation, files: FileOptions, global: GlobalOptions, skipOptimised: Bool = false,
-    keep: (URL) -> Bool = { _ in true }, configure: (inout OptimisationRequest) -> Void = { _ in }
+    keep: (URL) -> Bool = { _ in true }, refusal: String? = nil, configure: (inout OptimisationRequest) -> Void = { _ in }
 ) async throws {
     try await runJob(
         operation, inputs: files.inputs, printing: global.printing, context: global.context(), skipOptimised: skipOptimised,
-        downloadInto: files.downloadFolder, keep: keep
+        downloadInto: files.downloadFolder, keep: keep, refusal: refusal
     ) { request in
         request.location = files.location
         if files.locationFromSettings { request.locationFromSettings = true }
@@ -246,13 +257,21 @@ func runFileJob(
 
 func runJob(
     _ operation: JobOperation, inputs: FileInputs, printing: Printing, context: @autoclosure () -> ServiceContext,
-    skipOptimised: Bool = false, downloadInto: URL? = nil, keep: (URL) -> Bool = { _ in true },
+    skipOptimised: Bool = false, downloadInto: URL? = nil, keep: (URL) -> Bool = { _ in true }, refusal: String? = nil,
     configure: (inout OptimisationRequest) -> Void, finished: (JobReport) -> Void
 ) async throws {
     guard !inputs.items.isEmpty else { throw ValidationError("Give at least one file or folder.") }
     try await guarded(printing) {
         var downloaded: Set<String> = []
-        var sources = try await inputs.sources(into: downloadInto) { downloaded.insert($0.path) }.filter(keep)
+        var sources = try await inputs.sources(into: downloadInto) { downloaded.insert($0.path) }
+        // A download `keep` rejects (an address without an extension that served a video to
+        // `optimise image`) was asked for by name: it is refused, and every download goes again.
+        if let refusal, let rejected = sources.first(where: { downloaded.contains($0.path) && !keep($0) }) {
+            downloaded.forEach { try? FileManager.default.removeItem(atPath: $0) }
+            let removed = downloaded.count == 1 ? "it was removed" : "the \(downloaded.count) downloads were removed"
+            throw EsclopError.invalidArgument("\(PathInput.abbreviate(rejected)) was downloaded but \(refusal); \(removed).")
+        }
+        sources = sources.filter(keep)
         let optimised = skipOptimised ? sources.filter(OptimisedMark.isMarked) : []
         sources.removeAll { optimised.contains($0) }
         let skipped = optimised.map { source in

@@ -299,7 +299,7 @@ extension Settings {
     struct Export: AsyncParsableCommand {
         static let configuration = CommandConfiguration(
             abstract: "Write the settings you changed to a JSON file, for another Mac.",
-            discussion: "Only the keys you set are written; the other Mac keeps its own defaults for the rest. Hotkeys and upload keys are not settings and stay."
+            discussion: "Only the keys you set are written; the other Mac keeps its own defaults for the rest. \(SettingsFile.leftBehind)"
         )
         @Argument(help: "The file to write; standard output without one.") var file: String?
         @OptionGroup var global: GlobalOptions
@@ -313,7 +313,10 @@ extension Settings {
                 }
                 let url = try PathInput.url(file)
                 try data.write(to: url, options: .atomic)
-                if global.json { Output.json(["file": JSONValue.string(url.path)]) } else { print("Wrote the settings to \(PathInput.abbreviate(url))") }
+                if global.json { Output.json(["file": JSONValue.string(url.path)]) } else {
+                    print("Wrote the settings to \(PathInput.abbreviate(url))")
+                    note(SettingsFile.leftBehind)
+                }
                 return 0
             }
         }
@@ -322,21 +325,35 @@ extension Settings {
     struct Import: AsyncParsableCommand {
         static let configuration = CommandConfiguration(
             abstract: "Read settings from a file `esclop settings export` wrote. Applies immediately.",
-            discussion: "Every value is checked first: one a setting does not take changes nothing. Keys this version does not know are skipped and named."
+            discussion: """
+            Every value is checked first: one a setting does not take changes nothing. Keys this version does not know are \
+            skipped and named. Permissions the file turns on (agent permissions such as allowRunScripts, and the upload \
+            settings uploadTargets, uploadTarget and uploadAutomatically) are skipped and named unless --allow-permissions is given.
+            """
         )
         @Argument(help: "The settings file.") var file: String
+        @Flag(name: .customLong("allow-permissions"), help: "Also apply the agent permissions and upload settings the file turns on.") var allowPermissions = false
         @OptionGroup var global: GlobalOptions
 
         func run() async throws {
             try await guarded(global) {
                 let url = try PathInput.url(file)
                 guard let data = FileManager.default.contents(atPath: url.path) else { throw EsclopError.fileNotFound(url.path) }
-                let read = try SettingsFile.import(data, into: .shared)
+                let read = try SettingsFile.import(data, into: .shared, allowPermissions: allowPermissions)
+                let permissions = JSONValue.array(read.permissions.map(JSONValue.string))
                 if global.json {
-                    Output.json(["imported": JSONValue.array(read.values.keys.sorted().map(JSONValue.string)), "unknown": .array(read.unknown.map(JSONValue.string))])
+                    Output.json([
+                        "imported": JSONValue.array(read.values.keys.sorted().map(JSONValue.string)), "unknown": .array(read.unknown.map(JSONValue.string)),
+                        allowPermissions ? "permissionsTurnedOn" : "permissionsSkipped": permissions,
+                    ])
                     return 0
                 }
                 print(read.values.count == 1 ? "Imported 1 setting." : "Imported \(read.values.count) settings.")
+                if !read.permissions.isEmpty {
+                    let list = read.permissions.joined(separator: ", ")
+                    if allowPermissions { note("turned on permissions: \(list)") } else { note("skipped permissions the file turns on: \(list) (--allow-permissions turns them on)") }
+                }
+                if read.isNewer { note("a newer L’Esclop wrote this file (version \(read.version)); what this version knows was imported") }
                 if !read.unknown.isEmpty { note("skipped what this version does not know: \(read.unknown.joined(separator: ", "))") }
                 return 0
             }
@@ -420,7 +437,8 @@ struct Restore: AsyncParsableCommand {
             }
             if global.json { Output.json(outcome); return 0 }
             let t = global.terminal
-            print("\(t.green("✓")) \(t.bold(PathInput.abbreviate(URL(fileURLWithPath: outcome.restored)))) restored")
+            let name = t.bold(PathInput.abbreviate(URL(fileURLWithPath: outcome.restored)))
+            print(outcome.alreadyRestored == true ? "\(t.dim("–")) \(name) already restored" : "\(t.green("✓")) \(name) restored")
             if let left = outcome.leftInPlace { note("the result \(PathInput.abbreviate(URL(fileURLWithPath: left))) is still there") }
             return 0
         }
@@ -435,7 +453,7 @@ struct Logs: AsyncParsableCommand {
 
     func run() async throws {
         try await guarded(global) {
-            let excerpt = try EsclopService(global.context()).logs(window: last, limit: lines)
+            let excerpt = try await EsclopService(global.context()).logs(window: last, limit: lines)
             if global.json { Output.json(excerpt); return 0 }
             excerpt.system.forEach { print($0) }
             for (file, tail) in excerpt.files.sorted(by: { $0.key < $1.key }) {

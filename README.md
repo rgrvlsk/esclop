@@ -30,7 +30,8 @@ upload or run a pipeline. Many files at once go to a batch window. A copied file
 a copy, so the file on disk stays as it is; hold ⌥ while dropping to keep the originals.
 
 Copying the web address of an image, video, PDF or audio file offers to download it: nothing is
-fetched until you click. Optimise Clipboard (⌃⇧C) downloads it at once. Settings › Clipboard ›
+fetched until you click. Optimise Clipboard (⌃⇧C) downloads any copied address at once, also one
+without a file extension, and keeps it when it serves media. Settings › Clipboard ›
 Copied web addresses can download on its own or do nothing instead.
 
 The cards take Clop's keys while the pointer rests on them: Space Quick Look, ⌘Z Undo, ⌘C Copy,
@@ -79,6 +80,9 @@ L'Esclop keeps its data in these places. Quit it first, then remove what you no 
 - The `esclop` folder in the temporary folder (`$TMPDIR`): downloads, dropped files and work
   folders. L'Esclop clears old files from it at launch and every hour.
 - The settings, in the preferences domain `dev.esclop.app`: `defaults delete dev.esclop.app`.
+  Runs with `ESCLOP_SUPPORT_DIR` set (scripts, the test suite) keep their own in domains named
+  `dev.esclop.support.<hash>`: `ls ~/Library/Preferences/dev.esclop.support.*` lists them, and
+  `defaults delete` with each name (without `.plist`) removes one.
 - Upload keys, in the Keychain under `dev.esclop.upload` (Keychain Access).
 - Open at login: turn it off in Settings › General, or in System Settings › General › Login Items.
 - The CLI link `~/.local/bin/esclop` (or the `--dir` you gave `install-cli`), and the agents'

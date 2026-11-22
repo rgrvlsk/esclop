@@ -146,11 +146,13 @@ public final class Batch: Identifiable {
     public var isRunning: Bool { rows.contains(where: \.isRunning) }
     public var optimised: Int { rows.filter { $0.result != nil }.count }
     public var unchanged: Int { rows.filter { $0.state == .unchanged }.count }
-    public var failed: Int { rows.filter { if case .failed = $0.state { return true } else { return false } }.count }
+    public var failed: Int { retriable.count }
     public var cancelled: Int { rows.filter { $0.state == .cancelled }.count }
     public var restorable: [BatchRow] { rows.filter(\.canRestore) }
 
-    public var retriable: [BatchRow] { rows.filter(\.canRetry) }
+    /// The failed rows, for Retry All Failed. Stopped ones stay stopped: each row's Try again
+    /// runs it again.
+    public var retriable: [BatchRow] { rows.filter { if case .failed = $0.state { return true } else { return false } } }
 
     public var restored: Int { rows.filter { if case .restored = $0.state { return true } else { return false } }.count }
 

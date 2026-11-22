@@ -97,8 +97,12 @@ public enum WebDownload {
         var v6 = in6_addr()
         if inet_pton(AF_INET6, host.components(separatedBy: "%")[0], &v6) == 1 {
             let b = withUnsafeBytes(of: &v6) { Array($0) }
+            // An IPv4 address inside: mapped (::ffff:a.b.c.d), compatible (::a.b.c.d) or NAT64
+            // (64:ff9b::a.b.c.d) reach that IPv4 host, so its test decides.
             let mapped = b[0 ..< 10].allSatisfy { $0 == 0 } && b[10] == 0xFF && b[11] == 0xFF
-            if mapped { return isLocal(URL(string: "http://\(b[12]).\(b[13]).\(b[14]).\(b[15])/")!) }
+            let compatible = b[0 ..< 12].allSatisfy { $0 == 0 } && b[12 ..< 15].contains { $0 != 0 }
+            let nat64 = b[0 ..< 4] == [0x00, 0x64, 0xFF, 0x9B] && b[4 ..< 12].allSatisfy { $0 == 0 }
+            if mapped || compatible || nat64 { return isLocal(URL(string: "http://\(b[12]).\(b[13]).\(b[14]).\(b[15])/")!) }
             let loopback = b[0 ..< 15].allSatisfy { $0 == 0 } && b[15] <= 1
             return loopback || (b[0] == 0xFE && b[1] & 0xC0 == 0x80) || b[0] & 0xFE == 0xFC
         }

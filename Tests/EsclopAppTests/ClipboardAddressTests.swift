@@ -100,12 +100,17 @@ final class EndlessDownload: @unchecked Sendable {
             "http://172.20.0.1/a.png", "http://169.254.1.1/a.png", "http://100.64.0.1/a.png", "http://[::1]/a.png",
             "http://[fe80::1]/a.png", "http://[fd00::2]/a.png", "http://[::ffff:192.168.0.1]/a.png", "http://nas.local/a.png", "http://printer/a.png",
             "http://127.1/a.png", "http://0x7f.0.0.1/a.png", "http://0177.0.0.1/a.png",
+            // Y8: an IPv4 address inside an IPv6 one is judged as that IPv4 address.
+            "http://[::127.0.0.1]/a.png", "http://[::ffff:10.0.0.1]/a.png", "http://[64:ff9b::192.168.1.4]/a.png", "http://[64:ff9b::a00:1]/a.png",
         ] {
             let url = try #require(URL(string: local))
             #expect(WebDownload.isLocal(url), "\(local)")
             #expect(policy.decide(copy(), content: { .address(url) }) == .ignore(.localAddress), "\(local)")
         }
-        for remote in ["https://example.com/a.png", "https://203.0.113.9/a.png", "https://[2001:db8::1]/a.png", "https://172.32.0.1/a.png"] {
+        for remote in [
+            "https://example.com/a.png", "https://203.0.113.9/a.png", "https://[2001:db8::1]/a.png", "https://172.32.0.1/a.png",
+            "https://[64:ff9b::203.0.113.9]/a.png", "https://[::203.0.113.9]/a.png",
+        ] {
             #expect(!WebDownload.isLocal(try #require(URL(string: remote))), "\(remote)")
         }
     }
@@ -361,14 +366,22 @@ final class EndlessDownload: @unchecked Sendable {
         #expect(WebDownload.Refusal.status(url, 404).description == "https://example.com/cove.jpg answered 404", "the CLI keeps its words")
     }
 
-    @Test func theHotkeyLeavesOtherLinksAlone() async throws {
+    /// An address whose path names no kind (`…/media/X?format=jpg`): copying it offers nothing,
+    /// the hotkey downloads it, as Clop's ⌃⇧C does; the content type decides (`WebDownload`).
+    @Test func theHotkeyDownloadsAnAddressWithoutAnExtension() async throws {
         let harness = Harness()
-        let fake = FakeDownload(file: harness.temp.png("cove.png"))
+        let fake = FakeDownload(file: harness.temp.png("X.png"))
         harness.model.download = { try fake.fetch($0, $1) }
-        _ = copy("https://example.com/login?token=abc123", on: harness)
+        let address = "https://pbs.example.com/media/X?format=jpg&name=large"
+        #expect(ClipboardPolicy.address(address) == nil, "a copy alone never fetches it")
+        #expect(ClipboardPolicy.address(address, anyPath: true) == URL(string: address))
+        #expect(ClipboardPolicy.address("See \(address)", anyPath: true) == nil, "still one whole address")
+        let watcher = ClipboardWatcher(pasteboard: harness.pasteboard, policy: ClipboardPolicy(factory: harness.model.factory), frontmostApp: { nil }, onAction: { _ in })
+        _ = copy(address, on: harness)
+        #expect(watcher.poll() == .ignore(.empty), "no offer on copy")
         await harness.model.optimiseClipboard(aggressive: false)
-        #expect(await eventually { harness.model.cards.first?.presentation.capsule == .notice(title: "Nothing to optimise", detail: "Copy an image or a file first.") })
-        #expect(fake.addresses.isEmpty)
+        #expect(await eventually { harness.model.cards.first?.result != nil })
+        #expect(fake.addresses == [URL(string: address)!])
     }
 
     // MARK: Gathering results (appendClipboardResults)
