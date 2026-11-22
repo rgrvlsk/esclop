@@ -38,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             try services.start()
             services.startStatusItem()
+            services.launched(quietly: AppServices.launchedQuietly())
         } catch {
             // Another copy already serves the CLI and the clipboard: one is enough.
             NSApp.terminate(nil)

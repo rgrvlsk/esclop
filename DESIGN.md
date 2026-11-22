@@ -103,7 +103,8 @@ the app, so the app in front keeps its windows, but it takes the keys, so ⌘O w
   When it ends, **Last batch** in the tile's cream: its saving and its counts ("5 optimised ·
   1 failed"), until the next batch, so Restore All and Retry stay reachable. A click shows the
   batch window.
-- **Recent:** the files being optimised, then the last twelve results, five in view: the
+- **Recent:** the files being optimised, each with Stop (also those with no floating result),
+  then the last twelve results, five in view: the
   picture, the name, "2.4 MB → 612 kB · 9:41" and the saving. On hover, Copy and Show in Finder;
   a click shows the result's card again; the context menu adds Compare and Restore Original.
   The arrows move through the rows and on into the commands, and Return runs the row; the
@@ -305,7 +306,8 @@ pointer moved onto and rests on (after 200 ms, with no click, and the app in fro
 window; a card that appears or moves under a still pointer waits for it to move), and on the
 card with the keys (a click, or the "Go to the newest result" hotkey, ⌃⇧N by default, in
 Settings › General and on the last onboarding page). "Show the last result" (unset by default)
-brings back the newest result that is not on screen. The hotkey lends the keys:
+brings back the newest result that is not on screen; pressed again it goes further back, never
+round to one it pushed off the three places, and beeps at the oldest. The hotkey lends the keys:
 Esc on the card, or Undo, Copy or Save (by key or by click), gives them back to the app in
 front and the card stays. Space alone: Quick Look (again to close). With ⌘: ⌘Z Undo · ⌘C Copy ·
 ⌘R or ⌘F Show in Finder (⌘R, Finder's own, is the one shown) · ⌘D Compare · ⌘K Crop · ⌘S Save ·

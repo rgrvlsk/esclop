@@ -194,15 +194,34 @@ public final class AppServices {
 
     /// L'Esclop opened again from Finder or Spotlight while it runs: the panel under the glyph, or
     /// Settings at the switch that shows the glyph when it is hidden, so the app is never lost.
-    // ponytail: a cold launch with the glyph hidden shows nothing (macOS sends reopen only to a
-    // running app), as a login launch must; a second open shows Settings. Show Settings at launch
-    // too if people get lost there.
     public func reopen() {
         if let statusItem, statusItem.isIconVisible {
             statusItem.open()
         } else {
-            settingsWindow.show(SettingsRoute(pane: .general, row: EsclopSettings.showMenubarIcon.key))
+            showGlyphSwitch()
         }
+    }
+
+    /// Launched by hand with the glyph hidden: Settings at the switch that shows it, as a second
+    /// open does (macOS sends reopen only to a running app). A launch at login, or for the CLI or
+    /// an agent, stays quiet.
+    public func launched(quietly: Bool) {
+        guard !quietly, !model.showsMenuBarIcon else { return }
+        showGlyphSwitch()
+    }
+
+    private func showGlyphSwitch() {
+        settingsWindow.show(SettingsRoute(pane: .general, row: EsclopSettings.showMenubarIcon.key))
+    }
+
+    /// Opened for the CLI or an agent (`AppClient.launchApp`), or as a login item, which the
+    /// launch's Apple event says. ponytail: Sparkle's relaunch after an update, and a launch by
+    /// the system for a Shortcut, count as a launch by hand (untested); give them the marker or
+    /// another check if Settings opening then is ever seen.
+    public static func launchedQuietly(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool {
+        if arguments.contains(AppClient.backgroundLaunch) { return true }
+        guard let event = NSAppleEventManager.shared().currentAppleEvent, event.eventID == kAEOpenApplication else { return false }
+        return event.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
     }
 
     /// The end of `start`: files opened before it go now, later ones at once.

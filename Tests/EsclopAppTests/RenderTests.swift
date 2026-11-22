@@ -138,7 +138,7 @@ import Testing
         let views: [(String, AnyView)] = [
             ("differentiate-working", AnyView(object(working))),
             ("differentiate-working-detail", AnyView(object(detail))),
-            ("differentiate-menu-row", AnyView(WorkingRow(card: card(.working(fraction: 0.45))).frame(width: 320))),
+            ("differentiate-menu-row", AnyView(WorkingRow(file: AppModel.WorkingFile(id: UUID(), name: "Holiday.mov", fraction: 0.45) {}).frame(width: 320))),
             ("differentiate-failed", AnyView(object(card(.failed("The file is damaged."))))),
         ]
         for (name, view) in views {
@@ -198,6 +198,11 @@ import Testing
         ))
         tooMany.noticeAction = (.optimiseAnyway, {})
         try render(object(tooMany), name: "result-notice-action", scheme: scheme)
+        // "Show floating results" off: a drop that failed says so all the same.
+        let failed = card(.notice(
+            title: Strings.format("Could not optimise %@", "Holiday.mov"), detail: CardPresentation.message(for: EsclopError.toolMissing("ffmpeg"))
+        ))
+        try render(object(failed), name: "result-notice-failed", scheme: scheme)
     }
 
     /// A copied web address, downloaded and optimised: a copied file's card (Copy on hover;
@@ -220,6 +225,10 @@ import Testing
         let offer = card(.notice(title: "cove.jpg", detail: "images.example.com"))
         offer.noticeAction = (.download, {})
         try render(object(offer), name: "result-address-offer", scheme: scheme)
+        // Under the pointer it looks the same and waits (`aNoticeWaitsUnderThePointer`).
+        offer.machine.pointerEntered(at: Date())
+        #expect(offer.machine.isDismissalPaused)
+        try render(object(offer), name: "result-address-offer-hover", scheme: scheme)
         // The download itself, from its first byte: aqua, the name, the share received, Stop.
         let downloading = card(.working(fraction: 0.4), source: URL(fileURLWithPath: "/cove.jpg"), bytes: 0)
         downloading.downloading = true
@@ -369,6 +378,13 @@ import Testing
         // ⌥ held: the line says the originals stay; under the pointer after an ⌥ tap: how to hide it.
         try render(DropZoneView(state: DropZoneState(fileCount: 3, hovering: true, keepOriginals: true, zones: Array(zones.prefix(2)))), name: "drop-zone-keep", scheme: scheme)
         try render(DropZoneView(state: DropZoneState(fileCount: 3, atPointer: true, zones: Array(zones.prefix(2)))), name: "drop-zone-pointer", scheme: scheme)
+        // One zone with a long name: over it the line names the whole pipeline in two lines, in
+        // room kept from the start, so nothing moves under the drag (with ⌥ too).
+        let long = [zones[2]]
+        let rest = try render(DropZoneView(state: DropZoneState(fileCount: 2, zones: long)), name: "drop-zone-preset-long", scheme: scheme)
+        let over = try render(DropZoneView(state: DropZoneState(fileCount: 2, zones: long, hoveredZone: zones[2].name)), name: "drop-zone-preset-long-hover", scheme: scheme)
+        let keep = try render(DropZoneView(state: DropZoneState(fileCount: 2, keepOriginals: true, zones: long, hoveredZone: zones[2].name)), name: "drop-zone-preset-long-keep", scheme: scheme)
+        #expect(over == rest && keep == rest, "\(rest) → \(over), \(keep)")
     }
 
     @Test(arguments: [ColorScheme.light, .dark])

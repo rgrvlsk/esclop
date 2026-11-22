@@ -53,6 +53,9 @@ public struct FloatingResultView: View {
         Group {
             if case .notice = card.phase {
                 NoticeCapsule(info: info, perform: perform)
+                    // A notice under the pointer waits, as a card does: the copied address's offer
+                    // and "Optimise anyway" stay while the pointer is on their button.
+                    .onHover { interact($0 ? .pointerEntered : .pointerExited) }
             } else if card.machine.level == .detail {
                 DetailCard(card: card, info: info, corner: corner, perform: perform, interact: interact)
                     .transition(reduceMotion ? .opacity : .scale(scale: 0.62, anchor: anchor).combined(with: .opacity))
