@@ -47,8 +47,9 @@ struct MediaInfo: Sendable {
     /// Every stream, in file order.
     var streams: [Stream] = []
     var chapterCount = 0
-    /// iPhone location, make or model (`com.apple.quicktime.*` keys), which ffmpeg cannot copy.
-    var hasAppleLocationOrCamera = false
+    /// An iPhone's location, make and model (`com.apple.quicktime.*` keys, which ffmpeg cannot
+    /// copy into MOV or MP4), under ffmpeg's own names: `location`, `make`, `model`.
+    var appleTags: [String: String] = [:]
 
     var hasCoverArt: Bool { streams.contains { $0.type == "video" && $0.attachedPicture } }
 
@@ -88,8 +89,10 @@ struct MediaInfo: Sendable {
             video: nil, audio: nil
         )
         info.chapterCount = json["chapters"]?.arrayValue?.count ?? 0
-        info.hasAppleLocationOrCamera = (format["tags"]?.objectValue ?? [:]).keys.contains { key in
-            ["location", "make", "model"].contains { key.hasPrefix("com.apple.quicktime.\($0)") }
+        // Exact keys: an iPhone also writes com.apple.quicktime.location.accuracy.horizontal.
+        let tags = format["tags"]?.objectValue ?? [:]
+        for (name, key) in [("location", "location.ISO6709"), ("make", "make"), ("model", "model")] {
+            if let value = tags["com.apple.quicktime.\(key)"]?.stringValue { info.appleTags[name] = value }
         }
         for stream in streams {
             let type = stream["codec_type"]?.stringValue

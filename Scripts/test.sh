@@ -24,6 +24,11 @@ fi
 # PNG folders that render tests of earlier runs left in the temporary folder; they write none
 # now unless ESCLOP_RENDER_DIR names one. Remove this line once 0.2 has shipped.
 find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'esclop-renders-*' -mmin +60 -exec rm -rf {} + 2>/dev/null || true
+# Every test world leaves a folder in esclop-tests. This run has made none yet, so one an hour
+# old is from an earlier run. Scripts/test-sweep-check.sh runs this line in a sandbox.
+# ponytail: a test folder's date moves while its test writes, but fake-engine-* is written once
+# per run: a run in another checkout still going after an hour loses its fake engine.
+find "${TMPDIR:-/tmp}/esclop-tests" -mindepth 1 -maxdepth 1 -mmin +60 -exec rm -rf {} + 2>/dev/null || true
 # The MCP conformance test drives the real `esclop mcp serve` binary over stdio.
 swift build --product esclop >&2
 ESCLOP_TEST_BINARY="$(swift build --show-bin-path)/esclop"

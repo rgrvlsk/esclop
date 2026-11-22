@@ -294,12 +294,13 @@ import UniformTypeIdentifiers
         let pdf = world.file("doc.pdf")
         try Fixture.pdf(pdf, pages: 2)
         for format in [OutputFormat.png, .jpeg] {
-            let plain = try PDFEngine(env: world.engine.env).extractPages(pdf, format: format, dpi: 72, to: world.file("plain-\(format)"))
-            let pages = try await world.engine.extractPDFPages(pdf, format: format, dpi: 72, to: world.file("pages-\(format)"))
+            let plain = try PDFEngine(env: world.engine.env).extractPages(pdf, format: format, dpi: 144, to: world.file("plain-\(format)"))
+            let pages = try await world.engine.extractPDFPages(pdf, format: format, dpi: 144, to: world.file("pages-\(format)"))
             #expect(pages.map(\.lastPathComponent) == plain.map(\.lastPathComponent))
             for (page, rendered) in zip(pages, plain) {
                 #expect(Inspect.bytes(page) < Inspect.bytes(rendered), "\(page.lastPathComponent)")
                 #expect(Inspect.type(page) == Inspect.type(rendered))
+                #expect(ImageInfo.probe(page)?.dpi == 144, "the optimised page keeps its density")
             }
         }
     }
@@ -360,6 +361,7 @@ import UniformTypeIdentifiers
         let written = try engine.extractPages(pdf, pages: [1, 3], format: .png, dpi: 144, to: world.file("pages"))
         #expect(written.map(\.lastPathComponent) == ["doc-1.png", "doc-3.png"])
         #expect(Inspect.size(written[0])! == (1224, 1584))
+        #expect(ImageInfo.probe(written[0])?.dpi == 144, "a 144 dpi export says 144")
         #expect(throws: EsclopError.self) { try engine.extractPages(pdf, pages: [9], format: .png, dpi: 72, to: world.folder) }
     }
 
@@ -698,6 +700,7 @@ import UniformTypeIdentifiers
         #expect(try await ffprobe(kept.output)["format"]?["tags"]?["title"]?.stringValue == "Cançó")
         #expect(kept.steps.contains { $0.hasPrefix("Encoded VBR, about ") })
         #expect(!kept.steps.contains("Removed metadata"))
+        #expect(kept.steps.contains("Recompressed the cover, 600 px at most"), "the default cover shrink says so")
 
         var strip = world.request(mp3, location: .temporary)
         strip.stripMetadata = true
@@ -759,7 +762,7 @@ import UniformTypeIdentifiers
     }
 
     /// An audio speed change leaves the chapters out, as a video's does: their times would not
-    /// follow, and a step says so.
+    /// follow, and a step says so. Strip keeps them, as a video's strip does.
     @Test func anAudioSpeedChangeLeavesOutTheChaptersAndSaysSo() async throws {
         guard let ffmpeg = await Fixture.richFFmpeg() else { return }
         let world = try await TestWorld()
@@ -780,27 +783,73 @@ import UniformTypeIdentifiers
         let fast = try await world.engine.changeSpeed(book, factor: 2, request: world.request(book, location: .temporary), progress: { _ in })
         #expect(chapterTitles(try await ffprobe(fast.output)).isEmpty)
         #expect(fast.steps.contains("Left out 2 chapters: their times do not follow a speed change"))
+        let stripped = try await world.engine.stripMetadata(book, request: world.request(book, location: .temporary))
+        #expect(chapterTitles(try await ffprobe(stripped.output)) == ["Intro", "Main"])
     }
 
-    /// ffmpeg cannot copy an iPhone's location and camera keys in a form macOS reads, so with
-    /// strip off a step says they were not kept, instead of losing them silently.
-    @Test func aVideoSaysItsLocationWasNotKept() async throws {
+    /// Opus and Ogg keep their tags on the audio stream, not the file: strip removes those too.
+    @Test func strippingAnOpusFileRemovesItsStreamTags() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let opus = world.file("song.opus")
+        try await ProcessRunner.run(.ffmpeg, [
+            "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=d=1", "-c:a", "libopus",
+            "-metadata:s:a:0", "artist=Secret", "-metadata:s:a:0", "title=Cançó", opus.path,
+        ])
+        func streamTags(_ url: URL) async throws -> [String: JSONValue] {
+            try await ffprobe(url)["streams"]?.arrayValue?.first?["tags"]?.objectValue ?? [:]
+        }
+        try #require(try await streamTags(opus)["artist"] != nil)
+        let stripped = try await world.engine.stripMetadata(opus, request: world.request(opus, location: .temporary))
+        let left = try await streamTags(stripped.output)
+        #expect(left["artist"] == nil && left["title"] == nil)
+    }
+
+    /// With strip off, an iPhone video keeps its location, make and model: a MOV all three (as
+    /// the ©xyz, ©mak and ©mod atoms), an MP4 the location, with a step for the camera it loses.
+    /// Strip removes them. Read back with ffprobe, and with exiftool where it is installed.
+    @Test func anIPhoneVideoKeepsItsLocationAndCameraUnlessStripped() async throws {
         let world = try await TestWorld()
         defer { Task { await world.finish() } }
         let mov = world.file("iphone.mov")
         try await ProcessRunner.run(.ffmpeg, [
-            "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=d=1:s=320x240:r=30",
-            "-c:v", "mjpeg", "-q:v", "2", "-pix_fmt", "yuvj420p", "-movflags", "use_metadata_tags",
-            "-metadata", "com.apple.quicktime.location.ISO6709=+41.3800+002.1700/", "-metadata", "com.apple.quicktime.make=Apple", mov.path,
+            "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=d=1:s=320x240:r=30", "-f", "lavfi", "-i", "sine=d=1",
+            "-c:v", "mjpeg", "-q:v", "2", "-pix_fmt", "yuvj420p", "-c:a", "aac", "-movflags", "use_metadata_tags",
+            "-metadata", "com.apple.quicktime.location.ISO6709=+41.3800+002.1700/", "-metadata", "com.apple.quicktime.make=Apple",
+            "-metadata", "com.apple.quicktime.model=iPhone 15", "-metadata", "com.apple.quicktime.location.accuracy.horizontal=65.000000", mov.path,
         ])
-        try #require(try await Inspect.media(mov).hasAppleLocationOrCamera)
+        try #require(try await Inspect.media(mov).appleTags.count == 3)
+        func tags(_ url: URL) async throws -> [String: String] {
+            let json = try await ffprobe(url)
+            return (json["format"]?["tags"]?.objectValue ?? [:]).compactMapValues(\.stringValue)
+                .filter { ["location", "make", "model"].contains($0.key) }
+        }
         var keep = world.request(mov, location: .temporary)
         keep.stripMetadata = false
-        let kept = try await world.engine.optimise(mov, request: keep, progress: { _ in })
-        #expect(kept.steps.contains("Location and camera were not kept"))
-        let stripped = try await world.engine.optimise(mov, request: world.request(mov, location: .temporary), progress: { _ in })
-        #expect(!stripped.steps.contains("Location and camera were not kept"))
+        let asMOV = try await world.engine.convert(mov, to: .mov, request: keep, progress: { _ in })
+        #expect(try await tags(asMOV.output) == ["location": "+41.3800+002.1700/", "make": "Apple", "model": "iPhone 15"])
+        #expect(!asMOV.steps.contains(VideoEngine.cameraNotKept))
+        if let exiftool = Personal.exiftoolURL {
+            let read = try await ProcessRunner.run(executable: exiftool, arguments: ["-s", "-s", "-s", "-Make", "-Model", "-GPSCoordinates", asMOV.output.path])
+            #expect(read.stdoutString.contains("Apple") && read.stdoutString.contains("iPhone 15") && read.stdoutString.contains("41 deg"))
+        }
+        let muted = try await world.engine.removeAudio(mov, request: keep)
+        #expect(try await tags(muted.output).count == 3, "a muted MOV keeps them too")
+
+        let asMP4 = try await world.engine.convert(mov, to: .mp4, request: keep, progress: { _ in })
+        #expect(asMP4.steps.contains(VideoEngine.cameraNotKept))
+        #expect(try await tags(asMP4.output) == ["location": "+41.3800+002.1700/"])
+        if let exiftool = Personal.exiftoolURL {
+            let read = try await ProcessRunner.run(executable: exiftool, arguments: ["-s", "-s", "-s", "-GPSLatitude", asMP4.output.path])
+            #expect(read.stdoutString.contains("41 deg"), "the MP4 keeps the location")
+        }
+
+        var strip = world.request(mov, location: .temporary)
+        strip.stripMetadata = true
+        let stripped = try await world.engine.convert(mov, to: .mov, request: strip, progress: { _ in })
+        #expect(try await tags(stripped.output).isEmpty)
         #expect(stripped.steps.contains("Removed metadata"))
+        #expect(!stripped.steps.contains(VideoEngine.cameraNotKept))
     }
 
     /// Remove audio keeps the subtitles (it used to map only the video, dropping them silently).

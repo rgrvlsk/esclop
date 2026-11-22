@@ -107,7 +107,8 @@ struct AudioEngine: Sendable {
             // Music keeps its title, artist and album unless stripping is asked for: the
             // strip-metadata setting describes photos and videos, not songs. The cover follows
             // the cover-art setting either way; only `strip` (`stripMetadata(_:work:)`) drops it.
-            args += ["-map_metadata", plan.request.stripMetadata == true ? "-1" : "0"]
+            // Stripping as `stripMetadata(_:work:)` does, so the chapters keep their titles.
+            args += plan.request.stripMetadata == true ? Self.stripTags : ["-map_metadata", "0"]
             // Chapter times do not follow a speed change (as in VideoEngine).
             if speed != nil { args += ["-map_chapters", "-1"] }
             args += ["-progress", "pipe:1", "-nostats", output.path]
@@ -125,6 +126,9 @@ struct AudioEngine: Sendable {
             if info.chapterCount > 0 {
                 steps.append("Left out \(info.chapterCount) chapter\(info.chapterCount == 1 ? "" : "s"): their times do not follow a speed change")
             }
+        }
+        if info.hasCoverArt, codec.supportsCoverArt, env.value(EsclopSettings.audioCoverArt) == .optimise {
+            steps.append("Recompressed the cover, 600 px at most")
         }
         if let loudness { steps.append("Normalised loudness to \(String(format: "%g", loudness)) LUFS") }
         if plan.request.stripMetadata == true { steps.append("Removed metadata") }
@@ -183,12 +187,16 @@ struct AudioEngine: Sendable {
         throw EsclopError.cannotFit(underBytes: target, smallest: smallest == Int.max ? nil : smallest)
     }
 
+    /// The file's and the audio's tags go (Ogg and Opus keep theirs on the stream, and with them
+    /// the track language); the chapters and their titles describe the content and stay, as in
+    /// a video's strip. A plain `-map_metadata -1` blanks the chapter titles.
+    static let stripTags = ["-map_metadata:g", "-1", "-map_metadata:s:a", "-1"]
+
     func stripMetadata(_ source: URL, work: WorkFolder) async throws -> Produced {
         let output = work.file(stem: "stripped", ext: source.pathExtension.isEmpty ? "m4a" : source.pathExtension)
         try await ProcessRunner.run(.ffmpeg, [
             "-hide_banner", "-nostdin", "-y", "-i", source.path, "-map", "0:a", "-c", "copy",
-            "-map_metadata", "-1", "-map_chapters", "-1", "-progress", "pipe:1", "-nostats", output.path,
-        ], options: FFmpegProgress(duration: nil, sink: .none).options, locator: env.tools)
+        ] + Self.stripTags + ["-map_chapters", "0", "-progress", "pipe:1", "-nostats", output.path], options: FFmpegProgress(duration: nil, sink: .none).options, locator: env.tools)
         return Produced(url: output, width: nil, height: nil, duration: nil, steps: ["Removed metadata and artwork"], allowLarger: true)
     }
 }

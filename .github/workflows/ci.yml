@@ -61,6 +61,8 @@ jobs:
         run: for f in Scripts/*.sh; do bash -n "$f" || exit 1; done
       - name: Licence gate tests
         run: Scripts/licence-gate-test.sh
+      - name: The test-folder sweep keeps this run's folders
+        run: Scripts/test-sweep-check.sh
       - name: Release notes render from CHANGELOG.md
         run: Scripts/release-notes.sh --unreleased 0.0.0 > /dev/null
       - run: swift --version
