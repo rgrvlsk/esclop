@@ -296,6 +296,10 @@ enum ImageIOCodec {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return [] }
         var found: [String] = []
         func note(_ name: String) { if !found.contains(name) { found.append(name) } }
+        // ImageIO on macOS 15 does not read a GIF's XMP: its application extension, by its header.
+        if CGImageSourceGetType(source) as String? == UTType.gif.identifier, let data = try? Data(contentsOf: url),
+           data.range(of: Data([0x21, 0xFF, 0x0B]) + Data("XMP DataXMP".utf8)) != nil
+        { note("XMP") }
         func check(_ dictionary: [CFString: Any], _ group: String, technical: Set<String>) {
             for key in (dictionary.keys.map { $0 as String }).sorted() where !technical.contains(key) {
                 note(personalTagNames[key] ?? "\(group) \(key)")

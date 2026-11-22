@@ -216,10 +216,9 @@ import UniformTypeIdentifiers
         for (ext, type) in formats {
             let file = world.file("small.\(ext)")
             try Personal.plant(file, type: type, noise: true, width: 400, height: 300)
-            let result = try await Self.checkStripsWhenUnchanged(file, world: world)
-            // Removing the metadata is often saving enough for the optimiser's own result. A
-            // HEIC's never is: its strip saves nothing.
-            if type == .heic { #expect(result.steps == ["Removed metadata"]) }
+            // Removing the metadata is often saving enough for the optimiser's own result
+            // (on macOS 15 also a HEIC's); either way nothing personal stays.
+            try await Self.checkStripsWhenUnchanged(file, world: world)
         }
         // Large enough that the XMP is less than the 3 % a lossy GIF has to save.
         let gif = world.file("small.gif")
@@ -338,7 +337,13 @@ import UniformTypeIdentifiers
         try #require(!(Personal.left(file) + Personal.inBytes(file)).isEmpty, "\(name) still carries something to remove")
         var strip = world.request(file, location: .temporary)
         strip.stripMetadata = true
-        let result = try await world.engine.optimise(file, request: strip, progress: { _ in })
+        let result: OptimisationResult
+        do {
+            result = try await world.engine.optimise(file, request: strip, progress: { _ in })
+        } catch {
+            Issue.record("\(name): \(error)")
+            throw error
+        }
         #expect(Personal.left(result.output) == [], "\(name)")
         #expect(Personal.inBytes(result.output) == [], "\(name)")
         #expect(try await Personal.exiftool(result.output) ?? [] == [], "\(name)")
