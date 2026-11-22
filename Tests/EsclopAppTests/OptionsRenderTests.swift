@@ -125,14 +125,15 @@ import UniformTypeIdentifiers
             if let request = model.cropRequest { model.estimates[request] = 520_000 }
         }
         try await snapshot(crop, name: "options-crop", scheme: scheme)
-        // Paper and devices, the sizes typed before and Smart framing (HC-37).
+        // Paper and devices (landscape, as the picture, with Turn the frame), the sizes typed
+        // before and Smart framing (HC-37).
         try EsclopSettings.cropSizes.set(["1920x1080", "1080x1080"], in: harness.settings.store)
         let presets = model(card(.done(renders.saved())), harness: harness) { model in
             model.tab = .crop
             model.findFocus = { _ in CGPoint(x: 0.7, y: 0.4) }
         }
         await presets.setFraming(.smart)
-        presets.startCrop(aspect: .preset("iPad"))
+        presets.startCrop(preset: "iPad")
         try await snapshot(presets, name: "options-crop-presets", scheme: scheme)
         let video = model(card(.done(renders.saved(RenderTests.video, kind: .video)), source: RenderTests.video, origin: .screenRecording, input: .quickTimeMovie), harness: harness, facts: FileFacts(width: 3840, height: 2160, duration: 134)) { model in
             model.tab = .crop

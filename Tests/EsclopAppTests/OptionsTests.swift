@@ -345,6 +345,30 @@ import UniformTypeIdentifiers
         return (options, file)
     }
 
+    /// A paper size or device takes the picture's orientation ("iPad" on a landscape screenshot
+    /// was a 1329 × 1912 strip); Turn the frame swaps it, and the ratios have portrait twins.
+    @Test func shapesFollowThePicturesOrientation() throws {
+        let harness = Harness()
+        let (options, _) = options(harness)
+        options.startCrop(preset: "iPad")
+        var rect = try #require(options.crop?.rect)
+        #expect(rect.height == 2000 && abs(rect.width - 2000 * 2360 / 1640) <= 0.5, "landscape, as the picture")
+        options.rotateCrop()
+        rect = try #require(options.crop?.rect)
+        #expect(rect.height == 2000 && abs(rect.width - 2000 * 1640 / 2360) <= 0.5, "turned to portrait")
+        options.crop = nil
+        options.facts = FileFacts(width: 2000, height: 3000)
+        options.startCrop(preset: "iPad")
+        #expect(options.crop?.aspect == .preset("iPad"), "portrait, as the picture")
+
+        #expect(CropAspect.presets.contains(.ratio(3, 4)) && CropAspect.presets.contains(.ratio(2, 3)))
+        options.startCrop(aspect: .ratio(16, 9))
+        options.rotateCrop()
+        #expect(options.crop?.aspect == .ratio(9, 16))
+        options.startCrop(aspect: .ratio(1, 1))
+        #expect(!CropAspect.ratio(1, 1).rotates && !CropAspect.free.rotates)
+    }
+
     /// Smart asks the engine's smart crop where the subject is, on the original, and puts the
     /// frame there; Centre puts it back in the middle.
     @Test func smartFramingUsesTheEnginesSubject() async throws {
@@ -567,6 +591,18 @@ import UniformTypeIdentifiers
         }
         #expect(checked > 80, "the scan found the app's strings")
         #expect(missing.isEmpty, "untranslated: \(missing)")
+    }
+
+    /// KeyboardShortcuts ships no Catalan, so Scripts/bundle-app.sh lays ours into its bundle:
+    /// every key the package has, so Settings never shows "Record Shortcut" in Catalan.
+    @Test func theShortcutRecorderHasCatalan() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let ours = try #require(NSDictionary(contentsOf: root.appending(path: "assets/KeyboardShortcuts/ca.lproj/Localizable.strings")) as? [String: String])
+        let package = try #require(Bundle(url: Bundle.module.bundleURL.deletingLastPathComponent().appending(path: "KeyboardShortcuts_KeyboardShortcuts.bundle")))
+        let english = try #require(package.url(forResource: "Localizable", withExtension: "strings", subdirectory: nil, localization: "en"))
+        let keys = try #require(NSDictionary(contentsOf: english) as? [String: String]).keys
+        #expect(Set(ours.keys) == Set(keys))
+        #expect(!package.localizations.contains("ca"), "the package has Catalan of its own: remove ours and its step in bundle-app.sh")
     }
 
     @Test func announcementInCatalan() {

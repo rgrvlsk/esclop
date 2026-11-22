@@ -3766,7 +3766,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Encaixa"
+            "value": "Ajusta"
           }
         }
       }
@@ -4631,26 +4631,6 @@
         }
       }
     },
-    "L'Esclop": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "L’Esclop"
-          }
-        }
-      }
-    },
-    "L'Esclop, paused": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "L’Esclop, en pausa"
-          }
-        }
-      }
-    },
     "Larger than (bytes)": {
       "localizations": {
         "ca": {
@@ -5222,16 +5202,6 @@
       }
     },
     "Move to Trash": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mou a la Paperera"
-          }
-        }
-      }
-    },
-    "Move to the Trash": {
       "localizations": {
         "ca": {
           "stringUnit": {
@@ -8101,6 +8071,16 @@
         }
       }
     },
+    "Settings file": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fitxer de configuració"
+          }
+        }
+      }
+    },
     "Settings on another Mac": {
       "localizations": {
         "ca": {
@@ -9687,6 +9667,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Activa «El menú del clic dret del Finder» en un pipeline a l’editor de pipelines."
+          }
+        }
+      }
+    },
+    "Turn the frame": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gira el marc"
           }
         }
       }
@@ -12946,7 +12936,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Si està desactivat, les targetes de resultat, la zona per deixar anar i el plafó de la barra de menús no surten a les captures ni a les gravacions de pantalla."
+            "value": "Si està desactivat, els resultats flotants, la zona per deixar anar i el tauler de la barra de menús no surten a les captures ni a les gravacions de pantalla."
           }
         }
       }

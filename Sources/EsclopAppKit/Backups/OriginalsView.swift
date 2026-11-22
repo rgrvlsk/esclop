@@ -146,15 +146,15 @@ struct OriginalRow: View {
                 .monospacedDigit()
             }
             Spacer(minLength: 8)
-            if item.inPlace {
-                Text(Strings.text("In place")).foregroundStyle(.secondary)
-            } else {
-                Button(Strings.text("Restore")) { Task { await model.restore([item]) } }
+            // The batch window's round row buttons, so both lists act alike.
+            HStack(spacing: 4) {
+                if item.inPlace {
+                    Text(Strings.text("In place")).foregroundStyle(.secondary).padding(.trailing, 4)
+                } else {
+                    RowButton(symbol: "arrow.uturn.backward", title: Strings.text("Restore")) { Task { await model.restore([item]) } }
+                }
+                RowButton(symbol: "folder", title: Strings.text("Show in Finder")) { model.reveal([item]) }
             }
-            Button(Strings.text("Show in Finder"), systemImage: "folder") { model.reveal([item]) }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.borderless)
-                .help(Strings.text("Show in Finder"))
         }
         .padding(.vertical, 3)
         .help(item.entry.original.path)

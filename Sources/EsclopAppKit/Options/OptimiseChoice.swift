@@ -86,9 +86,10 @@ public struct OptimiseChoice: Codable, Hashable, Sendable {
 
     /// "PNG · Adaptive · strip metadata": what the choice does, for a file of `input` format.
     /// `note` replaces the metadata phrase ("strip location", "keep transparency").
-    public func summary(input: OutputFormat?, note: String? = nil, locale: Locale = Strings.locale) -> String {
+    /// `namingFormat: false` leaves the format out, for a line under a heading that names it.
+    public func summary(input: OutputFormat?, note: String? = nil, namingFormat: Bool = true, locale: Locale = Strings.locale) -> String {
         let format = self.format ?? input
-        var parts = [format?.displayName].compactMap { $0 }
+        var parts = [namingFormat ? format?.displayName : nil].compactMap { $0 }
         switch format?.kind ?? .image {
         case .image:
             parts.append(quality.map { Strings.quality($0, locale: locale) } ?? compression.title(locale: locale))

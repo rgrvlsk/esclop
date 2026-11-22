@@ -142,7 +142,6 @@ public final class OptionsModel {
 
     /// The default for this origin and format.
     public var suggestion: OptimiseChoice { Suggestion.choice(for: origin, input: inputFormat) }
-    public var suggestionText: String { suggestion.summary(input: inputFormat, note: Suggestion.note(for: origin)) }
     /// Whether the result already follows the suggestion, reading the settings for what a
     /// choice leaves to them (the format it keeps, stripping metadata).
     public var isSuggestionApplied: Bool { effective(card.choice) == effective(suggestion) }
@@ -365,6 +364,18 @@ public final class OptionsModel {
         geometry.setAspect(aspect, focus: framedOn)
         crop = geometry
         cropping = true
+    }
+
+    /// A paper size or device in the picture's orientation: "iPad" frames a landscape screenshot
+    /// in landscape. The PDF crop matches each page by itself.
+    public func startCrop(preset name: String) {
+        startCrop(aspect: .preset(name, landscape: (facts.width ?? 0) > (facts.height ?? 0)))
+    }
+
+    /// The locked shape turned a quarter: 16:9 becomes 9:16, a portrait page landscape.
+    public func rotateCrop() {
+        guard let aspect = crop?.aspect, aspect.rotates else { return }
+        startCrop(aspect: aspect.rotated)
     }
 
     /// The point a new shape centres on: the middle, or the salient point with Smart. Nil keeps

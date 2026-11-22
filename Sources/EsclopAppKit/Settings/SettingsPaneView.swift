@@ -103,7 +103,7 @@ struct SettingsPaneView: View {
                 }
             }
             if let store = actions.settingsStore {
-                Section {
+                Section(Strings.text("Settings file")) {
                     LabeledContent {
                         HStack {
                             Button(Strings.text("Export…")) { SettingsFilePanels.export(store) }

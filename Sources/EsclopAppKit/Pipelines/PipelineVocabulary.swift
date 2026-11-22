@@ -22,7 +22,7 @@ enum PipelineVocabulary {
         case "copy": Strings.text("Copy the file")
         case "move": Strings.text("Move the file")
         case "rename": Strings.text("Rename")
-        case "delete": Strings.text("Move to the Trash")
+        case "delete": Strings.text("Move to Trash")
         case "if": Strings.text("Only if")
         case "ifNot": Strings.text("Skip if")
         case "removeAudio": Strings.text("Remove the sound")

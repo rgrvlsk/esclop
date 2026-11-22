@@ -141,16 +141,21 @@ import Testing
         .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         .appendingPathComponent("assets/AppIcon.png"))
 
-    /// The Permissions page when screenshots are saved in another folder (council C8-F1).
+    /// The Permissions page with every optional row: screenshots saved in another folder,
+    /// Login Items waiting for approval and an error (council C8-F1); the rows scroll.
     @Test(arguments: [ColorScheme.light, .dark])
-    func permissionsWithScreenshotsElsewhere(scheme: ColorScheme) async throws {
+    func permissionsWithEveryRow(scheme: ColorScheme) async throws {
         let viewModel = SettingsViewModel(provider: RegistrySettingsProvider(store: settings.store), extraRows: SettingsPaneView.extraRows)
         let model = OnboardingModel(defaults: settings.store.defaults)
         model.readDesktopAccess = { .allowed }
+        model.readLoginStatus = { .requiresApproval }
+        model.setLoginItem = { _ in }
+        model.opensAtLogin = true
+        model.loginError = Strings.format("macOS did not add L’Esclop to the login items: %@. Add it in System Settings › General › Login Items & Extensions.", "Operation not permitted")
         model.go(to: .permissions)
         let view = OnboardingView(onboarding: model, settings: viewModel, agents: nil, actions: SettingsActions(), icon: Self.appIcon) {}
             .environment(\.screenshotLocation, "~/Pictures/Screenshots")
-        try await SettingsRenderTests.renderWindow(view, size: CGSize(width: 640, height: 560), name: "onboarding-3-permissions-screenshots-elsewhere", scheme: scheme, settle: .milliseconds(600))
+        try await SettingsRenderTests.renderWindow(view, size: CGSize(width: 640, height: 560), name: "onboarding-3-permissions-every-row", scheme: scheme, settle: .milliseconds(600))
     }
 
     func render(_ step: OnboardingModel.Step, scheme: ColorScheme) async throws {

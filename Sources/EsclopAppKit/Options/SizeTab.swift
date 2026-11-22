@@ -110,8 +110,10 @@ struct SizeTab: View {
     private func applyCustom() {
         guard let value = Int(width), value > 0, let original = model.facts.width, original > 0, let originalHeight = model.facts.height else { return }
         model.scale(to: Double(value) / Double(original))
+        // Return leaves the field, so the popover's ⌘ keys act on the result again.
+        typing = nil
         // A width past the original's is the original's: the fields say so.
-        if value > original { typing = nil; setCustom(original, originalHeight) }
+        if value > original { setCustom(original, originalHeight) }
     }
 }
 
@@ -197,6 +199,19 @@ struct CropSection: View {
             if let aspect = model.crop?.aspect, case .preset = aspect, model.cropping, model.crop?.typed == nil {
                 Chip(title: aspect.title, selected: true) { choose(aspect) }
             }
+            // The chosen shape turned a quarter (a page in landscape, 16:9 to 9:16).
+            if model.cropping, let aspect = model.crop?.aspect, aspect.rotates {
+                Button { model.rotateCrop() } label: {
+                    Image(systemName: "rotate.right")
+                        .font(OptionsType.body)
+                        .frame(width: 28, height: 22)
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(ChipStyle(selected: false))
+                .disabled(model.card.isWorking)
+                .help(Strings.text("Turn the frame"))
+                .accessibilityLabel(Strings.text("Turn the frame"))
+            }
             // Sizes typed before (pixels: not for a PDF's pages).
             if model.kind != .pdf {
                 ForEach(Array(model.savedSizes.enumerated()), id: \.offset) { _, size in
@@ -206,16 +221,16 @@ struct CropSection: View {
                     .disabled(model.card.isWorking)
                 }
             }
-            // The CLI's --paper-size and --for-device list, portrait as it takes them.
+            // The CLI's --paper-size and --for-device list, in the picture's orientation.
             Menu(Strings.text("Paper and devices")) {
                 Section(Strings.text("Paper")) {
                     ForEach(AspectRatio.paperSizes.map { $0.name }, id: \.self) { name in
-                        Button(name) { choose(.preset(name)) }
+                        Button(name) { choose(preset: name) }
                     }
                 }
                 Section(Strings.text("Devices")) {
                     ForEach(AspectRatio.devices.map { $0.name }, id: \.self) { name in
-                        Button(name) { choose(.preset(name)) }
+                        Button(name) { choose(preset: name) }
                     }
                 }
             }
@@ -259,6 +274,11 @@ struct CropSection: View {
         }
     }
 
+    /// A paper size or device: the picture's orientation, or a PDF's pages as each one stands.
+    private func choose(preset name: String) {
+        if model.kind == .pdf { choose(.preset(name)) } else { model.startCrop(preset: name) }
+    }
+
     private func isChosen(_ size: (width: Int, height: Int)) -> Bool {
         guard model.cropping, let typed = model.crop?.typed else { return false }
         return typed == size
@@ -272,6 +292,7 @@ struct CropEditor: View {
     @State private var start: CropGeometry?
     @State private var widthText = ""
     @State private var heightText = ""
+    @FocusState private var typing: SizeTab.Side?
 
     var body: some View {
         if let crop = model.crop {
@@ -310,9 +331,13 @@ struct CropEditor: View {
                 HStack(spacing: 6) {
                     // No "px": the heading says the size, and Catalan's Restableix and Retalla
                     // need the room.
-                    OptionsNumberField(title: Strings.text("Width"), text: $widthText, width: 64).onSubmit(applySize)
+                    OptionsNumberField(title: Strings.text("Width"), text: $widthText, width: 64)
+                        .focused($typing, equals: .width)
+                        .onSubmit(applySize)
                     Text("×").foregroundStyle(PopoverInk.secondary.color)
-                    OptionsNumberField(title: Strings.text("Height"), text: $heightText, width: 64).onSubmit(applySize)
+                    OptionsNumberField(title: Strings.text("Height"), text: $heightText, width: 64)
+                        .focused($typing, equals: .height)
+                        .onSubmit(applySize)
                     Spacer(minLength: 4)
                     // Back to the whole picture; the preview stays.
                     Button(Strings.text("Reset")) { model.resetCrop() }
@@ -371,6 +396,8 @@ struct CropEditor: View {
     }
 
     private func applySize() {
+        // Return leaves the field, so the popover's ⌘ keys act on the result again.
+        typing = nil
         guard let width = Int(widthText), let height = Int(heightText) else { return syncFields() }
         model.setSize(width: width, height: height)
         syncFields()
