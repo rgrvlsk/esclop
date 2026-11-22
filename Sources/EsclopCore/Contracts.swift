@@ -13,8 +13,10 @@ public enum MediaKind: String, Codable, CaseIterable, Sendable {
     case image, video, pdf, audio
 
     public static func of(_ url: URL) -> MediaKind? {
-        guard let type = UTType(filenameExtension: url.pathExtension.lowercased()) else { return nil }
-        return of(type)
+        let ext = url.pathExtension.lowercased()
+        if let type = UTType(filenameExtension: ext), let kind = of(type) { return kind }
+        // A format L'Esclop writes that this macOS has no type for: Opus on macOS 15.
+        return ext.isEmpty ? nil : OutputFormat(name: ext)?.kind
     }
 
     public static func of(_ type: UTType) -> MediaKind? {

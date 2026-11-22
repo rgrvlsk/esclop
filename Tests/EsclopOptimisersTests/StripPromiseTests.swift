@@ -79,13 +79,17 @@ import UniformTypeIdentifiers
     @Test(.enabled(if: Harness.hasRealEngine && Harness.hasGifsicle)) func stripKeepsItsPromiseInEveryFormat() async throws {
         let world = try await TestWorld(realEngine: true)
         defer { Task { await world.finish() } }
-        var formats: [(String, UTType)] = [("jpg", .jpeg), ("png", .png), ("heic", .heic), ("tiff", .tiff), ("gif", .gif)]
+        var formats: [(String, UTType)] = [("jpg", .jpeg), ("png", .png), ("heic", .heic), ("tiff", .tiff)]
         if ImageIOCodec.canWrite(Personal.avif) { formats.append(("avif", Personal.avif)) }
         for (ext, type) in formats {
             let file = world.file("promise.\(ext)")
             try Personal.plant(file, type: type)
             try await Self.checkStripped(file, world: world)
         }
+        // ImageIO on macOS 15 writes no XMP into a GIF: the comment and XMP blocks go in by hand.
+        let gif = world.file("promise.gif")
+        try Personal.plantGIF(gif)
+        try await Self.checkStripped(gif, world: world)
         // ImageIO cannot write WebP: the engine converts a planted PNG and keeps its EXIF.
         let png = world.file("for-webp.png")
         try Personal.plant(png, type: .png)
@@ -96,10 +100,11 @@ import UniformTypeIdentifiers
     }
 
     private static func checkStripped(_ file: URL, world: TestWorld) async throws {
-        let planted = Personal.left(file) + (try await Personal.exiftool(file) ?? [])
+        let planted = Personal.left(file) + Personal.inBytes(file) + (try await Personal.exiftool(file) ?? [])
         #expect(!planted.isEmpty, "\(file.lastPathComponent) fixture carries something to remove")
         let result = try await world.engine.stripMetadata(file, request: world.request(file, location: .temporary))
         #expect(Personal.left(result.output) == [], "\(file.lastPathComponent)")
+        #expect(Personal.inBytes(result.output) == [], "\(file.lastPathComponent)")
         #expect(try await Personal.exiftool(result.output) ?? [] == [], "\(file.lastPathComponent)")
         #expect(Inspect.type(result.output) == Inspect.type(file), "\(file.lastPathComponent)")
     }
@@ -143,6 +148,35 @@ enum Personal {
             CGImageDestinationAddImageAndMetadata(destination, image, xmp, properties as CFDictionary)
         }
         guard CGImageDestinationFinalize(destination) else { throw EsclopError.other("finalize") }
+    }
+
+    /// The planted values found as plain bytes anywhere in `url`: a judge that needs no reader.
+    static func inBytes(_ url: URL) -> [String] {
+        guard let data = try? Data(contentsOf: url) else { return ["unreadable"] }
+        return ["Secret Person", "Secret Artist", "Owner Name", "PlantMake", "PlantModel", "BODY123", "LENS456", "AUX789"]
+            .filter { data.range(of: Data($0.utf8)) != nil }
+    }
+
+    /// An animated GIF with a comment block and an XMP application block (creator, serial).
+    static func plantGIF(_ url: URL) throws {
+        try Fixture.gif(url, frames: 2, size: 32)
+        var data = try Data(contentsOf: url)
+        guard data.last == 0x3B else { throw EsclopError.other("gif trailer") }
+        func subBlocks(_ text: String) -> Data {
+            var blocks = Data()
+            for chunk in stride(from: 0, to: text.utf8.count, by: 255).map({ Data(text.utf8.dropFirst($0).prefix(255)) }) {
+                blocks.append(UInt8(chunk.count))
+                blocks.append(chunk)
+            }
+            return blocks + [0]
+        }
+        let xmp = #"<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">"#
+            + #"<rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:aux="http://ns.adobe.com/exif/1.0/aux/" aux:SerialNumber="AUX789">"#
+            + "<dc:creator>Secret Person</dc:creator></rdf:Description></rdf:RDF></x:xmpmeta>"
+        let blocks = Data([0x21, 0xFE]) + subBlocks("Taken by Owner Name with BODY123")
+            + Data([0x21, 0xFF, 0x0B]) + Data("XMP DataXMP".utf8) + subBlocks(xmp)
+        data.insert(contentsOf: blocks, at: data.endIndex - 1)
+        try data.write(to: url)
     }
 
     /// What ImageIO still reads, named by tag. Its own reading, not `ImageIOCodec.personalMetadata`.

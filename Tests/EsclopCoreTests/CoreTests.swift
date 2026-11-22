@@ -489,3 +489,15 @@ final class LockedArray: @unchecked Sendable {
         #expect(!CropSize(width: 200).cropsAspect(fromWidth: 400, height: 300))
     }
 }
+
+/// Every format L'Esclop writes reads back as its kind, also on a macOS with no type for it
+/// (`.opus` on macOS 15 was "Unsupported file").
+@Suite struct MediaKindTests {
+    @Test func everyWrittenFormatReadsBackAsItsKind() {
+        for format in OutputFormat.allCases where format != .gifVideo {
+            #expect(MediaKind.of(URL(fileURLWithPath: "/x/a.\(format.fileExtension)")) == format.kind, "\(format.rawValue)")
+        }
+        #expect(MediaKind.of(URL(fileURLWithPath: "/x/a.ogg")) == .audio)
+        #expect(MediaKind.of(URL(fileURLWithPath: "/x/README")) == nil)
+    }
+}
