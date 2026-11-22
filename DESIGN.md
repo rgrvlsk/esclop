@@ -103,7 +103,9 @@ the app, so the app in front keeps its windows, but it takes the keys, so ⌘O w
   When it ends, **Last batch** in the tile's cream: its saving and its counts ("5 optimised ·
   1 failed"), until the next batch, so Restore All and Retry stay reachable. A click shows the
   batch window.
-- **Recent:** the files being optimised, each with Stop (also those with no floating result),
+- **Recent:** the files being optimised, each with Stop (also those with no floating result;
+  more than five of those share one row, "200 files", with Stop All); the arrows reach them and
+  ⌫ stops one;
   then the last twelve results, five in view: the
   picture, the name, "2.4 MB → 612 kB · 9:41" and the saving. On hover, Copy and Show in Finder;
   a click shows the result's card again; the context menu adds Compare and Restore Original.
@@ -213,7 +215,8 @@ many copied files, or a list from the CLI or an agent. It comes forward without 
   file's floating result and its options) and Quick Look. A finished row drags out as its file;
   Space shows the row under the pointer in Quick Look. A restore that sent an edited version
   to the Trash says so on the row. With rows selected, a bar under them offers Restore, Try
-  again and Remove from the List, as Originals does; ⌘C copies them and ⌫ restores them.
+  again and Remove from the List, as Originals does; ⌘C copies them and ⌫ restores them,
+  after asking when there are more than one.
   Retry All Failed runs the failed rows only: stopped ones stay stopped.
 - Pause holds the files still waiting; the ones running finish. Stop keeps every original. New
   files join a batch that is still running. VoiceOver announces the batch once, when it ends.

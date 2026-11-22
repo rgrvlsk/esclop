@@ -93,15 +93,29 @@ public struct DropZoneView: View {
                 .accessibilityHidden(true)
         } else {
             // Over a preset zone the line names its whole pipeline, in two lines at most, since a
-            // tooltip cannot show while the mouse button is down. The tallest line a zone can show
-            // (alone, or shrunk to fit with ⌥'s hint) keeps its room from the start: the panel is
-            // sized once, and the tiles must not move under the drag.
+            // tooltip cannot show while the mouse button is down. The tallest line the drag can
+            // show keeps its room from the start: the panel is sized once, and the tiles must not
+            // move under the drag. The plain line has two lines too, so Catalan's hint is whole.
             ZStack {
                 ForEach(state.zones) { zone in
-                    line(state.title(over: zone), "").lineLimit(2).hidden()
-                    line(state.title(over: zone), Strings.text("The originals stay as they are")).lineLimit(2).hidden()
+                    line(state.title(over: zone), "").lineLimit(2)
+                    line(state.title(over: zone), Strings.text("The originals stay as they are")).lineLimit(2)
                 }
-                line(state.title, state.hint).lineLimit(state.hoveredZone == nil ? 1 : 2)
+                ForEach(Array(state.plainLines.enumerated()), id: \.offset) { _, plain in
+                    line(plain.title, plain.hint).lineLimit(2)
+                }
+            }
+            .hidden()
+            .overlay {
+                ViewThatFits(in: .vertical) {
+                    line(state.title, state.hint)
+                    // ⌥ over a zone whose name takes the room: what ⌥ does is said whole, and the
+                    // name is on the tile.
+                    if state.hoveredZone != nil, state.keepOriginals {
+                        Text(state.hint).font(OptionsType.label).foregroundStyle(hintInk)
+                    }
+                    line(state.title, state.hint).lineLimit(2)
+                }
             }
             .minimumScaleFactor(0.85)
             .multilineTextAlignment(.center)

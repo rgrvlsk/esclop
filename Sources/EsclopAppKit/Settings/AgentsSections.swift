@@ -101,7 +101,7 @@ struct AgentRow: View {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     stateIcon
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(row.agent.name)
+                        Text(row.agent.shownName)
                         Text(stateText)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -110,7 +110,7 @@ struct AgentRow: View {
                 }
                 // The agent's name first, then its state: VoiceOver read the state alone.
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(Self.accessibilityLabel(name: row.agent.name, state: stateText))
+                .accessibilityLabel(Self.accessibilityLabel(name: row.agent.shownName, state: stateText))
             }
             switch agents.outcomes[row.id] {
             case let .done(text)?:

@@ -112,9 +112,9 @@ public struct MenuPanel: View {
         _highlighted = State(initialValue: highlighted)
     }
 
-    /// What the arrows move through, top to bottom: Resume, the batch tile, the recent results,
-    /// then the two commands.
-    enum Item: Hashable { case resume, batch, result(UUID), optimiseFiles, optimiseClipboard }
+    /// What the arrows move through, top to bottom: Resume, the batch tile, the files at work,
+    /// the recent results, then the two commands.
+    enum Item: Hashable { case resume, batch, working(UUID), result(UUID), optimiseFiles, optimiseClipboard }
 
     public static let width: CGFloat = 316
 
@@ -139,6 +139,12 @@ public struct MenuPanel: View {
             .onKeyPress(.upArrow) { move(-1, proxy) }
             .onKeyPress(.return) { open(results) }
             .onKeyPress(.space) { quickLook(results) }
+            .onKeyPress(.delete) {
+                let stopped = Self.stop(highlighted, in: working)
+                // The row goes with its file; the arrows start again from an end.
+                if stopped == .handled { highlighted = nil }
+                return stopped
+            }
         }
         .padding(12)
         .frame(width: Self.width)
@@ -344,17 +350,29 @@ public struct MenuPanel: View {
     /// The recent results the panel lists.
     private var results: [OptimisationResult] { Array(model.recent.prefix(Self.recentLimit)) }
 
-    /// Every file at work outside a batch, with its Stop: the cards', and those with no card.
-    /// ponytail: the arrows skip these rows, so their Stop is the pointer's and VoiceOver's; add
-    /// them to the arrows' rows if a keyboard-only person needs to stop a file with no card.
+    /// Every file at work outside a batch, with its Stop: the cards', and those with no card. The
+    /// arrows reach them and ⌫ stops the one they are on.
     private var working: [AppModel.WorkingFile] {
-        model.cards.filter(\.isWorking).map { card in
+        let cards = model.cards.filter(\.isWorking).map { card in
             let fraction: Double = if case let .working(value) = card.phase { max(0, value) } else { 0 }
             return AppModel.WorkingFile(id: card.id, name: card.displayName ?? card.source.lastPathComponent, fraction: fraction) {
                 model.perform(.stop, on: card)
             }
-        } + model.cardlessWork
+        }
+        return cards + Self.cardlessRows(model.cardlessWork)
     }
+
+    /// Up to five files with no card each have a row; more (a folder dropped with floating results
+    /// off) share one, "200 files", whose Stop stops them all.
+    static func cardlessRows(_ files: [AppModel.WorkingFile]) -> [AppModel.WorkingFile] {
+        guard files.count > cardlessShown else { return files }
+        let fraction = files.map(\.fraction).reduce(0, +) / Double(files.count)
+        return [AppModel.WorkingFile(id: cardlessSummary, name: Strings.format("%d files", files.count), fraction: fraction) { files.forEach { $0.stop() } }]
+    }
+
+    static let cardlessShown = 5
+    /// The id of the row that stands for many files with no card.
+    static let cardlessSummary = UUID(uuidString: "6E0C1A55-0000-4000-8000-000000000000")!
 
     private var recent: some View {
         let working = working
@@ -381,7 +399,13 @@ public struct MenuPanel: View {
                     .padding(.vertical, 10)
             } else {
                 let rows = VStack(spacing: 0) {
-                    ForEach(working) { file in WorkingRow(file: file) }
+                    ForEach(working) { file in
+                        WorkingRow(
+                            file: file, stopTitle: file.id == Self.cardlessSummary ? Strings.text("Stop All") : Strings.text("Stop"),
+                            highlighted: highlighted == .working(file.id)
+                        ) { hover(.working(file.id), $0) }
+                            .id(file.id)
+                    }
                     ForEach(results, id: \.id) { result in
                         RecentRow(result: result, model: model, highlighted: highlighted == .result(result.id), close: actions.close) {
                             hover(.result(result.id), $0)
@@ -401,17 +425,20 @@ public struct MenuPanel: View {
     }
 
     private func move(_ step: Int, _ proxy: ScrollViewProxy) -> KeyPress.Result {
-        let next = Self.item(after: highlighted, by: step, results: results.map(\.id), resume: model.paused, batch: shownBatch != nil)
+        let next = Self.item(after: highlighted, by: step, working: working.map(\.id), results: results.map(\.id), resume: model.paused, batch: shownBatch != nil)
         highlighted = next
         keyedAt = NSEvent.mouseLocation
         if case let .result(id) = next { proxy.scrollTo(id) }
+        if case let .working(id) = next { proxy.scrollTo(id) }
         return .handled
     }
 
-    /// The row an arrow moves to: Resume and the batch tile when shown, the recent results, then
-    /// the two commands, stopping at either end; from no row, the first (down) or the last (up).
-    static func item(after current: Item?, by step: Int, results: [UUID], resume: Bool = false, batch: Bool = false) -> Item {
-        let items = (resume ? [Item.resume] : []) + (batch ? [Item.batch] : []) + results.map(Item.result) + [.optimiseFiles, .optimiseClipboard]
+    /// The row an arrow moves to: Resume and the batch tile when shown, the files at work, the
+    /// recent results, then the two commands, stopping at either end; from no row, the first
+    /// (down) or the last (up).
+    static func item(after current: Item?, by step: Int, working: [UUID] = [], results: [UUID], resume: Bool = false, batch: Bool = false) -> Item {
+        let items = (resume ? [Item.resume] : []) + (batch ? [Item.batch] : []) + working.map(Item.working) + results.map(Item.result)
+            + [.optimiseFiles, .optimiseClipboard]
         let index = current.flatMap(items.firstIndex).map { min(max($0 + step, 0), items.count - 1) } ?? (step > 0 ? 0 : items.count - 1)
         return items[index]
     }
@@ -426,8 +453,15 @@ public struct MenuPanel: View {
         case .batch: showBatch()
         case .optimiseFiles: optimiseFiles()
         case .optimiseClipboard: optimiseClipboard()
-        case nil: return .ignored
+        case .working, nil: return .ignored
         }
+        return .handled
+    }
+
+    /// ⌫ on a file at work stops it, as its × does.
+    static func stop(_ item: Item?, in working: [AppModel.WorkingFile]) -> KeyPress.Result {
+        guard case let .working(id) = item, let file = working.first(where: { $0.id == id }) else { return .ignored }
+        file.stop()
         return .handled
     }
 
@@ -524,6 +558,12 @@ struct ProgressBar: View {
 /// A file being optimised now: its name, a bar, the percentage and Stop.
 struct WorkingRow: View {
     let file: AppModel.WorkingFile
+    /// "Stop", or "Stop All" on the row that stands for many files.
+    var stopTitle = Strings.text("Stop")
+    /// The arrow keys or the pointer are on it.
+    var highlighted = false
+    /// Tells the panel the pointer came or went, so it moves the one highlight.
+    var hover: (Bool) -> Void = { _ in }
 
     var body: some View {
         let fraction = file.fraction
@@ -546,14 +586,16 @@ struct WorkingRow: View {
             // The original stays as it was, as the card's Stop leaves it.
             Button(action: file.stop) { PillButton.face("xmark", size: 28, glyph: 0.45) }
                 .buttonStyle(PressScale())
-                .help(Strings.text("Stop"))
+                .help(stopTitle)
                 .accessibilityHidden(true)
         }
         .padding(.horizontal, 14)
         .frame(height: RecentRow.height)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Ink.text.opacity(highlighted ? 0.06 : 0)).padding(.horizontal, 4))
         .background(Surface.progress.opacity(0.7))
+        .onHover(perform: hover)
         .accessibilityElement(children: .combine)
-        .accessibilityAction(named: Strings.text("Stop"), file.stop)
+        .accessibilityAction(named: stopTitle, file.stop)
     }
 }
 

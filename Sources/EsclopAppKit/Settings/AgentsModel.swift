@@ -100,7 +100,7 @@ public final class AgentsModel {
                 pending = change
                 outcomes[agent.id] = nil
             } else {
-                outcomes[agent.id] = .done(Strings.format("L’Esclop was not in the config of %@.", agent.name))
+                outcomes[agent.id] = .done(Strings.format("L’Esclop was not in the config of %@.", agent.shownName))
             }
         } catch {
             outcomes[agent.id] = .failed(Self.words(error))
@@ -192,4 +192,10 @@ public final class AgentsModel {
         if let error = error as? EsclopError { return error.description }
         return String(describing: error)
     }
+}
+
+extension AgentDefinition {
+    /// The name as Settings shows it: a name with words in it ("Codex CLI and ChatGPT desktop")
+    /// has a translation; the others are themselves.
+    var shownName: String { Strings.text(name) }
 }

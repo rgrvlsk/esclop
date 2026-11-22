@@ -60,6 +60,9 @@ public final class WatchedFolders {
     @ObservationIgnored private var watcher: FolderWatcher?
     @ObservationIgnored private var bursts: [BurstKey: [URL]] = [:]
     @ObservationIgnored private var burstTasks: [BurstKey: Task<Void, Never>] = [:]
+    /// The files a "too many" notice left alone, by folder and kind: a newer notice for the same
+    /// folder and kind takes the older one's place while it shows, so its action offers them all.
+    @ObservationIgnored private var leftAlone: [BurstKey: [URL]] = [:]
     /// Files picked up and not finished yet, held until their job is done: one file runs once,
     /// however many events it brings while it settles and is optimised.
     @ObservationIgnored private(set) var inFlight = Set<String>()
@@ -211,10 +214,18 @@ public final class WatchedFolders {
         burstTasks[key] = nil
         guard burst.isTooLarge else { return start(burst.files) }
         burst.files.forEach { inFlight.remove($0.path); arrivedWhole.remove($0.path) }
+        let title = Self.tooManyTitle(key.kind, count: burst.limit)
+        let detail = Strings.format("They appeared together in %@, so L’Esclop left them alone.", PathInput.abbreviate(key.folder))
+        // A notice that went, unanswered or closed, took its files with it. The match is the one
+        // `AppModel.notice` replaces by (same action and words): change them together.
+        let shown = model.cards.contains { card in
+            guard case let .notice(shownTitle, shownDetail) = card.phase else { return false }
+            return card.noticeAction?.action == .optimiseAnyway && shownTitle == title && shownDetail == detail
+        }
+        leftAlone[key] = (shown ? leftAlone[key] ?? [] : []) + burst.files
         model.notice(
-            Self.tooManyTitle(key.kind, count: burst.limit),
-            Strings.format("They appeared together in %@, so L’Esclop left them alone.", PathInput.abbreviate(key.folder)),
-            action: (.optimiseAnyway, { [weak self] in self?.optimiseAnyway(burst.files) })
+            title, detail,
+            action: (.optimiseAnyway, { [weak self] in self?.optimiseAnyway(self?.leftAlone.removeValue(forKey: key) ?? []) })
         )
     }
 

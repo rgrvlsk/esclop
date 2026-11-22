@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Catalan for the KeyboardShortcuts package, which ships none: Scripts/bundle-app.sh lays it into
    the package's resource bundle. The keys are the package's (Localization/en.lproj). */
-"record_shortcut" = "Enregistra una drecera";
+"record_shortcut" = "Tria una drecera";
 "press_shortcut" = "Prem la drecera";
 "keyboard_shortcut_used_by_menu_item" = "No pots fer servir aquesta drecera perquè ja la fa servir l’ítem de menú «%@».";
 "keyboard_shortcut_used_by_system" = "No pots fer servir aquesta drecera perquè ja és una drecera de tot el sistema.";

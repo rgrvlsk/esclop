@@ -58,7 +58,9 @@ public final class DropZoneState {
     func title(over zone: PresetZone) -> String { Strings.format("Drop to run “%@”", zone.title) }
 
     /// What a drop on the plain tile does.
-    public var plainTitle: String { harder ? Strings.text("Drop to optimise harder") : Strings.text("Drop to optimise") }
+    public var plainTitle: String { Self.plainTitle(harder: harder) }
+
+    static func plainTitle(harder: Bool) -> String { harder ? Strings.text("Drop to optimise harder") : Strings.text("Drop to optimise") }
 
     /// The plain tile's name.
     public var tileTitle: String { harder ? Strings.text("Optimise harder") : Strings.text("Optimise") }
@@ -77,10 +79,20 @@ public final class DropZoneState {
     public var hint: String { hoveredZone != nil && !keepOriginals ? "" : plainHint }
 
     /// The hint for the plain tile, which its VoiceOver label reads.
-    public var plainHint: String {
+    public var plainHint: String { Self.plainHint(harder: harder, keepOriginals: keepOriginals, atPointer: atPointer) }
+
+    static func plainHint(harder: Bool, keepOriginals: Bool, atPointer: Bool) -> String {
         if keepOriginals { return Strings.text("The originals stay as they are") }
         if harder { return Strings.text("With the aggressive settings") }
         return atPointer ? Strings.text("Tap ⌥ to hide") : Strings.text("Hold ⌘ to optimise harder")
+    }
+
+    /// Every line the plain tile can show in this drag as ⌘ and ⌥ come and go, so the zone keeps
+    /// room for the tallest from the start.
+    var plainLines: [(title: String, hint: String)] {
+        [false, true].flatMap { harder in
+            [false, true].map { keep in (Self.plainTitle(harder: harder), Self.plainHint(harder: harder, keepOriginals: keep, atPointer: atPointer)) }
+        }
     }
 
     /// Which target is at `point` (top-left origin): a zone's name, `plainTarget`, or nil.

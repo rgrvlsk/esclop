@@ -46,7 +46,7 @@ import Testing
         harness.model.notice("cove.png", "images.example.com", action: (.download, {}), hideAfter: 4)
         let offer = try #require(harness.model.cards.last)
         #expect(offer.machine.hideDeadline == nil, "under VoiceOver an offer waits for the person")
-        #expect(harness.announcements.texts.last == "cove.png. images.example.com. " + CardPresentation.Action.download.title)
+        #expect(harness.announcements.texts.last == "cove.png. images.example.com. " + CardPresentation.Action.download.title + ". Control-Shift-N to go to it")
         Hotkeys.action(for: .focusNewestResult)(harness.model)
         #expect(offer.wantsFocus && offer.lentKeys, "⌃⇧N lands on the newest notice with an action")
 
@@ -54,6 +54,23 @@ import Testing
         let failed = try #require(harness.model.cards.first { $0.failure != nil })
         #expect(harness.announcements.texts.last == failed.presentation.accessibilityLabel)
         #expect(harness.announcements.texts.last?.contains("ffmpeg") == true)
+    }
+
+    /// "Already optimised" is heard as a saving is; a newer notice with the same action and words
+    /// takes the older one's place, so "Optimise anyway" for one folder does not pile up, and one
+    /// for another folder stays (WatchedFoldersTests.twoTooLargeBurstsKeepBothActions).
+    @Test func alreadyOptimisedIsHeardAndNoticesDoNotPileUp() async throws {
+        let harness = Harness(failure: .alreadySmaller)
+        _ = await harness.model.run(harness.job(harness.temp.file("a.png", bytes: 2_000)))
+        #expect(harness.announcements.texts.last?.hasPrefix("Already optimised · ") == true, "\(harness.announcements.texts)")
+        harness.model.notice("Too many images", "Desktop", action: (.optimiseAnyway, {}))
+        harness.model.notice("Address", "example.com", action: (.download, {}))
+        harness.model.notice("Too many images", "Downloads", action: (.optimiseAnyway, {}))
+        harness.model.notice("Too many images", "Desktop", action: (.optimiseAnyway, {}))
+        let notices = harness.model.cards.compactMap { card -> String? in
+            if case let .notice(_, detail) = card.phase { return detail } else { return nil }
+        }
+        #expect(notices == ["example.com", "Downloads", "Desktop"])
     }
 
     /// "Show floating results" off: a file at work is still in the menu bar panel, with Stop, and

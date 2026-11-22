@@ -261,6 +261,16 @@
         }
       }
     },
+    "%@ to go to it": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ per anar-hi"
+          }
+        }
+      }
+    },
     "%@ to resume": {
       "localizations": {
         "ca": {
@@ -541,6 +551,16 @@
         }
       }
     },
+    "%d left as they were": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d s’han quedat com estaven"
+          }
+        }
+      }
+    },
     "%d min left": {
       "localizations": {
         "ca": {
@@ -737,6 +757,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "1 fitxer optimitzat"
+          }
+        }
+      }
+    },
+    "1 left as it was": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 s’ha quedat com estava"
           }
         }
       }
@@ -2141,6 +2171,16 @@
         }
       }
     },
+    "Codex CLI and ChatGPT desktop": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codex CLI i ChatGPT desktop"
+          }
+        }
+      }
+    },
     "Collapse": {
       "localizations": {
         "ca": {
@@ -2367,6 +2407,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Continua"
+          }
+        }
+      }
+    },
+    "Control": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Control"
           }
         }
       }
@@ -5211,16 +5261,6 @@
         }
       }
     },
-    "Move down": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Baixa"
-          }
-        }
-      }
-    },
     "Move the file": {
       "localizations": {
         "ca": {
@@ -5241,22 +5281,12 @@
         }
       }
     },
-    "Move up": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Puja"
-          }
-        }
-      }
-    },
     "Move “%@” down": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Baixa «%@»"
+            "value": "Mou «%@» avall"
           }
         }
       }
@@ -5266,7 +5296,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Puja «%@»"
+            "value": "Mou «%@» amunt"
           }
         }
       }
@@ -5526,7 +5556,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "No s’ha trobat cap agent en aquest Mac. Tria’n un a sota per configurar-lo igualment, o copia un fragment al final d’aquest tauler."
+            "value": "No s’ha trobat cap agent en aquest Mac. Tria’n un a sota per configurar-lo igualment, o copia un fragment al final d’aquest apartat."
           }
         }
       }
@@ -6317,6 +6347,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "S’està optimitzant…"
+          }
+        }
+      }
+    },
+    "Option": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opció"
           }
         }
       }
@@ -7471,6 +7511,16 @@
         }
       }
     },
+    "Restore %d originals?": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vols restaurar %d originals?"
+          }
+        }
+      }
+    },
     "Restore All": {
       "localizations": {
         "ca": {
@@ -8077,6 +8127,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Opció"
+          }
+        }
+      }
+    },
+    "Shift": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Majúscules"
+          }
+        }
+      }
+    },
+    "Stop All": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atura-ho tot"
+          }
+        }
+      }
+    },
+    "The file’s value for “%@” is not one this setting takes. Nothing was changed.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El valor del fitxer per a «%@» no és un dels que admet aquest ajust. No s’ha canviat res."
+          }
+        }
+      }
+    },
+    "This is not a settings file L’Esclop exported. Nothing was changed.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquest no és un fitxer de configuració exportat per L’Esclop. No s’ha canviat res."
           }
         }
       }
@@ -8936,7 +9026,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Toca ⌥ per amagar-la"
+            "value": "Prem ⌥ per amagar-la"
           }
         }
       }
@@ -9026,7 +9116,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "El servidor MCP comprova cada petició d’un agent amb aquests interruptors, i l’app la torna a comprovar. Comencen desactivats. Només lliguen els agents que fan servir MCP: qualsevol programa que s’executi amb el teu usuari, també un agent amb accés al terminal, pot fer servir la línia d’ordres d’esclop, que actua en nom teu sense aquests límits."
+            "value": "El servidor MCP comprova cada petició d’un agent amb aquests interruptors, i l’app la torna a comprovar. Comencen desactivats. Només limiten els agents que fan servir MCP: qualsevol programa que s’executi amb el teu usuari, també un agent amb accés al terminal, pot fer servir la línia d’ordres d’esclop, que actua en nom teu sense aquests límits."
           }
         }
       }
@@ -13716,7 +13806,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "`low` (72 ppp), `medium` (144 ppp) o `high` (216 ppp)"
+            "value": "`low` (72 DPI), `medium` (144 DPI) o `high` (216 DPI)"
           }
         }
       }

@@ -70,7 +70,7 @@ struct PresetZoneList: View {
         }
         .buttonStyle(.borderless)
         .disabled(!enabled)
-        .help(offset < 0 ? Strings.text("Move up") : Strings.text("Move down"))
+        .help(offset < 0 ? Strings.text("Move Up") : Strings.text("Move Down"))
         .accessibilityLabel(Strings.format(offset < 0 ? "Move “%@” up" : "Move “%@” down", zone.title))
     }
 

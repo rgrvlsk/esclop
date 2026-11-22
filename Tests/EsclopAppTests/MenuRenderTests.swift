@@ -77,4 +77,26 @@ import Testing
         harness.model.cardlessWork.forEach { $0.stop() }
         #expect(await eventually { harness.model.cardlessWork.isEmpty })
     }
+
+    /// A many-file drop with floating results off: one row for them all, "7 files", whose Stop
+    /// stops every one; the arrows reach it and ⌫ stops it.
+    @Test func menuPanelManyCardlessFiles() async throws {
+        let harness = Harness(delay: .seconds(600))
+        try EsclopSettings.showFloatingResults.set(false, in: harness.settings.store)
+        harness.model.optimise((1 ... 7).map { harness.temp.file("Clip \($0).mov") }, origin: .dropZone)
+        #expect(await eventually { harness.model.cardlessWork.count == 7 })
+        let rows = MenuPanel.cardlessRows(harness.model.cardlessWork)
+        #expect(rows.map(\.name) == [Strings.format("%d files", 7)])
+        #expect(MenuPanel.cardlessRows(Array(harness.model.cardlessWork.prefix(5))).count == 5, "five still have a row each")
+        let actions = MenuPanelActions(settings: {}, pipelines: {}, welcome: {}, checkForUpdates: {}, close: {})
+        try await SettingsRenderTests.renderBoth({ _ in
+            MenuPanel(model: harness.model, actions: actions, notch: 200, range: .today, highlighted: .working(MenuPanel.cardlessSummary)).padding(18)
+        }, size: CGSize(width: MenuPanel.width + 36, height: 600), name: "menu-panel-cardless-many")
+        let row = try #require(rows.first)
+        #expect(MenuPanel.item(after: nil, by: 1, working: [row.id], results: []) == .working(row.id))
+        #expect(MenuPanel.item(after: .working(row.id), by: 1, working: [row.id], results: []) == .optimiseFiles)
+        #expect(MenuPanel.stop(.optimiseFiles, in: rows) == .ignored)
+        #expect(MenuPanel.stop(.working(row.id), in: rows) == .handled)
+        #expect(await eventually { harness.model.cardlessWork.isEmpty && harness.model.activeFiles == 0 })
+    }
 }

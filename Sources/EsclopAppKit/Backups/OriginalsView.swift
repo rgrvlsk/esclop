@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The Originals window, from the menu's gear: every original L'Esclop keeps, newest first, with
-// its thumbnail, folder, date and size, Restore, Show in Finder and Remove; ⌘A or shift-click
+// its thumbnail, folder, date and size, Restore and Show in Finder on hover as in the batch window,
+// and Remove in the context menu; ⌘A or shift-click
 // selects several for Restore and Remove, Space shows the selected one in Quick Look. Their
 // total and Remove All under them. A plain native list.
 
@@ -14,9 +15,12 @@ struct OriginalsView: View {
     @State private var selection = Set<OriginalItem.ID>()
     /// The originals a Remove asks about; all of them for Remove All.
     @State private var removing: [OriginalItem]?
+    /// The row under the pointer as the window opens, for the renders.
+    private let hovered: OriginalItem.ID?
 
-    init(model: OriginalsModel, selection: Set<OriginalItem.ID> = []) {
+    init(model: OriginalsModel, selection: Set<OriginalItem.ID> = [], hovered: OriginalItem.ID? = nil) {
         self.model = model
+        self.hovered = hovered
         _selection = State(initialValue: selection)
     }
 
@@ -29,7 +33,7 @@ struct OriginalsView: View {
             } else {
                 List(selection: $selection) {
                     ForEach(model.items) { item in
-                        OriginalRow(item: item, model: model) { removing = [item] }
+                        OriginalRow(item: item, model: model, hovering: item.id == hovered) { removing = [item] }
                     }
                 }
                 .contextMenu(forSelectionType: OriginalItem.ID.self) { ids in menu(model.items(ids)) }
@@ -130,6 +134,14 @@ struct OriginalRow: View {
     let model: OriginalsModel
     let remove: () -> Void
     @State private var thumbnail: NSImage?
+    @State private var hovering: Bool
+
+    init(item: OriginalItem, model: OriginalsModel, hovering: Bool = false, remove: @escaping () -> Void) {
+        self.item = item
+        self.model = model
+        self.remove = remove
+        _hovering = State(initialValue: hovering)
+    }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -146,17 +158,24 @@ struct OriginalRow: View {
                 .monospacedDigit()
             }
             Spacer(minLength: 8)
-            // The batch window's round row buttons, so both lists act alike.
-            HStack(spacing: 4) {
-                if item.inPlace {
-                    Text(Strings.text("In place")).foregroundStyle(.secondary).padding(.trailing, 4)
-                } else {
-                    RowButton(symbol: "arrow.uturn.backward", title: Strings.text("Restore")) { Task { await model.restore([item]) } }
+            // The batch window's round row buttons, on hover as there, so both lists act alike.
+            if item.inPlace {
+                Text(Strings.text("In place")).foregroundStyle(.secondary).padding(.trailing, 4)
+            }
+            if hovering {
+                HStack(spacing: 4) {
+                    if !item.inPlace {
+                        RowButton(symbol: "arrow.uturn.backward", title: Strings.text("Restore")) { Task { await model.restore([item]) } }
+                    }
+                    RowButton(symbol: "folder", title: Strings.text("Show in Finder")) { model.reveal([item]) }
                 }
-                RowButton(symbol: "folder", title: Strings.text("Show in Finder")) { model.reveal([item]) }
+                .transition(.opacity)
             }
         }
         .padding(.vertical, 3)
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
+        .animation(Motion.hover, value: hovering)
         .help(item.entry.original.path)
         // One element with each action once, not the buttons again as children.
         .accessibilityElement(children: .ignore)
