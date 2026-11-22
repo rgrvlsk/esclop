@@ -257,6 +257,11 @@ enum Inspect {
         return CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] ?? [:]
     }
 
+    /// The container tags ffprobe finds that are not purely technical.
+    static func mediaTags(_ url: URL) async throws -> [String] {
+        try await MediaInfo.probe(url, tools: .shared).personalTags
+    }
+
     static func bytes(_ url: URL) -> Int {
         (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.intValue ?? 0
     }

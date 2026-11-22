@@ -38,7 +38,7 @@ mod tests;
 use crate::ctx::Ctx;
 use crate::error::{EngineError, Result};
 use crate::ops::{Encoded, compression, finish, open, parse_params};
-use crate::protocol::{Format, OpResult, PdfParams, Request};
+use crate::protocol::{Format, Keep, OpResult, PdfParams, Request};
 use crate::quality;
 use images::ImagePlan;
 use lopdf::{Document, LoadOptions, Object, ObjectId, SaveOptions, Stream};
@@ -55,7 +55,8 @@ pub fn optimise(req: &Request, ctx: &Ctx) -> Result<OpResult> {
         Some(_) => return Err(EngineError::invalid("`dpi` must be 0 or 48..=300")),
     };
     let (bytes, target) = open(req, &p.out)?;
-    let settings = Settings::new(factor, dpi, p.out.strip);
+    let settings =
+        Settings { keep_title: p.out.keep_list().contains(&Keep::Title), ..Settings::new(factor, dpi, p.out.strip) };
     let before = bytes.len() as u64;
     let (out, lossy) = rewrite(bytes, &settings, ctx)?;
     let q = settings.jpeg_quality;
@@ -97,6 +98,8 @@ pub struct Settings {
     /// legible).
     pub image_floor: f64,
     pub strip: bool,
+    /// With `strip`, the document information keeps its title.
+    pub keep_title: bool,
     /// False at compression 0: images stay exactly as stored.
     pub images: bool,
 }
@@ -110,6 +113,7 @@ impl Settings {
             min_ssim: if factor <= 40 { 0.98 } else { 0.95 },
             image_floor: if factor <= 40 { 0.90 } else { 0.85 },
             strip,
+            keep_title: false,
             images: factor > 0,
         }
     }
@@ -121,7 +125,7 @@ impl Settings {
 /// copy of its streams is the only one.
 pub fn rewrite(input: Vec<u8>, settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8>, bool)> {
     let bytes = input.as_slice();
-    let Settings { dpi, jpeg_quality, kept_size_quality, min_ssim, image_floor, strip, images } = *settings;
+    let Settings { dpi, jpeg_quality, kept_size_quality, min_ssim, image_floor, strip, keep_title, images } = *settings;
     let head = &bytes[..bytes.len().min(1024)];
     if !head.windows(5).any(|w| w == b"%PDF-") {
         return Err(EngineError::unsupported("not a PDF"));
@@ -249,7 +253,7 @@ pub fn rewrite(input: Vec<u8>, settings: &Settings, ctx: &Ctx) -> Result<(Vec<u8
     ctx.check()?;
 
     if strip {
-        strip_metadata(&mut doc);
+        strip_metadata(&mut doc, keep_title);
     }
     // Before the placement walk, so the moved images get their drawn size.
     inline::move_inline_images(&mut doc, &ctx.cancel_flag())?;
@@ -676,8 +680,15 @@ fn recompress_stream(s: &Stream, budget: &budget::Budget) -> Result<Option<Strea
     Ok(Some(Stream::new(nd, packed)))
 }
 
-fn strip_metadata(doc: &mut Document) {
+fn strip_metadata(doc: &mut Document, keep_title: bool) {
+    let title = if keep_title { title_of(doc) } else { None };
     doc.trailer.remove(b"Info");
+    if let Some(title) = title {
+        let mut info = lopdf::Dictionary::new();
+        info.set("Title", title);
+        let id = doc.add_object(info);
+        doc.trailer.set("Info", Object::Reference(id));
+    }
     if let Ok(cat) = doc.catalog_mut() {
         cat.remove(b"Metadata");
         cat.remove(b"PieceInfo");
@@ -689,6 +700,12 @@ fn strip_metadata(doc: &mut Document) {
             p.remove(b"PieceInfo");
         }
     }
+}
+
+/// The document information's `/Title`, which readers and screen readers show.
+fn title_of(doc: &Document) -> Option<Object> {
+    let info = doc.trailer.get(b"Info").and_then(|o| doc.dereference(o)).and_then(|(_, o)| o.as_dict()).ok()?;
+    info.get(b"Title").and_then(|o| doc.dereference(o)).ok().map(|(_, o)| o.clone())
 }
 
 /// Stores byte-identical streams (same dictionary, same data) once.

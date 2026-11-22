@@ -178,6 +178,7 @@ import Testing
             ("result-grew", card(.done(saved(after: 2_470_000)))),
             ("result-harder", card(.done(saved(after: 360_000)), aggressive: true)),
             ("result-already-optimised", card(.unchanged(bytes: 41_200))),
+            ("result-metadata-removed", card(.done({ var result = saved(before: 41_200, after: 41_200); result.steps = ["Removed metadata"]; return result }()))),
             ("result-restored", card(.restored(saved()))),
             ("result-restored-trash", { let restored = card(.restored(saved())); restored.editInTrash = true; return restored }()),
             ("result-error", card(.failed(CardPresentation.message(for: EsclopError.unreadable(kind: .video))), source: Self.video)),

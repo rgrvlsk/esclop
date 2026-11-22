@@ -144,6 +144,9 @@ pub enum Keep {
     Icc,
     /// The EXIF orientation tag, rewritten as a minimal EXIF block.
     Orientation,
+    /// A PDF's title (`/Title` of the document information), which readers and screen readers
+    /// show in place of the file name. Only `pdf.optimise` reads it.
+    Title,
 }
 
 /// Default for `keep`: what Clop keeps when it strips metadata.
@@ -519,7 +522,8 @@ pub struct PdfParams {
     #[schemars(range(max = 100))]
     pub compression: Option<u8>,
     /// `strip` removes the document information, the catalog's XMP, page thumbnails and
-    /// application data (`/PieceInfo`); `keep` does not apply.
+    /// application data (`/PieceInfo`); with `keep: ["title"]` the information keeps only the
+    /// title. The catalog's `/Lang` always stays.
     #[serde(flatten)]
     pub out: OutputParams,
 }

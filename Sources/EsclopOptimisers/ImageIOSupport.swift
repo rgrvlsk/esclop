@@ -238,19 +238,27 @@ enum ImageIOCodec {
     }
 
     /// Removes EXIF, GPS, XMP and IPTC, keeping the orientation, density, colour profile, every
-    /// page, the gain map and a portrait's depth and mattes. First without touching pixels; ImageIO cannot do that for HEIC,
-    /// TIFF or AVIF (it writes the HEIC back unchanged and reports success), so when anything
-    /// personal is still there it re-encodes at the highest quality. Returns whether it
-    /// re-encoded; the caller reads the result back with `personalMetadata`.
-    // ponytail: a HEIC re-encoded at quality 1 is visually the same (70 dB PSNR) but about a
-    // third larger. Dropping the Exif and XMP items from the HEIF boxes would keep its bytes;
-    // write that if people mind the size.
+    /// page, the gain map and a portrait's depth and mattes, without touching pixels: HEIC and
+    /// AVIF by blanking their Exif and XMP items (`HEIFMetadata`), the rest with ImageIO. ImageIO
+    /// cannot do it for HEIC, TIFF or AVIF (it writes the HEIC back unchanged and reports
+    /// success), so when anything personal is still there it re-encodes at the highest quality.
+    /// Returns whether it re-encoded; the caller reads the result back with `personalMetadata`.
     @discardableResult
     static func stripMetadata(_ source: URL, to url: URL) throws -> Bool {
         guard let input = CGImageSourceCreateWithURL(source as CFURL, nil), let typeID = CGImageSourceGetType(input),
               let type = UTType(typeID as String)
         else { throw EsclopError.unsupportedFile(source.lastPathComponent) }
-        let orientation = (CGImageSourceCopyPropertiesAtIndex(input, 0, nil) as? [CFString: Any])?[kCGImagePropertyOrientation] as? Int ?? 1
+        let properties = CGImageSourceCopyPropertiesAtIndex(input, 0, nil) as? [CFString: Any] ?? [:]
+        let orientation = properties[kCGImagePropertyOrientation] as? Int ?? 1
+        if heifTypes.contains(type), let data = try? Data(contentsOf: source),
+           let blanked = HEIFMetadata.blanked(
+               data, orientation: (properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any])?[kCGImagePropertyTIFFOrientation] as? Int,
+               dpi: properties[kCGImagePropertyDPIWidth] as? Double
+           )
+        {
+            try blanked.write(to: url)
+            if personalMetadata(url).isEmpty { return false }
+        }
         let metadata = CGImageMetadataCreateMutable()
         if orientation != 1 {
             CGImageMetadataSetValueMatchingImageProperty(
@@ -277,42 +285,69 @@ enum ImageIOCodec {
         return true
     }
 
-    /// What in `url` tells where, with what or by whom a picture was taken: the location, the
-    /// camera, serial numbers, the owner, the author and their comments, in EXIF, TIFF, maker
-    /// notes, XMP or IPTC, on any page. Empty when there is none. Reads the result of every strip.
+    /// The ISO base media formats whose metadata `HEIFMetadata` removes.
+    static let heifTypes: [UTType] = [.heic, .heif] + [UTType("public.avif")].compactMap { $0 }
+
+    /// What in `url` tells where, with what, when or by whom a picture was taken, on any page:
+    /// any GPS, IPTC, maker note or EXIF aux tag, and any EXIF, TIFF or XMP tag that is not purely
+    /// technical (`technicalTags`). An allowlist, so a tag nobody thought of counts as personal.
+    /// Empty when there is none. Reads the result of every strip.
     static func personalMetadata(_ url: URL) -> [String] {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return [] }
         var found: [String] = []
         func note(_ name: String) { if !found.contains(name) { found.append(name) } }
+        // ImageIO on macOS 15 does not read a GIF's XMP: its application extension, by its header.
+        if CGImageSourceGetType(source) as String? == UTType.gif.identifier, let data = try? Data(contentsOf: url),
+           data.range(of: Data([0x21, 0xFF, 0x0B]) + Data("XMP DataXMP".utf8)) != nil
+        { note("XMP") }
+        func check(_ dictionary: [CFString: Any], _ group: String, technical: Set<String>) {
+            for key in (dictionary.keys.map { $0 as String }).sorted() where !technical.contains(key) {
+                note(personalTagNames[key] ?? "\(group) \(key)")
+            }
+        }
         for index in 0 ..< CGImageSourceGetCount(source) {
             let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any] ?? [:]
             if let gps = properties[kCGImagePropertyGPSDictionary] as? [CFString: Any], !gps.isEmpty { note("location") }
-            let tiff = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any] ?? [:]
-            if tiff[kCGImagePropertyTIFFMake] != nil || tiff[kCGImagePropertyTIFFModel] != nil { note("camera") }
-            if tiff[kCGImagePropertyTIFFArtist] != nil || tiff[kCGImagePropertyTIFFCopyright] != nil { note("author") }
-            let exif = properties[kCGImagePropertyExifDictionary] as? [CFString: Any] ?? [:]
-            let aux = properties[kCGImagePropertyExifAuxDictionary] as? [CFString: Any] ?? [:]
-            if exif[kCGImagePropertyExifBodySerialNumber] != nil || exif[kCGImagePropertyExifLensSerialNumber] != nil
-                || aux[kCGImagePropertyExifAuxSerialNumber] != nil || aux[kCGImagePropertyExifAuxLensSerialNumber] != nil
-            { note("serial number") }
-            if exif[kCGImagePropertyExifCameraOwnerName] != nil || aux[kCGImagePropertyExifAuxOwnerName] != nil { note("owner") }
-            if exif[kCGImagePropertyExifLensMake] != nil || exif[kCGImagePropertyExifLensModel] != nil { note("camera") }
-            if exif[kCGImagePropertyExifUserComment] != nil { note("comment") }
+            check(properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any] ?? [:], "TIFF", technical: technicalTags["tiff"]!)
+            check(properties[kCGImagePropertyExifDictionary] as? [CFString: Any] ?? [:], "EXIF", technical: technicalTags["exif"]!)
+            check(properties[kCGImagePropertyExifAuxDictionary] as? [CFString: Any] ?? [:], "EXIF", technical: [])
             if makerDictionaries.contains(where: { properties[$0] != nil }) { note("maker notes") }
             if let iptc = properties[kCGImagePropertyIPTCDictionary] as? [CFString: Any], !iptc.isEmpty { note("IPTC") }
-            // XMP the dictionaries above do not show: Dublin Core, Photoshop, IPTC Core, rights.
-            // ponytail: a list, not "anything but tiff/exif": the HEIC and TIFF re-encodes drop
-            // every XMP tag anyway, and the engine's strip drops the XMP packet. Widen it if a
-            // route is found keeping another namespace.
+            // XMP shows the EXIF and TIFF tags again under their own prefixes, and ImageIO's
+            // `iio` flags say which blocks it read.
             let tags = CGImageSourceCopyMetadataAtIndex(source, index, nil).flatMap { CGImageMetadataCopyTags($0) as? [CGImageMetadataTag] } ?? []
             for tag in tags {
                 let prefix = CGImageMetadataTagCopyPrefix(tag) as String? ?? ""
-                // Lightroom keywords and face regions hold people's names.
-                if ["dc", "photoshop", "Iptc4xmpCore", "Iptc4xmpExt", "xmpRights", "aux", "lr", "mwg-rs", "MP"].contains(prefix) { note("XMP") }
+                let name = CGImageMetadataTagCopyName(tag) as String? ?? ""
+                if prefix != "iio", technicalTags[prefix]?.contains(name) != true { note("XMP") }
             }
         }
         return found
     }
+
+    /// The EXIF and TIFF tags (by XMP prefix) that describe only how the pixels are stored and
+    /// shown: dimensions, orientation, colour space, density, compression, bits.
+    static let technicalTags: [String: Set<String>] = [
+        "tiff": Set([
+            kCGImagePropertyTIFFOrientation, kCGImagePropertyTIFFXResolution, kCGImagePropertyTIFFYResolution,
+            kCGImagePropertyTIFFResolutionUnit, kCGImagePropertyTIFFCompression, kCGImagePropertyTIFFPhotometricInterpretation,
+            kCGImagePropertyTIFFTileWidth, kCGImagePropertyTIFFTileLength, kCGImagePropertyTIFFPrimaryChromaticities,
+            kCGImagePropertyTIFFWhitePoint, kCGImagePropertyTIFFTransferFunction,
+        ].map { $0 as String } + ["BitsPerSample", "SamplesPerPixel", "PlanarConfiguration"]),
+        "exif": Set([
+            kCGImagePropertyExifColorSpace, kCGImagePropertyExifPixelXDimension, kCGImagePropertyExifPixelYDimension,
+            kCGImagePropertyExifVersion, kCGImagePropertyExifFlashPixVersion, kCGImagePropertyExifComponentsConfiguration,
+            kCGImagePropertyExifGamma, kCGImagePropertyExifCompressedBitsPerPixel,
+        ].map { $0 as String } + ["FlashpixVersion"]), // XMP's spelling
+    ]
+
+    /// Plain names for the personal tags people know, in the read-back's message.
+    static let personalTagNames: [String: String] = [
+        "Make": "camera", "Model": "camera", "LensMake": "camera", "LensModel": "camera", "HostComputer": "camera",
+        "Artist": "author", "Copyright": "author",
+        "BodySerialNumber": "serial number", "LensSerialNumber": "serial number", "SerialNumber": "serial number",
+        "CameraOwnerName": "owner", "OwnerName": "owner", "UserComment": "comment",
+    ]
 
     /// The camera makers' own dictionaries.
     static var makerDictionaries: [CFString] { [

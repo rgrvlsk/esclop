@@ -192,11 +192,15 @@ struct AudioEngine: Sendable {
     /// a video's strip. A plain `-map_metadata -1` blanks the chapter titles.
     static let stripTags = ["-map_metadata:g", "-1", "-map_metadata:s:a", "-1"]
 
-    func stripMetadata(_ source: URL, work: WorkFolder) async throws -> Produced {
+    /// Remove metadata drops the artwork too; a song an optimise strips keeps its cover as the
+    /// cover-art setting says (`keepsCover`), as a song that re-encodes does.
+    func stripMetadata(_ source: URL, work: WorkFolder, keepsCover: Bool = false) async throws -> Produced {
         let output = work.file(stem: "stripped", ext: source.pathExtension.isEmpty ? "m4a" : source.pathExtension)
+        let cover = keepsCover && env.value(EsclopSettings.audioCoverArt) != .remove
+        let streams = cover ? ["-map", "0:a", "-map", "0:v?", "-disposition:v:0", "attached_pic"] : ["-map", "0:a"]
         try await ProcessRunner.run(.ffmpeg, [
-            "-hide_banner", "-nostdin", "-y", "-i", source.path, "-map", "0:a", "-c", "copy",
-        ] + Self.stripTags + ["-map_chapters", "0", "-progress", "pipe:1", "-nostats", output.path], options: FFmpegProgress(duration: nil, sink: .none).options, locator: env.tools)
-        return Produced(url: output, width: nil, height: nil, duration: nil, steps: ["Removed metadata and artwork"], allowLarger: true)
+            "-hide_banner", "-nostdin", "-y", "-i", source.path,
+        ] + streams + ["-c", "copy"] + Self.stripTags + ["-map_chapters", "0", "-progress", "pipe:1", "-nostats", output.path], options: FFmpegProgress(duration: nil, sink: .none).options, locator: env.tools)
+        return Produced(url: output, width: nil, height: nil, duration: nil, steps: [cover ? "Removed metadata" : "Removed metadata and artwork"], allowLarger: true)
     }
 }

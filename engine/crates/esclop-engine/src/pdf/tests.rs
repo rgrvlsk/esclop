@@ -712,3 +712,33 @@ fn an_encrypt_key_far_from_the_end_in_a_cross_reference_stream_is_found() {
     assert!(!xref_stream_names_encrypt(plain));
     assert_eq!(load_stream_limit(plain, &Ctx::silent()).unwrap(), budget::MAX_LOAD_STREAM);
 }
+
+#[test]
+fn optimise_keeps_the_title_and_language_and_strip_removes_the_rest() {
+    // HC-46 H3: readers and screen readers show the title; the author, tool and dates go.
+    let mut objs = one_page("<< >>", b"");
+    objs[0] = obj("<< /Type /Catalog /Pages 2 0 R /Lang (ca) >>");
+    objs.push(obj(
+        "<< /Title (Quarterly report) /Author (Secret Person) /Creator (Writer) /CreationDate (D:20261122) >>",
+    ));
+    // Spliced as bytes: the header and the stream are not UTF-8, and the trailer follows every offset.
+    let mut pdf = build(&objs);
+    let at = pdf.windows(14).position(|w| w == b"/Root 1 0 R >>").unwrap() + 11;
+    pdf.splice(at..at, b" /Info 5 0 R".iter().copied());
+    let info = |out: &[u8]| {
+        let doc = Document::load_mem(out).unwrap();
+        let lang = doc.catalog().unwrap().get(b"Lang").ok().and_then(|o| o.as_str().ok()).map(<[u8]>::to_vec);
+        let Ok(info) = doc.trailer.get(b"Info").and_then(|o| doc.dereference(o)).and_then(|(_, o)| o.as_dict()) else {
+            return (lang, vec![]);
+        };
+        let mut keys: Vec<Vec<u8>> = info.iter().map(|(k, _)| k.clone()).collect();
+        keys.sort();
+        (lang, keys)
+    };
+    for (keep_title, expected) in [(true, vec![b"Title".to_vec()]), (false, vec![])] {
+        let settings = Settings { keep_title, ..Settings::new(0, None, true) };
+        let (r, _) = rewrite_with(pdf.clone(), settings, limit(20)).expect("over 20 s");
+        let (out, _) = r.unwrap();
+        assert_eq!(info(&out), (Some(b"ca".to_vec()), expected), "keep_title {keep_title}");
+    }
+}
