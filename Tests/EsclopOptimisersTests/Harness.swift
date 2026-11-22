@@ -153,9 +153,10 @@ enum Fixture {
     }
 
     /// Stereo 16-bit white noise as a WAV, written here: the bundled ffmpeg has no noise
-    /// source, and noise is what lossy codecs cannot shrink to nothing.
+    /// source, and noise is what lossy codecs cannot shrink to nothing. Seeded, so every run
+    /// encodes the same samples: random noise sometimes came out "already as small".
     static func noiseWAV(_ url: URL, seconds: Int = 3, sampleRate: Int = 44100) throws {
-        var generator = SystemRandomNumberGenerator()
+        var generator = SeededGenerator(seed: 0x45_73_63_6C_6F_70)
         let frames = seconds * sampleRate
         var samples = Data(capacity: frames * 4)
         for _ in 0 ..< frames * 2 {
@@ -223,6 +224,19 @@ enum Fixture {
         }
         CGImageDestinationAddImage(destination, image, properties as CFDictionary)
         guard CGImageDestinationFinalize(destination) else { throw EsclopError.other("finalize") }
+    }
+}
+
+/// SplitMix64: the same numbers for the same seed, for fixtures that must not change between runs.
+struct SeededGenerator: RandomNumberGenerator {
+    var state: UInt64
+    init(seed: UInt64) { state = seed }
+    mutating func next() -> UInt64 {
+        state &+= 0x9E37_79B9_7F4A_7C15
+        var z = state
+        z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
+        z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
+        return z ^ (z >> 31)
     }
 }
 
