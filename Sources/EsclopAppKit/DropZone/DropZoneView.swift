@@ -18,7 +18,7 @@ public struct DropZoneView: View {
 
     public var body: some View {
         VStack(spacing: 10) {
-            HStack(alignment: .top, spacing: 8) {
+            HStack(alignment: .top, spacing: DropTiles.gap) {
                 if state.zonesLeading { zoneRow }
                 plainTarget
                 if !state.zonesLeading { zoneRow }
@@ -65,7 +65,7 @@ public struct DropZoneView: View {
     @ViewBuilder
     private var zoneRow: some View {
         if !state.zones.isEmpty {
-            HStack(alignment: .top, spacing: 8) {
+            HStack(alignment: .top, spacing: DropTiles.gap) {
                 ForEach(state.zones) { zone in
                     DropTile(hovered: state.hoveredZone == zone.name, width: DropTiles.zoneWidth) {
                         Image(systemName: zone.icon).font(.system(size: 15, weight: .medium))
@@ -118,9 +118,9 @@ public struct DropZoneView: View {
         return (text + Text(verbatim: " · ").foregroundStyle(PopoverInk.secondary.color) + Text(hint).foregroundStyle(hintInk)).font(OptionsType.label)
     }
 
-    /// The tiles' row: the plain target and the zones, 8 pt apart.
+    /// The tiles' row: the plain target and the zones.
     private var rowWidth: CGFloat {
-        DropTiles.plainWidth + CGFloat(state.zones.count) * (DropTiles.zoneWidth + 8)
+        DropTiles.plainWidth + CGFloat(state.zones.count) * (DropTiles.zoneWidth + DropTiles.gap)
     }
 
     /// ⌥ says what it keeps in the primary ink; ⌘'s aggressive settings in the warm colour.
@@ -136,6 +136,7 @@ enum DropTiles {
     static let plainWidth: CGFloat = 124
     static let zoneWidth: CGFloat = 100
     static let height: CGFloat = 104
+    static let gap: CGFloat = 8
 }
 
 struct DropTile<Symbol: View, Label: View>: View {

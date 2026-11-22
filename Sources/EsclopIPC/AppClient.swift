@@ -111,12 +111,15 @@ public struct AppClient: Sendable {
         if isAppRunning { throw EsclopError.other("The L'Esclop app is still running \(Int(timeout)) s after being asked to quit") }
     }
 
+    /// Tells the app it was opened for the CLI or an agent, not by the person: it shows nothing.
+    public static let backgroundLaunch = "--background"
+
     /// Opens the app in the background and waits until it listens.
     public func launchApp(timeout: TimeInterval = 15) async throws {
         if isAppRunning { return }
         let open = Process()
         open.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        open.arguments = ["-g", "-b", bundleIdentifier]
+        open.arguments = ["-g", "-b", bundleIdentifier, "--args", Self.backgroundLaunch]
         open.standardOutput = FileHandle.nullDevice
         open.standardError = FileHandle.nullDevice
         open.standardInput = FileHandle.nullDevice

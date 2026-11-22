@@ -179,7 +179,11 @@ extension AppModel {
         let shown = Set(visibleCards.compactMap(\.result?.id))
         // A new walk once none of the results it brought back is on screen.
         if walk.broughtBack.isDisjoint(with: shown) { walk = ([], []) }
-        guard let result = recent.first(where: { !shown.contains($0.id) && !walk.pushedOff.contains($0.id) }) else { return beep() }
+        guard let result = recent.first(where: { !shown.contains($0.id) && !walk.pushedOff.contains($0.id) }) else {
+            // The end: the next press starts again from the newest.
+            walk = ([], [])
+            return beep()
+        }
         show(result)
         walk.broughtBack.insert(result.id)
         walk.pushedOff.formUnion(shown.subtracting(visibleCards.compactMap(\.result?.id)))

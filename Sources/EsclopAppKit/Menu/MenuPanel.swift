@@ -345,6 +345,8 @@ public struct MenuPanel: View {
     private var results: [OptimisationResult] { Array(model.recent.prefix(Self.recentLimit)) }
 
     /// Every file at work outside a batch, with its Stop: the cards', and those with no card.
+    /// ponytail: the arrows skip these rows, so their Stop is the pointer's and VoiceOver's; add
+    /// them to the arrows' rows if a keyboard-only person needs to stop a file with no card.
     private var working: [AppModel.WorkingFile] {
         model.cards.filter(\.isWorking).map { card in
             let fraction: Double = if case let .working(value) = card.phase { max(0, value) } else { 0 }

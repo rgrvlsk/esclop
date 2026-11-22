@@ -598,8 +598,10 @@ public final class AppModel {
                 if let card, row == nil, error != .cancelled { announce(card.presentation.accessibilityLabel) }
                 // With no card ("Show floating results" off, a quiet pipeline), what the person
                 // asked for never fails unseen. The CLI, agents and Shortcuts get the error.
-                if card == nil, row == nil, error != .cancelled, Self.tellsFailures(job.request.origin) {
-                    notice(Strings.format("Could not optimise %@", displayName(of: source)), CardPresentation.message(for: error), hideAfter: 8)
+                // ponytail: each failed file of one job says so in turn, the last one stays; tell
+                // once per job if many-file drops with cards off fail together.
+                if let work = cardlessWork.first(where: { $0.id == cardless }), row == nil, error != .cancelled, Self.tellsFailures(job.request.origin) {
+                    notice(Strings.format("Could not optimise %@", work.name), CardPresentation.message(for: error), hideAfter: 8)
                 }
             }
         }
@@ -620,10 +622,6 @@ public final class AppModel {
         case .app, .clipboard, .dropZone, .hotkey, .finder: true
         case .watchedFolder, .cli, .mcp, .shortcuts: false
         }
-    }
-
-    private func displayName(of source: URL) -> String {
-        Self.isCopiedImage(source) ? Strings.text("Copied image") : source.lastPathComponent
     }
 
     private func progress(_ fraction: Double, cardID: UUID) {

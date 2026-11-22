@@ -202,10 +202,11 @@ public final class AppServices {
         }
     }
 
-    /// Launched with the glyph hidden: Settings at the switch that shows it, as a second open
-    /// does (macOS sends reopen only to a running app). A launch at login stays quiet.
-    public func launched(atLogin: Bool) {
-        guard !atLogin, !model.showsMenuBarIcon else { return }
+    /// Launched by hand with the glyph hidden: Settings at the switch that shows it, as a second
+    /// open does (macOS sends reopen only to a running app). A launch at login, or for the CLI or
+    /// an agent, stays quiet.
+    public func launched(quietly: Bool) {
+        guard !quietly, !model.showsMenuBarIcon else { return }
         showGlyphSwitch()
     }
 
@@ -213,8 +214,11 @@ public final class AppServices {
         settingsWindow.show(SettingsRoute(pane: .general, row: EsclopSettings.showMenubarIcon.key))
     }
 
-    /// The launch's Apple event says whether the system opened the app as a login item.
-    public static var launchedAtLogin: Bool {
+    /// Opened for the CLI or an agent (`AppClient.launchApp`), or as a login item, which the
+    /// launch's Apple event says. ponytail: Sparkle's relaunch after an update counts as a launch
+    /// by hand; pass it the marker too if Settings after an update annoys.
+    public static func launchedQuietly(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool {
+        if arguments.contains(AppClient.backgroundLaunch) { return true }
         guard let event = NSAppleEventManager.shared().currentAppleEvent, event.eventID == kAEOpenApplication else { return false }
         return event.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
     }

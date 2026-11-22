@@ -5,6 +5,7 @@
 
 import AppKit
 import EsclopCore
+import EsclopIPC
 @testable import EsclopAppKit
 import Testing
 
@@ -86,19 +87,21 @@ import Testing
     }
 
     /// With the glyph hidden, a launch by hand shows Settings at the switch that brings it back; a
-    /// launch at login stays quiet.
+    /// launch at login, or for the CLI or an agent, stays quiet.
     @Test func aLaunchWithTheGlyphHiddenShowsSettings() throws {
         let settings = TestSettings()
         try EsclopSettings.showMenubarIcon.set(false, in: settings.store)
         let services = AppServices(settings: settings.store)
-        services.launched(atLogin: true)
+        #expect(AppServices.launchedQuietly(arguments: ["L’Esclop", AppClient.backgroundLaunch]), "opened by `launchApp`")
+        #expect(!AppServices.launchedQuietly(arguments: ["L’Esclop"]))
+        services.launched(quietly: true)
         #expect(!services.settingsWindow.isVisible)
-        services.launched(atLogin: false)
+        services.launched(quietly: false)
         #expect(services.settingsWindow.isVisible)
         services.settingsWindow.window?.close()
 
         let shown = AppServices(settings: TestSettings().store)
-        shown.launched(atLogin: false)
+        shown.launched(quietly: false)
         #expect(!shown.settingsWindow.isVisible, "the glyph is there to find")
     }
 }

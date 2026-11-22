@@ -242,6 +242,8 @@ import Testing
         #expect(beeps == 0)
         Hotkeys.action(for: .showLastResult)(harness.model)
         #expect(beeps == 1, "past the oldest it beeps")
+        Hotkeys.action(for: .showLastResult)(harness.model)
+        #expect(harness.model.cards.last?.result?.id == newestFirst[0], "and starts again from the newest")
     }
 
     /// Copy, the result, the hotkey, Z: a copied screenshot is undone from the keyboard alone.
