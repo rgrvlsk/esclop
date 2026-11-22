@@ -721,8 +721,10 @@ fn optimise_keeps_the_title_and_language_and_strip_removes_the_rest() {
     objs.push(obj(
         "<< /Title (Quarterly report) /Author (Secret Person) /Creator (Writer) /CreationDate (D:20261122) >>",
     ));
-    let pdf =
-        String::from_utf8_lossy(&build(&objs)).replace("/Root 1 0 R >>", "/Root 1 0 R /Info 5 0 R >>").into_bytes();
+    // Spliced as bytes: the header and the stream are not UTF-8, and the trailer follows every offset.
+    let mut pdf = build(&objs);
+    let at = pdf.windows(14).position(|w| w == b"/Root 1 0 R >>").unwrap() + 11;
+    pdf.splice(at..at, b" /Info 5 0 R".iter().copied());
     let info = |out: &[u8]| {
         let doc = Document::load_mem(out).unwrap();
         let lang = doc.catalog().unwrap().get(b"Lang").ok().and_then(|o| o.as_str().ok()).map(<[u8]>::to_vec);

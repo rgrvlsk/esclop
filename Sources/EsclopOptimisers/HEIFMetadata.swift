@@ -40,8 +40,12 @@ enum HEIFMetadata {
             let described = references.filter { $0.type == "cdsc" && $0.from == id }.flatMap(\.to)
             return described.isEmpty || !described.allSatisfy(auxiliary.contains)
         }
+        // An item's payload lies in a top-level `mdat` or in `idat`, never over the boxes.
+        let payloads = (top.filter { $0.type == "mdat" } + box("idat")).map { $0.body ..< $0.end }
         for (id, item) in targets.sorted(by: { $0.key < $1.key }) {
-            guard item.encoding.isEmpty, let extents = locations[id]?.extents, !extents.isEmpty else { return nil }
+            guard item.encoding.isEmpty, let extents = locations[id]?.extents, !extents.isEmpty,
+                  extents.allSatisfy({ extent in payloads.contains { $0.contains(extent.start) && extent.start + extent.length <= $0.upperBound } })
+            else { return nil }
             // Bytes another item also uses are not this item's to blank.
             for (other, location) in locations where other != id {
                 for a in extents {

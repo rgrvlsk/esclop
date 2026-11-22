@@ -329,12 +329,12 @@ enum ImageIOCodec {
             kCGImagePropertyTIFFResolutionUnit, kCGImagePropertyTIFFCompression, kCGImagePropertyTIFFPhotometricInterpretation,
             kCGImagePropertyTIFFTileWidth, kCGImagePropertyTIFFTileLength, kCGImagePropertyTIFFPrimaryChromaticities,
             kCGImagePropertyTIFFWhitePoint, kCGImagePropertyTIFFTransferFunction,
-        ].map { $0 as String }),
+        ].map { $0 as String } + ["BitsPerSample", "SamplesPerPixel", "PlanarConfiguration"]),
         "exif": Set([
             kCGImagePropertyExifColorSpace, kCGImagePropertyExifPixelXDimension, kCGImagePropertyExifPixelYDimension,
             kCGImagePropertyExifVersion, kCGImagePropertyExifFlashPixVersion, kCGImagePropertyExifComponentsConfiguration,
             kCGImagePropertyExifGamma, kCGImagePropertyExifCompressedBitsPerPixel,
-        ].map { $0 as String }),
+        ].map { $0 as String } + ["FlashpixVersion"]), // XMP's spelling
     ]
 
     /// Plain names for the personal tags people know, in the read-back's message.
