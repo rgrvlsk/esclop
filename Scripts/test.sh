@@ -26,7 +26,8 @@ fi
 find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'esclop-renders-*' -mmin +60 -exec rm -rf {} + 2>/dev/null || true
 # Every test world leaves a folder in esclop-tests. This run has made none yet, so one an hour
 # old is from an earlier run. Scripts/test-sweep-check.sh runs this line in a sandbox.
-# ponytail: a run in another checkout that is still going after an hour loses its folders.
+# ponytail: a test folder's date moves while its test writes, but fake-engine-* is written once
+# per run: a run in another checkout still going after an hour loses its fake engine.
 find "${TMPDIR:-/tmp}/esclop-tests" -mindepth 1 -maxdepth 1 -mmin +60 -exec rm -rf {} + 2>/dev/null || true
 # The MCP conformance test drives the real `esclop mcp serve` binary over stdio.
 swift build --product esclop >&2

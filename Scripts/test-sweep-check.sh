@@ -1,7 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Runs Scripts/test.sh's sweep of $TMPDIR/esclop-tests in a sandbox: a folder older than an hour
-# goes; a fresh one (the current run's), loose files and folders outside esclop-tests stay.
+# goes; a fresh one (the current run's), esclop-tests itself and folders beside it stay.
 set -eu
 cd "$(dirname "$0")/.."
 sweep="$(grep -E '^find .*/esclop-tests"' Scripts/test.sh)"
@@ -9,7 +9,8 @@ sweep="$(grep -E '^find .*/esclop-tests"' Scripts/test.sh)"
 sandbox="$(mktemp -d "${TMPDIR:-/tmp}/test-sweep-check.XXXXXX")"
 trap 'rm -rf "$sandbox"' EXIT
 mkdir -p "$sandbox/esclop-tests/old-run/inner" "$sandbox/esclop-tests/this-run" "$sandbox/neighbour"
-touch -t 202001010000 "$sandbox/esclop-tests/old-run" "$sandbox/neighbour"
+# Old dates after the children exist, so a sweep without -mindepth 1 would take the parent.
+touch -t 202001010000 "$sandbox/esclop-tests/old-run" "$sandbox/esclop-tests" "$sandbox/neighbour"
 TMPDIR="$sandbox" sh -c "$sweep"
 failed=0
 check() { if [ "$1" "$2" ]; then :; else echo "test-sweep-check: expected $1 $2" >&2; failed=1; fi; }

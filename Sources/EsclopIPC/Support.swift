@@ -416,10 +416,15 @@ public struct ResultSummary: Codable, Sendable, Hashable {
         let name = URL(fileURLWithPath: source).lastPathComponent
         if let link { return "\(name) uploaded → \(link)" }
         if skippedByFilter { return "\(name) skipped by the filter" }
-        let change = savedBytes >= 0 ? "−\(Self.percent(savedPercent))%" : "+\(Self.percent(-savedPercent))%"
-        var text = "\(name) \(ByteSize.format(bytesBefore)) → \(ByteSize.format(bytesAfter)) (\(change))"
+        var text = "\(name) \(ByteSize.format(bytesBefore)) → \(ByteSize.format(bytesAfter)) (\(Self.change(savedBytes, percent: savedPercent)))"
         if output != source { text += " → \(PathInput.abbreviate(output))" }
         return text
+    }
+
+    /// "−72%" for a saving, "+33.8%" for a file or total that grew. The sign follows the bytes:
+    /// 100 bytes more on a megabyte rounds to `-0.0`, which still grew ("+0%").
+    public static func change(_ savedBytes: Int, percent savedPercent: Double) -> String {
+        savedBytes >= 0 ? "−\(percent(savedPercent))%" : "+\(percent(-savedPercent))%"
     }
 
     public static func percent(_ value: Double) -> String {
@@ -471,7 +476,7 @@ public struct JobSummary: Codable, Sendable {
         var lines = results.map(\.line)
         lines += failures.map { "✗ \(URL(fileURLWithPath: $0.source).lastPathComponent): \($0.message)" }
         if results.count > 1 {
-            lines.append("Total \(ByteSize.format(bytesBefore)) → \(ByteSize.format(bytesAfter)) (−\(ResultSummary.percent(savedPercent))%) over \(results.count) files")
+            lines.append("Total \(ByteSize.format(bytesBefore)) → \(ByteSize.format(bytesAfter)) (\(ResultSummary.change(savedBytes, percent: savedPercent))) over \(results.count) files")
         }
         if lines.isEmpty { lines = ["No files to process"] }
         return lines.joined(separator: "\n")
