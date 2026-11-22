@@ -14,10 +14,12 @@ import Foundation
 public enum CropAspect: Hashable, Sendable, Identifiable {
     case free
     case ratio(Int, Int)
-    /// A paper size or device by its name in `AspectRatio.presets`, portrait as the CLI takes it.
-    case preset(String)
+    /// A paper size or device by its name in `AspectRatio.presets`, portrait as the CLI takes it
+    /// unless turned to landscape.
+    case preset(String, landscape: Bool = false)
 
-    public static let presets: [CropAspect] = [.free, .ratio(1, 1), .ratio(4, 3), .ratio(16, 9), .ratio(9, 16), .ratio(3, 2)]
+    /// Each shape with its portrait twin, as 16:9 has 9:16.
+    public static let presets: [CropAspect] = [.free, .ratio(1, 1), .ratio(4, 3), .ratio(3, 4), .ratio(3, 2), .ratio(2, 3), .ratio(16, 9), .ratio(9, 16)]
 
     public var id: String { title }
 
@@ -25,15 +27,28 @@ public enum CropAspect: Hashable, Sendable, Identifiable {
         switch self {
         case .free: return Strings.text("Free")
         case let .ratio(w, h): return "\(w):\(h)"
-        case let .preset(name): return name
+        case let .preset(name, _): return name
         }
     }
+
+    /// The same shape turned a quarter.
+    public var rotated: CropAspect {
+        switch self {
+        case .free: return .free
+        case let .ratio(w, h): return .ratio(h, w)
+        case let .preset(name, landscape): return .preset(name, landscape: !landscape)
+        }
+    }
+
+    /// Whether turning it changes anything: not free, not square.
+    public var rotates: Bool { value.map { abs($0 - 1) > 0.001 } ?? false }
 
     var value: Double? {
         switch self {
         case .free: return nil
         case let .ratio(w, h): return w > 0 && h > 0 ? Double(w) / Double(h) : nil
-        case let .preset(name): return AspectRatio.presets.first { $0.name == name }.map { $0.width / $0.height }
+        case let .preset(name, landscape):
+            return AspectRatio.presets.first { $0.name == name }.map { landscape ? $0.height / $0.width : $0.width / $0.height }
         }
     }
 }

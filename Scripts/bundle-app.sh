@@ -80,6 +80,11 @@ for b in "$bindir"/*.bundle; do
   [ -d "$b" ] && cp -R "$b" "$APP/Contents/Resources/" && bundles=$((bundles + 1))
 done
 [ "$bundles" -gt 0 ] || { echo "bundle-app: no resource bundles in $bindir" >&2; exit 1; }
+# KeyboardShortcuts ships no Catalan: the shortcut recorder and its alerts take ours. Drop this
+# once the package has a ca.lproj of its own (LocalisationTests says when).
+shortcuts="$APP/Contents/Resources/KeyboardShortcuts_KeyboardShortcuts.bundle"
+[ -d "$shortcuts/Contents/Resources" ] || { echo "bundle-app: no KeyboardShortcuts bundle" >&2; exit 1; }
+cp -R assets/KeyboardShortcuts/ca.lproj "$shortcuts/Contents/Resources/"
 
 # Sparkle.framework (updates), with its helpers (Autoupdate, Updater.app) and XPC services, from
 # the package's binary target. ditto keeps the framework's symlinks.
@@ -131,6 +136,8 @@ fw="$APP/Contents/Frameworks/Sparkle.framework"
 "${sign[@]}" "$fw/Versions/B/Autoupdate" >/dev/null
 "${sign[@]}" "$fw/Versions/B/Updater.app" >/dev/null
 "${sign[@]}" "$fw" >/dev/null
+# Its seal no longer covers the Catalan added above.
+"${sign[@]}" "$shortcuts" >/dev/null
 "${sign[@]}" "$APP" >/dev/null
 codesign --verify --deep --strict "$APP"
 

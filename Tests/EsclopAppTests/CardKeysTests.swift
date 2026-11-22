@@ -9,6 +9,7 @@ import Carbon.HIToolbox
 import EsclopCore
 @testable import EsclopAppKit
 import KeyboardShortcuts
+import SwiftUI
 import Testing
 
 @MainActor
@@ -235,5 +236,69 @@ import Testing
         #expect(card.wantsFocus)
         #expect(harness.model.press("z", on: card))
         #expect(await eventually { if case .restored = card.phase { return true } else { return false } })
+    }
+    /// The popover's ⌘ keys leave a number being typed alone: ⌘Z there undoes the typing (the
+    /// main menu's Undo, through the field), never Restore original; ⌘C copies the text, not the
+    /// file. Out of the field they act on the result again.
+    @Test func thePopoversKeysLeaveATypedSizeAlone() async throws {
+        let harness = Harness()
+        let (card, window) = try await Self.popover(harness)
+        defer { window.close() }
+        let field = try #require(await eventually(.seconds(10)) { Self.textField(in: window.contentView) != nil } ? Self.textField(in: window.contentView) : nil)
+        #expect(window.makeFirstResponder(field))
+        #expect((window.firstResponder as? NSTextView)?.isFieldEditor == true, "the width is being typed")
+        try await Task.sleep(for: .milliseconds(100))
+        for key in ["z", "c", "s"] {
+            #expect(!window.performKeyEquivalent(with: Self.command(key, in: window)), "⌘\(key) goes on to the field")
+        }
+        #expect(!card.restoring, "the original stays replaced")
+        window.makeFirstResponder(nil)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(window.performKeyEquivalent(with: Self.command("z", in: window)), "out of the field ⌘Z is Restore original")
+        #expect(card.restoring)
+    }
+
+    /// "Show L'Esclop in screenshots" reaches the options popover as it reaches the card.
+    @Test func thePopoverFollowsTheScreenshotsSwitch() async throws {
+        let harness = Harness()
+        for shown in [false, true] {
+            try EsclopSettings.showInScreenshots.set(shown, in: harness.settings.store)
+            let (_, window) = try await Self.popover(harness)
+            #expect(window.sharingType == (shown ? .readOnly : .none))
+            window.close()
+        }
+    }
+
+    /// The options of a finished picture in a window of their own, on the Size tab.
+    static func popover(_ harness: Harness) async throws -> (ResultCard, NSWindow) {
+        let file = harness.temp.png("photo.png")
+        let result = OptimisationResult(source: file, output: file, kind: .image, bytesBefore: 1000, bytesAfter: 900, startedAt: Date(), finishedAt: Date())
+        let card = ResultCard(jobID: result.id, source: file, origin: .dropZone, bytesBefore: 1000, phase: .done(result))
+        harness.model.add(card)
+        let options = OptionsModel(card: card, app: harness.model)
+        options.facts = FileFacts(width: 3000, height: 2000)
+        options.tab = .size
+        let window = NSWindow(contentRect: CGRect(x: 40, y: 40, width: 400, height: 600), styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.sharingType = .readOnly
+        window.contentView = NSHostingView(rootView: OptionsPopover(model: options))
+        window.orderFrontRegardless()
+        _ = await eventually(.seconds(10)) { textField(in: window.contentView) != nil }
+        return (card, window)
+    }
+
+    static func textField(in view: NSView?) -> NSTextField? {
+        guard let view else { return nil }
+        if let field = view as? NSTextField, field.isEditable { return field }
+        return view.subviews.lazy.compactMap { textField(in: $0) }.first
+    }
+
+    static func command(_ key: String, in window: NSWindow) -> NSEvent {
+        let codes = ["z": kVK_ANSI_Z, "c": kVK_ANSI_C, "s": kVK_ANSI_S]
+        return NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: .command, timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: window.windowNumber, context: nil, characters: key, charactersIgnoringModifiers: key,
+            isARepeat: false, keyCode: UInt16(codes[key] ?? 0)
+        )!
     }
 }

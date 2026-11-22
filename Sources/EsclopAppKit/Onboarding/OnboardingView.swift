@@ -310,7 +310,9 @@ struct PermissionsPage: View {
                 }
             }
             .formStyle(.grouped)
-            .scrollDisabled(true)
+            // Still while the rows fit; they scroll when every optional row is there (Catalan,
+            // screenshots elsewhere, Login Items waiting, an error).
+            .scrollBounceBehavior(.basedOnSize)
         }
         .task { await onboarding.checkDesktop() }
     }

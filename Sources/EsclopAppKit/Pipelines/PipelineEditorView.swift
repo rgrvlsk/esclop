@@ -39,7 +39,7 @@ public struct PipelineEditorView: View {
             Button(Strings.text("Cancel"), role: .cancel) { model.pendingSelection = nil }
         }
         .confirmationDialog(Strings.format("Delete “%@”?", model.draft.name), isPresented: $confirmingDelete, titleVisibility: .visible) {
-            Button(Strings.text("Move to the Trash"), role: .destructive) { model.delete() }
+            Button(Strings.text("Move to Trash"), role: .destructive) { model.delete() }
         } message: {
             Text(Strings.text("The pipeline file goes to the Trash, so you can put it back from there."))
         }

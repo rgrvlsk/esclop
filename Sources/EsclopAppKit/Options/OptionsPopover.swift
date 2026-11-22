@@ -11,6 +11,8 @@ import SwiftUI
 public struct OptionsPopover: View {
     @State private var model: OptionsModel
     @State private var contentHeight: CGFloat = 0
+    /// A Size or Crop field is being typed in: its ⌘ keys are the field's.
+    @State private var typing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Where the arrow is: the bottom edge when the popover sits above its button.
@@ -54,8 +56,8 @@ public struct OptionsPopover: View {
         }
         .background(Surface.recessed)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: model.tab)
-        .background { shortcuts }
-        .background { PopoverEdgePin(arrowAtBottom: arrowAtBottom).frame(width: 0, height: 0) }
+        .background { shortcuts.disabled(typing) }
+        .background { PopoverEdgePin(arrowAtBottom: arrowAtBottom, sharing: model.app.windowSharing, typing: $typing).frame(width: 0, height: 0) }
         .task { await model.appear() }
         .onDisappear { model.disappear() }
         .designTint()
@@ -87,7 +89,8 @@ public struct OptionsPopover: View {
     /// The listed ⌘ shortcuts work from any tab; Show in Finder takes Clop's ⌘F too, as the card
     /// does. Copy, Save as…, Quick Look and Show in Finder
     /// are also rows of the Actions tab (ShareTab), which show these keys, and Restore original's
-    /// tooltip shows ⌘Z: change both together.
+    /// tooltip shows ⌘Z: change both together. While a field is typed in they are off, so the
+    /// main menu gives the key to the field: ⌘Z undoes the typing, ⌘C copies the text.
     private var shortcuts: some View {
         Group {
             Button("") { model.app.perform(.copy, on: model.card) }.keyboardShortcut("c")
@@ -206,27 +209,42 @@ struct FusedTabShape: Shape {
 struct PopoverEdgePin: NSViewRepresentable {
     /// The arrow is on the popover's bottom edge (the popover sits above its button).
     var arrowAtBottom: Bool
+    /// "Show L'Esclop in screenshots", as for the card under it.
+    var sharing: NSWindow.SharingType
+    /// Whether a text field of the popover is being edited (its field editor has the keys).
+    @Binding var typing: Bool
 
     func makeNSView(context: Context) -> PinView {
         let view = PinView()
-        view.arrowAtBottom = arrowAtBottom
+        update(view)
         return view
     }
 
     func updateNSView(_ view: PinView, context: Context) {
+        update(view)
+    }
+
+    private func update(_ view: PinView) {
         view.arrowAtBottom = arrowAtBottom
+        view.sharing = sharing
+        let typing = $typing
+        view.typing = { if typing.wrappedValue != $0 { typing.wrappedValue = $0 } }
     }
 
     final class PinView: NSView {
         var arrowAtBottom = true
+        var sharing: NSWindow.SharingType = .none
+        var typing: (Bool) -> Void = { _ in }
         private var pinned: CGFloat?
         nonisolated(unsafe) private var observer: NSObjectProtocol?
+        private var responder: NSKeyValueObservation?
         private var previous: NSRunningApplication?
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             if let observer { NotificationCenter.default.removeObserver(observer) }
             observer = nil
+            responder = nil
             pinned = nil
             guard let window else {
                 // The popover closed: give focus back to the app the person was working in.
@@ -234,6 +252,7 @@ struct PopoverEdgePin: NSViewRepresentable {
                 previous = nil
                 return
             }
+            window.sharingType = sharing
             // The first frame is where AppKit put the popover against its button.
             DispatchQueue.main.async { [weak self] in
                 guard let self, let window = self.window else { return }
@@ -249,6 +268,9 @@ struct PopoverEdgePin: NSViewRepresentable {
             }
             observer = NotificationCenter.default.addObserver(forName: NSWindow.didResizeNotification, object: window, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.restore() }
+            }
+            responder = window.observe(\.firstResponder, options: .new) { [weak self] window, _ in
+                MainActor.assumeIsolated { self?.typing((window.firstResponder as? NSTextView)?.isFieldEditor == true) }
             }
         }
 

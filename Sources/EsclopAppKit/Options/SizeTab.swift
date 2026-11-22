@@ -197,6 +197,19 @@ struct CropSection: View {
             if let aspect = model.crop?.aspect, case .preset = aspect, model.cropping, model.crop?.typed == nil {
                 Chip(title: aspect.title, selected: true) { choose(aspect) }
             }
+            // The chosen shape turned a quarter (a page in landscape, 16:9 to 9:16).
+            if model.cropping, let aspect = model.crop?.aspect, aspect.rotates {
+                Button { model.rotateCrop() } label: {
+                    Image(systemName: "rotate.right")
+                        .font(OptionsType.body)
+                        .frame(width: 28, height: 22)
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(ChipStyle(selected: false))
+                .disabled(model.card.isWorking)
+                .help(Strings.text("Turn the frame"))
+                .accessibilityLabel(Strings.text("Turn the frame"))
+            }
             // Sizes typed before (pixels: not for a PDF's pages).
             if model.kind != .pdf {
                 ForEach(Array(model.savedSizes.enumerated()), id: \.offset) { _, size in
@@ -206,16 +219,16 @@ struct CropSection: View {
                     .disabled(model.card.isWorking)
                 }
             }
-            // The CLI's --paper-size and --for-device list, portrait as it takes them.
+            // The CLI's --paper-size and --for-device list, in the picture's orientation.
             Menu(Strings.text("Paper and devices")) {
                 Section(Strings.text("Paper")) {
                     ForEach(AspectRatio.paperSizes.map { $0.name }, id: \.self) { name in
-                        Button(name) { choose(.preset(name)) }
+                        Button(name) { choose(preset: name) }
                     }
                 }
                 Section(Strings.text("Devices")) {
                     ForEach(AspectRatio.devices.map { $0.name }, id: \.self) { name in
-                        Button(name) { choose(.preset(name)) }
+                        Button(name) { choose(preset: name) }
                     }
                 }
             }
@@ -257,6 +270,11 @@ struct CropSection: View {
         } else {
             model.startCrop(aspect: aspect)
         }
+    }
+
+    /// A paper size or device: the picture's orientation, or a PDF's pages as each one stands.
+    private func choose(preset name: String) {
+        if model.kind == .pdf { choose(.preset(name)) } else { model.startCrop(preset: name) }
     }
 
     private func isChosen(_ size: (width: Int, height: Int)) -> Bool {

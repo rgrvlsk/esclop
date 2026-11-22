@@ -56,10 +56,11 @@ struct SuggestionCard: View {
                 .font(Typeface.smallHeading)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
-                Text(subtitle(request))
+                Text(subtitle(request, namingFormat: !converts))
                     .font(OptionsType.label)
                     .foregroundStyle(PopoverInk.primary.color.opacity(0.75))
-                    .lineLimit(2)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
             Spacer(minLength: 6)
             Button { model.apply(suggestion) } label: {
@@ -82,13 +83,14 @@ struct SuggestionCard: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// "33 % lighter, keep transparency", or the suggestion in words.
-    private func subtitle(_ request: EstimateRequest) -> String {
+    /// "33 % lighter, keep transparency", or the suggestion in words: without the format when
+    /// the heading already names it.
+    private func subtitle(_ request: EstimateRequest, namingFormat: Bool) -> String {
         var parts: [String] = []
         if let bytes = model.estimate(request), let now = model.card.result?.bytesAfter, bytes < now {
             parts.append(Strings.format("%@ lighter", Figures.percent(before: now, after: bytes).replacingOccurrences(of: "−", with: "")))
         }
-        parts.append(Suggestion.note(for: model.origin) ?? model.suggestionText)
+        parts.append(Suggestion.note(for: model.origin) ?? model.suggestion.summary(input: model.inputFormat, namingFormat: namingFormat))
         return parts.joined(separator: ", ")
     }
 }
