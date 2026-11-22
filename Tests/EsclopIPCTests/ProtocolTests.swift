@@ -364,13 +364,35 @@ final class FakeHandler: AppRequestHandler, @unchecked Sendable {
         let server = AppServer(handler: handler, ports: ports)
         try server.start()
         let client = AppClient(ports: ports)
-        // The fake does not exit, so stop the ports as the app would on terminate. On a queue of
-        // its own: a 0.3 s timer on the cooperative pool or on DispatchQueue.global() waits for a
-        // free worker thread, and on a loaded runner it fired after the 5 s the client waits.
+        // The fake does not exit, so stop the ports as the app would on terminate.
         DispatchQueue(label: "quit-test").asyncAfter(deadline: .now() + 0.3) { server.stop() }
         try await client.quit(timeout: 5)
         #expect(handler.lock.withLock { handler.quitCalled })
         #expect(!client.isAppRunning)
+    }
+
+    /// HC-45: a port closed while another thread of the same process looked its name up kept
+    /// that name for good (one close in a few, or a crash), so `quit()` waited for a gone app.
+    @Test func aClosedPortsNameGoesAwayWhileItIsLookedUp() throws {
+        let stuck = Counter()
+        for _ in 0..<100 {
+            let name = "\(ports().prefix).lookup"
+            let port = try LocalMessagePort(name: name) { _ in }
+            let lookups = DispatchGroup()
+            let closed = Counter()
+            for _ in 0..<2 {
+                DispatchQueue.global().async(group: lookups) { while closed.value == 0 { _ = RemoteMessagePort.isListening(name) } }
+            }
+            usleep(UInt32.random(in: 0...2000))
+            port.invalidate()
+            closed.add()
+            lookups.wait()
+            // CoreFoundation frees the Mach port a moment after the close, on a queue of its own.
+            let deadline = Date().addingTimeInterval(5)
+            while RemoteMessagePort.isListening(name), Date() < deadline { usleep(5000) }
+            if RemoteMessagePort.isListening(name) { stuck.add() }
+        }
+        #expect(stuck.value == 0)
     }
 }
 
