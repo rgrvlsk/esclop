@@ -282,11 +282,11 @@ import Testing
         #expect(SettingsFilePanels.importFailure("Something else.", locale: ca).hasSuffix("\n\nSomething else."))
     }
 
-    /// An agent's name joins its parts with the language's "and".
-    @Test func agentNamesJoinInTheLanguage() throws {
+    /// An agent's name with words in it is translated.
+    @Test func agentNamesSpeakTheLanguage() throws {
         let codex = try #require(AgentCatalog.all.first { $0.id == "codex" })
-        #expect(codex.shownName(locale: Locale(identifier: "ca")) == "Codex CLI i ChatGPT desktop")
-        #expect(codex.shownName(locale: Locale(identifier: "en")) == "Codex CLI and ChatGPT desktop")
+        #expect(Strings.text(codex.name, locale: Locale(identifier: "ca")) == "Codex CLI i ChatGPT desktop")
+        #expect(Strings.text(codex.name, locale: Locale(identifier: "en")) == "Codex CLI and ChatGPT desktop")
     }
 
     @Test func theQuestionNamesEachPermission() {

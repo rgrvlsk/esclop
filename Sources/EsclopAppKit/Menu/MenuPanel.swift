@@ -139,7 +139,12 @@ public struct MenuPanel: View {
             .onKeyPress(.upArrow) { move(-1, proxy) }
             .onKeyPress(.return) { open(results) }
             .onKeyPress(.space) { quickLook(results) }
-            .onKeyPress(.delete) { Self.stop(highlighted, in: working) }
+            .onKeyPress(.delete) {
+                let stopped = Self.stop(highlighted, in: working)
+                // The row goes with its file; the arrows start again from an end.
+                if stopped == .handled { highlighted = nil }
+                return stopped
+            }
         }
         .padding(12)
         .frame(width: Self.width)

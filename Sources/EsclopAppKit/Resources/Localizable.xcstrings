@@ -2171,6 +2171,16 @@
         }
       }
     },
+    "Codex CLI and ChatGPT desktop": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codex CLI i ChatGPT desktop"
+          }
+        }
+      }
+    },
     "Collapse": {
       "localizations": {
         "ca": {

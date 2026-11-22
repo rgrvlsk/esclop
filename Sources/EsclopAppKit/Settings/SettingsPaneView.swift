@@ -315,6 +315,9 @@ enum SettingsFilePanels {
 
     /// Why an import was refused, in the person's language: `SettingsFile` says it in English,
     /// for the CLI. A value a setting does not take names that setting.
+    // ponytail: reads SettingsFile's English sentences (SettingsFile.read); a reworded one falls
+    // back to the generic line with the English reason, and SettingsImportTests catches it. Give
+    // SettingsFile a typed error if a third reason appears.
     static func importFailure(_ reason: String, locale: Locale = Strings.locale) -> String {
         if reason.hasPrefix("This is not an L’Esclop settings file") {
             return Strings.text("This is not a settings file L’Esclop exported. Nothing was changed.", locale: locale)

@@ -195,11 +195,7 @@ public final class AgentsModel {
 }
 
 extension AgentDefinition {
-    /// The name as Settings shows it: "Codex CLI and ChatGPT desktop" joins its parts with the
-    /// person's language's "and".
-    var shownName: String { shownName(locale: Strings.locale) }
-
-    func shownName(locale: Locale) -> String {
-        name.components(separatedBy: " and ").formatted(.list(type: .and, width: .standard).locale(locale))
-    }
+    /// The name as Settings shows it: a name with words in it ("Codex CLI and ChatGPT desktop")
+    /// has a translation; the others are themselves.
+    var shownName: String { Strings.text(name) }
 }

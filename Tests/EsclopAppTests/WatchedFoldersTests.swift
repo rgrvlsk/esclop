@@ -594,7 +594,7 @@ final class Flag: @unchecked Sendable {
     }
 
     /// Two bursts in one folder: the newer notice takes the older one's place, and its action
-    /// optimises the files of both.
+    /// optimises the files of both; after a notice was closed, only the new burst's.
     @Test func twoTooLargeBurstsInOneFolderShareANotice() async throws {
         let rig = try Rig()
         func actions() -> [ResultCard] { rig.harness.model.cards.filter { $0.noticeAction != nil } }
@@ -607,6 +607,15 @@ final class Flag: @unchecked Sendable {
         rig.harness.model.perform(.optimiseAnyway, on: notice)
         #expect(await eventually { rig.harness.requests.requests.count == 10 })
         #expect(actions().isEmpty)
+        // A notice closed unanswered takes its files with it: the next one offers its own.
+        rig.folders.received((1 ... 5).map { rig.land("c \($0).png") })
+        #expect(await eventually { actions().count == 1 })
+        rig.harness.model.dismiss(try #require(actions().first))
+        rig.folders.received((1 ... 5).map { rig.land("d \($0).png") })
+        #expect(await eventually { actions().count == 1 })
+        rig.harness.model.perform(.optimiseAnyway, on: try #require(actions().first))
+        #expect(await eventually { rig.harness.requests.requests.count == 15 })
+        #expect(rig.harness.requests.requests.suffix(5).allSatisfy { $0.sources.allSatisfy { $0.lastPathComponent.hasPrefix("d ") } })
         rig.folders.stop()
     }
 
