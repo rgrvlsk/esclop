@@ -157,7 +157,7 @@ public struct JobExecutor: Sendable {
         }
         let pages = try body(output)
         // The manifest again, now the result is in place: Originals takes its time as the finish.
-        if let backup, let entry = BackupStore(root: backups).entry(forBackup: backup) { try? BackupStore(root: backups).setOutput(output, for: entry) }
+        if let backup, let entry = BackupStore(root: backups).entry(forBackup: backup) { _ = try? BackupStore(root: backups).setOutput(output, for: entry) }
         return OptimisationResult(
             source: source, output: output, backup: backup, kind: .pdf,
             bytesBefore: before, bytesAfter: Self.size(of: output),
