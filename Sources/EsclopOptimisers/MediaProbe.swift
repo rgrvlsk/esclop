@@ -52,6 +52,8 @@ struct MediaInfo: Sendable {
     var appleTags: [String: String] = [:]
     /// The container's tags that are not purely technical: location, title, artist, comment,
     /// camera, dates. A strip leaves none.
+    // ponytail: container tags only. Ogg/Opus keep title and artist as stream tags, and a stream's
+    // creation_time is not counted; read stream tags too when a file is found keeping them.
     var personalTags: [String] = []
     /// The container tags that only say how the file was written.
     static let technicalTags: Set<String> = ["major_brand", "minor_version", "compatible_brands", "encoder"]

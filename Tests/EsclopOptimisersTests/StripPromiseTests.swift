@@ -236,12 +236,20 @@ import UniformTypeIdentifiers
         // Apple Lossless stays as it is: never smaller.
         let noise = world.file("noise.wav")
         try Fixture.noiseWAV(noise)
+        let cover = world.file("cover.png")
+        try Fixture.png(cover, width: 64, height: 64)
         let song = world.file("song.m4a")
-        try await ProcessRunner.run(.ffmpeg, ["-hide_banner", "-loglevel", "error", "-y", "-i", noise.path, "-c:a", "alac_at"] + tags + [song.path])
+        try await ProcessRunner.run(.ffmpeg, [
+            "-hide_banner", "-loglevel", "error", "-y", "-i", noise.path, "-i", cover.path, "-map", "0", "-map", "1",
+            "-c:a", "alac_at", "-c:v", "png", "-disposition:v:0", "attached_pic",
+        ] + tags + [song.path])
+        try #require(try await Inspect.media(song).hasCoverArt)
         var song2 = world.request(song, location: .temporary)
         song2.stripMetadata = true
         let stripped = try await Self.checkStripsUnchangedMedia(song, request: song2, world: world)
-        #expect(stripped.steps == ["Removed metadata and artwork"])
+        // The cover follows the cover-art setting, as when the song re-encodes.
+        #expect(stripped.steps == ["Removed metadata"])
+        #expect(try await Inspect.media(stripped.output).hasCoverArt)
         // Without asking, a song keeps its tags (the setting is for pictures, video and PDF).
         await #expect(throws: EsclopError.alreadySmaller) { try await world.engine.optimise(song, request: world.request(song), progress: { _ in }) }
 
@@ -292,7 +300,8 @@ import UniformTypeIdentifiers
     }
 
     /// `file` cannot get smaller with strip off; with `request` (strip on) it comes back
-    /// stripped, no larger, with no personal tag left.
+    /// stripped and no larger. Video and audio are checked here for tags left; a PDF's
+    /// document information is checked by its test, since its title stays.
     private static func checkStripsUnchangedMedia(_ file: URL, request: OptimisationRequest, world: TestWorld) async throws -> OptimisationResult {
         var keep = request
         keep.stripMetadata = false

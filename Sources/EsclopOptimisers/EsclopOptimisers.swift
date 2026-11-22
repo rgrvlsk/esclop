@@ -273,7 +273,7 @@ public struct EsclopEngine: OptimisationEngine {
                 let produced = switch kind {
                 case .image: try await ImageEngine(env: env).stripMetadata(source, work: work)
                 case .video: try await VideoEngine(env: env).stripMetadata(source, work: work)
-                case .audio: try await AudioEngine(env: env).stripMetadata(source, work: work)
+                case .audio: try await AudioEngine(env: env).stripMetadata(source, work: work, keepsCover: true)
                 // An optimise keeps the title readers show.
                 case .pdf: try await PDFEngine(env: env).stripMetadata(source, work: work, keepTitle: true)
                 }
