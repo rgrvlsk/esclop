@@ -155,7 +155,8 @@ final class ClipboardKeeper: @unchecked Sendable {
     /// whether it carries L'Esclop's marker, whether it is L'Esclop's (marker or bytes), and the
     /// app it was copied from when the watcher saw that copy.
     func snapshot() -> (content: ClipboardContent, count: Int, marked: Bool, own: Bool, app: String?) {
-        let content = ClipboardPolicy.read(pasteboard)
+        // The person asked: any one copied address is fetched, its content type decides.
+        let content = ClipboardPolicy.read(pasteboard, anyAddress: true)
         let marked = Clipboard.isOwnWrite(pasteboard)
         let count = pasteboard.changeCount
         return (content, count, marked, marked || isOwnBytes(content), lastCopy?.changeCount == count ? lastCopy?.app : nil)

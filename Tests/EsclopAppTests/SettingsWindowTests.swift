@@ -262,3 +262,28 @@ import Testing
         #expect(SettingRow.shellQuoted("it's \"$5\"") == "'it'\\''s \"$5\"'")
     }
 }
+
+/// Settings › General › Import… asks before a file turns on permissions, naming each.
+@MainActor
+@Suite struct SettingsImportTests {
+    @Test func theQuestionNamesEachPermission() {
+        let en = SettingsFilePanels.permissionsQuestion(["allowRunScripts", "allowUploads", "uploadAutomatically", "uploadTargets"], locale: Locale(identifier: "en"))
+        #expect(en.title == "This file turns on permissions")
+        #expect(en.detail == "• Agents may run scripts\n• Agents may upload files\n• Upload automatically\n• Upload targets\n\nTurn them on only if you made this file or trust whoever did.")
+        let ca = SettingsFilePanels.permissionsQuestion(["allowRunScripts", "uploadTargets"], locale: Locale(identifier: "ca"))
+        #expect(ca.title == "Aquest fitxer activa permisos")
+        #expect(ca.detail.hasPrefix("• Els agents poden executar scripts\n• Destins de pujada\n\n"))
+    }
+
+    @Test func theOutcomeSaysWhatWasLeftOff() {
+        let read = SettingsFile.Read(values: ["batchWindowFrom": 6], unknown: ["fromTheFuture"], permissions: ["allowUploads"], version: 2)
+        let done = SettingsFilePanels.outcome(read, allowedPermissions: false, locale: Locale(identifier: "en"))
+        #expect(done.title == "Imported 1 setting")
+        #expect(done.detail == """
+        Permissions left off: Agents may upload files.
+        A newer version of L’Esclop wrote this file.
+        Skipped what this version does not know: fromTheFuture.
+        """)
+        #expect(SettingsFilePanels.outcome(read, allowedPermissions: true, locale: Locale(identifier: "en")).detail.hasPrefix("A newer"))
+    }
+}

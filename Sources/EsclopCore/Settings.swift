@@ -350,6 +350,9 @@ public struct AnySetting: Sendable, Identifiable {
         getter = { setting.value(in: $0).json }
         let decode: @Sendable (JSONValue) throws -> Value = { json in
             guard let value = Value(json: json) else {
+                if case let .array(allowed)? = Value.schemaType["enum"] {
+                    throw EsclopError.invalidArgument("\(setting.key) must be one of \(allowed.compactMap(\.stringValue).joined(separator: ", ")), got \(json)")
+                }
                 throw EsclopError.invalidArgument("\(setting.key) expects \(Value.schemaType["type"]?.stringValue ?? "a value"), got \(json)")
             }
             try setting.validate(value)

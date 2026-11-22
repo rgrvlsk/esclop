@@ -951,6 +951,16 @@
         }
       }
     },
+    "A newer version of L’Esclop wrote this file.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquest fitxer l’ha escrit una versió més nova de L’Esclop."
+          }
+        }
+      }
+    },
     "A pipeline also runs when you choose it: from a result’s Share tab, with Run on Files…, or in Terminal with esclop pipeline run.": {
       "localizations": {
         "ca": {
@@ -3531,12 +3541,12 @@
         }
       }
     },
-    "Export saves the settings you changed as a file; Import reads it on the other Mac. Hotkeys and upload keys stay.": {
+    "Export saves the settings you changed as a file; Import reads it on the other Mac. Pipelines, hotkeys and upload keys stay on this Mac.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Exporta desa en un fitxer les opcions que has canviat, i Importa el llegeix a l’altre Mac. Les dreceres de teclat i les claus de pujada no hi van."
+            "value": "Exporta desa en un fitxer les opcions que has canviat, i Importa el llegeix a l’altre Mac. Els pipelines, les dreceres de teclat i les claus de pujada es queden en aquest Mac."
           }
         }
       }
@@ -4277,6 +4287,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Importa"
+          }
+        }
+      }
+    },
+    "Import With Permissions": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importa amb els permisos"
+          }
+        }
+      }
+    },
+    "Import Without Permissions": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importa sense els permisos"
           }
         }
       }
@@ -6427,6 +6457,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Els PDF amb un xifratge que L’Esclop no pot tornar a escriure es deixen tal com estan."
+          }
+        }
+      }
+    },
+    "Permissions left off: %@.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’han activat aquests permisos: %@."
           }
         }
       }
@@ -8721,6 +8761,16 @@
         }
       }
     },
+    "This file turns on permissions": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquest fitxer activa permisos"
+          }
+        }
+      }
+    },
     "TOML, for Codex": {
       "localizations": {
         "ca": {
@@ -9627,6 +9677,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Activa «El menú del clic dret del Finder» en un pipeline a l’editor de pipelines."
+          }
+        }
+      }
+    },
+    "Turn them on only if you made this file or trust whoever did.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activa’ls només si el fitxer és teu o si et refies de qui l’ha fet."
           }
         }
       }

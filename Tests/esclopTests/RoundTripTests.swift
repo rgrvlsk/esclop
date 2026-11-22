@@ -6,6 +6,8 @@
 // bundled tool is needed.
 
 import CoreGraphics
+import EsclopCore
+@testable import esclop
 import Foundation
 import ImageIO
 import Testing
@@ -49,6 +51,52 @@ import UniformTypeIdentifiers
         #expect(restored.status == 0, "\(restored.output)")
         #expect(try Data(contentsOf: photo) == original)
         #expect(try await recent().map { URL(fileURLWithPath: $0.source).lastPathComponent } == ["other.heic"], "the other file's result stays")
+    }
+
+    /// A pipeline step that cannot run in the CLI is a `note:` line on stderr, not silence.
+    @Test func aSkippedStepIsNoted() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-skipped-\(UUID().uuidString.prefix(8))", isDirectory: true)
+        let support = folder.appendingPathComponent("support", isDirectory: true)
+        try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let photo = folder.appendingPathComponent("photo.heic")
+        try Self.heic(photo)
+        let run = try await runEsclop(["pipeline", "run", "copyLinkForSending -> shelveWith(app: yoink)", "--no-color", "-n", photo.path], environment: ["ESCLOP_SUPPORT_DIR": support.path])
+        #expect(run.exitCode == 0, "\(run.output)")
+        #expect(run.stderrString == """
+        note: copyLinkForSending skipped: needs the esclop app
+        note: shelveWith(app: yoink) skipped: needs the esclop app
+
+        """)
+        #expect(Output.skippedNote("crop(longEdge: 100): done") == nil)
+        #expect(Output.skippedNote("open(app: Preview): skipped") == "open(app: Preview) skipped")
+    }
+
+    /// `settings import` skips the permissions a file turns on (agents', uploads') and names them;
+    /// `--allow-permissions` applies them. Its own settings suite, never the person's.
+    @Test func importSkipsPermissionsUnlessAllowed() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-import-\(UUID().uuidString.prefix(8))", isDirectory: true)
+        let support = folder.appendingPathComponent("support", isDirectory: true)
+        try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        let environment = ["ESCLOP_SUPPORT_DIR": support.path]
+        let suite = Paths.defaultsSuite(environment: environment)
+        defer {
+            try? FileManager.default.removeItem(at: folder)
+            UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite)
+        }
+        let file = folder.appendingPathComponent("shared.json")
+        try Data(#"{"format": "esclop-settings", "version": 1, "settings": {"batchWindowFrom": 6, "allowRunScripts": true, "uploadAutomatically": ["clipboard"]}}"#.utf8).write(to: file)
+
+        let skipped = try await runEsclop(["settings", "import", file.path], environment: environment)
+        #expect(skipped.exitCode == 0, "\(skipped.output)")
+        #expect(skipped.stdoutString == "Imported 1 setting.\n")
+        #expect(skipped.stderrString == "note: skipped permissions the file turns on: allowRunScripts, uploadAutomatically (--allow-permissions turns them on)\n")
+
+        struct Imported: Decodable { var imported: [String]; var permissionsTurnedOn: [String] }
+        let allowed = try await runEsclop(["settings", "import", "--allow-permissions", "--json", file.path], environment: environment)
+        let read = try JSONDecoder().decode(Imported.self, from: Data(allowed.stdoutString.utf8))
+        #expect(read.imported == ["allowRunScripts", "batchWindowFrom", "uploadAutomatically"], "\(allowed.output)")
+        #expect(read.permissionsTurnedOn == ["allowRunScripts", "uploadAutomatically"])
     }
 
     static func heic(_ url: URL) throws {

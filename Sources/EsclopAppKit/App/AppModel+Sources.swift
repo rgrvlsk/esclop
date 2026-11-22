@@ -358,10 +358,13 @@ extension AppModel {
         optimiseChosen(panel.urls)
     }
 
-    /// Files and folders (searched recursively) to optimise as if dropped.
+    /// Files and folders (searched recursively) to optimise as if dropped. Folders past the
+    /// batch threshold ask once, as Finder's Quick Actions do (`FinderServices.confirmed`).
     public func optimiseChosen(_ urls: [URL]) {
         let files = PathInput.expand(urls, recursive: true).filter { MediaKind.of($0) != nil }
         guard !files.isEmpty else { return notice(Strings.text("Nothing to optimise"), Strings.text("Choose images, videos, PDFs or audio files.")) }
+        if files.count > batchThreshold, let place = FinderServices.folders(in: urls),
+           !confirmFolders(Strings.format("Optimise %d files in %@?", files.count, place), Strings.text("Optimise")) { return }
         optimise(files, origin: .app)
     }
 

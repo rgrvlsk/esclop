@@ -76,6 +76,24 @@ import Testing
         }
     }
 
+    /// Clop 3.5's ignore files for one kind (`.clopignore-video`) and ours apply to that kind only.
+    @Test func anIgnoreFileForOneKindAppliesToThatKind() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("esclop-ignore-\(UUID().uuidString.prefix(8))", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try "draft-*\n".write(to: folder.appendingPathComponent(".clopignore-video"), atomically: true, encoding: .utf8)
+        try "raw-*\n".write(to: folder.appendingPathComponent(".esclopignore-image"), atomically: true, encoding: .utf8)
+        try "!raw-keep.png\n".write(to: folder.appendingPathComponent(".clopignore-image"), atomically: true, encoding: .utf8)
+        try "*.tmp.*\n".write(to: folder.appendingPathComponent(".clopignore"), atomically: true, encoding: .utf8)
+        func ignored(_ name: String) -> Bool { WatchedFolders.isIgnored(folder.appendingPathComponent(name)) }
+        #expect(ignored("draft-1.mov"))
+        #expect(!ignored("draft-1.png"), "the video file leaves images alone")
+        #expect(ignored("raw-1.png"))
+        #expect(!ignored("raw-keep.png"), "Clop's file for the kind comes after ours")
+        #expect(!ignored("raw-1.mov"))
+        #expect(ignored("a.tmp.pdf"), "the plain file applies to every kind")
+    }
+
     @Test func pixelLimitsUseTheLongerSide() {
         let rules = FolderRules(folder: "/watched", minPixels: 200, maxPixels: 4000)
         #expect(rules.skip(longerSide: 64) == .tooFewPixels)
