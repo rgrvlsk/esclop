@@ -307,13 +307,12 @@ public enum PathInput {
 
     /// A link becomes the file it points at, so the result replaces that file and the link keeps
     /// pointing at it (the link's own size made every link "already as small"). Only when the
-    /// target's name says the same kind: a result named from `store/abc123` would be a new file
-    /// beside it, so such a link stays a link, which the job refuses (`isLink`).
+    /// target's name says its kind: a result named from `store/abc123` would be a new file beside
+    /// it, so such a link stays a link, which the job refuses (`isLink`).
     public static func resolvingLink(_ url: URL) -> URL {
         guard isLink(url) else { return url }
         let target = url.resolvingSymlinksInPath()
-        guard let kind = MediaKind.of(target), kind == MediaKind.of(url) else { return url }
-        return target
+        return MediaKind.of(target) == nil ? url : target
     }
 
     public static func isLink(_ url: URL) -> Bool {

@@ -192,6 +192,8 @@ extension AppModel {
             let replacement = (originals[result.source.path] ?? result.source, result.output)
             putBack.results.append(replacement)
             guard putBack.done else { return }
+            // ponytail: a dropped file retried after the rest replaces the clipboard with its own
+            // result alone; gather them as `appendClipboardResults` does if someone minds.
             if copyBack { Task { await self.putBackOnClipboard([replacement]) } } else { self.writeClipboard(files: [result.output]) }
         } : nil
         var runs: [Task<Void, Never>] = []

@@ -320,6 +320,8 @@ public enum OptimisedMark {
 /// The marker a restore leaves, so a watched folder does not optimise the original it put back
 /// (the optimised mark is gone). The value is the file's modification date then: once the file
 /// changes, the mark no longer holds.
+/// ponytail: the mark travels with a copy that keeps the date (Finder's), so that copy is skipped
+/// in another watched folder until edited; also compare the inode if that is ever seen.
 public enum RestoredMark {
     public static let name = "dev.esclop.restored"
 

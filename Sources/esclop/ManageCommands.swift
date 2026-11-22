@@ -281,10 +281,11 @@ struct Settings: AsyncParsableCommand {
         }
     }
 
-    /// Whether `stored`, the value read back after the write, is not what `text` asked for.
+    /// Whether `stored`, the value read back after the write, is not what `text` asked for. Both
+    /// as the store keeps them: a Double 30 comes back from the app as the JSON number 30, an Int.
     static func unkept(_ key: String, _ text: String, stored: JSONValue, registry: SettingsRegistry = .shared) -> Bool {
-        guard let wanted = registry.setting(key)?.value(text: text) else { return false }
-        return wanted != stored
+        guard let setting = registry.setting(key), let wanted = setting.value(text: text) else { return false }
+        return wanted != setting.normalised(stored)
     }
 
     struct Reset: AsyncParsableCommand {

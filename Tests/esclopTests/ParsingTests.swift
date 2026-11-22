@@ -241,6 +241,8 @@ func rejects(_ arguments: [String]) -> Bool {
         #expect(!Settings.unkept("gifFPS", "12", stored: .int(12)))
         #expect(!Settings.unkept("gifFPS", "12.0", stored: .int(12)), "the stored form of the same value")
         #expect(Settings.unkept("gifFPS", "12", stored: .int(15)))
+        #expect(!Settings.unkept("targetVideoFPS", "30", stored: .int(30)), "a Double read back from the app as the JSON number 30")
+        #expect(Settings.unkept("targetVideoFPS", "30", stored: .int(24)))
         #expect(!Settings.unkept("appearanceOnlyTheAppKnows", "x", stored: .string("y")), "a key the CLI does not know is the app's to check")
     }
 

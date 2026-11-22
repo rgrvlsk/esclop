@@ -115,6 +115,8 @@ public enum IgnoreFile {
     }
 
     /// The folder's own `.esclopignore` ("" when it has none), for Settings' editor.
+    /// ponytail: the editor shows only this file; `.clopignore` and the per-kind files still
+    /// apply unseen. Name them in the sheet if someone is puzzled by a skip.
     public static func text(in folder: URL) -> String {
         (try? String(contentsOf: folder.appendingPathComponent(names[0]), encoding: .utf8)) ?? ""
     }

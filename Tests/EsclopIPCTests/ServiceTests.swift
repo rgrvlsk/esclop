@@ -290,7 +290,7 @@ final class EventLog: @unchecked Sendable {
         #expect(PathInput.expand([relative, absolute], recursive: false).allSatisfy { $0.lastPathComponent == "photo.png" })
     }
 
-    /// V1: a link whose target's name says another kind, or none (`store/abc123`), stays a link,
+    /// V1: a link whose target's name says no kind (`store/abc123`) stays a link,
     /// and a job refuses it in one sentence instead of writing a new file beside the target. A
     /// folder holding only links says so (they are not followed inside folders).
     @Test func aLinkToAFileWithoutItsKindIsRefused() async throws {
@@ -301,7 +301,10 @@ final class EventLog: @unchecked Sendable {
         try FileManager.default.createSymbolicLink(atPath: unnamed.path, withDestinationPath: "store/abc123")
         try FileManager.default.createSymbolicLink(atPath: named.path, withDestinationPath: "store/other.jpeg")
         #expect(PathInput.expand([unnamed], recursive: false) == [unnamed])
-        #expect(PathInput.expand([named], recursive: false).map(\.lastPathComponent) == ["other.jpeg"], "same kind, other name: the target")
+        #expect(PathInput.expand([named], recursive: false).map(\.lastPathComponent) == ["other.jpeg"], "a named target, other name: the target")
+        let current = temp.url.appendingPathComponent("current")
+        try FileManager.default.createSymbolicLink(atPath: current.path, withDestinationPath: "store/other.jpeg")
+        #expect(PathInput.resolvingLink(current).lastPathComponent == "other.jpeg", "a link without an extension to a named file")
         let report = await JobExecutor(engine: FakeEngine()).run(
             OptimisationJob(request: OptimisationRequest(sources: [unnamed], origin: .cli), operation: .optimise)
         )
