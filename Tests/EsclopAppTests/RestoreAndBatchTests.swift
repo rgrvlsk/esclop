@@ -149,15 +149,79 @@ import Testing
         #expect(AppModel.size(of: file) == 100_000)
         #expect(harness.model.cards.last?.editInTrash == false, "the optimised file is not called an edit")
 
-        // An edit since (another size) matches no cleared line: the backup's time judges it.
+        // An edit since is later than that finish: it still goes to the Trash.
         let other = harness.temp.file("Edited.png", bytes: 100_000)
         _ = await harness.model.run(harness.job(other, origin: .app))
         harness.model.clearRecent()
         try Data(repeating: 0x43, count: 12_345).write(to: other)
+        try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(60)], ofItemAtPath: other.path)
         let edited = try #require(store.entries().first { $0.original.lastPathComponent == "Edited.png" })
         let rebuilt = try #require(OriginalsModel.items([edited], log: harness.model.service.results).first)
         #expect(rebuilt.result.id == edited.id)
-        #expect(rebuilt.result.finishedAt == edited.createdAt)
+        #expect(!Self.judgedUnchanged(rebuilt.result), "the edit is named")
+    }
+
+    /// `BackupStore.holdsOutput`'s date test: the file at the source path is not newer than the
+    /// result's finish. (Its size is the file's own for a rebuilt result.)
+    nonisolated static func judgedUnchanged(_ result: OptimisationResult) -> Bool {
+        let modified = (try? FileManager.default.attributesOfItem(atPath: result.source.path))?[.modificationDate] as? Date
+        return modified.map { $0 <= result.finishedAt.addingTimeInterval(2) } ?? false
+    }
+
+    /// Y5: a result rebuilt with no log line at all (older than the log keeps) is judged by when
+    /// it was put in place, not by the backup's time before a long encode.
+    @Test func aResultTheLogNoLongerHasKeepsItsFinishTime() async throws {
+        let harness = Harness()
+        let file = harness.temp.file("Old.png", bytes: 100_000)
+        _ = await harness.model.run(harness.job(file, origin: .app))
+        let logged = try #require(harness.model.cards.first?.result)
+        let store = BackupStore(root: harness.model.service.context.locations.backups)
+        var entry = try #require(store.entries().first)
+        entry.createdAt = entry.createdAt.addingTimeInterval(-10)
+        let empty = ResultsLog(url: harness.temp.url.appendingPathComponent("empty.jsonl"))
+        let item = try #require(OriginalsModel.items([entry], log: empty).first)
+        #expect(abs(item.result.finishedAt.timeIntervalSince(logged.finishedAt)) < 2, "the time it was put in place")
+        // Refused here: called an edit, the optimised file would go to the real Trash.
+        harness.model.restoreBackup = { service, result in
+            guard Self.judgedUnchanged(result) else { throw EsclopError.other("called an edit") }
+            return try await service.restoreBackup(of: result, deleteBackup: false)
+        }
+        await OriginalsModel(app: harness.model).restore([item])
+        #expect(AppModel.size(of: file) == 100_000, "restored, nothing called an edit")
+    }
+
+    /// Y5: restoring several originals from Originals shows one notice, not a card each; Show in
+    /// Finder on a row in place shows the original, not the kept copy.
+    @Test func originalsRestoreManyWithOneNotice() async throws {
+        let harness = Harness()
+        let (_, restores) = try await batch(harness)
+        let originals = OriginalsModel(app: harness.model)
+        await originals.load()
+        let cardsBefore = harness.model.cards.count
+        await originals.restore(Array(originals.items.prefix(2)))
+        #expect(restores.backups.count == 2)
+        let added = harness.model.cards.dropFirst(cardsBefore)
+        #expect(added.count == 1)
+        guard case let .notice(title, _) = added.first?.phase else {
+            Issue.record("one notice")
+            return
+        }
+        #expect(title == "2 originals restored")
+        let item = try #require(originals.items.first { $0.inPlace })
+        originals.reveal([item])
+        #expect(harness.revealed.urls.last == item.entry.original)
+
+        // None came back: the notice names them and says why, nothing about them being back.
+        let gone = originals.items.filter { !$0.inPlace }
+        #expect(gone.count == 2)
+        for item in gone { try FileManager.default.removeItem(at: item.entry.backup) }
+        #expect(await harness.model.restore(gone.map(\.result)) == 0)
+        guard case let .notice(title, detail) = harness.model.cards.last?.phase else {
+            Issue.record("a notice")
+            return
+        }
+        #expect(title == "Could not restore \(gone.map(\.entry.original.lastPathComponent).joined(separator: ", "))")
+        #expect(!detail.isEmpty && detail != "They are back where they were.")
     }
 
     /// B7: Clear forgets a finished batch, the menu's tile and its window; a running one stays.
@@ -239,18 +303,33 @@ import Testing
         #expect(harness.requests.requests.last?.format == .webp)
     }
 
-    /// B6: Retry All Failed runs every failed and stopped row again, and only those.
+    /// Y6: Retry All Failed runs the failed rows again, and only those: a stopped row stays
+    /// stopped (its own Try again runs it).
     @Test func retryAllFailedRunsOnlyTheFailures() async throws {
         let harness = Harness()
         let (batch, _) = try await batch(harness)
         batch.rows[1].state = .failed("x")
         batch.rows[2].state = .cancelled
-        #expect(batch.retriable.count == 2)
+        #expect(batch.retriable.count == 1)
         let before = harness.requests.requests.count
         harness.model.retryFailed(batch)
         #expect(await eventually { !batch.isRunning })
-        #expect(harness.requests.requests.count == before + 2)
-        #expect(batch.failed == 0 && batch.cancelled == 0)
+        #expect(harness.requests.requests.count == before + 1)
+        #expect(batch.failed == 0 && batch.cancelled == 1)
+    }
+
+    /// Y6: Optimise Again on a row whose backup is gone says why on the row, and runs nothing.
+    @Test func optimiseAgainWithoutABackupSaysWhy() async throws {
+        let harness = Harness()
+        let (batch, restores) = try await batch(harness)
+        let row = batch.rows[0]
+        let backup = try #require(row.result?.backup)
+        try FileManager.default.removeItem(at: backup)
+        let before = harness.requests.requests.count
+        await harness.model.rerun([row], compression: .aggressive)
+        #expect(row.restoreError != nil, "the row says why")
+        #expect(restores.backups.count == 1, "asked once, refused")
+        #expect(harness.requests.requests.count == before)
     }
 
     /// An original back in place is not put back again, but one that changed since (optimised
@@ -275,6 +354,33 @@ import Testing
         #expect(AppModel.size(of: file) == 40_000)
         #expect(await harness.model.restore(first))
         #expect(restores.backups.count == 2, "put back again, not skipped")
+    }
+
+    /// Y1: `esclop restore` (another process) put the original back; the card's Undo then only
+    /// says restored. It used to put it back again and send the original to the Trash as an edit.
+    @Test func anOriginalAnotherProcessPutBackIsNotPutBackAgain() async throws {
+        let harness = Harness()
+        let restores = Restores()
+        harness.model.restoreBackup = { _, result in
+            // Recorded only: a second put-back would send the original to the real Trash.
+            _ = restores.add(result.backup?.path ?? "")
+            return try JSONDecoder().decode(RestoreOutcome.self, from: Data(#"{"restored":"","from":"","backupDeleted":false,"movedToTrash":["x"]}"#.utf8))
+        }
+        let file = harness.temp.file("Elsewhere.png")
+        _ = await harness.model.run(harness.job(file, origin: .app))
+        let card = try #require(harness.model.cards.first)
+        let result = try #require(card.result)
+        let size = AppModel.size(of: file)
+        // The CLI's restore: the same store, not through this app.
+        _ = try await EsclopService(harness.model.service.context).restoreBackup(of: result, deleteBackup: false)
+        #expect(AppModel.size(of: file) != size, "the original is back")
+        #expect(await harness.model.restore(result))
+        #expect(restores.backups.isEmpty, "not put back again")
+        guard case .restored = card.phase else {
+            Issue.record("the card says restored")
+            return
+        }
+        #expect(!card.editInTrash)
     }
 
     /// A row the chosen size would not make smaller stays as it was: not restored, not run.

@@ -73,6 +73,8 @@ public struct RestoreOutcome: Codable, Sendable {
     /// Where the files set aside are now, in the Trash: a file changed since it was optimised, a
     /// converted output.
     public var movedToTrash: [String]?
+    /// True when the original was back already (put back by another process): nothing changed.
+    public var alreadyRestored: Bool?
 }
 
 public struct LogExcerpt: Codable, Sendable {
@@ -354,13 +356,23 @@ public struct EsclopService: Sendable {
         return RestoreOutcome(
             restored: result.source.path, from: backup.path, backupDeleted: deleteBackup,
             leftInPlace: report.leftInPlace?.path,
-            movedToTrash: report.trashed.isEmpty ? nil : report.trashed.map(\.path)
+            movedToTrash: report.trashed.isEmpty ? nil : report.trashed.map(\.path),
+            alreadyRestored: report.alreadyRestored ? true : nil
         )
     }
 
     /// L'Esclop's unified-log messages from the last `window` (`10m`, `1h`, `2d`), plus the tail of
-    /// its own log files.
-    public func logs(window: String = "10m", limit: Int = 200) throws -> LogExcerpt {
+    /// its own log files. `log show` takes seconds and waits for its child: it runs on a queue of
+    /// its own, never on a thread of the task pool, where it held back every timer in the process.
+    public func logs(window: String = "10m", limit: Int = 200) async throws -> LogExcerpt {
+        try await withCheckedThrowingContinuation { continuation in
+            Self.logsQueue.async { continuation.resume(with: Result { try self.readLogs(window: window, limit: limit) }) }
+        }
+    }
+
+    private static let logsQueue = DispatchQueue(label: "dev.esclop.logs")
+
+    private func readLogs(window: String, limit: Int) throws -> LogExcerpt {
         guard window.range(of: #"^\d+[smhd]$"#, options: .regularExpression) != nil else {
             throw EsclopError.invalidArgument("The window looks like 30s, 10m, 1h or 2d, not \(window)")
         }

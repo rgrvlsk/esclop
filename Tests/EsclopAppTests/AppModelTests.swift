@@ -164,6 +164,21 @@ import Testing
         #expect(Strings.text(BackupStore.untrashableEdit, locale: Locale(identifier: "ca")).hasPrefix("El fitxer ha canviat"), "the card can say it in Catalan")
     }
 
+    /// Y3: a folder or disk that refuses the write is one plain sentence, in English and Catalan,
+    /// not the raw error with its temporary paths. Other errors keep their text.
+    @Test func aRefusedWriteIsOnePlainSentence() {
+        let posix = { (code: Int32) in NSError(domain: NSPOSIXErrorDomain, code: Int(code)) }
+        let noPermission = CocoaError(.fileWriteNoPermission, userInfo: [NSUnderlyingErrorKey: posix(EACCES), NSFilePathErrorKey: "/var/folders/x/T/esclop/work/optimised.png"])
+        #expect(EsclopError.wrap(noPermission) == .other(EsclopError.noWritePermission))
+        #expect(EsclopError.wrap(CocoaError(.fileWriteNoPermission, userInfo: [NSUnderlyingErrorKey: posix(EROFS)])) == .other(EsclopError.readOnlyDisk))
+        #expect(EsclopError.wrap(CocoaError(.fileWriteVolumeReadOnly)) == .other(EsclopError.readOnlyDisk))
+        #expect(EsclopError.wrap(CocoaError(.fileReadNoPermission)) != .other(EsclopError.noWritePermission), "a read is not a write")
+        #expect(CardPresentation.message(for: noPermission) == "L’Esclop has no permission to write in that folder.")
+        let ca = Locale(identifier: "ca")
+        #expect(Strings.text(EsclopError.noWritePermission, locale: ca) == "L’Esclop no té permís per escriure en aquesta carpeta.")
+        #expect(Strings.text(EsclopError.readOnlyDisk, locale: ca) == "Aquest disc és només de lectura.")
+    }
+
     @Test func revealAndCopyUseTheResult() async throws {
         let harness = Harness()
         let file = harness.temp.file("a.png")

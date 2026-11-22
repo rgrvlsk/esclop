@@ -79,6 +79,9 @@ L'Esclop keeps its data in these places. Quit it first, then remove what you no 
 - The `esclop` folder in the temporary folder (`$TMPDIR`): downloads, dropped files and work
   folders. L'Esclop clears old files from it at launch and every hour.
 - The settings, in the preferences domain `dev.esclop.app`: `defaults delete dev.esclop.app`.
+  Runs with `ESCLOP_SUPPORT_DIR` set (scripts, the test suite) keep their own in domains named
+  `dev.esclop.support.<hash>`: `ls ~/Library/Preferences/dev.esclop.support.*` lists them, and
+  `defaults delete` with each name (without `.plist`) removes one.
 - Upload keys, in the Keychain under `dev.esclop.upload` (Keychain Access).
 - Open at login: turn it off in Settings › General, or in System Settings › General › Login Items.
 - The CLI link `~/.local/bin/esclop` (or the `--dir` you gave `install-cli`), and the agents'

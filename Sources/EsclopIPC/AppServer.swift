@@ -203,6 +203,25 @@ extension EsclopError {
         if let error = error as? EsclopError { return error }
         if let error = error as? PipelineStepFailure { return error.error }
         if error is CancellationError { return .cancelled }
+        if let refusal = writeRefusal(error) { return .other(refusal) }
         return .other(String(describing: error))
+    }
+
+    /// A write the folder or the disk refused, in one sentence for people instead of the raw
+    /// error with its temporary paths; translated by the app (no file name: the card names it).
+    /// ponytail: any refused write says "that folder", also one into the backups or the staging
+    /// file beside the result; tell them apart if one is ever reported.
+    public static let noWritePermission = "L’Esclop has no permission to write in that folder."
+    public static let readOnlyDisk = "That disk is read-only."
+
+    static func writeRefusal(_ error: Error) -> String? {
+        let error = error as NSError
+        guard error.domain == NSCocoaErrorDomain,
+              error.code == NSFileWriteNoPermissionError || error.code == NSFileWriteVolumeReadOnlyError
+        else { return nil }
+        let underlying = error.userInfo[NSUnderlyingErrorKey] as? NSError
+        let readOnly = error.code == NSFileWriteVolumeReadOnlyError
+            || (underlying?.domain == NSPOSIXErrorDomain && underlying?.code == Int(EROFS))
+        return readOnly ? readOnlyDisk : noWritePermission
     }
 }

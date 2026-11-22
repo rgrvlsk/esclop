@@ -486,6 +486,14 @@ fn errors_use_the_documented_codes() {
     let bad = d.write("bad.png", &png);
     let r = one_shot("png.optimise", req(&bad, &d.path("o2.png"), json!({})));
     assert_eq!(err_code(&r), "decode");
+    // A JPEG cut short decodes as grey rows without an error: refused as damaged, not "optimised".
+    let mut cut = photo_jpeg(300, 300, 90);
+    cut.truncate(cut.len() / 4);
+    let cut = d.write("cut.jpg", &cut);
+    let r = one_shot("jpeg.optimise", req(&cut, &d.path("o3.jpg"), json!({})));
+    assert_eq!(err_code(&r), "decode");
+    let r = one_shot("webp.encode", req(&cut, &d.path("o3.webp"), json!({})));
+    assert_eq!(err_code(&r), "decode");
     let r = one_shot("webp.encode", req(&jpg, &d.path("nodir/o.webp"), json!({})));
     assert_eq!(err_code(&r), "not_found");
     let r = one_shot("teleport", json!({}));

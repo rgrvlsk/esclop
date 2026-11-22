@@ -211,7 +211,9 @@ many copied files, or a list from the CLI or an agent. It comes forward without 
   the same actions are in the context menu and are VoiceOver actions, with Show as Result (the
   file's floating result and its options) and Quick Look. A finished row drags out as its file;
   Space shows the row under the pointer in Quick Look. A restore that sent an edited version
-  to the Trash says so on the row.
+  to the Trash says so on the row. With rows selected, a bar under them offers Restore, Try
+  again and Remove from the List, as Originals does; ⌘C copies them and ⌫ restores them.
+  Retry All Failed runs the failed rows only: stopped ones stay stopped.
 - Pause holds the files still waiting; the ones running finish. Stop keeps every original. New
   files join a batch that is still running. VoiceOver announces the batch once, when it ends.
 

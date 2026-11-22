@@ -268,8 +268,8 @@ import Testing
         #expect(status.engine == "fake")
     }
 
-    @Test func logWindowIsValidated() {
-        #expect(throws: EsclopError.self) { try makeService(TempDir(), origin: .cli).logs(window: "yesterday") }
+    @Test func logWindowIsValidated() async {
+        await #expect(throws: EsclopError.self) { try await makeService(TempDir(), origin: .cli).logs(window: "yesterday") }
     }
 
     @Test func triggersParse() throws {

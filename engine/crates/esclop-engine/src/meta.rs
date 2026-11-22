@@ -303,6 +303,21 @@ impl<'a> JpegParts<'a> {
         }
     }
 
+    /// Fails when the image data stops before its end-of-image marker: a file cut short (a broken
+    /// download or copy). Decoders fill the missing rows with grey and say nothing, so the result
+    /// would look like a saving. In scan data a 0xFF byte is always stuffed or a marker, so 0xFF
+    /// 0xD9 there is the end; an EXIF thumbnail's own end lies before the first scan.
+    /// ponytail: searches everything after the first scan, so a progressive file cut short whose
+    /// later tables (DHT, DQT, COM between scans) hold those two bytes still passes. Walk the
+    /// segments between scans if such a file is ever seen.
+    pub fn check_complete(&self) -> Result<()> {
+        if self.scan.windows(2).any(|w| w == [0xFF, 0xD9]) {
+            Ok(())
+        } else {
+            Err(EngineError::decode("JPEG is cut short: it has no end-of-image marker"))
+        }
+    }
+
     pub fn exif(&self) -> Option<&'a [u8]> {
         self.segments.iter().find(|s| s.is_exif()).map(|s| &s.data[EXIF_ID.len()..])
     }
