@@ -233,7 +233,9 @@ struct PopoverEdgePin: NSViewRepresentable {
 
     final class PinView: NSView {
         var arrowAtBottom = true
-        var sharing: NSWindow.SharingType = .none
+        var sharing: NSWindow.SharingType = .none {
+            didSet { window?.sharingType = sharing }
+        }
         var typing: (Bool) -> Void = { _ in }
         private var pinned: CGFloat?
         nonisolated(unsafe) private var observer: NSObjectProtocol?
@@ -269,7 +271,7 @@ struct PopoverEdgePin: NSViewRepresentable {
             observer = NotificationCenter.default.addObserver(forName: NSWindow.didResizeNotification, object: window, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.restore() }
             }
-            responder = window.observe(\.firstResponder, options: .new) { [weak self] window, _ in
+            responder = window.observe(\.firstResponder, options: [.initial, .new]) { [weak self] window, _ in
                 MainActor.assumeIsolated { self?.typing((window.firstResponder as? NSTextView)?.isFieldEditor == true) }
             }
         }

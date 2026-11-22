@@ -239,22 +239,23 @@ import Testing
     }
     /// The popover's ⌘ keys leave a number being typed alone: ⌘Z there undoes the typing (the
     /// main menu's Undo, through the field), never Restore original; ⌘C copies the text, not the
-    /// file. Out of the field they act on the result again.
+    /// file. After Return they act on the result again.
     @Test func thePopoversKeysLeaveATypedSizeAlone() async throws {
         let harness = Harness()
         let (card, window) = try await Self.popover(harness)
         defer { window.close() }
         let field = try #require(await eventually(.seconds(10)) { Self.textField(in: window.contentView) != nil } ? Self.textField(in: window.contentView) : nil)
         #expect(window.makeFirstResponder(field))
-        #expect((window.firstResponder as? NSTextView)?.isFieldEditor == true, "the width is being typed")
-        try await Task.sleep(for: .milliseconds(100))
+        let editor = try #require(window.firstResponder as? NSTextView)
+        #expect(editor.isFieldEditor, "the width is being typed")
+        #expect(await eventually(.seconds(10)) { !window.performKeyEquivalent(with: Self.command("z", in: window)) })
         for key in ["z", "c", "s"] {
             #expect(!window.performKeyEquivalent(with: Self.command(key, in: window)), "⌘\(key) goes on to the field")
         }
         #expect(!card.restoring, "the original stays replaced")
-        window.makeFirstResponder(nil)
-        try await Task.sleep(for: .milliseconds(100))
-        #expect(window.performKeyEquivalent(with: Self.command("z", in: window)), "out of the field ⌘Z is Restore original")
+        // Return applies the size and leaves the field: the keys act on the result again.
+        editor.insertNewline(nil)
+        #expect(await eventually(.seconds(10)) { window.performKeyEquivalent(with: Self.command("z", in: window)) }, "after Return ⌘Z is Restore original")
         #expect(card.restoring)
     }
 

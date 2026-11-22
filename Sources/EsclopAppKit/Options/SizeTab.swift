@@ -110,8 +110,10 @@ struct SizeTab: View {
     private func applyCustom() {
         guard let value = Int(width), value > 0, let original = model.facts.width, original > 0, let originalHeight = model.facts.height else { return }
         model.scale(to: Double(value) / Double(original))
+        // Return leaves the field, so the popover's ⌘ keys act on the result again.
+        typing = nil
         // A width past the original's is the original's: the fields say so.
-        if value > original { typing = nil; setCustom(original, originalHeight) }
+        if value > original { setCustom(original, originalHeight) }
     }
 }
 
@@ -290,6 +292,7 @@ struct CropEditor: View {
     @State private var start: CropGeometry?
     @State private var widthText = ""
     @State private var heightText = ""
+    @FocusState private var typing: SizeTab.Side?
 
     var body: some View {
         if let crop = model.crop {
@@ -328,9 +331,13 @@ struct CropEditor: View {
                 HStack(spacing: 6) {
                     // No "px": the heading says the size, and Catalan's Restableix and Retalla
                     // need the room.
-                    OptionsNumberField(title: Strings.text("Width"), text: $widthText, width: 64).onSubmit(applySize)
+                    OptionsNumberField(title: Strings.text("Width"), text: $widthText, width: 64)
+                        .focused($typing, equals: .width)
+                        .onSubmit(applySize)
                     Text("×").foregroundStyle(PopoverInk.secondary.color)
-                    OptionsNumberField(title: Strings.text("Height"), text: $heightText, width: 64).onSubmit(applySize)
+                    OptionsNumberField(title: Strings.text("Height"), text: $heightText, width: 64)
+                        .focused($typing, equals: .height)
+                        .onSubmit(applySize)
                     Spacer(minLength: 4)
                     // Back to the whole picture; the preview stays.
                     Button(Strings.text("Reset")) { model.resetCrop() }
@@ -389,6 +396,8 @@ struct CropEditor: View {
     }
 
     private func applySize() {
+        // Return leaves the field, so the popover's ⌘ keys act on the result again.
+        typing = nil
         guard let width = Int(widthText), let height = Int(heightText) else { return syncFields() }
         model.setSize(width: width, height: height)
         syncFields()
