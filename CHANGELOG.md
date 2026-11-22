@@ -7,9 +7,19 @@ into the body of its GitHub release.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.2.0] - 2026-11-22
+
 The design's floating results, menu bar panel and drop zone; a loupe to compare; copied media
-links offered for download; Originals, Open With and settings you can carry to another Mac.
-0.1.1 finds this update by itself.
+links offered, with nothing fetched until you click; Originals, Open With and settings you can
+carry to another Mac. 0.1.1 finds this update by itself.
+
+Still to come: peer-to-peer send and iCloud settings sync are planned for 0.3, and
+notarisation by Apple waits too.
+
+The bundled ffmpeg stays LGPL, without the x264 and x265 encoders: H.264 and HEVC use the
+Mac's own encoders.
 
 ### Added
 - The detail says what optimising removed from a photo's metadata (location, camera, date) and
@@ -33,27 +43,38 @@ links offered for download; Originals, Open With and settings you can carry to a
   L'Esclop, the tour, updates and Quit.
 - Originals… lists every original L'Esclop keeps, with its folder and thumbnail. Space previews
   it; select several to Restore or Remove them. The list follows new and pruned backups while it
-  is open, and says which files it could not remove.
+  is open, and says which files it could not remove. Its rows show the batch window's buttons on
+  hover.
 - The batch window selects rows (⌘A, shift-click, arrows) and optimises the selection again with
   another format or compression, crops it, scales it down, restores it or retries it. A row can
-  show as a result, be dragged out, or open in Quick Look with Space. Retry All Failed retries
-  every failed file.
-- Open With L'Esclop and a drop on its Dock icon optimise images, videos, PDFs and audio.
+  show as a result, be dragged out, or open in Quick Look with Space. A bar acts on the selection,
+  ⌘C copies it and ⌫ restores it, asking first for several rows. Retry All Failed retries every
+  failed file and leaves stopped files stopped. Optimise Again says why when a file's backup is
+  gone, and Downscale says how many it left as they were.
+- Open With L'Esclop and a drop on its Dock icon optimise images, videos, PDFs and audio, and
+  folders of them.
   L'Esclop never becomes their default app.
 - Settings › General › Export… and Import…, and `esclop settings export` and `import`, carry your
   settings to another Mac.
 - Watched folders can skip formats, and images or videos by their size in pixels, each folder on
   its own. An `.esclopignore` (or Clop's `.clopignore`) file in the folder skips the names it
-  lists.
-- The Crop tab has paper and device sizes (the CLI's list), the last five sizes you typed, and
-  Centre or Smart framing that shows where a smart crop cuts.
+  lists; `.esclopignore-image` (`-video`, `-pdf`, `-audio`, or Clop 3.5's `.clopignore-image` and
+  the others) does so for one kind. "Ignore Rules…" on each watched folder edits its
+  `.esclopignore`.
+- The Crop tab has paper and device sizes (the CLI's list) that follow the picture's orientation,
+  with Turn the frame beside them, 3:4 and 2:3 shapes, the last five sizes you typed, and Centre
+  or Smart framing that shows where a smart crop cuts.
 - Pages as Images on a PDF result saves every page, optimised, in a folder beside the PDF.
   Extract Cover on an audio result saves its cover art beside the file and optimises it.
 - Settings › General › Menu bar: Show menu bar icon, and Show L'Esclop in screenshots. The second
-  is off by default, so result cards, the drop zone and the panel stay out of screenshots and screen
-  recordings.
+  is off by default, so result cards, the drop zone, the options popover and the panel stay out of
+  screenshots and screen recordings. Opening L'Esclop by hand while the icon is hidden shows
+  Settings at the switch that brings it back.
 - Open at login is also in Settings › General.
-- "Show floating results" in Settings, and a "Show the last result" hotkey.
+- "Show floating results" in Settings. With it off, files at work are in the menu bar panel with
+  Stop (a drop of many files is one row with Stop All), the arrow keys reach them and ⌫ stops one,
+  and a failed drop or copy says so in a notice.
+- A "Show the last result" hotkey: each press goes one result further back.
 - "Gather clipboard results" (Settings › Clipboard, off by default): each new result joins the
   ones L'Esclop last put on the clipboard, so one paste gives them all. It starts again after
   30 seconds without a new result.
@@ -71,17 +92,18 @@ links offered for download; Originals, Open With and settings you can carry to a
 - Pipelines with the clipboard or drop-zone trigger run in the app on what you copy or drop,
   for the kinds of file they have steps for. A pipeline's `hotkey` runs it on the clipboard. In
   the app, pipeline steps copy to the clipboard, open the file with an app, hand it to Yoink,
-  Dropover, Dockside, Atoll or Dropshare, and show a `fork` as a result of its own.
+  Dropover, Dockside, Atoll or Dropshare (also from Setapp), and show a `fork` as a result of its
+  own. `esclop` notes on stderr each pipeline step it skipped.
 - "Downscale Retina screenshots" works: automatic optimisation halves a 2x (144 dpi)
   screenshot, saved or copied. Other 144 dpi pictures keep their size.
 - `esclop recent` lists the recent results and `esclop restore <file>` puts an original back.
 - `esclop optimise https://…` downloads the address first, writes the result into the working
   directory and prints its path (with `-o` or `--behaviour temp`, it goes there instead). It
   warns about plain-http addresses; other schemes are refused.
-- `esclop optimise image|video|pdf|audio` takes one kind of file only. `--bitrate` sets the
-  bitrate of videos and audio in `optimise` and `convert`. `--adaptive` and `--no-adaptive`
-  override the "Adaptive image format" setting. `esclop recent` shows where each result came
-  from (`origin` in `--json`).
+- `esclop optimise image|video|pdf|audio` takes one kind of file only, and removes a download of
+  another kind. `--bitrate` sets the bitrate of videos and audio in `optimise` and `convert`.
+  `--adaptive` and `--no-adaptive` override the "Adaptive image format" setting. `esclop recent`
+  shows where each result came from (`origin` in `--json`).
 - Shortcuts: Crop PDF, Change Playback Speed and Optimise from URL actions. Every file action
   can choose where results go, the compression, removing a video's audio, hiding the floating
   result and copying the results to the clipboard. Many files from one Shortcut open one batch
@@ -90,25 +112,31 @@ links offered for download; Originals, Open With and settings you can carry to a
 - The CLI says on stderr when `--pdf-dpi`, `--remove-audio` or `--playback-speed-factor` do not
   apply to a file.
 - MCP `esclop_restore_backup` lists the files it set aside in the Trash (`movedToTrash`).
-- MCP: progress notifications for tool calls that send a progress token. `esclop mcp install`
-  also knows Antigravity, Kimi Code, Crush and VS Code Insiders.
+- MCP: progress notifications for tool calls that send a progress token, and `bitrate` on
+  `esclop_optimise` and `esclop_convert`. `esclop mcp install` also knows Antigravity, Kimi Code,
+  Crush and VS Code Insiders.
 - Settings › Uploads warns when a Cloudflare R2 target has no public link, and Test Upload
   checks that the copied link opens without the keys.
+- Copied AVIF images are optimised.
 
 ### Changed
 - Copying the web address of an image, video, PDF or audio file offers to download it. Nothing
   is fetched until you click. Settings › Clipboard › Copied web addresses can download on its own
-  or do nothing instead (`optimiseURLClipboard`: `offer`, `download` or `ignore`). Other links
-  are never opened.
+  or do nothing instead (`optimiseURLClipboard`: `offer`, `download` or `ignore`). Copying any
+  other link offers nothing. Optimise Clipboard (⌃⇧C) downloads any copied web address at once,
+  also one without a file extension, and keeps it when it serves media.
 - Every download shows its progress on a card from the start, with Stop. Downloads stop at 2 GB
   and after an hour, and refuse an answer that is not an image, video, PDF or audio file (also a
   web page at an image's address). Downloads from a copy also send no cookies, wait for Low Data
   Mode to end, run one at a time, keep to the kind's size limit, and never reach this Mac or the
-  local network.
+  local network, also through an IPv4 address written inside an IPv6 one. A card for an address
+  with no path shows the host.
 - ⌃⇧P pauses or resumes at once and says which in a short notice; it no longer skips the next
   copy first. Pause L'Esclop and Resume L'Esclop are in the panel's gear.
 - Copying an image file in Finder no longer changes it on disk: L'Esclop optimises a copy and
   puts that copy on the clipboard, as Clop does. A clipboard pipeline also works on a copy.
+- Copying the results of dropped files is a switch, Settings › Clipboard › "Copy results of
+  dropped files", off by default, so a drop never replaces what you copied.
 - Hold ⌥ while dropping to keep the originals: the results go beside them, also on a preset
   zone. Its pipeline runs on a copy beside the original, which goes again when the pipeline
   writes its result elsewhere.
@@ -155,11 +183,13 @@ links offered for download; Originals, Open With and settings you can carry to a
   screenshot or other file that arrives whole starts at once; a file still being written must
   stay unchanged for 1.5 s first, so a network copy that pauses is not taken half-written. The
   "More than N at once" notice offers Optimise Them Anyway.
-- ⌃O and the Finder actions ask once before they work through a folder with many files.
+- ⌃O, Optimise Files… and the Finder actions ask once before they work through folders with many
+  files. A large folder dropped on the drop zone or the Dock icon asks before it is optimised in
+  place.
 - Running a pipeline on many files from the pipeline editor, or on a burst of new files in a
   pipeline's watched folder, shows one batch window, like Finder and the drop zone.
 - A Shortcuts action whose file fails names every failed file and says how many others were
-  optimised.
+  optimised. A pipeline that saves nothing is reported as unchanged.
 - `esclop pdf pages` and a pipeline's `extractPagesAsImages` optimise the pages they write and
   name them after the PDF, the number padded to the page count (`doc-1.jpg` of 3 pages,
   `doc-01.jpg` of 12). `esclop pdf pages` makes a page that is one photo a JPEG, and `--format`
@@ -168,7 +198,8 @@ links offered for download; Originals, Open With and settings you can carry to a
   Before, it was 8-bit but still tagged HDR.
 - Settings hides the software video encoders the bundled ffmpeg does not have, and the details
   name the encoder that ran.
-- Over a preset zone, the drop zone names the pipeline that will run and no longer offers ⌘. A
+- Over a preset zone, the drop zone names the whole pipeline that will run, in two lines if
+  needed, and no longer offers ⌘; with ⌥ held it says the originals stay. A
   dropped folder counts the media inside it and offers only the zones that fit it.
 - CLI: a file already as small as it gets, and a file L'Esclop already optimised, are listed as
   unchanged and exit 0. `--force` optimises an already optimised file again; `-a` and a
@@ -177,6 +208,12 @@ links offered for download; Originals, Open With and settings you can carry to a
   inplace|samefolder|temp` is a usage error.
 - CLI: `esclop upload` takes only the options it honours and refuses `-o`, `--behaviour` and
   `--in-process`. `--copy` copies every link, one per line.
+- Importing settings (Settings › General › Import… or `esclop settings import`) no longer turns
+  on agent permissions or changes upload targets and automatic uploads unless you allow it: the
+  app asks, and the CLI needs `--allow-permissions`. Emptying the upload targets counts as such a
+  change. Both name each setting they changed.
+- `esclop settings set` and `import` exit 70 when a value was not kept (for example, when a
+  configuration profile manages it).
 - `ESCLOP_SUPPORT_DIR` also moves the settings (into a suite of their own) and the engine's
   backups, so scripted runs leave the person's own alone.
 - At launch, L'Esclop clears what it left in its temporary folder that is older than the backup
@@ -190,6 +227,10 @@ links offered for download; Originals, Open With and settings you can carry to a
   and wording is fixed in English and Catalan.
 - Results do not hide on a timer while VoiceOver is on. With Differentiate without colour, work in
   progress and suggestions carry a symbol.
+- Notices wait while the pointer rests on them, so the offer to download a copied address and
+  "Optimise anyway" no longer hide under it; with VoiceOver on, an offer waits for you. VoiceOver
+  reads notices and failures, says "Already optimised" and names the key that reaches a notice:
+  "Go to the newest result" (⌃⇧N). "Optimise anyway" notices for one folder no longer pile up.
 - On the first run, folder watching starts at the tour's Permissions page, which shows whether
   L'Esclop can read the Desktop. The tour names the screenshot folder when it is not the Desktop
   and offers to watch it.
@@ -206,7 +247,8 @@ links offered for download; Originals, Open With and settings you can carry to a
   name. Size has tiles for Original, 2000 px, 1280 px and Half with their sizes, a custom width
   and height and Fit under; Crop is a tab of its own; Actions lists the pipelines, Upload and
   Share… as rows, with Run a Shortcut and Open with. Copy, Save as, Show in Finder and Quick Look
-  are the popover's keys; Compare is the detail's loupe; "Keep visible" is in Settings only.
+  are the popover's keys (while you type a width or height, ⌘Z and ⌘C act on the text); Compare
+  is the detail's loupe; "Keep visible" is in Settings only.
 - The drop zone is the design's row of tiles: "Optimise" with the file count and the preset
   zones beside it, raised like the options popover's tiles, the one under the drag in charcoal,
   and "Drop to optimise · Hold ⌘ to optimise harder" under them. No more dashed outlines.
@@ -259,15 +301,29 @@ links offered for download; Originals, Open With and settings you can carry to a
   compresses the file again. Restore All stops the batch first and asks.
 - A job with several files lists, restores and counts every file, not only the last one.
 - Restoring a file from a card, Compare, Recent or Originals and then from the batch window no
-  longer sends the original to the Trash as an edited version. After Recent › Clear, Originals
-  no longer calls a long encode's result an edited version. Restoring the same result twice at
-  once restores it once.
+  longer sends the original to the Trash as an edited version, nor does restoring an original that
+  `esclop restore`, an agent or another window already put back; in a watched folder, such an
+  original is not optimised again. After Recent › Clear, Originals no longer calls a long
+  encode's result an edited version, nor a result whose log line is gone. Restoring the same
+  result twice at once restores it once. Restoring several originals shows one notice, and Show
+  in Finder on a row restored in place shows the original.
 - A re-run or a batch restore that moves your edited version to the Trash says so. A failed Save
   to Downloads or Move to Trash says why. Compare no longer offers Restore Original for a
   conversion that kept its original.
-- Removing metadata now also removes the location, camera and EXIF of a resized or cropped HDR
+- Remove metadata really removes it. HEIC and AVIF lose their metadata without a re-encode: the
+  picture keeps its pixels and size. TIFF is rewritten without loss. A photo, video, PDF or (when
+  asked) song that cannot get smaller still loses its location, camera, author and dates instead
+  of staying unchanged; a picture that would have to grow to lose them (some TIFF, BMP and JPEG
+  XL) stays unchanged when optimised, and Remove metadata itself still strips it. Every strip
+  reads its result back and fails on any tag that is not purely technical, so L'Esclop never
+  says it removed what stayed.
+- Removing metadata also removes the location, camera and EXIF of a resized or cropped HDR
   photo, and the camera and author tags (Make, Model, Artist, Copyright, date) of HEIC and HDR
-  photos.
+  photos. From an audiobook it keeps the chapters; from Opus and Ogg files it also removes the
+  artist and title.
+- With metadata kept, an iPhone video keeps its location, make and model as MOV and its location
+  as MP4. Optimising a PDF keeps its title, and PDF pages exported as images keep their
+  resolution.
 - With metadata kept, converting or resizing a rotated photo keeps its XMP (title, keywords,
   rating), and JPEG crops and resizes keep IPTC keywords. WebP and AVIF made from a PNG or JPEG
   with a density but no EXIF keep its dpi.
@@ -287,6 +343,12 @@ links offered for download; Originals, Open With and settings you can carry to a
 - Converting in place no longer replaces an unrelated file with the new name: the result takes
   the next free name (`IMG 2.jpg`). An output name whose extension names another format is
   refused.
+- A file given as a symbolic link is optimised: the file it points at is replaced and the link
+  keeps pointing at it. A link to a file whose name has no extension is refused instead of
+  writing a new file beside it.
+- A folder or disk that refuses the write says so in one sentence instead of a raw system error,
+  and leaves no backup in Originals. A JPEG that is cut short is refused as damaged instead of
+  being optimised; one that misses only its end marker is still optimised.
 - Exporting PDF pages no longer replaces files that are already there, and a page that cannot be
   rendered fails the export instead of being skipped.
 - Stripping metadata keeps a JPEG's DPI and its EXIF colour space, so Adobe RGB photos keep
@@ -294,12 +356,17 @@ links offered for download; Originals, Open With and settings you can carry to a
 - A stuck ffmpeg is stopped after five minutes without progress, and not after the Mac sleeps. A
   file that crashes the image engine no longer fails the other files, or gets another file
   blamed. Tools stop when L'Esclop quits unexpectedly.
-- Cancelling an MCP tool call stops the job in the app too.
+- Cancelling an MCP tool call, or closing the MCP client, stops its jobs in the app too.
+- The CLI and MCP server no longer risk a crash when several requests check at once whether the
+  app is running.
 - `esclop restore` on a file with no recent result points at `esclop recent` and exits 1. A file
   command whose every file was an invalid request exits 64. `esclop convert --help` no longer
-  offers `jxl`, and `esclop settings reset` prints the new value. Audio and video say "Removed
-  metadata" when they did, and a lossless pass "Optimised without loss". A video crop no longer
-  prints a resize that does nothing.
+  offers `jxl`, and `esclop settings reset` prints the new value. A job whose files fail only
+  because the app is not running exits 69, and "Invalid argument" is no longer said twice. Audio
+  and video say "Removed metadata" when they did, and a lossless pass "Optimised without loss". A
+  video crop no longer prints a resize that does nothing. The total line no longer prints "−-"
+  when files grew: its sign follows the size.
+- On macOS 15, `.opus` and `.ogg` files are no longer refused as unsupported.
 - The detail stays open while its file changes in place, a file at work keeps its place among
   the floating results, and a result never lands out of sight.
 - Recent › Clear reports a failure when the log cannot be read, instead of clearing the list
@@ -316,11 +383,11 @@ links offered for download; Originals, Open With and settings you can carry to a
 - A link or search result to a setting low in Settings › General scrolls to it and marks it.
   Turning off Open at login says so when macOS refuses.
 - The welcome window no longer reopens at every launch, and its permissions refresh after a visit
-  to System Settings. "Kept for 0 days" reads "always kept".
+  to System Settings, and its Permissions page scrolls when its rows do not fit. "Kept for 0
+  days" reads "always kept". The shortcut recorder and its alerts are in Catalan.
 - Turning "Strip metadata" off in a file's options now keeps its metadata while the setting is
   on. A request's `stripMetadata` is now optional: `true` strips, `false` keeps, and leaving it
-  out follows the setting. For MCP, `stripMetadata: false` used to be ignored and now keeps
-  metadata.
+  out follows the setting.
 
 ### Removed
 - The dimmed glyph while paused: the menu bar panel says "Paused · Resume" instead.
