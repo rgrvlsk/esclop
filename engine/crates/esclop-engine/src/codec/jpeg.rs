@@ -570,7 +570,8 @@ mod tests {
             assert!(decodes_every_row(&whole));
             assert!(decodes_every_row(&whole[..whole.len() - 2]), "progressive: {progressive}");
         }
-        let opts = EncodeOptions { quality: 90, progressive: false, fast_scans: false, chroma_full: false, markers: &[] };
+        let opts =
+            EncodeOptions { quality: 90, progressive: false, fast_scans: false, chroma_full: false, markers: &[] };
         let baseline = codec().encode(&gradient(96, 64), 96, 64, Layout::Rgb, &opts).unwrap();
         assert!(!decodes_every_row(&baseline[..baseline.len() / 2]));
         let parts = crate::meta::JpegParts::parse(&baseline[..baseline.len() - 2]).unwrap();
