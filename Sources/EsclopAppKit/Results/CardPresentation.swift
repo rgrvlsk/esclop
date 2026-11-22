@@ -476,12 +476,10 @@ public struct CardPresentation: Equatable, Sendable {
         return String(format: Strings.text(key, locale: locale), locale: locale, size, String(percent))
     }
 
-    /// Whether a picture's or a PDF's metadata was removed, which a result with no saving still
-    /// did. Video and audio log the step whenever strip is on, so they are not counted.
+    /// Whether the metadata was removed, which a result with no saving still did.
     // ponytail: reads the engine's English step line; a field on the result if a third reader needs it.
     static func removedMetadata(_ result: OptimisationResult) -> Bool {
-        (result.kind == .image || result.kind == .pdf)
-            && result.steps.contains { $0.hasPrefix("Removed metadata") || $0 == "Removed document metadata" }
+        result.steps.contains { $0.hasPrefix("Removed metadata") || $0 == "Removed document metadata" }
     }
 
     static func dimensions(_ result: OptimisationResult) -> String? {

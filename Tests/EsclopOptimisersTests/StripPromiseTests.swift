@@ -10,6 +10,7 @@ import EsclopCore
 @testable import EsclopOptimisers
 import Foundation
 import ImageIO
+import PDFKit
 import Testing
 import UniformTypeIdentifiers
 
@@ -224,6 +225,87 @@ import UniformTypeIdentifiers
         let gif = world.file("small.gif")
         try Personal.plantGIF(gif, frames: 4, size: 240)
         #expect(try await Self.checkStripsWhenUnchanged(gif, world: world).steps == ["Removed metadata"])
+    }
+
+    /// HC-46 H4: the same for a video (an iPhone MOV keeps its location), a song whose strip is
+    /// asked for, and a PDF, which keeps its title.
+    @Test(.enabled(if: Harness.hasFFmpeg)) func unchangedVideoAndAudioStillStrip() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let tags = ["-metadata", "title=Secret Title", "-metadata", "artist=Secret Person", "-metadata", "location=+41.3800+002.1700/"]
+        // Apple Lossless stays as it is: never smaller.
+        let noise = world.file("noise.wav")
+        try Fixture.noiseWAV(noise)
+        let song = world.file("song.m4a")
+        try await ProcessRunner.run(.ffmpeg, ["-hide_banner", "-loglevel", "error", "-y", "-i", noise.path, "-c:a", "alac_at"] + tags + [song.path])
+        var song2 = world.request(song, location: .temporary)
+        song2.stripMetadata = true
+        let stripped = try await Self.checkStripsUnchangedMedia(song, request: song2, world: world)
+        #expect(stripped.steps == ["Removed metadata and artwork"])
+        // Without asking, a song keeps its tags (the setting is for pictures, video and PDF).
+        await #expect(throws: EsclopError.alreadySmaller) { try await world.engine.optimise(song, request: world.request(song), progress: { _ in }) }
+
+        let fat = world.file("fat.mov")
+        try await Fixture.video(fat)
+        var clip = fat
+        var keep = world.request(fat, location: .temporary)
+        keep.stripMetadata = false
+        // Optimised until it cannot get smaller, then given its location and author back.
+        for _ in 0 ..< 3 {
+            guard let once = try? await world.engine.optimise(clip, request: keep, progress: { _ in }) else { break }
+            clip = world.file("clip-\(UUID().uuidString.prefix(4)).\(once.output.pathExtension)")
+            try FileManager.default.copyItem(at: once.output, to: clip)
+        }
+        let tagged = world.file("tagged.\(clip.pathExtension)")
+        try await ProcessRunner.run(.ffmpeg, ["-hide_banner", "-loglevel", "error", "-y", "-i", clip.path, "-map", "0", "-c", "copy"] + tags + [tagged.path])
+        var strip = world.request(tagged, location: .temporary)
+        strip.stripMetadata = true
+        #expect(try await Self.checkStripsUnchangedMedia(tagged, request: strip, world: world).steps == ["Removed metadata"])
+    }
+
+    @Test(.enabled(if: Harness.hasRealEngine)) func unchangedPDFStillStripsAndKeepsItsTitle() async throws {
+        let world = try await TestWorld(realEngine: true)
+        defer { Task { await world.finish() } }
+        var pdf = world.file("letter.pdf")
+        var box = CGRect(x: 0, y: 0, width: 612, height: 792)
+        let info = [kCGPDFContextTitle: "Quarterly report", kCGPDFContextAuthor: "Secret Person"] as CFDictionary
+        let context = try #require(CGContext(pdf as CFURL, mediaBox: &box, info))
+        context.beginPDFPage(nil)
+        context.fill(CGRect(x: 36, y: 60, width: 540, height: 20))
+        context.endPDFPage()
+        context.closePDF()
+        var keep = world.request(pdf, location: .temporary)
+        keep.stripMetadata = false
+        for _ in 0 ..< 3 {
+            guard let once = try? await world.engine.optimise(pdf, request: keep, progress: { _ in }) else { break }
+            pdf = world.file("letter-\(UUID().uuidString.prefix(4)).pdf")
+            try FileManager.default.copyItem(at: once.output, to: pdf)
+        }
+        func attributes(_ url: URL) -> [AnyHashable: Any] { PDFDocument(url: url)?.documentAttributes ?? [:] }
+        try #require(attributes(pdf)[PDFDocumentAttribute.authorAttribute] != nil, "the optimised PDF keeps its author with strip off")
+        var strip = world.request(pdf, location: .temporary)
+        strip.stripMetadata = true
+        let result = try await Self.checkStripsUnchangedMedia(pdf, request: strip, world: world)
+        #expect(result.steps == ["Removed document metadata"])
+        #expect(attributes(result.output)[PDFDocumentAttribute.authorAttribute] == nil)
+        #expect(attributes(result.output)[PDFDocumentAttribute.titleAttribute] as? String == "Quarterly report")
+    }
+
+    /// `file` cannot get smaller with strip off; with `request` (strip on) it comes back
+    /// stripped, no larger, with no personal tag left.
+    private static func checkStripsUnchangedMedia(_ file: URL, request: OptimisationRequest, world: TestWorld) async throws -> OptimisationResult {
+        var keep = request
+        keep.stripMetadata = false
+        await #expect(throws: EsclopError.alreadySmaller, "\(file.lastPathComponent) cannot get smaller") {
+            try await world.engine.optimise(file, request: keep, progress: { _ in })
+        }
+        let result = try await world.engine.optimise(file, request: request, progress: { _ in })
+        #expect(result.bytesAfter <= result.bytesBefore + result.bytesBefore / 100, "\(file.lastPathComponent)")
+        if MediaKind.of(file) != .pdf {
+            try #require(try await !Inspect.mediaTags(file).isEmpty, "\(file.lastPathComponent) carries tags")
+            #expect(try await Inspect.mediaTags(result.output) == [], "\(file.lastPathComponent)")
+        }
+        return result
     }
 
     /// Optimises `file` with strip off until it cannot get smaller (the metadata stays), then

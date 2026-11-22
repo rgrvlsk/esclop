@@ -50,6 +50,11 @@ struct MediaInfo: Sendable {
     /// An iPhone's location, make and model (`com.apple.quicktime.*` keys, which ffmpeg cannot
     /// copy into MOV or MP4), under ffmpeg's own names: `location`, `make`, `model`.
     var appleTags: [String: String] = [:]
+    /// The container's tags that are not purely technical: location, title, artist, comment,
+    /// camera, dates. A strip leaves none.
+    var personalTags: [String] = []
+    /// The container tags that only say how the file was written.
+    static let technicalTags: Set<String> = ["major_brand", "minor_version", "compatible_brands", "encoder"]
 
     var hasCoverArt: Bool { streams.contains { $0.type == "video" && $0.attachedPicture } }
 
@@ -94,6 +99,7 @@ struct MediaInfo: Sendable {
         for (name, key) in [("location", "location.ISO6709"), ("make", "make"), ("model", "model")] {
             if let value = tags["com.apple.quicktime.\(key)"]?.stringValue { info.appleTags[name] = value }
         }
+        info.personalTags = tags.keys.filter { !technicalTags.contains($0.lowercased()) }.sorted()
         for stream in streams {
             let type = stream["codec_type"]?.stringValue
             let attached = stream["disposition"]?["attached_pic"]?.intValue == 1

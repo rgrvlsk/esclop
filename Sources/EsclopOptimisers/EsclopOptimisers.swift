@@ -265,14 +265,18 @@ public struct EsclopEngine: OptimisationEngine {
 
         do {
             return try await dispatch(operation, kind, source, request: request, progress: progress, adjust: adjust)
-        } catch EsclopError.alreadySmaller
-            where operation != .strip && kind == .image && Plan(operation: operation, request: request, env: env).strip
-            && !ImageIOCodec.personalMetadata(source).isEmpty
-        {
-            // With strip on, a picture that cannot get smaller still loses its location and
-            // camera: the strip is the result, the same size or a little smaller.
+        } catch EsclopError.alreadySmaller where operation != .strip {
+            // With strip on, a file that cannot get smaller still loses its location, camera,
+            // author and dates: the strip is the result, the same size or a little smaller.
+            guard await stripsWhenUnchanged(source, kind: kind, request: request) else { throw EsclopError.alreadySmaller }
             return try await perform(source, request: request, operation: .strip, progress: progress) { _, work, _ in
-                let produced = try await ImageEngine(env: env).stripMetadata(source, work: work)
+                let produced = switch kind {
+                case .image: try await ImageEngine(env: env).stripMetadata(source, work: work)
+                case .video: try await VideoEngine(env: env).stripMetadata(source, work: work)
+                case .audio: try await AudioEngine(env: env).stripMetadata(source, work: work)
+                // An optimise keeps the title readers show.
+                case .pdf: try await PDFEngine(env: env).stripMetadata(source, work: work, keepTitle: true)
+                }
                 // ponytail: a picture ImageIO must re-encode to strip (TIFF, BMP, JPEG XL, a HEIF
                 // the item parser does not read) can come out several times larger. Nobody asked
                 // for that size here, so it stays unchanged, metadata and all; Remove metadata
@@ -280,6 +284,18 @@ public struct EsclopEngine: OptimisationEngine {
                 guard fileSize(produced.url) <= fileSize(source) + fileSize(source) / 100 else { throw EsclopError.alreadySmaller }
                 return produced
             }
+        }
+    }
+
+    /// Whether `request` strips `source` and it carries something a strip removes. Audio strips
+    /// only when asked (the setting is for pictures, video and PDF), as `AudioEngine` does.
+    private func stripsWhenUnchanged(_ source: URL, kind: MediaKind, request: OptimisationRequest) async -> Bool {
+        let strip = kind == .audio ? request.stripMetadata == true : Plan(operation: .optimise, request: request, env: env).strip
+        guard strip else { return false }
+        switch kind {
+        case .image: return !ImageIOCodec.personalMetadata(source).isEmpty
+        case .video, .audio: return await (try? MediaInfo.probe(source, tools: env.tools))?.personalTags.isEmpty == false
+        case .pdf: return PDFEngine.hasPersonalMetadata(source)
         }
     }
 

@@ -125,11 +125,22 @@ struct PDFEngine: Sendable {
 
     /// `pdf.optimise` without downsampling, at the lightest compression, drops the document
     /// info, the XMP, thumbnails and application data.
-    func stripMetadata(_ source: URL, work: WorkFolder) async throws -> Produced {
+    /// Remove metadata drops the title too; an optimise that strips keeps it (`keepTitle`).
+    func stripMetadata(_ source: URL, work: WorkFolder, keepTitle: Bool = false) async throws -> Produced {
         _ = try document(source)
         let output = work.file(stem: "stripped", ext: "pdf")
-        try await engine(source, to: output, dpi: PDFResolution.noDownsampleDPI, factor: 0, strip: true, keepTitle: false, progress: .none)
+        try await engine(source, to: output, dpi: PDFResolution.noDownsampleDPI, factor: 0, strip: true, keepTitle: keepTitle, progress: .none)
         return Produced(url: output, width: nil, height: nil, duration: nil, steps: ["Removed document metadata"], allowLarger: true)
+    }
+
+    /// Whether the document information holds more than a title: an author, a creator or
+    /// producer, a subject, keywords, dates.
+    static func hasPersonalMetadata(_ url: URL) -> Bool {
+        let attributes = PDFDocument(url: url)?.documentAttributes ?? [:]
+        return [
+            PDFDocumentAttribute.authorAttribute, .creatorAttribute, .producerAttribute, .subjectAttribute, .keywordsAttribute,
+            .creationDateAttribute, .modificationDateAttribute,
+        ].contains { attributes[$0] != nil }
     }
 
     // MARK: PDFKit
