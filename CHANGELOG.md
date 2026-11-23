@@ -133,6 +133,7 @@ Mac's own encoders.
   with no path shows the host.
 - ⌃⇧P pauses or resumes at once and says which in a short notice; it no longer skips the next
   copy first. Pause L'Esclop and Resume L'Esclop are in the panel's gear.
+- The disk image opens on a window that shows where to drag the app.
 - Copying an image file in Finder no longer changes it on disk: L'Esclop optimises a copy and
   puts that copy on the clipboard, as Clop does. A clipboard pipeline also works on a copy.
 - Copying the results of dropped files is a switch, Settings › Clipboard › "Copy results of

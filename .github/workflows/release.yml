@@ -160,7 +160,7 @@ jobs:
           done
           version="$(plutil -extract CFBundleShortVersionString raw -o - "$app/Contents/Info.plist")"
           dmg="dist/LEsclop-$version.dmg"
-          hdiutil create -volname "L'Esclop" -srcfolder "$app" -fs APFS -format ULFO -ov "$dmg"
+          Scripts/make-dmg.sh "$app" "$dmg"
           if [ -n "${ESCLOP_SIGN_IDENTITY:-}" ]; then
             codesign --force --timestamp --sign "$ESCLOP_SIGN_IDENTITY" "$dmg"
           fi
