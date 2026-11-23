@@ -334,6 +334,9 @@ final class KeyWatcher: NSObject, @unchecked Sendable {
         let lost = try SettingsFile.import(data, into: forgetful)
         #expect(lost.changed.isEmpty)
         #expect(lost.unkept == ["batchWindowFrom", "gifFPS", "imageDirs"])
+        // HC-50 P5: a write the preferences daemon refused reads back as asked, and was not kept.
+        let refused = SettingsStore(defaults: UserDefaults(suiteName: "dev.esclop.tests.\(UUID().uuidString)")!, synchronise: { false })
+        #expect(try SettingsFile.import(data, into: refused).unkept == ["batchWindowFrom", "gifFPS", "imageDirs"])
 
         let bad = Data(#"{"format": "esclop-settings", "version": 1, "settings": {"batchWindowFrom": "soon"}}"#.utf8)
         #expect { try SettingsFile.import(bad, into: store) } throws: { error in

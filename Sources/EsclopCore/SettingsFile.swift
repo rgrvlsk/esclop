@@ -108,10 +108,12 @@ public enum SettingsFile {
         let settings = read.values.keys.compactMap { registry.setting($0) }
         let before = Dictionary(uniqueKeysWithValues: settings.map { ($0.key, $0.get(in: store)) })
         try registry.apply(read.values, in: store)
+        // A write the preferences daemon refused still reads back here: then none was kept.
+        let saved = store.synchronise()
         for setting in settings {
             let now = setting.get(in: store)
-            if now != before[setting.key] { read.changed.append(setting.key) }
-            if let wanted = read.values[setting.key], now != setting.normalised(wanted) { read.unkept.append(setting.key) }
+            if saved, now != before[setting.key] { read.changed.append(setting.key) }
+            if let wanted = read.values[setting.key], !saved || now != setting.normalised(wanted) { read.unkept.append(setting.key) }
         }
         read.changed.sort()
         read.unkept.sort()

@@ -32,6 +32,16 @@ import UniformTypeIdentifiers
         #expect(Clipboard.read(harness.pasteboard, text: false) == .files([try #require(output()).standardizedFileURL]))
     }
 
+    /// HC-50 P7: a dropped file already optimised goes on the clipboard as it is.
+    @Test func anUnchangedDroppedFileIsCopiedAsItIs() async throws {
+        let harness = Harness(failure: .alreadySmaller)
+        try EsclopSettings.copyDroppedResults.set(true, in: harness.settings.store)
+        let file = harness.temp.file("a.png")
+        harness.model.optimiseDropped([file], harder: false)
+        #expect(await eventually { Clipboard.isOwnWrite(harness.pasteboard) })
+        #expect(Clipboard.read(harness.pasteboard, text: false) == .files([file.standardizedFileURL]))
+    }
+
     @Test func copiedAVIFPixelsAreRead() {
         let board = NSPasteboard.withUniqueName()
         defer { board.releaseGlobally() }

@@ -51,6 +51,15 @@ import UniformTypeIdentifiers
         #expect(restored.status == 0, "\(restored.output)")
         #expect(try Data(contentsOf: photo) == original)
         #expect(try await recent().map { URL(fileURLWithPath: $0.source).lastPathComponent } == ["other.heic"], "the other file's result stays")
+
+        // HC-50 P6: a version edited since it was optimised goes to the Trash, and restore says so.
+        try (try Data(contentsOf: other) + Data([0])).write(to: other)
+        let edited = try await run(["restore", "--no-color", other.path])
+        #expect(edited.status == 0, "\(edited.output)")
+        let trashed = try #require(edited.output.components(separatedBy: "note: moved to the Trash: ").last?.components(separatedBy: "\n").first, "\(edited.output)")
+        let inTrash = URL(fileURLWithPath: NSString(string: trashed).expandingTildeInPath)
+        #expect(FileManager.default.fileExists(atPath: inTrash.path), "\(edited.output)")
+        try? FileManager.default.removeItem(at: inTrash)
     }
 
     /// A pipeline step that cannot run in the CLI is a `note:` line on stderr, not silence.

@@ -451,6 +451,16 @@
         }
       }
     },
+    "%@, unchanged, metadata kept: removing it would make the file larger": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, sense canvis, metadades conservades: treure-les faria el fitxer més gran"
+          }
+        }
+      }
+    },
     "%@, uploaded, the link is on the clipboard": {
       "localizations": {
         "ca": {
@@ -5141,6 +5151,26 @@
         }
       }
     },
+    "Metadata kept": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Metadades intactes"
+          }
+        }
+      }
+    },
+    "Metadata kept: removing it would make the file larger.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’han conservat les metadades: treure-les faria el fitxer més gran."
+          }
+        }
+      }
+    },
     "Metadata removed": {
       "localizations": {
         "ca": {
@@ -6206,7 +6236,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Optimitza’ls igualment"
+            "value": "Optimitza igualment"
           }
         }
       }
@@ -8186,7 +8216,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "El valor del fitxer per a «%@» no és un dels que admet aquest ajust. No s’ha canviat res."
+            "value": "El valor del fitxer per a «%@» no és cap dels que admet aquesta opció. No s’ha canviat res."
           }
         }
       }
@@ -9636,7 +9666,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Han aparegut alhora a %@, així que L’Esclop no els ha tocat."
+            "value": "Han aparegut alhora a %@, així que L’Esclop no hi ha tocat res."
           }
         }
       }
@@ -11521,6 +11551,16 @@
         }
       }
     },
+    "Removing it would make the file larger": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Treure-les faria el fitxer més gran"
+          }
+        }
+      }
+    },
     "running scripts is turned off; allow it in esclop's settings": {
       "localizations": {
         "ca": {
@@ -12136,7 +12176,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mentre arrossegues, la zona per deixar anar queda amagada fins que toques Opció; llavors s’obre sota el punter. Torna a tocar Opció per amagar-la."
+            "value": "Mentre arrossegues, la zona per deixar anar queda amagada fins que prems Opció; llavors s’obre sota el punter. Torna a prémer Opció per amagar-la."
           }
         }
       }
@@ -12146,7 +12186,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mostra la zona per deixar anar només després de tocar ⌥"
+            "value": "Mostra la zona per deixar anar només després de prémer ⌥"
           }
         }
       }
@@ -14487,6 +14527,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "a WebP"
+          }
+        }
+      }
+    },
+    "Unchanged · metadata kept": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sense canvis · metadades intactes"
+          }
+        }
+      }
+    },
+    "Unchanged · metadata kept (removing it would make the file larger)": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sense canvis · metadades conservades (treure-les faria el fitxer més gran)"
           }
         }
       }

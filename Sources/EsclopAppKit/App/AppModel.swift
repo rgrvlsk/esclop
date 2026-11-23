@@ -595,12 +595,15 @@ public final class AppModel {
             onResult?(result)
         case let .failure(error):
             events(.failure(FileFailure(source: source, error: error, step: failedStep)))
-            if error == .alreadySmaller {
+            if error.isUnchanged {
                 let bytes = Self.size(of: source)
-                card?.phase = .unchanged(bytes: bytes)
+                let kept = error == .metadataKept
+                card?.phase = .unchanged(bytes: bytes, metadataKept: kept)
                 row?.state = .unchanged
                 // VoiceOver hears that nothing changed, as it hears a saving.
-                if row == nil { announce(Strings.format("Already optimised · %@", Figures.bytes(bytes))) }
+                if row == nil {
+                    announce(kept ? Strings.text("Unchanged · metadata kept (removing it would make the file larger)") : Strings.format("Already optimised · %@", Figures.bytes(bytes)))
+                }
             } else {
                 card?.phase = .failed(CardPresentation.message(for: error))
                 row?.state = error == .cancelled ? .cancelled : .failed(CardPresentation.message(for: error))

@@ -124,7 +124,9 @@ struct DropIntake {
         let promised = asked.reduce(0) { $0 + $1.promisedTypes.count }
         let expected = promised + addresses.count
         guard expected > 0 else {
-            deliver(files, [])
+            // On the next turn of the main loop: a folder asks "optimise N files?" and is
+            // scanned, which must not hold the drag (and the Finder) until it is answered.
+            Task { @MainActor in deliver(files, []) }
             return {}
         }
         let (results, sink) = AsyncStream.makeStream(of: Result<URL, any Error>.self)

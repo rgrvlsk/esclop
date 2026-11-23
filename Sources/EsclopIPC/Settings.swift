@@ -236,6 +236,8 @@ public struct RegistrySettingsProvider: SettingsProvider {
     public func setValue(_ text: String, forKey key: String) throws -> JSONValue {
         _ = try descriptor(forKey: key)
         try registry.set(key, text: text, in: store)
+        // A write the preferences daemon refused still reads back here, from this process's copy.
+        guard store.synchronise() else { throw SettingsStore.notKept([key]) }
         return try registry.get(key, in: store)
     }
 

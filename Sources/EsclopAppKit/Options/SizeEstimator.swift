@@ -238,7 +238,7 @@ public actor SizeEstimator {
         do {
             let result = try await executor.process(original, job: job) { _ in }
             return result.bytesAfter
-        } catch EsclopError.alreadySmaller {
+        } catch let error as EsclopError where error.isUnchanged {
             return key.bytes
         } catch {
             return nil

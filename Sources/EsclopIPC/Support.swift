@@ -518,7 +518,7 @@ extension EsclopError {
         case .fileNotFound, .backupRemoved: return "fileNotFound"
         case .toolMissing: return "toolMissing"
         case .toolFailed: return "toolFailed"
-        case .alreadySmaller: return "alreadySmaller"
+        case .alreadySmaller, .metadataKept: return "alreadySmaller"
         case .cancelled: return "cancelled"
         case .notPermitted: return "notPermitted"
         case .invalidPipeline: return "invalidPipeline"

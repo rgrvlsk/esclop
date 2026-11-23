@@ -136,7 +136,8 @@ Mac's own encoders.
 - Copying an image file in Finder no longer changes it on disk: L'Esclop optimises a copy and
   puts that copy on the clipboard, as Clop does. A clipboard pipeline also works on a copy.
 - Copying the results of dropped files is a switch, Settings › Clipboard › "Copy results of
-  dropped files", off by default, so a drop never replaces what you copied.
+  dropped files", off by default, so a drop never replaces what you copied. A dropped file that
+  was already optimised goes on the clipboard as it is, so a paste gives everything dropped.
 - Hold ⌥ while dropping to keep the originals: the results go beside them, also on a preset
   zone. Its pipeline runs on a copy beside the original, which goes again when the pipeline
   writes its result elsewhere.
@@ -185,7 +186,7 @@ Mac's own encoders.
   "More than N at once" notice offers Optimise Them Anyway.
 - ⌃O, Optimise Files… and the Finder actions ask once before they work through folders with many
   files. A large folder dropped on the drop zone or the Dock icon asks before it is optimised in
-  place.
+  place; the drag ends at once, before the question.
 - Running a pipeline on many files from the pipeline editor, or on a burst of new files in a
   pipeline's watched folder, shows one batch window, like Finder and the drop zone.
 - A Shortcuts action whose file fails names every failed file and says how many others were
@@ -213,7 +214,7 @@ Mac's own encoders.
   app asks, and the CLI needs `--allow-permissions`. Emptying the upload targets counts as such a
   change. Both name each setting they changed.
 - `esclop settings set` and `import` exit 70 when a value was not kept (for example, when a
-  configuration profile manages it).
+  configuration profile manages it, or the preferences system refused the write).
 - `ESCLOP_SUPPORT_DIR` also moves the settings (into a suite of their own) and the engine's
   backups, so scripted runs leave the person's own alone.
 - At launch, L'Esclop clears what it left in its temporary folder that is older than the backup
@@ -313,10 +314,13 @@ Mac's own encoders.
 - Remove metadata really removes it. HEIC and AVIF lose their metadata without a re-encode: the
   picture keeps its pixels and size. TIFF is rewritten without loss. A photo, video, PDF or (when
   asked) song that cannot get smaller still loses its location, camera, author and dates instead
-  of staying unchanged; a picture that would have to grow to lose them (some TIFF, BMP and JPEG
-  XL) stays unchanged when optimised, and Remove metadata itself still strips it. Every strip
-  reads its result back and fails on any tag that is not purely technical, so L'Esclop never
-  says it removed what stayed.
+  of staying unchanged; a picture that would have to grow to lose them (some TIFF and BMP) stays
+  unchanged when optimised and says "metadata kept", and Remove metadata itself still strips it.
+  On macOS 26, which reads JPEG XL but cannot write it, Remove metadata says it cannot remove a
+  JPEG XL's metadata. A JPEG's or GIF's comment and a video track's own tags (a handler name)
+  count and go too; track languages stay. Every strip reads its result back and fails on any tag
+  that is not purely technical, so L'Esclop never says it removed what stayed. In the CLI, a file
+  only stripped reads "metadata removed", not "−0%".
 - Removing metadata also removes the location, camera and EXIF of a resized or cropped HDR
   photo, and the camera and author tags (Make, Model, Artist, Copyright, date) of HEIC and HDR
   photos. From an audiobook it keeps the chapters; from Opus and Ogg files it also removes the
@@ -359,8 +363,9 @@ Mac's own encoders.
 - Cancelling an MCP tool call, or closing the MCP client, stops its jobs in the app too.
 - The CLI and MCP server no longer risk a crash when several requests check at once whether the
   app is running.
-- `esclop restore` on a file with no recent result points at `esclop recent` and exits 1. A file
-  command whose every file was an invalid request exits 64. `esclop convert --help` no longer
+- `esclop restore` on a file with no recent result points at `esclop recent` and exits 1. When
+  the version you edited after optimising goes to the Trash, it says so, as agents are told.
+  A file command whose every file was an invalid request exits 64. `esclop convert --help` no longer
   offers `jxl`, and `esclop settings reset` prints the new value. A job whose files fail only
   because the app is not running exits 69, and "Invalid argument" is no longer said twice. Audio
   and video say "Removed metadata" when they did, and a lossless pass "Optimised without loss". A

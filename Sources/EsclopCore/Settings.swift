@@ -185,11 +185,15 @@ public final class SettingsStore: @unchecked Sendable {
     // UserDefaults is documented as thread safe.
     public let defaults: UserDefaults
     public let suiteName: String?
+    /// Writes what this process set to the preferences daemon; false when it refused, so a
+    /// value read back from `defaults` (this process's own copy) was not kept.
+    public let synchronise: @Sendable () -> Bool
 
     public static let shared = SettingsStore(suiteName: Paths.defaultsSuite(environment: ProcessInfo.processInfo.environment))
 
     public init(suiteName: String) {
         self.suiteName = suiteName
+        synchronise = { CFPreferencesAppSynchronize(suiteName as CFString) }
         // Inside the app, the suite is the app's own domain, which UserDefaults refuses as a
         // suite name; the standard defaults are the same file there.
         if Bundle.main.bundleIdentifier == suiteName {
@@ -199,9 +203,15 @@ public final class SettingsStore: @unchecked Sendable {
         }
     }
 
-    public init(defaults: UserDefaults) {
+    /// Says that the store did not keep `keys`: for the CLI (exit 70), agents and the app alike.
+    public static func notKept(_ keys: [String]) -> EsclopError {
+        .other("The settings store did not keep \(keys.joined(separator: ", ")): something on this Mac sets or blocks \(keys.count == 1 ? "it" : "them"), such as a configuration profile")
+    }
+
+    public init(defaults: UserDefaults, synchronise: @escaping @Sendable () -> Bool = { true }) {
         self.defaults = defaults
         suiteName = nil
+        self.synchronise = synchronise
     }
 
     /// Removes every stored value from the suite. Meant for tests and "reset all".

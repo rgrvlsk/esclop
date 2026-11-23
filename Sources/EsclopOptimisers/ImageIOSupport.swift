@@ -297,9 +297,13 @@ enum ImageIOCodec {
         var found: [String] = []
         func note(_ name: String) { if !found.contains(name) { found.append(name) } }
         // ImageIO on macOS 15 does not read a GIF's XMP: its application extension, by its header.
-        if CGImageSourceGetType(source) as String? == UTType.gif.identifier, let data = try? Data(contentsOf: url),
-           data.range(of: Data([0x21, 0xFF, 0x0B]) + Data("XMP DataXMP".utf8)) != nil
-        { note("XMP") }
+        // Nor a GIF's comment extension or a JPEG's COM segment, which can hold anything.
+        let type = CGImageSourceGetType(source) as String?
+        if type == UTType.gif.identifier, let data = try? Data(contentsOf: url) {
+            if data.range(of: Data([0x21, 0xFF, 0x0B]) + Data("XMP DataXMP".utf8)) != nil { note("XMP") }
+            if hasGIFComment(data) { note("comment") }
+        }
+        if type == UTType.jpeg.identifier, let data = try? Data(contentsOf: url), hasJPEGComment(data) { note("comment") }
         func check(_ dictionary: [CFString: Any], _ group: String, technical: Set<String>) {
             for key in (dictionary.keys.map { $0 as String }).sorted() where !technical.contains(key) {
                 note(personalTagNames[key] ?? "\(group) \(key)")
@@ -323,6 +327,54 @@ enum ImageIOCodec {
             }
         }
         return found
+    }
+
+    /// Whether a JPEG has a COM segment before its first scan, walking the segments by their
+    /// lengths (the bytes 0xFF 0xFE can sit inside another segment). ponytail: a progressive
+    /// JPEG's comment between scans, or one after the end, is not seen; walk the scans if one turns up.
+    static func hasJPEGComment(_ data: Data) -> Bool {
+        let bytes = [UInt8](data)
+        guard bytes.starts(with: [0xFF, 0xD8]) else { return false }
+        var at = 2
+        while at + 3 < bytes.count, bytes[at] == 0xFF {
+            let marker = bytes[at + 1]
+            if marker == 0xFF { at += 1; continue } // fill byte
+            if marker == 0xFE { return true }
+            if marker == 0xDA || marker == 0xD9 { return false } // the scan: no more segments to read
+            if (0xD0 ... 0xD7).contains(marker) || marker == 0x01 { at += 2; continue } // no length
+            at += 2 + (Int(bytes[at + 2]) << 8 | Int(bytes[at + 3]))
+        }
+        return false
+    }
+
+    /// Whether a GIF has a comment extension, walking its blocks (the bytes 0x21 0xFE can sit
+    /// inside image data).
+    static func hasGIFComment(_ data: Data) -> Bool {
+        let bytes = [UInt8](data)
+        guard bytes.count > 13, bytes.starts(with: Array("GIF".utf8)) else { return false }
+        /// Past the colour table a packed field announces.
+        func table(_ packed: UInt8) -> Int { packed & 0x80 == 0 ? 0 : 3 << (Int(packed & 0x07) + 1) }
+        /// Past a run of data sub-blocks, ending with an empty one.
+        func subBlocks(_ from: Int) -> Int {
+            var at = from
+            while at < bytes.count, bytes[at] != 0 { at += Int(bytes[at]) + 1 }
+            return at + 1
+        }
+        var at = 13 + table(bytes[10])
+        while at < bytes.count {
+            switch bytes[at] {
+            case 0x21:
+                guard at + 1 < bytes.count else { return false }
+                if bytes[at + 1] == 0xFE { return true }
+                at = subBlocks(at + 2)
+            case 0x2C:
+                guard at + 9 < bytes.count else { return false }
+                at = subBlocks(at + 10 + table(bytes[at + 9]) + 1) // the descriptor, its table, the LZW code size
+            default:
+                return false // the trailer, or bytes this walk does not know
+            }
+        }
+        return false
     }
 
     /// The EXIF and TIFF tags (by XMP prefix) that describe only how the pixels are stored and
