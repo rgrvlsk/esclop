@@ -251,8 +251,8 @@ struct FileRun {
             do {
                 let (outcome, message) = try await perform(step, at: i, of: steps, kind: currentKind, report: stepReport)
                 log(outcome, message)
-            } catch EsclopError.alreadySmaller {
-                log(.unchanged, EsclopError.alreadySmaller.description)
+            } catch let error as EsclopError where error.isUnchanged {
+                log(.unchanged, error.description)
             } catch is CancellationError {
                 log(.failed, EsclopError.cancelled.description)
                 self.report.status = .cancelled

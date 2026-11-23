@@ -303,6 +303,9 @@ public enum EsclopError: Error, Codable, Equatable, Sendable, CustomStringConver
     case toolMissing(String)
     case toolFailed(tool: String, exitCode: Int32, stderr: String)
     case alreadySmaller
+    /// Unchanged, as `alreadySmaller`, and its metadata stays: with strip on, removing it would
+    /// have made the file larger (a picture ImageIO must re-encode). Its code is `alreadySmaller`.
+    case metadataKept
     case cancelled
     case notPermitted(String)
     case invalidPipeline(String)
@@ -322,12 +325,15 @@ public enum EsclopError: Error, Codable, Equatable, Sendable, CustomStringConver
     /// attempt came out smaller than the original.
     case cannotFit(underBytes: Int, smallest: Int?)
     /// The output format keeps every bit (FLAC, WAV…), so it has no size to aim at.
-    // ponytail: like `leftAsIs` and `backupRemoved` before them, these two are new on the wire: an
+    // ponytail: like `leftAsIs` and `backupRemoved` before them, these two (and `metadataKept`) are new on the wire: an
     // `esclop mcp` process older than the app cannot decode a report that carries one. The app,
     // CLI and MCP server ship in one bundle. Trigger: a stale process seen failing on it; then
     // encode them as `.other` / `.invalidArgument`.
     case losslessCannotFit(format: String)
     case other(String)
+
+    /// Nothing changed: already as small as it gets, or its metadata kept.
+    public var isUnchanged: Bool { self == .alreadySmaller || self == .metadataKept }
 
     /// "This file isn’t a video L'Esclop can read. It may be damaged."
     public static func unreadableMessage(_ kind: MediaKind) -> String {
@@ -346,6 +352,7 @@ public enum EsclopError: Error, Codable, Equatable, Sendable, CustomStringConver
         case let .toolMissing(t): return "Missing tool: \(t)"
         case let .toolFailed(tool, code, stderr): return "\(tool) failed (\(code)): \(stderr)"
         case .alreadySmaller: return "The file is already as small as it gets"
+        case .metadataKept: return "Metadata kept (removing it would make the file larger)"
         case .cancelled: return "Cancelled"
         case let .notPermitted(why): return "Not permitted: \(why)"
         case let .invalidPipeline(why): return "Invalid pipeline: \(why)"

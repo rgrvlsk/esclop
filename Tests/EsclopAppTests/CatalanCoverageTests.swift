@@ -40,6 +40,7 @@ import Testing
         #expect(restore == "There is no recent result for a.png to restore.")
         #expect(Self.catalan["There is no recent result for %@ to restore."] != nil)
         #expect(Self.catalan[CardPresentation.message(for: EsclopError.alreadySmaller)] != nil)
+        #expect(Self.catalan[CardPresentation.message(for: EsclopError.metadataKept)] != nil)
     }
 
     /// A fit that found nothing says both sizes on a card, in the person's language; the CLI and

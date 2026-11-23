@@ -98,7 +98,7 @@ public enum ShortcutActions {
         var optimised = 0
         for (file, report) in zip(files, reports) {
             if let failure = report.failures.first {
-                if case .alreadySmaller = failure.error {
+                if failure.error.isUnchanged {
                     // Already optimised: the file goes on unchanged, as the floating result says.
                     outputs.append(file)
                     continue

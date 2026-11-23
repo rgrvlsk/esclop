@@ -663,17 +663,28 @@ struct VideoEngine: Sendable {
 
     func stripMetadata(_ source: URL, work: WorkFolder) async throws -> Produced {
         let output = work.file(stem: "stripped", ext: source.pathExtension.isEmpty ? "mp4" : source.pathExtension)
+        let info = try await MediaInfo.probe(source, tools: env.tools)
         // Every track goes along as it is (subtitles, attachments, languages and chapters, as an
-        // optimise keeps them); only what describes the person goes. Data tracks (iPhone mebx,
-        // timecode) go too: they can carry the location frame by frame.
+        // optimise keeps them); only what describes the person goes, also a track's own tags (a
+        // handler named "Someone Cam"; a track title goes too, as it can name a person). Data
+        // tracks (iPhone mebx, timecode) go too: they can carry the location frame by frame.
         var args = [
             "-hide_banner", "-nostdin", "-y", "-i", source.path, "-map", "0", "-map", "-0:d?", "-c", "copy",
-            "-map_metadata:g", "-1", "-metadata:s", "creation_time=", "-map_chapters", "0",
-        ]
+            "-map_metadata:g", "-1", "-map_metadata:s", "-1", "-map_chapters", "0",
+        ] + Self.keptStreamTags(info)
         if ["mp4", "mov", "m4v"].contains(source.pathExtension.lowercased()) { args += ["-movflags", "+faststart"] }
         args += ["-progress", "pipe:1", "-nostats", output.path]
         try await ProcessRunner.run(.ffmpeg, args, options: FFmpegProgress(duration: nil, sink: .none).options, locator: env.tools)
         return Produced(url: output, width: nil, height: nil, duration: nil, steps: ["Removed metadata"], allowLarger: true)
+    }
+
+    /// What a strip gives each track back after dropping its tags: the language, and an
+    /// attachment's file name and type (Matroska refuses an attachment without them). By output
+    /// index, which skips the data tracks the strip leaves out.
+    static func keptStreamTags(_ info: MediaInfo) -> [String] {
+        info.streams.filter { $0.type != "data" }.enumerated().flatMap { index, stream in
+            ["language", "filename", "mimetype"].flatMap { key in stream.tags[key].map { ["-metadata:s:\(index)", "\(key)=\($0)"] } ?? [] }
+        }
     }
 }
 

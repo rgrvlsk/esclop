@@ -273,7 +273,12 @@ struct Settings: AsyncParsableCommand {
 
         func run() async throws {
             try await guarded(global) {
-                let stored = try await EsclopService(global.context()).setSetting(key, to: value)
+                let stored: JSONValue
+                do {
+                    stored = try await EsclopService(global.context()).setSetting(key, to: value)
+                } catch let error as EsclopError where error == SettingsStore.notKept([key]) {
+                    return Settings.notKept([key], global)
+                }
                 if Settings.unkept(key, value, stored: stored) { return Settings.notKept([key], global) }
                 if global.json { Output.json(["key": JSONValue.string(key), "value": stored]) } else { print("\(key) = \(stored.plain)") }
                 return 0
@@ -306,7 +311,7 @@ struct Settings: AsyncParsableCommand {
 extension Settings {
     /// Says that the settings store did not keep `keys` and returns the exit code, 70 (EX_SOFTWARE).
     static func notKept(_ keys: [String], _ global: GlobalOptions) -> Int32 {
-        let message = "The settings store did not keep \(keys.joined(separator: ", ")): something on this Mac sets \(keys.count == 1 ? "it" : "them"), such as a configuration profile"
+        let message = SettingsStore.notKept(keys).description
         if global.json { Output.json(["error": JSONValue.string(message), "code": "notKept"]) } else { Output.error(message, terminal: global.terminal) }
         return 70
     }
@@ -364,7 +369,11 @@ extension Settings {
                     ])
                     return read.unkept.isEmpty ? 0 : 70
                 }
-                print(read.changed.isEmpty ? "Nothing changed: this Mac has every setting in the file." : "Changed \(read.changed.joined(separator: ", ")).")
+                if read.changed.isEmpty {
+                    print(read.unkept.isEmpty ? "Nothing changed: this Mac has every setting in the file." : "Nothing changed.")
+                } else {
+                    print("Changed \(read.changed.joined(separator: ", ")).")
+                }
                 if !read.permissions.isEmpty {
                     let list = read.permissions.joined(separator: ", ")
                     if allowPermissions { note("turned on permissions: \(list)") } else { note("skipped permissions the file turns on: \(list) (--allow-permissions turns them on)") }
@@ -456,6 +465,7 @@ struct Restore: AsyncParsableCommand {
             let name = t.bold(PathInput.abbreviate(URL(fileURLWithPath: outcome.restored)))
             print(outcome.alreadyRestored == true ? "\(t.dim("–")) \(name) already restored" : "\(t.green("✓")) \(name) restored")
             if let left = outcome.leftInPlace { note("the result \(PathInput.abbreviate(URL(fileURLWithPath: left))) is still there") }
+            if let trashed = outcome.movedToTrash { note("moved to the Trash: \(trashed.map { PathInput.abbreviate(URL(fileURLWithPath: $0)) }.joined(separator: ", "))") }
             return 0
         }
     }

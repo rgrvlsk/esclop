@@ -206,7 +206,12 @@ extension AppModel {
                     context = await clipboardContext(for: url, copy: copy ?? ClipboardCopy(changeCount: 0), aggressive: aggressive, pipeline: triggered)
                     if let context, context.rule != nil { context.choice.apply(to: &job.request) }
                 }
-                await run(job, context: context, batch: job.request.showResultUI ? batch : nil, copy: copy, onResult: onResult)
+                let report = await run(job, context: context, batch: job.request.showResultUI ? batch : nil, copy: copy, onResult: onResult)
+                // A dropped file already optimised goes on the clipboard as it is, so a paste
+                // gives everything dropped.
+                if copyDropped, report.failures.first?.error.isUnchanged == true {
+                    putBack.results.append((url, url))
+                }
             })
         }
         guard copyBack || copyDropped else { return }

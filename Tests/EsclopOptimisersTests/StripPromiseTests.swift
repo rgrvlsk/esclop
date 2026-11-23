@@ -226,6 +226,36 @@ import UniformTypeIdentifiers
         #expect(try await Self.checkStripsWhenUnchanged(gif, world: world).steps == ["Removed metadata"])
     }
 
+    /// HC-50 P3: ImageIO reads neither a JPEG's COM segment nor a GIF's comment extension. The
+    /// read-back finds both by walking the file, so an unchanged picture with strip on loses them.
+    @Test(.enabled(if: Harness.hasRealEngine && Harness.hasGifsicle)) func unchangedPicturesLoseTheirComments() async throws {
+        let world = try await TestWorld(realEngine: true)
+        defer { Task { await world.finish() } }
+        let note = Data("Taken by Owner Name".utf8)
+        // Written here: `Fixture.jpeg` carries a location and dates of its own.
+        let jpeg = world.file("note.jpg")
+        let destination = try #require(CGImageDestinationCreateWithURL(jpeg as CFURL, UTType.jpeg.identifier as CFString, 1, nil))
+        CGImageDestinationAddImage(destination, try Fixture.gradient(width: 400, height: 300, deep: false, alpha: false, noise: true), nil)
+        try #require(CGImageDestinationFinalize(destination))
+        let plain = try Data(contentsOf: jpeg)
+        #expect(ImageIOCodec.personalMetadata(jpeg) == [])
+        // The bytes of a COM marker inside another segment are not a comment.
+        try (plain.prefix(2) + Data([0xFF, 0xEF, 0x00, 0x06, 0xFF, 0xFE, 0x41, 0x42]) + plain.dropFirst(2)).write(to: jpeg)
+        #expect(ImageIOCodec.personalMetadata(jpeg) == [])
+        try (plain.prefix(2) + Data([0xFF, 0xFE, 0x00, UInt8(note.count + 2)]) + note + plain.dropFirst(2)).write(to: jpeg)
+        #expect(ImageIOCodec.personalMetadata(jpeg) == ["comment"])
+        try await Self.checkStripsWhenUnchanged(jpeg, world: world)
+
+        let gif = world.file("note.gif")
+        try Fixture.gif(gif, frames: 4, size: 240)
+        #expect(ImageIOCodec.personalMetadata(gif) == [])
+        var data = try Data(contentsOf: gif)
+        data.insert(contentsOf: Data([0x21, 0xFE, UInt8(note.count)]) + note + Data([0]), at: data.endIndex - 1)
+        try data.write(to: gif)
+        #expect(ImageIOCodec.personalMetadata(gif) == ["comment"])
+        try await Self.checkStripsWhenUnchanged(gif, world: world)
+    }
+
     /// HC-46 H4: the same for a video (an iPhone MOV keeps its location), a song whose strip is
     /// asked for, and a PDF, which keeps its title.
     @Test(.enabled(if: Harness.hasFFmpeg)) func unchangedVideoAndAudioStillStrip() async throws {
@@ -268,6 +298,41 @@ import UniformTypeIdentifiers
         var strip = world.request(tagged, location: .temporary)
         strip.stripMetadata = true
         #expect(try await Self.checkStripsUnchangedMedia(tagged, request: strip, world: world).steps == ["Removed metadata"])
+    }
+
+    /// HC-50 P4: a track's own tags go too (a handler named after its owner), as the read-back
+    /// now counts them; the track's language and a Matroska attachment stay.
+    @Test(.enabled(if: Harness.hasFFmpeg)) func videoStripRemovesTrackTagsAndKeepsLanguages() async throws {
+        let world = try await TestWorld()
+        defer { Task { await world.finish() } }
+        let clip = world.file("plain.mov")
+        try await Fixture.video(clip)
+        let font = world.file("font.ttf")
+        try Data("font".utf8).write(to: font)
+        for ext in ["mov", "mkv"] {
+            let tagged = world.file("tagged.\(ext)")
+            var args = ["-hide_banner", "-loglevel", "error", "-y", "-i", clip.path]
+            if ext == "mkv" { args += ["-attach", font.path, "-metadata:s:t", "mimetype=font/ttf"] }
+            args += ["-map", "0", "-c", "copy", "-metadata:s:v", "handler_name=Someone Cam", "-metadata:s:a", "language=cat", tagged.path]
+            try await ProcessRunner.run(.ffmpeg, args)
+            #expect(try await Inspect.mediaTags(tagged).map { $0.lowercased() } == ["video handler_name"], "\(ext)")
+            let result = try await world.engine.stripMetadata(tagged, request: world.request(tagged, location: .temporary))
+            #expect(try await Inspect.mediaTags(result.output) == [], "\(ext)")
+            let streams = try await Inspect.media(result.output).streams
+            #expect(streams.first { $0.type == "audio" }?.tags["language"] == "cat", "\(ext)")
+            if ext == "mkv" { #expect(streams.first { $0.type == "attachment" }?.tags["mimetype"] == "font/ttf") }
+        }
+        // A FLAC cover's picture type (`comment`) stays with the cover and is not personal, or
+        // every strip would find it again.
+        let noise = world.file("noise.wav"), cover = world.file("cover.png"), song = world.file("song.flac")
+        try Fixture.noiseWAV(noise, seconds: 1)
+        try Fixture.png(cover, width: 64, height: 64)
+        try await ProcessRunner.run(.ffmpeg, [
+            "-hide_banner", "-loglevel", "error", "-y", "-i", noise.path, "-i", cover.path, "-map", "0", "-map", "1",
+            "-c:a", "flac", "-c:v", "png", "-disposition:v:0", "attached_pic", "-metadata", "artist=Secret Person", song.path,
+        ])
+        try #require(try await Inspect.media(song).hasCoverArt)
+        #expect(try await Inspect.mediaTags(song).map { $0.lowercased() } == ["artist"])
     }
 
     @Test(.enabled(if: Harness.hasRealEngine)) func unchangedPDFStillStripsAndKeepsItsTitle() async throws {

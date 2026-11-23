@@ -14,8 +14,9 @@ public final class ResultCard: Identifiable {
         /// `fraction` is 0...1; the engine reports -1 when it cannot tell.
         case working(fraction: Double)
         case done(OptimisationResult)
-        /// The optimiser found nothing smaller; the file was left as it was.
-        case unchanged(bytes: Int)
+        /// The optimiser found nothing smaller; the file was left as it was. `metadataKept`: its
+        /// metadata too, since removing it would have made the file larger.
+        case unchanged(bytes: Int, metadataKept: Bool = false)
         /// The backup went back in place of the result.
         case restored(OptimisationResult)
         case failed(String)

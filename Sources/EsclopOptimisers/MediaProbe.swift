@@ -37,6 +37,7 @@ struct MediaInfo: Sendable {
         var codec: String
         /// Cover art (a video stream that is one picture).
         var attachedPicture: Bool
+        var tags: [String: String] = [:]
     }
 
     var duration: Double?
@@ -50,13 +51,26 @@ struct MediaInfo: Sendable {
     /// An iPhone's location, make and model (`com.apple.quicktime.*` keys, which ffmpeg cannot
     /// copy into MOV or MP4), under ffmpeg's own names: `location`, `make`, `model`.
     var appleTags: [String: String] = [:]
-    /// The container's tags that are not purely technical: location, title, artist, comment,
-    /// camera, dates. A strip leaves none.
-    // ponytail: container tags only. Ogg/Opus keep title and artist as stream tags, and a stream's
-    // creation_time is not counted; read stream tags too when a file is found keeping them.
+    /// The container's and the streams' tags that are not purely technical: location, title,
+    /// artist, comment, camera, dates, a track's handler name ("Someone Cam"). A strip leaves none.
     var personalTags: [String] = []
     /// The container tags that only say how the file was written.
     static let technicalTags: Set<String> = ["major_brand", "minor_version", "compatible_brands", "encoder"]
+    /// The stream tags (lowercased: Matroska's are upper case) that describe the track, not the
+    /// person, and the ones ffmpeg and mkvmerge write.
+    static let technicalStreamTags: Set<String> = [
+        "language", "vendor_id", "encoder", "duration", "timecode", "rotate", "filename", "mimetype",
+        "bps", "number_of_frames", "number_of_bytes", "_statistics_writing_app", "_statistics_tags",
+    ]
+
+    /// Whether a stream tag is technical. A handler name is when it is a writer's default
+    /// ("VideoHandler", "Core Media Video"). ponytail: by its shape; list a default that does not
+    /// end in "Handler" here if one turns up.
+    static func isTechnicalStreamTag(_ key: String, _ value: String) -> Bool {
+        let key = key.lowercased()
+        if key == "handler_name" { return value.hasSuffix("Handler") || value.hasPrefix("Core Media") }
+        return technicalStreamTags.contains(key)
+    }
 
     var hasCoverArt: Bool { streams.contains { $0.type == "video" && $0.attachedPicture } }
 
@@ -105,7 +119,11 @@ struct MediaInfo: Sendable {
         for stream in streams {
             let type = stream["codec_type"]?.stringValue
             let attached = stream["disposition"]?["attached_pic"]?.intValue == 1
-            info.streams.append(Stream(type: type ?? "unknown", codec: stream["codec_name"]?.stringValue ?? "unknown", attachedPicture: attached))
+            let streamTags = stream["tags"]?.objectValue?.compactMapValues(\.stringValue) ?? [:]
+            info.streams.append(Stream(type: type ?? "unknown", codec: stream["codec_name"]?.stringValue ?? "unknown", attachedPicture: attached, tags: streamTags))
+            // A cover's `comment` is its picture type ("Cover (front)"), which MP3 and FLAC always write.
+            info.personalTags += streamTags.filter { !isTechnicalStreamTag($0.key, $0.value) && !(attached && $0.key.lowercased() == "comment") }
+                .keys.sorted().map { "\(type ?? "stream") \($0)" }
             if type == "video", !attached, info.video == nil {
                 var width = stream["width"]?.intValue ?? 0
                 var height = stream["height"]?.intValue ?? 0

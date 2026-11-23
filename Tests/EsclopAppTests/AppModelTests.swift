@@ -33,6 +33,13 @@ import Testing
         let unchanged = Harness(failure: .alreadySmaller)
         _ = await unchanged.model.run(unchanged.job(unchanged.temp.file("a.png", bytes: 5000)))
         #expect(unchanged.model.cards.first?.presentation.headline == "Already optimised")
+        // HC-50 P2: with strip on, a picture whose strip would grow it keeps its metadata, and says so.
+        let kept = Harness(failure: .metadataKept)
+        _ = await kept.model.run(kept.job(kept.temp.file("a.tiff", bytes: 5000)))
+        let presentation = try #require(kept.model.cards.first?.presentation)
+        #expect(presentation.capsule == .status(symbol: nil, text: "Unchanged · metadata kept"))
+        #expect(presentation.caption == "Removing it would make the file larger")
+        #expect(kept.announcements.texts == ["Unchanged · metadata kept (removing it would make the file larger)"])
 
         let failing = Harness(failure: .toolMissing("ffmpeg"))
         let events = EventLog()

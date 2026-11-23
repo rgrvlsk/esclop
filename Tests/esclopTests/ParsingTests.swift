@@ -244,6 +244,10 @@ func rejects(_ arguments: [String]) -> Bool {
         #expect(!Settings.unkept("targetVideoFPS", "30", stored: .int(30)), "a Double read back from the app as the JSON number 30")
         #expect(Settings.unkept("targetVideoFPS", "30", stored: .int(24)))
         #expect(!Settings.unkept("appearanceOnlyTheAppKnows", "x", stored: .string("y")), "a key the CLI does not know is the app's to check")
+        // HC-50 P5: the read-back is this process's own copy; a write cfprefsd refused reads back
+        // too, so the write owner (the CLI's, the app's or the MCP server's) says it was not kept.
+        let refused = RegistrySettingsProvider(store: SettingsStore(defaults: UserDefaults(suiteName: "dev.esclop.tests.\(UUID().uuidString)")!, synchronise: { false }))
+        #expect(throws: SettingsStore.notKept(["gifFPS"])) { try refused.setValue("12", forKey: "gifFPS") }
     }
 
     /// `pdf pages` reports the size of every page it wrote, not of the first.
@@ -289,6 +293,10 @@ func rejects(_ arguments: [String]) -> Bool {
         #expect(grew.text.hasSuffix("\nTotal 25.1 MB → 33.6 MB (+33.8%) over 2 files"), "the MCP tools' text too")
         let barely = summary(result("tiny.png", before: 1_000_000, after: 1_000_100))
         #expect(terminal.line(barely.results[0]) == "✓ tiny.png 1.0 MB → 1.0 MB +0%", "100 bytes more still grew")
+        // HC-50 P6: a file only stripped says so, not "−0%".
+        var stripped = result("s.jpg", before: 2_000_000, after: 1_999_990)
+        stripped.steps = ["Removed metadata"]
+        #expect(terminal.line(summary(stripped).results[0]) == "✓ s.jpg 2.0 MB → 2.0 MB metadata removed")
         let shrank = summary(result("a.png", before: 2_000, after: 1_000), result("b.png", before: 2_000, after: 1_000))
         #expect(terminal.total(shrank) == "Total 4.0 KB → 2.0 KB (−50%) over 2 files")
     }
@@ -307,6 +315,11 @@ func rejects(_ arguments: [String]) -> Bool {
             return Output.exitCode(for: JobSummary(operation: "optimise", report: report))
         }
         #expect(code([.alreadySmaller]) == 0)
+        // HC-50 P2: unchanged with its metadata kept, and it says why.
+        #expect(code([.metadataKept]) == 0)
+        let kept = FailureSummary(FileFailure(source: URL(fileURLWithPath: "/x/a.tiff"), error: .metadataKept))
+        #expect(kept.code == "alreadySmaller")
+        #expect(Terminal(color: false).line(kept) == "– a.tiff unchanged · metadata kept (removing it would make the file larger)")
         #expect(code([.alreadySmaller], results: 1) == 0)
         #expect(code([.alreadySmaller, .fileNotFound("/x/c.png")]) == 1)
         #expect(code([.fileNotFound("/x/c.png")]) == 66)

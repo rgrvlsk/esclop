@@ -289,17 +289,19 @@ public struct CardPresentation: Equatable, Sendable {
                 removedSummary = Self.summary(of: card.removedMetadata, t: t)
                 restorable = true
             }
-        case let .unchanged(bytes):
-            capsule = .status(symbol: nil, text: f("Already optimised · %@", Figures.bytes(bytes, locale: locale)))
-            headline = t("Already optimised")
-            caption = f("%@, left as it was", Figures.bytes(bytes, locale: locale))
+        case let .unchanged(bytes, metadataKept):
+            capsule = .status(symbol: nil, text: metadataKept ? t("Unchanged · metadata kept") : f("Already optimised · %@", Figures.bytes(bytes, locale: locale)))
+            headline = metadataKept ? t("Metadata kept") : t("Already optimised")
+            caption = metadataKept ? t("Removing it would make the file larger") : f("%@, left as it was", Figures.bytes(bytes, locale: locale))
             tone = .neutral
             tools = Self.tools(copied: card.actsAsCopiedImage, undo: false)
             change = f("Kept the original, %@", Figures.bytes(bytes, locale: locale))
             (primary, primaryDetail, secondary, menu) = Self.detail(card, undo: false, editing: editing, t: t)
             self.editing = editing
             actions = Self.distinct([.openDetail] + tools + [.reveal, .copy, .dismiss])
-            accessibilityLabel = f("%@, already optimised, kept the original", name)
+            accessibilityLabel = metadataKept
+                ? f("%@, unchanged, metadata kept: removing it would make the file larger", name)
+                : f("%@, already optimised, kept the original", name)
         case let .restored(result):
             fileName = card.displayName ?? result.source.lastPathComponent
             capsule = .status(symbol: "arrow.uturn.backward", text: f("Original restored · %@", Figures.bytes(result.bytesBefore, locale: locale)))
@@ -544,6 +546,8 @@ public struct CardPresentation: Equatable, Sendable {
             return Strings.format("There is no recent result for %@ to restore.", URL(fileURLWithPath: path).lastPathComponent)
         case .alreadySmaller:
             return Strings.text("The file is already as small as it gets.")
+        case .metadataKept:
+            return Strings.text("Metadata kept: removing it would make the file larger.")
         case let .cannotFit(target, smallest?):
             return Strings.format("Could not fit under %@. The smallest attempt was %@.", Figures.bytes(target), Figures.bytes(smallest))
         case let .cannotFit(target, nil):

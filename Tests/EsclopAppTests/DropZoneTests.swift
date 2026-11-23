@@ -119,6 +119,16 @@ final class FakeDrag: NSObject, NSDraggingInfo {
         #expect(stuck.batches[0].files.map(\.lastPathComponent) == ["here.png"])
     }
 
+    /// Dropped files alone go after the drop returns: a folder's "optimise N files?" and its
+    /// scan must not hold the drag.
+    @Test func droppedFilesArriveAfterTheDropReturns() async {
+        let temp = TempDir()
+        let handed = Handed()
+        _ = DropIntake(files: [temp.file("a.png")]).resolve(into: temp.url, deliver: handed.take)
+        #expect(handed.batches.isEmpty, "not during the drop")
+        #expect(await eventually { handed.batches.count == 1 })
+    }
+
     @MainActor final class Handed {
         var batches: [(files: [URL], failures: Int)] = []
         func take(_ files: [URL], _ failures: [any Error]) { batches.append((files, failures.count)) }

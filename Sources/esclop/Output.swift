@@ -34,7 +34,9 @@ struct Terminal {
         let name = fullPath ? PathInput.abbreviate(URL(fileURLWithPath: result.source)) : URL(fileURLWithPath: result.source).lastPathComponent
         let saved = result.savedBytes >= 0
         let percent = ResultSummary.change(result.savedBytes, percent: result.savedPercent)
-        var text = "\(green("✓")) \(bold(name)) \(ByteSize.format(result.bytesBefore)) \(dim("→")) \(ByteSize.format(result.bytesAfter)) \(saved ? green(percent) : yellow(percent))"
+        // A file only stripped of its metadata says so, not "−0%".
+        let change = saved && result.savedPercent == 0 && result.removedMetadata ? dim("metadata removed") : saved ? green(percent) : yellow(percent)
+        var text = "\(green("✓")) \(bold(name)) \(ByteSize.format(result.bytesBefore)) \(dim("→")) \(ByteSize.format(result.bytesAfter)) \(change)"
         if let link = result.link { return "\(green("✓")) \(bold(name)) \(dim("→")) \(cyan(link))" }
         if result.skippedByFilter { return "\(dim("–")) \(bold(name)) \(dim("skipped by the filter"))" }
         if result.output != result.source { text += " \(dim("→")) \(cyan(PathInput.abbreviate(result.output)))" }
@@ -44,6 +46,9 @@ struct Terminal {
     func line(_ failure: FailureSummary) -> String {
         let name = bold(URL(fileURLWithPath: failure.source).lastPathComponent)
         if failure.isUnchanged {
+            if failure.error == EsclopError.metadataKept.description {
+                return "\(dim("–")) \(name) \(dim("unchanged · metadata kept (removing it would make the file larger)"))"
+            }
             let reason = failure.error == EsclopError.alreadySmaller.description ? "already as small as it gets" : failure.error
             return "\(dim("–")) \(name) \(dim("unchanged: \(reason)"))"
         }
@@ -54,6 +59,11 @@ struct Terminal {
     func total(_ summary: JobSummary) -> String {
         dim("Total \(ByteSize.format(summary.bytesBefore)) → \(ByteSize.format(summary.bytesAfter)) (\(ResultSummary.change(summary.savedBytes, percent: summary.savedPercent))) over \(summary.results.count) files")
     }
+}
+
+extension ResultSummary {
+    /// As `CardPresentation.removedMetadata`: the engine's English step line.
+    var removedMetadata: Bool { steps.contains { $0.hasPrefix("Removed metadata") || $0 == "Removed document metadata" } }
 }
 
 extension FailureSummary {
