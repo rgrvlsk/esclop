@@ -8371,6 +8371,16 @@
         }
       }
     },
+    "macOS does not let L’Esclop read what you copy. Allow it in Privacy & Security.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El macOS no deixa que L’Esclop llegeixi el que copies. Permet-ho a Privadesa i seguretat."
+          }
+        }
+      }
+    },
     "macOS may ask before L’Esclop reads what you copy.": {
       "localizations": {
         "ca": {

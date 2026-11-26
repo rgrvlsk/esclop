@@ -142,6 +142,11 @@ import Testing
 @Suite(.serialized) struct OnboardingRenderTests {
     let settings = TestSettings()
 
+    /// The shipped icon from `assets/`, as the bundle carries it: the example picture.
+    static let appIcon = NSImage(contentsOf: URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("assets/AppIcon.png"))
+
     /// The last step with Login Items waiting for approval, and the first with macOS asking
     /// before every clipboard read.
     @Test(arguments: [ColorScheme.light, .dark])
@@ -151,12 +156,15 @@ import Testing
         model.readLoginStatus = { .requiresApproval }
         model.readClipboardAccess = { .asks }
         model.refreshAccess()
-        try await SettingsRenderTests.renderWindow(OnboardingView(onboarding: model, settings: viewModel) {}, size: CGSize(width: 600, height: 480), name: "onboarding-1-copy-asks", scheme: scheme, settle: .milliseconds(500))
+        try await SettingsRenderTests.renderWindow(OnboardingView(onboarding: model, settings: viewModel, example: Self.appIcon) {}, size: CGSize(width: 600, height: 480), name: "onboarding-1-copy-asks", scheme: scheme, settle: .milliseconds(500))
+        model.readClipboardAccess = { .denied }
+        model.refreshAccess()
+        try await SettingsRenderTests.renderWindow(OnboardingView(onboarding: model, settings: viewModel, example: Self.appIcon) {}, size: CGSize(width: 600, height: 480), name: "onboarding-1-copy-denied", scheme: scheme, settle: .milliseconds(500))
         model.go(to: .ready)
-        try await SettingsRenderTests.renderWindow(OnboardingView(onboarding: model, settings: viewModel) {}, size: CGSize(width: 600, height: 480), name: "onboarding-3-ready-login-waiting", scheme: scheme, settle: .milliseconds(500))
+        try await SettingsRenderTests.renderWindow(OnboardingView(onboarding: model, settings: viewModel, example: Self.appIcon) {}, size: CGSize(width: 600, height: 480), name: "onboarding-3-ready-login-waiting", scheme: scheme, settle: .milliseconds(500))
         // The longest last step: macOS refused the login item. It has to fit 600 × 480 in Catalan too.
         model.loginError = Strings.format("macOS did not add L’Esclop to the login items: %@. Add it in System Settings › General › Login Items & Extensions.", "Operation not permitted")
-        try await SettingsRenderTests.renderWindow(OnboardingView(onboarding: model, settings: viewModel) {}, size: CGSize(width: 600, height: 480), name: "onboarding-3-ready-login-error", scheme: scheme, settle: .milliseconds(500))
+        try await SettingsRenderTests.renderWindow(OnboardingView(onboarding: model, settings: viewModel, example: Self.appIcon) {}, size: CGSize(width: 600, height: 480), name: "onboarding-3-ready-login-error", scheme: scheme, settle: .milliseconds(500))
     }
 
     /// The second step with the person's own picture.
@@ -169,7 +177,7 @@ import Testing
         let done = model.openedAt.addingTimeInterval(1)
         model.results = { [OptimisationResult(source: picture, output: picture, kind: .image, bytesBefore: 2_400_000, bytesAfter: 590_000, startedAt: done, finishedAt: done)] }
         model.go(to: .result)
-        try await SettingsRenderTests.renderWindow(OnboardingView(onboarding: model, settings: viewModel) {}, size: CGSize(width: 600, height: 480), name: "onboarding-2-result-own", scheme: scheme, settle: .milliseconds(1200))
+        try await SettingsRenderTests.renderWindow(OnboardingView(onboarding: model, settings: viewModel, example: Self.appIcon) {}, size: CGSize(width: 600, height: 480), name: "onboarding-2-result-own", scheme: scheme, settle: .milliseconds(1200))
     }
 
     func render(_ step: OnboardingModel.Step, scheme: ColorScheme) async throws {
@@ -178,7 +186,7 @@ import Testing
         model.readClipboardAccess = { .allowed }
         model.refreshAccess()
         model.go(to: step)
-        let view = OnboardingView(onboarding: model, settings: viewModel) {}
+        let view = OnboardingView(onboarding: model, settings: viewModel, example: Self.appIcon) {}
         let size = try await SettingsRenderTests.renderWindow(view, size: CGSize(width: 600, height: 480), name: "onboarding-\(step.rawValue + 1)-\(String(describing: step))", scheme: scheme)
         #expect(size.width == 600)
     }

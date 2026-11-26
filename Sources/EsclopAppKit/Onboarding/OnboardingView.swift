@@ -15,13 +15,17 @@ public struct OnboardingView: View {
     let onboarding: OnboardingModel
     let settings: SettingsViewModel
     let openSettings: () -> Void
+    /// The example picture until the person copies one: the app's icon. Renders pass the one in
+    /// `assets/`, since a test process has none.
+    let example: CGImage?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    public init(onboarding: OnboardingModel, settings: SettingsViewModel, openSettings: @escaping () -> Void) {
+    public init(onboarding: OnboardingModel, settings: SettingsViewModel, example: NSImage? = NSApp.applicationIconImage, openSettings: @escaping () -> Void) {
         self.onboarding = onboarding
         self.settings = settings
         self.openSettings = openSettings
+        self.example = example?.cgImage(forProposedRect: nil, context: nil, hints: nil)
     }
 
     public var body: some View {
@@ -57,8 +61,8 @@ public struct OnboardingView: View {
 
     @ViewBuilder private func page(_ step: OnboardingModel.Step) -> some View {
         switch step {
-        case .copy: CopyPage(onboarding: onboarding)
-        case .result: ResultPage(result: onboarding.ownResult, retentionDays: retentionDays)
+        case .copy: CopyPage(onboarding: onboarding, example: example)
+        case .result: ResultPage(result: onboarding.ownResult, retentionDays: retentionDays, example: example)
         case .ready:
             ReadyPage(onboarding: onboarding, retentionDays: retentionDays) {
                 settings.open(SettingsRoute(pane: SettingsPane.named("agents")))
@@ -155,6 +159,7 @@ struct StepHeading: View {
 /// question when it is still to come.
 struct CopyPage: View {
     let onboarding: OnboardingModel
+    let example: CGImage?
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -164,7 +169,7 @@ struct CopyPage: View {
                 summary: Strings.text("L’Esclop wakes up when you copy a screenshot or drop a file on the clog.")
             )
             HStack(spacing: Spacing.l) {
-                PictureTile(image: nil)
+                PictureTile(image: example)
                     .frame(width: 150, height: 108)
                     .rotationEffect(.degrees(-4))
                 Image(systemName: "arrow.turn.right.down")
@@ -179,7 +184,9 @@ struct CopyPage: View {
             if onboarding.clipboardAccess == .asks || onboarding.clipboardAccess == .denied {
                 HStack(spacing: Spacing.m) {
                     AccessBadge(access: onboarding.clipboardAccess)
-                    Text(Strings.text("macOS may ask before L’Esclop reads what you copy."))
+                    Text(onboarding.clipboardAccess == .denied
+                        ? Strings.text("macOS does not let L’Esclop read what you copy. Allow it in Privacy & Security.")
+                        : Strings.text("macOS may ask before L’Esclop reads what you copy."))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Button(Strings.text("Privacy Settings…")) { openURL(OnboardingModel.privacySettings) }
@@ -198,6 +205,8 @@ struct CopyPage: View {
 struct ResultPage: View {
     let result: OptimisationResult?
     let retentionDays: Int
+    /// The picture before the person's own: the same on both sides, as theirs would be.
+    let example: CGImage?
     @State private var picture: CGImage?
 
     /// The example's sizes when the person has not optimised anything yet.
@@ -237,7 +246,7 @@ struct ResultPage: View {
 
     private func sized(_ size: String, ink: some ShapeStyle, spoken: String) -> some View {
         VStack(spacing: Spacing.s) {
-            PictureTile(image: picture)
+            PictureTile(image: result == nil ? example : picture)
                 .frame(width: 180, height: 120)
                 .accessibilityHidden(true)
             Text(size)
