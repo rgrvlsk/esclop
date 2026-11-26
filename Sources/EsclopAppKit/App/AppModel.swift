@@ -689,7 +689,11 @@ public final class AppModel {
     /// CLI and MCP server read too; the sizes stay, so the saving still counts them. A finished
     /// batch goes too, with the menu's Last batch tile and its window: they list the names. The
     /// files, their backups and the cards on screen are not touched.
+    /// Counts the Clears, so a list read from the log (All Results) reads it again after one.
+    public private(set) var recentClears = 0
+
     public func clearRecent() {
+        recentClears += 1
         do {
             try service.results.redactAll()
             loadingRecent?.cancel()

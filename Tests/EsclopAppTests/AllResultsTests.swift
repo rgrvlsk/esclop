@@ -39,6 +39,9 @@ import Testing
         #expect(groups.map(\.results.count) == [2, 1, 1, 1])
         #expect(groups[0].label == "14:00" && groups[1].label == "11:00")
         #expect(groups[2].label == Strings.text("Yesterday"))
+        let rows = AllResults.rows(results, now: now, calendar: calendar)
+        #expect(rows.map(\.label) == ["14:00", nil, "11:00", Strings.text("Yesterday"), rows[4].label], "the label on each group's first row only")
+        #expect(rows[4].label != nil)
     }
 
     @Test func searchAndKindsNarrowTheList() {

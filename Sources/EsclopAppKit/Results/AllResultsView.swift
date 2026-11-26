@@ -21,10 +21,18 @@ struct AllResultsView: View {
     @State private var query = ""
     @State private var kind: MediaKind?
 
-    static let days = 7
+    nonisolated static let days = 7
+
+    /// What makes the log worth reading again: a result arrived or went, or Clear forgot the names.
+    struct ReloadKey: Equatable {
+        let ids: [UUID]
+        let clears: Int
+    }
 
     var body: some View {
-        let shown = AllResults.filter(AllResults.week(model.recent + logged, now: now()), kind: kind, query: query)
+        // A result restored in this session leaves at once, even one the log still had when read.
+        let week = AllResults.week(model.recent + logged, now: now()).filter { !model.isRestored($0) }
+        let shown = AllResults.filter(week, kind: kind, query: query)
         VStack(alignment: .leading, spacing: Spacing.l) {
             header
             SavedTile(results: shown, failed: model.failedCards.count)
@@ -38,24 +46,24 @@ struct AllResultsView: View {
                 Spacer()
             } else {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: Spacing.m) {
-                        if !model.failedCards.isEmpty { failures }
-                        ForEach(AllResults.groups(shown, now: now())) { group in
+                    // One lazy row per result, the group's label beside its first: a busy day does
+                    // not build every row and thumbnail at once.
+                    LazyVStack(alignment: .leading, spacing: Spacing.xs) {
+                        if !model.failedCards.isEmpty { failures.padding(.bottom, Spacing.s) }
+                        ForEach(AllResults.rows(shown, now: now())) { row in
                             HStack(alignment: .top, spacing: Spacing.m) {
-                                Text(group.label)
+                                Text(row.label ?? "")
                                     .font(Typeface.body)
                                     .monospacedDigit()
                                     .foregroundStyle(.secondary)
                                     .frame(width: 76, alignment: .leading)
                                     .padding(.top, 16)
+                                    .accessibilityHidden(row.label == nil)
                                     .accessibilityAddTraits(.isHeader)
-                                VStack(spacing: Spacing.xs) {
-                                    ForEach(group.results) { result in
-                                        RecentRow(result: result, model: model, close: {})
-                                            .background(RoundedRectangle(cornerRadius: Radius.tile / 1.5, style: .continuous).fill(Surface.tile))
-                                    }
-                                }
+                                RecentRow(result: row.result, model: model, close: {})
+                                    .background(RoundedRectangle(cornerRadius: Radius.tile / 1.5, style: .continuous).fill(Surface.tile))
                             }
+                            .padding(.top, row.label != nil && row.id != shown.first?.id ? Spacing.s : 0)
                         }
                     }
                     .padding(.bottom, Spacing.l)
@@ -67,9 +75,15 @@ struct AllResultsView: View {
         .designTint()
         // The log holds the week; the app's own recent results add what came since. Read again
         // when a result arrives or goes.
-        .task(id: model.recent.map(\.id)) {
+        .task(id: ReloadKey(ids: model.recent.map(\.id), clears: model.recentClears)) {
+            // A batch changes the list many times a second: read once it settles.
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
             let log = model.service.results
-            logged = await Task.detached(priority: .userInitiated) { log.recent(limit: AllResults.logLimit) }.value
+            let read = await Task.detached(priority: .userInitiated) { log.recent(limit: AllResults.logLimit) }.value
+            // A newer read may have started: an older one must not put a withdrawn result back.
+            guard !Task.isCancelled else { return }
+            logged = read
         }
     }
 
@@ -224,6 +238,19 @@ enum AllResults {
         var id: String { label }
     }
 
+    /// One row per result, with its group's label on the group's first row only.
+    struct Row: Identifiable {
+        let label: String?
+        let result: OptimisationResult
+        var id: UUID { result.id }
+    }
+
+    static func rows(_ results: [OptimisationResult], now: Date, calendar: Calendar = .current) -> [Row] {
+        groups(results, now: now, calendar: calendar).flatMap { group in
+            group.results.enumerated().map { Row(label: $0.offset == 0 ? group.label : nil, result: $0.element) }
+        }
+    }
+
     /// Today by hour ("09:00"), the days before by day ("Yesterday", "Monday 23"), newest first.
     static func groups(_ results: [OptimisationResult], now: Date, calendar: Calendar = .current) -> [Group] {
         var groups: [Group] = []
@@ -255,6 +282,7 @@ enum AllResults {
 final class AllResultsWindowController {
     let model: AppModel
     private var window: NSWindow?
+    private var closing: (any NSObjectProtocol)?
 
     init(model: AppModel) {
         self.model = model
@@ -263,7 +291,7 @@ final class AllResultsWindowController {
     func show() {
         let window = window ?? makeWindow()
         self.window = window
-        if window.contentView == nil || !(window.isVisible) {
+        if window.contentView == nil {
             window.contentView = NSHostingView(rootView: AllResultsView(model: model))
         }
         NSApp.activate()
@@ -279,6 +307,10 @@ final class AllResultsWindowController {
         window.isReleasedWhenClosed = false
         window.center()
         window.setFrameAutosaveName("dev.esclop.all-results")
+        // A closed window's view would keep reading the log on every result: it goes with it.
+        closing = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: nil) { [weak window] _ in
+            MainActor.assumeIsolated { window?.contentView = nil }
+        }
         return window
     }
 }
