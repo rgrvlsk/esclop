@@ -215,8 +215,8 @@ struct ResultPage: View {
                 .frame(width: 220, height: 34)
                 .accessibilityHidden(true)
             HStack(spacing: Spacing.xl) {
-                sized(Figures.bytes(before), ink: Ink.original)
-                sized(Figures.bytes(after), ink: Ink.secondary)
+                sized(Figures.bytes(before), ink: Ink.original, spoken: Strings.text("Before"))
+                sized(Figures.bytes(after), ink: Ink.secondary, spoken: Strings.text("After"))
             }
             .padding(.top, Spacing.xs)
             Text(caption)
@@ -228,20 +228,25 @@ struct ResultPage: View {
             Spacer(minLength: 0)
         }
         .task(id: result?.id) {
+            // An undone result, or one whose file is gone, leaves the example's stand-in.
+            picture = nil
             guard let url = result?.output, FileManager.default.fileExists(atPath: url.path) else { return }
             picture = await Thumbnails.load(url, side: 240)
         }
     }
 
-    private func sized(_ size: String, ink: some ShapeStyle) -> some View {
+    private func sized(_ size: String, ink: some ShapeStyle, spoken: String) -> some View {
         VStack(spacing: Spacing.s) {
             PictureTile(image: picture)
                 .frame(width: 180, height: 120)
+                .accessibilityHidden(true)
             Text(size)
                 .font(.title3.weight(.semibold))
                 .monospacedDigit()
                 .foregroundStyle(ink)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(spoken), \(size)")
     }
 
     private var caption: String {
@@ -300,6 +305,7 @@ struct ReadyPage: View {
                 Text(error)
                     .font(.caption)
                     .foregroundStyle(Ink.error)
+                    .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: 460)
             } else if onboarding.loginNeedsApproval {

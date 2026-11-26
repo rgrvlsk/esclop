@@ -1341,6 +1341,16 @@
         }
       }
     },
+    "After": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Després"
+          }
+        }
+      }
+    },
     "Agent permissions are switched off again. This cannot be undone.": {
       "localizations": {
         "ca": {
@@ -1797,6 +1807,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lot acabat: 1 fitxer, %@ estalviats"
+          }
+        }
+      }
+    },
+    "Before": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abans"
           }
         }
       }

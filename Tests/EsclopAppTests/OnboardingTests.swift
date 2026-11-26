@@ -154,6 +154,9 @@ import Testing
         try await SettingsRenderTests.renderWindow(OnboardingView(onboarding: model, settings: viewModel) {}, size: CGSize(width: 600, height: 480), name: "onboarding-1-copy-asks", scheme: scheme, settle: .milliseconds(500))
         model.go(to: .ready)
         try await SettingsRenderTests.renderWindow(OnboardingView(onboarding: model, settings: viewModel) {}, size: CGSize(width: 600, height: 480), name: "onboarding-3-ready-login-waiting", scheme: scheme, settle: .milliseconds(500))
+        // The longest last step: macOS refused the login item. It has to fit 600 × 480 in Catalan too.
+        model.loginError = Strings.format("macOS did not add L’Esclop to the login items: %@. Add it in System Settings › General › Login Items & Extensions.", "Operation not permitted")
+        try await SettingsRenderTests.renderWindow(OnboardingView(onboarding: model, settings: viewModel) {}, size: CGSize(width: 600, height: 480), name: "onboarding-3-ready-login-error", scheme: scheme, settle: .milliseconds(500))
     }
 
     /// The second step with the person's own picture.
