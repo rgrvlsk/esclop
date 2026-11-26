@@ -24,10 +24,6 @@ struct SettingsPaneView: View {
     var body: some View {
         ScrollViewReader { proxy in
             Form {
-                // The pane's one heading, on the window's ground above the panels.
-                Section {} header: {
-                    PaneHeading(pane: pane)
-                }
                 if pane == .agents, let agents {
                     Section {
                         Text(Strings.text("AI agents such as Claude, Codex and Cursor use L’Esclop through its MCP server: they can optimise, convert and crop files, and write pipelines. Connect an agent here, then restart it."))
@@ -43,6 +39,13 @@ struct SettingsPaneView: View {
                 extras
             }
             .formStyle(.grouped)
+            // The pane's one heading, on the window's ground above the panels; the panels'
+            // group labels all keep the form's own style.
+            .safeAreaInset(edge: .top, spacing: 0) {
+                PaneHeading(pane: pane)
+                    .padding(.horizontal, Spacing.xl)
+                    .padding(.top, Spacing.s)
+            }
             // The rows mark themselves and say when the mark is in view (`markable`).
             .environment(model)
             .task(id: model.highlighted) {
@@ -222,7 +225,6 @@ struct PaneHeading: View {
                 .font(.body)
                 .foregroundStyle(.secondary)
         }
-        .textCase(nil)
         .padding(.bottom, Spacing.xs)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
