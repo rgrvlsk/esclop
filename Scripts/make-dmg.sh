@@ -9,9 +9,10 @@
 # dmgbuild writes the window layout into .DS_Store directly, so no Finder, no Apple events and
 # no automation permission are needed (Finder scripting times out or asks for consent on an
 # unattended Mac). It is pinned with hashes and installed into a throwaway venv for this build
-# only. The result is ULFO (lzfse) on APFS, as before. The script checks its own output: the
-# app's signature (so APP must be signed, ad hoc at least), the Applications link, the hidden
-# background, a .DS_Store that names it and the volume icon flag.
+# only. The result is ULFO (lzfse) on HFS+: on an APFS volume Finder on macOS 26.6 keeps the
+# layout but shows no background. The script checks its own output: the app's signature (so APP
+# must be signed, ad hoc at least), the Applications link, the hidden background, the HFS+
+# volume, a .DS_Store that names the background and the volume icon flag.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP=${1:?usage: Scripts/make-dmg.sh APP OUT.dmg}
@@ -49,7 +50,7 @@ app, root, out = sys.argv[1:]
 core.Bookmark = type("NoBookmark", (), {"for_file": staticmethod(lambda path: None)})
 core.build_dmg(out, "L'Esclop", settings={
     "format": "ULFO",
-    "filesystem": "APFS",
+    "filesystem": "HFS+",
     "files": [app],
     "symlinks": {"Applications": "/Applications"},
     "icon": os.path.join(root, "assets/AppIcon.icns"),
@@ -71,6 +72,7 @@ fail() { echo "make-dmg: $OUT $1" >&2; exit 1; }
 codesign --verify --deep --strict "$check/$app_name" || fail "has a damaged $app_name"
 [ "$(readlink "$check/Applications")" = /Applications ] || fail "has no Applications link"
 [ -s "$check/.background.tiff" ] || fail "has no background"
+diskutil info "$check" | grep -q 'Personality: *HFS+' || fail "is not HFS+, so Finder 26 hides the background"
 [ -s "$check/.VolumeIcon.icns" ] || fail "has no volume icon"
 LC_ALL=C grep -aq 'backgroundImageAlias' "$check/.DS_Store" || fail "has a .DS_Store without the background"
 ! LC_ALL=C grep -aq 'pBBk' "$check/.DS_Store" || fail "has a background bookmark that Finder 26 rejects"
