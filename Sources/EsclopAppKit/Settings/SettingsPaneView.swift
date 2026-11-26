@@ -69,7 +69,7 @@ struct SettingsPaneView: View {
         let panel = group.panel
         Section {
             if panel.collapsible {
-                PanelHeading(group: group, model: model, status: PanelStatus.text(for: panel, model: model))
+                PanelHeading(group: group, model: model, actions: actions, status: PanelStatus.text(for: panel, model: model))
             }
             if model.isOpen(panel) {
                 if panel.id == "general.menuBar", let login = model.login {
@@ -84,7 +84,7 @@ struct SettingsPaneView: View {
                 }
                 let kinds = KindChecks.keys(in: panel)
                 if !kinds.isEmpty {
-                    KindChecks(keys: kinds, model: model)
+                    KindChecks(keys: kinds, model: model, actions: actions)
                 }
                 ForEach(group.settings.filter { !kinds.contains($0.key) && SettingsViewModel.editedIn[$0.key] == nil }, id: \.key) { setting in
                     SettingRow(descriptor: setting, model: model, actions: actions)
@@ -233,6 +233,7 @@ struct PaneHeading: View {
 struct PanelHeading: View {
     let group: SettingsViewModel.Group
     let model: SettingsViewModel
+    let actions: SettingsActions
     let status: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -265,6 +266,7 @@ struct PanelHeading: View {
             }
             .buttonStyle(.plain)
             .accessibilityElement(children: .ignore)
+            .accessibilityAddTraits(.isHeader)
             .accessibilityLabel(panel.title ?? "")
             .accessibilityValue([status, open ? Strings.text("open") : Strings.text("closed")].compactMap { $0 }.joined(separator: ", "))
             .accessibilityHint(open ? Strings.text("Hides its settings") : Strings.text("Shows its settings"))
@@ -278,6 +280,7 @@ struct PanelHeading: View {
                 .tint(Ink.charcoal)
                 .help(setting.summary)
                 .markable(setting.key)
+                .settingMenu(setting, model: model, actions: actions)
             }
             Button(action: toggle) {
                 Image(systemName: "chevron.right")
@@ -327,10 +330,14 @@ enum PanelStatus {
         }
     }
 
-    /// "Images, videos and PDFs".
+    /// "Images, videos and PDFs": names after the first in lower case, unless they are an
+    /// abbreviation ("PDFs").
     static func list(_ items: [String]) -> String {
-        guard items.count > 1 else { return items.first ?? "" }
-        return Strings.format("%@ and %@", items.dropLast().joined(separator: ", "), items.last!)
+        let words = items.enumerated().map { index, item in
+            index == 0 || item.filter(\.isUppercase).count > 1 ? item : item.lowercased()
+        }
+        guard words.count > 1 else { return words.first ?? "" }
+        return Strings.format("%@ and %@", words.dropLast().joined(separator: ", "), words.last!)
     }
 }
 
@@ -338,6 +345,7 @@ enum PanelStatus {
 struct KindChecks: View {
     let keys: [String]
     let model: SettingsViewModel
+    let actions: SettingsActions
 
     /// The kinds a panel shows as round checks instead of switches.
     static func keys(in panel: SettingsPanel) -> [String] {
@@ -365,6 +373,7 @@ struct KindChecks: View {
                     if let setting = model.descriptor(key) {
                         KindCheck(name: Self.name(key), setting: setting, model: model)
                             .markable(key)
+                            .settingMenu(setting, model: model, actions: actions)
                     }
                 }
             }

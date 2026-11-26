@@ -152,6 +152,7 @@ import Testing
         #expect(model.expanded == ["compression.pdf"], "a panel's own switch is in its heading: nothing to open")
         model.open(SettingsRoute(pane: .automatic, row: "watchedFolderRules"))
         #expect(model.expanded.contains("automatic.images"), "the rules are edited under the image folders")
+        #expect(model.highlighted == "imageDirs", "and marked where they are edited")
     }
 
     // MARK: Search

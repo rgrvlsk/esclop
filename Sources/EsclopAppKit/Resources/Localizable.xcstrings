@@ -6191,12 +6191,12 @@
         }
       }
     },
-    "Open Agents and MCP Settings": {
+    "Open Agents Settings": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Obre la configuració d’Agents i MCP"
+            "value": "Obre la configuració d’Agents"
           }
         }
       }

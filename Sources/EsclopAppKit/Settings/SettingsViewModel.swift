@@ -222,7 +222,8 @@ public final class SettingsViewModel {
         }
         // A row that left while marked (another pane) never said so: start the new link afresh.
         markInView = nil
-        highlighted = route.row
+        // A row edited under another (a folder's rules) is marked where it is edited.
+        highlighted = route.row.map { Self.editedIn[$0] ?? $0 }
     }
 
     public func open(_ hit: Hit) {

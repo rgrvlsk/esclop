@@ -29,17 +29,7 @@ struct SettingRow: View {
         }
         .disabled(!enabled)
         .markable(key)
-        .contextMenu {
-            Button(Strings.text("Reset to Default")) { model.reset(key) }
-                .disabled(!model.isModified(key))
-            Divider()
-            if let link = model.link(to: key) {
-                Button(Strings.text("Copy Link to Setting")) { actions.copy(link.absoluteString) }
-            }
-            Button(Strings.text("Copy Terminal Command")) {
-                actions.copy("esclop settings set \(key) \(Self.shellQuoted(SettingsViewModel.text(for: descriptor.value ?? descriptor.defaultValue)))")
-            }
-        }
+        .settingMenu(descriptor, model: model, actions: actions)
     }
 
     private var label: some View {
@@ -118,6 +108,24 @@ struct SettingRow: View {
     static func shellQuoted(_ text: String) -> String {
         let safe = text.allSatisfy { $0.isLetter || $0.isNumber || "-_.,/~%".contains($0) }
         return safe && !text.isEmpty ? text : ServerCommand.quoted(text)
+    }
+}
+
+extension View {
+    /// A setting's context menu, wherever its control is drawn: reset, its link, its command.
+    func settingMenu(_ descriptor: SettingDescriptor, model: SettingsViewModel, actions: SettingsActions) -> some View {
+        let key = descriptor.key
+        return contextMenu {
+            Button(Strings.text("Reset to Default")) { model.reset(key) }
+                .disabled(!model.isModified(key))
+            Divider()
+            if let link = model.link(to: key) {
+                Button(Strings.text("Copy Link to Setting")) { actions.copy(link.absoluteString) }
+            }
+            Button(Strings.text("Copy Terminal Command")) {
+                actions.copy("esclop settings set \(key) \(SettingRow.shellQuoted(SettingsViewModel.text(for: descriptor.value ?? descriptor.defaultValue)))")
+            }
+        }
     }
 }
 
