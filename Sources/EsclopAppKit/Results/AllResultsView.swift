@@ -33,10 +33,12 @@ struct AllResultsView: View {
         // A result restored in this session leaves at once, even one the log still had when read.
         let week = AllResults.week(model.recent + logged, now: now()).filter { !model.isRestored($0) }
         let shown = AllResults.filter(week, kind: kind, query: query)
+        // The failures follow the search and the kind too.
+        let failed = model.failedCards.filter { AllResults.matches(name: $0.displayName ?? $0.source.lastPathComponent, kind: MediaKind.of($0.source), filter: kind, query: query) }
         VStack(alignment: .leading, spacing: Spacing.l) {
             header
-            SavedTile(results: shown, failed: model.failedCards.count)
-            if shown.isEmpty, model.failedCards.isEmpty {
+            SavedTile(results: shown, failed: failed.count)
+            if shown.isEmpty, failed.isEmpty {
                 Spacer()
                 Text(query.isEmpty && kind == nil
                     ? Strings.text("Nothing optimised in the last 7 days.")
@@ -49,7 +51,7 @@ struct AllResultsView: View {
                     // One lazy row per result, the group's label beside its first: a busy day does
                     // not build every row and thumbnail at once.
                     LazyVStack(alignment: .leading, spacing: Spacing.xs) {
-                        if !model.failedCards.isEmpty { failures.padding(.bottom, Spacing.s) }
+                        if !failed.isEmpty { failures(failed).padding(.bottom, Spacing.s) }
                         ForEach(AllResults.rows(shown, now: now())) { row in
                             HStack(alignment: .top, spacing: Spacing.m) {
                                 Text(row.label ?? "")
@@ -75,6 +77,8 @@ struct AllResultsView: View {
         .designTint()
         // The log holds the week; the app's own recent results add what came since. Read again
         // when a result arrives or goes.
+        // Clear forgets the names at once, before the log is read again.
+        .onChange(of: model.recentClears) { logged = [] }
         .task(id: ReloadKey(ids: model.recent.map(\.id), clears: model.recentClears)) {
             // A batch changes the list many times a second: read once it settles.
             try? await Task.sleep(for: .milliseconds(300))
@@ -132,7 +136,7 @@ struct AllResultsView: View {
     }
 
     /// The failures still on screen, in amber, each with Retry when another try can help.
-    private var failures: some View {
+    private func failures(_ cards: [ResultCard]) -> some View {
         HStack(alignment: .top, spacing: Spacing.m) {
             Text(Strings.text("Failed"))
                 .font(Typeface.body)
@@ -141,7 +145,7 @@ struct AllResultsView: View {
                 .padding(.top, 16)
                 .accessibilityAddTraits(.isHeader)
             VStack(spacing: Spacing.xs) {
-                ForEach(model.failedCards) { card in
+                ForEach(cards) { card in
                     FailureRow(card: card, retry: FailureGroup.retry(for: card)) { model.perform($0, on: card) }
                         .padding(.horizontal, Spacing.m)
                         .background(RoundedRectangle(cornerRadius: Radius.tile / 1.5, style: .continuous).fill(Surface.decision))
@@ -215,12 +219,13 @@ enum AllResults {
 
     /// The results of one kind (all when nil) whose name holds the query, accents and case folded.
     static func filter(_ results: [OptimisationResult], kind: MediaKind?, query: String) -> [OptimisationResult] {
-        let words = query.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil).split(separator: " ")
-        return results.filter { result in
-            guard kind == nil || result.kind == kind else { return false }
-            let name = result.output.lastPathComponent.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
-            return words.allSatisfy { name.contains($0) }
-        }
+        results.filter { matches(name: $0.output.lastPathComponent, kind: $0.kind, filter: kind, query: query) }
+    }
+
+    static func matches(name: String, kind: MediaKind?, filter: MediaKind?, query: String) -> Bool {
+        guard filter == nil || kind == filter else { return false }
+        let folded = name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+        return query.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil).split(separator: " ").allSatisfy { folded.contains($0) }
     }
 
     /// A result is converted when its file changed format.
@@ -267,8 +272,9 @@ enum AllResults {
 
     static func label(for date: Date, now: Date, calendar: Calendar = .current) -> String {
         if calendar.isDate(date, inSameDayAs: now) {
-            let hour = calendar.component(.hour, from: date)
-            return String(format: "%02d:00", hour)
+            // The hour's start in the Mac's own time format, as each row's time is ("14:00", "2 PM").
+            let hour = calendar.dateInterval(of: .hour, for: date)?.start ?? date
+            return hour.formatted(Date.FormatStyle(date: .omitted, time: .shortened, locale: Strings.locale, calendar: calendar))
         }
         if let yesterday = calendar.date(byAdding: .day, value: -1, to: now), calendar.isDate(date, inSameDayAs: yesterday) {
             return Strings.text("Yesterday")
@@ -304,6 +310,8 @@ final class AllResultsWindowController {
             styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false
         )
         window.title = Strings.text("All Results")
+        // The heading says it in New York; the title stays for the Window menu and VoiceOver.
+        window.titleVisibility = .hidden
         window.isReleasedWhenClosed = false
         window.center()
         window.setFrameAutosaveName("dev.esclop.all-results")

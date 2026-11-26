@@ -37,10 +37,11 @@ import Testing
         ], now: now, calendar: calendar)
         let groups = AllResults.groups(results, now: now, calendar: calendar)
         #expect(groups.map(\.results.count) == [2, 1, 1, 1])
-        #expect(groups[0].label == "14:00" && groups[1].label == "11:00")
+        let hour = { (h: Int) in self.calendar.date(from: DateComponents(year: 2026, month: 11, day: 26, hour: h))!.formatted(Date.FormatStyle(date: .omitted, time: .shortened, locale: Strings.locale, calendar: self.calendar)) }
+        #expect(groups[0].label == hour(14) && groups[1].label == hour(11), "the hour in the Mac's own time format")
         #expect(groups[2].label == Strings.text("Yesterday"))
         let rows = AllResults.rows(results, now: now, calendar: calendar)
-        #expect(rows.map(\.label) == ["14:00", nil, "11:00", Strings.text("Yesterday"), rows[4].label], "the label on each group's first row only")
+        #expect(rows.map(\.label) == [hour(14), nil, hour(11), Strings.text("Yesterday"), rows[4].label], "the label on each group's first row only")
         #expect(rows[4].label != nil)
     }
 
@@ -49,6 +50,8 @@ import Testing
         #expect(AllResults.filter(results, kind: nil, query: "cafe").map(\.output.lastPathComponent) == ["Beach Café.png"], "accents and case fold")
         #expect(AllResults.filter(results, kind: .pdf, query: "").count == 1)
         #expect(AllResults.filter(results, kind: nil, query: "").count == 3)
+        #expect(!AllResults.matches(name: "Notes.mov", kind: .video, filter: .pdf, query: ""), "a failure follows the kind too")
+        #expect(AllResults.matches(name: "Notes.mov", kind: .video, filter: nil, query: "note"))
     }
 
     @Test func aConvertedResultChangedFormat() {
