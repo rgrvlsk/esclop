@@ -26,10 +26,20 @@ public struct SettingsView: View {
         } detail: {
             SettingsPaneView(pane: model.pane, model: model, agents: agents, actions: actions)
                 .navigationTitle(model.pane.title)
+                // The pane's heading names it; the window keeps the title for the Window menu
+                // and VoiceOver.
+                .modifier(HiddenToolbarTitle())
         }
         .searchable(text: $model.query, placement: .sidebar, prompt: Strings.text("Search settings"))
         .frame(minWidth: 720, idealWidth: 800, minHeight: 480, idealHeight: 620)
         .designTint()
+    }
+}
+
+/// The toolbar shows no title (macOS 15 and later can remove it); the window keeps it.
+private struct HiddenToolbarTitle: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 15, *) { content.toolbar(removing: .title) } else { content }
     }
 }
 

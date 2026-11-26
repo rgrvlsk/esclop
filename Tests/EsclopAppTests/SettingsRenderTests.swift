@@ -150,17 +150,17 @@ import Testing
     func deepLinkToARefusedValue(scheme: ColorScheme) async throws {
         let model = model(TestSettings())
         model.set("imageCompression", text: "45")
-        model.open(SettingsRoute(pane: .images, row: "maxImageSizeMB"))
+        model.open(SettingsRoute(pane: .automatic, row: "maxImageSizeMB"))
         model.set("maxImageSizeMB", text: "50000")
         let size = try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-deep-link-error", scheme: scheme, settle: .milliseconds(600))
         #expect(size.width == 800)
     }
 
-    /// General › Updates, reached by its link (the section sits at the end of the pane).
+    /// Advanced › Updates, reached by its link.
     @Test(arguments: [ColorScheme.light, .dark])
     func updates(scheme: ColorScheme) async throws {
         let model = model(TestSettings())
-        model.open(SettingsRoute(pane: .general, row: "installUpdatesAutomatically"))
+        model.open(SettingsRoute(pane: .advanced, row: "installUpdatesAutomatically"))
         let size = try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-updates", scheme: scheme, settle: .milliseconds(600)) {
             // While the window is open: a closed one never reports the row (council C7-F1).
             #expect(await eventually(.seconds(10)) { model.markInView == "installUpdatesAutomatically" }, "scrolled into view and marked")
@@ -168,7 +168,7 @@ import Testing
         #expect(size.width > 0)
     }
 
-    /// Search hits and links to rows low in General, with the window already open on another pane:
+    /// Search hits and links to rows in General and Advanced, with the window already open on another pane:
     /// each row comes into view marked, however late the pane lays out (council C7-F1). The picture
     /// is the last one, the pause hotkey.
     @Test(arguments: [ColorScheme.light, .dark])
@@ -176,7 +176,7 @@ import Testing
         let settings = TestSettings()
         let model = model(settings)
         model.login = OnboardingModel(defaults: settings.store.defaults)
-        model.pane = .images
+        model.pane = .compression
         let rows = [
             "installUpdatesAutomatically", EsclopSettings.cardKeysUnderPointer.key, SettingsPaneView.openAtLoginRow,
             // Twice: again after the pane was left while it was marked.
@@ -185,7 +185,7 @@ import Testing
         try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-link-low-row", scheme: scheme, settle: .milliseconds(400)) {
             for row in rows {
                 // Away while the last row is still marked, as a person moving on would be.
-                model.pane = .images
+                model.pane = .compression
                 try await Task.sleep(for: .milliseconds(150))
                 model.query = row
                 let hit = try #require(model.hits.first { $0.id == row }, "the search finds \(row)")
@@ -207,25 +207,26 @@ import Testing
         }
     }
 
-    /// General › Settings on another Mac: Export… and Import…, reached by its search row.
+    /// Advanced › Settings on another Mac: Export… and Import…, reached by its search row.
     @Test(arguments: [ColorScheme.light, .dark])
     func settingsFile(scheme: ColorScheme) async throws {
         let settings = TestSettings()
         let model = model(settings)
-        model.open(SettingsRoute(pane: .general, row: SettingsPaneView.settingsFileRow))
+        model.open(SettingsRoute(pane: .advanced, row: SettingsPaneView.settingsFileRow))
         let view = SettingsView(model: model, actions: SettingsActions(settingsStore: settings.store))
         try await Self.renderWindow(view, size: CGSize(width: 800, height: 620), name: "settings-export-import", scheme: scheme, settle: .milliseconds(600))
     }
 
-    /// "Show floating results" in its pane (the hotkeys, with ⌃⇧N, show on onboarding's last page).
+    /// Results, with Floating results open (the hotkeys, with ⌃⇧N, show on onboarding's last page).
     @Test(arguments: [ColorScheme.light, .dark])
     func floatingResults(scheme: ColorScheme) async throws {
         let model = model(TestSettings())
-        model.pane = .floatingResults
+        model.pane = .results
+        model.expanded = ["results.floating"]
         try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-floating-results", scheme: scheme)
     }
 
-    /// Floating results › Preset zones: a saved pipeline and a template on, the rest off.
+    /// Results › Drop zone › Preset zones: a saved pipeline and a template on, the rest off.
     @Test(arguments: [ColorScheme.light, .dark])
     func presetZones(scheme: ColorScheme) async throws {
         let temp = TempDir()
@@ -237,7 +238,7 @@ import Testing
         let model = model(TestSettings())
         model.pipelines = store
         model.set("presetZones", to: .array([.string("to WebP")]))
-        model.open(SettingsRoute(pane: .floatingResults, row: "presetZones"))
+        model.open(SettingsRoute(pane: .results, row: "presetZones"))
         try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-preset-zones", scheme: scheme, settle: .milliseconds(600))
     }
 
@@ -267,12 +268,14 @@ import Testing
         try await Self.renderWindow(warned, size: CGSize(width: 520, height: 760), name: "settings-upload-editor-private-link", scheme: scheme)
     }
 
-    /// Settings › Clipboard, tall enough for every row, with an ignored app shown by its name.
+    /// Settings › Automatic with Clipboard open, tall enough for every row, with an ignored app
+    /// shown by its name.
     @Test(arguments: [ColorScheme.light, .dark])
     func clipboardPane(scheme: ColorScheme) async throws {
         let model = model(TestSettings())
         model.set("clipboardIgnoredAppBundleIds", to: .array([.string("com.apple.TextEdit")]))
-        model.pane = .clipboard
+        model.pane = .automatic
+        model.expanded = ["automatic.clipboard"]
         try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 1100), name: "settings-clipboard", scheme: scheme)
     }
 
@@ -291,7 +294,13 @@ import Testing
         model.set("capVideoFPS", to: .bool(false))
         for pane in SettingsPane.allCases {
             model.pane = pane
+            model.expanded = []
             try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-\(pane.rawValue)", scheme: scheme)
+            // Every panel open, tall enough to show them.
+            let panels = pane.panels.filter(\.collapsible).map(\.id)
+            guard !panels.isEmpty else { continue }
+            model.expanded = Set(panels)
+            try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 1400), name: "settings-\(pane.rawValue)-open", scheme: scheme)
         }
     }
 }

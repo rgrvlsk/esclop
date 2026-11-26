@@ -221,6 +221,37 @@ many copied files, or a list from the CLI or an agent. It comes forward without 
 - Pause holds the files still waiting; the ones running finish. Stop keeps every original. New
   files join a batch that is still running. VoiceOver announces the batch once, when it ends.
 
+## Settings
+A stock window (`pr7-settings`): the sidebar of seven panes with the search at its top, and the
+chosen pane as a grouped form. Each pane opens with its one heading in New York and a line on
+what it is for ("Automatic / What L'Esclop does on its own").
+
+| Pane | Panels |
+|---|---|
+| General | Menu bar (with Open at login), Every file, Keyboard shortcuts, Where results go |
+| Automatic | the pause, Clipboard, Images · Videos · PDFs · Audio in folders, Pipelines |
+| Compression | Normally, When aggressive, then Images · Video · PDF · Audio |
+| Results | Floating results, Drop zone |
+| Uploads | the targets, the default one and automatic uploads |
+| Agents | connect an agent, test the server, what agents may do |
+| Advanced | Updates, Backups, File names and folders, Settings file, Maintenance |
+
+- **A panel is a feature.** Its heading is a 32 pt symbol in a resting circle, the name, and one
+  line on what it does now ("Watching 2 folders", "Off", "Images and PDFs"). When the feature
+  has a switch, the switch is in the heading (charcoal when on) and the settings show under it
+  once the chevron, or the heading, opens it. A panel with no switch and few rows is a plain
+  titled group, always open.
+- **Clipboard** shows what it optimises as round checks (Images, Videos, PDFs, Audio): charcoal
+  with a white check when on, the resting fill when off. Each is the same setting as before.
+- **Every registry setting is in exactly one panel**, by key; the registry's own sections stay
+  for the CLI and agents. A test fails when a key has no panel or two.
+- A deep link or a search result opens the pane and the closed panel that holds the row, then
+  scrolls to it and marks it. The panes before 0.2 (`images`, `clipboard`, `floatingResults`…)
+  still open from a link, in their new place.
+- Rows keep their native controls: switches, menus, sliders with their figure, fields with a
+  stepper and unit, each with its title and a one-line explanation, and the reset arrow while
+  the value differs from the default.
+
 ## Color
 Use system Liquid Glass materials for floating surfaces, with one accent colour and one warning
 colour.
@@ -268,12 +299,9 @@ Symbols; checkmarks are symbols, not text glyphs.
   below the pointer (hint "Tap ⌥ to hide"), and the next tap hides it; with "Show the drop zone
   only after tapping ⌥" that tap is the only way it shows. While results follow the pointer, the
   zone follows the drag to the display under it.
-- Settings: sidebar panes with the search at the top of the sidebar, grouped forms with native
-  controls (switches, menus, sliders with their figure, fields with a stepper and unit). Each
-  row has its title and a one-line explanation; a reset arrow appears at the trailing edge,
-  beside the control, while the value differs from the default. The search folds accents. A typed value is checked as it is typed, and a refused one
-  keeps the field and says why under the row in red. A deep link scrolls to its row and marks
-  it with an accent wash that fades after 2.5 s (no scroll animation with Reduce Motion).
+- Settings: see Settings above. The search folds accents. A typed value is checked as it is
+  typed, and a refused one keeps the field and says why under the row in red. A deep link marks
+  its row with a charcoal wash that fades after 2.5 s (no scroll animation with Reduce Motion).
 - Onboarding: one 640 × 560 window with a transparent title bar, five steps (welcome, automatic,
   permissions, agents, done) and a footer with Skip, step dots and Back/Continue. Steps slide in
   the direction of travel (350 ms spring); Reduce Motion turns it into a 180 ms crossfade. The

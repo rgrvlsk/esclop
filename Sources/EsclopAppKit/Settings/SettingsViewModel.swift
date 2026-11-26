@@ -13,11 +13,16 @@ import Observation
 
 @MainActor @Observable
 public final class SettingsViewModel {
+    /// A panel with its settings as they read now.
     public struct Group: Identifiable {
-        public var section: SettingsSection
-        public var heading: String?
+        public var panel: SettingsPanel
+        /// The setting the panel's heading switches, when it has one.
+        public var switchSetting: SettingDescriptor?
         public var settings: [SettingDescriptor]
-        public var id: String { section.rawValue }
+        public var heading: String? { panel.title }
+        public var id: String { panel.id }
+        /// Every setting the panel shows, its switch first.
+        public var allSettings: [SettingDescriptor] { (switchSetting.map { [$0] } ?? []) + settings }
     }
 
     /// A row the search finds: a registry setting, or one of the window's own rows (hotkeys).
@@ -52,6 +57,8 @@ public final class SettingsViewModel {
     public var pane: SettingsPane = .general
     /// The row a deep link or a search result points at; the pane scrolls to it and marks it.
     public var highlighted: String?
+    /// The panels that are open, by id. A link to a row inside a closed panel opens it.
+    public var expanded: Set<String> = []
     /// The marked row, once it has been in view; the pane scrolls until it is. Only a new link
     /// clears it.
     @ObservationIgnored var markInView: String?
@@ -131,22 +138,27 @@ public final class SettingsViewModel {
         Dictionary(descriptors.map { ($0.key, $0.value ?? $0.defaultValue) }, uniquingKeysWith: { first, _ in first })
     }
 
-    /// The registry records each setting's section in its schema (`x-section`).
-    static func section(of descriptor: SettingDescriptor) -> SettingsSection {
-        descriptor.jsonSchema?["x-section"]?.stringValue.flatMap(SettingsSection.init(rawValue:)) ?? .general
-    }
-
     public func groups(in pane: SettingsPane) -> [Group] {
-        pane.sections.compactMap { section in
-            let settings = descriptors.filter { Self.section(of: $0) == section }
-            return settings.isEmpty ? nil : Group(section: section, heading: pane.heading(for: section), settings: settings)
+        pane.panels.compactMap { panel in
+            let settings = panel.keys.compactMap(descriptor)
+            let switchSetting = panel.switchKey.flatMap(descriptor)
+            return settings.isEmpty && switchSetting == nil ? nil : Group(panel: panel, switchSetting: switchSetting, settings: settings)
         }
     }
 
     /// The pane that shows a row: a registry key or an extra row's id. Nil for an unknown row.
     public func pane(of row: String) -> SettingsPane? {
-        if let descriptor = descriptor(row) { return SettingsPane.pane(for: Self.section(of: descriptor)) }
+        if descriptor(row) != nil { return SettingsPane.place(of: row)?.pane }
         return extraRows.first { $0.id == row }?.pane
+    }
+
+    /// Whether a panel shows its settings: always for one that does not open and close.
+    public func isOpen(_ panel: SettingsPanel) -> Bool {
+        !panel.collapsible || expanded.contains(panel.id)
+    }
+
+    public func toggle(_ panel: SettingsPanel) {
+        if expanded.contains(panel.id) { expanded.remove(panel.id) } else { expanded.insert(panel.id) }
     }
 
     public func isEnabled(_ key: String) -> Bool {
@@ -184,7 +196,7 @@ public final class SettingsViewModel {
         var found: [Hit] = []
         for pane in SettingsPane.allCases {
             for group in groups(in: pane) {
-                for setting in group.settings where matches([setting.key, setting.title, setting.summary, pane.title, pane.englishTitle, group.heading ?? ""] + setting.keywords) {
+                for setting in group.allSettings where matches([setting.key, setting.title, setting.summary, pane.title, pane.englishTitle, group.heading ?? ""] + setting.keywords) {
                     // A setting edited in another's rows is found there.
                     let host = Self.editedIn[setting.key]
                     let id = host ?? setting.key
@@ -204,6 +216,10 @@ public final class SettingsViewModel {
 
     public func open(_ route: SettingsRoute) {
         if let pane = route.pane { self.pane = pane }
+        // A row inside a closed panel: open it, so the pane can scroll to the row.
+        if let row = route.row, let panel = SettingsPane.place(of: Self.editedIn[row] ?? row)?.panel, panel.collapsible, panel.switchKey != row {
+            expanded.insert(panel.id)
+        }
         // A row that left while marked (another pane) never said so: start the new link afresh.
         markInView = nil
         highlighted = route.row

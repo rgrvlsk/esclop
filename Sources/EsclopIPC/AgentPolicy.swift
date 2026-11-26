@@ -75,7 +75,7 @@ public struct AgentPolicy: Sendable {
     public func checkSettingsChange(_ descriptor: SettingDescriptor) throws {
         guard applies else { return }
         guard descriptor.agentWritable else {
-            throw EsclopError.notPermitted("\(descriptor.key) can only be changed by the person, in L'Esclop Settings → Agents and MCP (esclop://settings/agents/\(descriptor.key)). Agents can read it")
+            throw EsclopError.notPermitted("\(descriptor.key) can only be changed by the person, in L'Esclop Settings → Agents (esclop://settings/agents/\(descriptor.key)). Agents can read it")
         }
         if !permissions.isAllowed(.allowSettingsChanges) {
             throw refusal(.allowSettingsChanges, "Changing settings is off for agents")
@@ -125,6 +125,6 @@ public struct AgentPolicy: Sendable {
     private func refusal(_ permission: AgentPermission, _ why: String) -> EsclopError {
         // The switch's name as the Settings window shows it.
         let title = SettingsRegistry.shared.setting(permission.rawValue)?.title ?? permission.title
-        return .notPermitted("\(why). The person can allow it with “\(title)” in L'Esclop Settings → Agents and MCP (setting \(permission.rawValue), link esclop://settings/agents/\(permission.rawValue)); ask them rather than working around it.")
+        return .notPermitted("\(why). The person can allow it with “\(title)” in L'Esclop Settings → Agents (setting \(permission.rawValue), link esclop://settings/agents/\(permission.rawValue)); ask them rather than working around it.")
     }
 }

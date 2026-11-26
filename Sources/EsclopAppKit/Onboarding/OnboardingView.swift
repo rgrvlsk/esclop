@@ -295,8 +295,8 @@ struct PermissionsPage: View {
                         SettingLabel(
                             title: Strings.text("Files in Desktop, Documents and Downloads"),
                             summary: screenshotsElsewhere
-                                ? Strings.text("macOS will ask to let L’Esclop see your Desktop, which it watches for new images. It asks again the first time L’Esclop replaces a file in Documents or Downloads. If you say no, the Desktop is left alone; Settings › Images shows how to allow it later.")
-                                : Strings.text("macOS will ask to let L’Esclop see your Desktop: that is where screenshots land, and L’Esclop watches it for new ones. It asks again the first time L’Esclop replaces a file in Documents or Downloads. If you say no, the Desktop is left alone; Settings › Images shows how to allow it later.")
+                                ? Strings.text("macOS will ask to let L’Esclop see your Desktop, which it watches for new images. It asks again the first time L’Esclop replaces a file in Documents or Downloads. If you say no, the Desktop is left alone; Settings › Automatic shows how to allow it later.")
+                                : Strings.text("macOS will ask to let L’Esclop see your Desktop: that is where screenshots land, and L’Esclop watches it for new ones. It asks again the first time L’Esclop replaces a file in Documents or Downloads. If you say no, the Desktop is left alone; Settings › Automatic shows how to allow it later.")
                         )
                     }
                     // Screenshots saved elsewhere: that folder, offered as in Settings › Images. Screen
@@ -378,7 +378,7 @@ struct AgentsPage: View {
         VStack(spacing: 0) {
             PageHeading(
                 title: Strings.text("Connect an AI agent"),
-                summary: Strings.text("Agents use L’Esclop through its MCP server to optimise, convert and crop files when you ask them. You can do this later in Settings › Agents and MCP.")
+                summary: Strings.text("Agents use L’Esclop through its MCP server to optimise, convert and crop files when you ask them. You can do this later in Settings › Agents.")
             )
             if let agents {
                 Form {

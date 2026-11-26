@@ -41,6 +41,16 @@
         }
       }
     },
+    "%@ and %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ i %@"
+          }
+        }
+      }
+    },
     "%@ animated GIFs": {
       "localizations": {
         "ca": {
@@ -1321,6 +1331,16 @@
         }
       }
     },
+    "After tapping ⌥ during a drag": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Després de tocar ⌥ mentre arrossegues"
+          }
+        }
+      }
+    },
     "Agent permissions are switched off again. This cannot be undone.": {
       "localizations": {
         "ca": {
@@ -1351,12 +1371,12 @@
         }
       }
     },
-    "Agents may not replace originals. Allow it in Settings › Agents and MCP, or ask for the result somewhere else.": {
+    "Agents may not replace originals. Allow it in Settings › Agents, or ask for the result somewhere else.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Els agents no poden substituir els originals. Permet-ho a Configuració › Agents i MCP, o demana el resultat en un altre lloc."
+            "value": "Els agents no poden substituir els originals. Permet-ho a Configuració › Agents, o demana el resultat en un altre lloc."
           }
         }
       }
@@ -1371,12 +1391,12 @@
         }
       }
     },
-    "Agents use L’Esclop through its MCP server to optimise, convert and crop files when you ask them. You can do this later in Settings › Agents and MCP.": {
+    "Agents use L’Esclop through its MCP server to optimise, convert and crop files when you ask them. You can do this later in Settings › Agents.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Els agents fan servir L’Esclop a través del seu servidor MCP per optimitzar, convertir i retallar fitxers quan els ho demanes. Ho pots fer més endavant a Configuració › Agents i MCP."
+            "value": "Els agents fan servir L’Esclop a través del seu servidor MCP per optimitzar, convertir i retallar fitxers quan els ho demanes. Ho pots fer més endavant a Configuració › Agents."
           }
         }
       }
@@ -1677,6 +1697,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Àudio"
+          }
+        }
+      }
+    },
+    "Audio in folders": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Àudio a les carpetes"
           }
         }
       }
@@ -3111,6 +3141,16 @@
         }
       }
     },
+    "Different for each kind": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diferent per a cada tipus"
+          }
+        }
+      }
+    },
     "Discard Changes": {
       "localizations": {
         "ca": {
@@ -3357,6 +3397,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Deixa anar per executar «%@»"
+          }
+        }
+      }
+    },
+    "Drop zone": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zona per deixar anar"
           }
         }
       }
@@ -3707,6 +3757,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nom del fitxer"
+          }
+        }
+      }
+    },
+    "File names and folders": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noms de fitxer i carpetes"
           }
         }
       }
@@ -4301,12 +4361,32 @@
         }
       }
     },
+    "Hides its settings": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "N’amaga la configuració"
+          }
+        }
+      }
+    },
     "Hold ⌘ to optimise harder": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Mantén ⌘ per optimitzar més"
+          }
+        }
+      }
+    },
+    "How hard each kind of file is squeezed": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quant es comprimeix cada tipus de fitxer"
           }
         }
       }
@@ -4407,6 +4487,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Imatges"
+          }
+        }
+      }
+    },
+    "Images in folders": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imatges a les carpetes"
           }
         }
       }
@@ -5671,6 +5761,16 @@
         }
       }
     },
+    "No folders yet": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encara cap carpeta"
+          }
+        }
+      }
+    },
     "No originals kept": {
       "localizations": {
         "ca": {
@@ -5787,6 +5887,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Normalitza el volum (%@)"
+          }
+        }
+      }
+    },
+    "Normally": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Normalment"
           }
         }
       }
@@ -5957,6 +6067,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No hi ha res per optimitzar"
+          }
+        }
+      }
+    },
+    "Off": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desactivat"
           }
         }
       }
@@ -6517,6 +6637,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Originals…"
+          }
+        }
+      }
+    },
+    "PDFs in folders": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PDF a les carpetes"
           }
         }
       }
@@ -7661,6 +7791,16 @@
         }
       }
     },
+    "Results": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resultats"
+          }
+        }
+      }
+    },
     "Resume": {
       "localizations": {
         "ca": {
@@ -8201,6 +8341,16 @@
         }
       }
     },
+    "Shows its settings": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En mostra la configuració"
+          }
+        }
+      }
+    },
     "Stop All": {
       "localizations": {
         "ca": {
@@ -8227,6 +8377,136 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aquest no és un fitxer de configuració exportat per L’Esclop. No s’ha canviat res."
+          }
+        }
+      }
+    },
+    "Updates, backups and maintenance": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualitzacions, còpies de seguretat i manteniment"
+          }
+        }
+      }
+    },
+    "Videos": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vídeos"
+          }
+        }
+      }
+    },
+    "Videos in folders": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vídeos a les carpetes"
+          }
+        }
+      }
+    },
+    "What AI agents may do with L’Esclop": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Què poden fer els agents d’IA amb L’Esclop"
+          }
+        }
+      }
+    },
+    "What L’Esclop does on its own": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Què fa L’Esclop pel seu compte"
+          }
+        }
+      }
+    },
+    "What every file gets, and where it goes": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Què rep cada fitxer, i on va"
+          }
+        }
+      }
+    },
+    "What to optimise": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Què s’optimitza"
+          }
+        }
+      }
+    },
+    "What you see after a file is done": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Què veus quan un fitxer està llest"
+          }
+        }
+      }
+    },
+    "When aggressive": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amb compressió agressiva"
+          }
+        }
+      }
+    },
+    "Where files go when you share them": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On van els fitxers quan els comparteixes"
+          }
+        }
+      }
+    },
+    "While you drag files": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mentre arrossegues fitxers"
+          }
+        }
+      }
+    },
+    "closed": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tancat"
+          }
+        }
+      }
+    },
+    "open": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "obert"
           }
         }
       }
@@ -11391,22 +11671,22 @@
         }
       }
     },
-    "macOS will ask to let L’Esclop see your Desktop, which it watches for new images. It asks again the first time L’Esclop replaces a file in Documents or Downloads. If you say no, the Desktop is left alone; Settings › Images shows how to allow it later.": {
+    "macOS will ask to let L’Esclop see your Desktop, which it watches for new images. It asks again the first time L’Esclop replaces a file in Documents or Downloads. If you say no, the Desktop is left alone; Settings › Automatic shows how to allow it later.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "El macOS et demanarà que deixis que L’Esclop vegi l’Escriptori, on vigila les imatges noves. Torna a preguntar la primera vegada que L’Esclop substitueix un fitxer de Documents o Baixades. Si dius que no, no es toca l’Escriptori; a Configuració › Imatges hi ha com permetre-ho més endavant."
+            "value": "El macOS et demanarà que deixis que L’Esclop vegi l’Escriptori, on vigila les imatges noves. Torna a preguntar la primera vegada que L’Esclop substitueix un fitxer de Documents o Baixades. Si dius que no, no es toca l’Escriptori; a Configuració › Automàtic hi ha com permetre-ho més endavant."
           }
         }
       }
     },
-    "macOS will ask to let L’Esclop see your Desktop: that is where screenshots land, and L’Esclop watches it for new ones. It asks again the first time L’Esclop replaces a file in Documents or Downloads. If you say no, the Desktop is left alone; Settings › Images shows how to allow it later.": {
+    "macOS will ask to let L’Esclop see your Desktop: that is where screenshots land, and L’Esclop watches it for new ones. It asks again the first time L’Esclop replaces a file in Documents or Downloads. If you say no, the Desktop is left alone; Settings › Automatic shows how to allow it later.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "El macOS et demanarà que deixis que L’Esclop vegi l’Escriptori: és on van a parar les captures de pantalla, i L’Esclop hi vigila les noves. Torna a preguntar la primera vegada que L’Esclop substitueix un fitxer de Documents o Baixades. Si dius que no, no es toca l’Escriptori; a Configuració › Imatges hi ha com permetre-ho més endavant."
+            "value": "El macOS et demanarà que deixis que L’Esclop vegi l’Escriptori: és on van a parar les captures de pantalla, i L’Esclop hi vigila les noves. Torna a preguntar la primera vegada que L’Esclop substitueix un fitxer de Documents o Baixades. Si dius que no, no es toca l’Escriptori; a Configuració › Automàtic hi ha com permetre-ho més endavant."
           }
         }
       }
