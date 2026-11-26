@@ -266,11 +266,12 @@ struct PipelineSentence: View {
     }
 }
 
-/// Lists in words: "PNG, JPEG and GIF".
+/// Lists in words in the app's language: "PNG, JPEG and GIF".
 enum PanelList {
     static func join(_ items: [String]) -> String {
-        guard items.count > 1 else { return items.first ?? "" }
-        return Strings.format("%@ and %@", items.dropLast().joined(separator: ", "), items.last!)
+        let formatter = ListFormatter()
+        formatter.locale = Strings.locale
+        return formatter.string(from: items) ?? items.joined(separator: ", ")
     }
 }
 

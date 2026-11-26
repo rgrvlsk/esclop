@@ -119,14 +119,33 @@ struct StepRowView: View {
         return step.spec.map(PipelineVocabulary.stepHelp) ?? step.name
     }
 
+    /// A symbol per kind of step (the proposal's symbols where it names them), else its category's.
     private var symbol: String {
+        switch step.name {
+        case "crop": return "crop"
+        case "convert": return "arrow.triangle.2.circlepath"
+        case "downscale": return "arrow.down.right.and.arrow.up.left"
+        case "targetSize": return "arrow.down.right.and.arrow.up.left"
+        case "stripExif": return "eye.slash"
+        case "watermark": return "seal"
+        case "rename": return "character.cursor.ibeam"
+        case "copy", "copyToClipboard": return "square.on.square"
+        case "move": return "folder"
+        case "delete": return "trash"
+        case "upload", "uploadWith", "copyLinkForSending": return "icloud.and.arrow.up"
+        case "removeAudio": return "speaker.slash"
+        case "changeSpeed": return "gauge.with.dots.needle.67percent"
+        case "normalize": return "waveform"
+        case "extractPagesAsImages": return "doc.on.doc"
+        default: break
+        }
         switch step.spec?.category {
-        case .processing: "wand.and.rays"
-        case .fileOperation: "folder"
-        case .filter: "line.3.horizontal.decrease"
-        case .mediaSpecific: "waveform"
-        case .action: step.isScript ? "terminal" : "square.and.arrow.up"
-        case nil: "questionmark"
+        case .processing: return "wand.and.rays"
+        case .fileOperation: return "folder"
+        case .filter: return "line.3.horizontal.decrease"
+        case .mediaSpecific: return "waveform"
+        case .action: return step.isScript ? "terminal" : "square.and.arrow.up"
+        case nil: return "questionmark"
         }
     }
 }
