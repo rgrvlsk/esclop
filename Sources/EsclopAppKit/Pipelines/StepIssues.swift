@@ -19,8 +19,22 @@ struct StepIssues: View {
         }
     }
 
-    /// The parser writes names and values in backticks: shown as code.
+    /// The parser writes names and values in backticks. A setting's name reads as its title in
+    /// quotes ("“Long edge (px)” must be…", not "`longEdge` must be…"); other values stay code.
     static func markdown(_ message: String) -> AttributedString {
-        (try? AttributedString(markdown: message)) ?? AttributedString(message)
+        let named = readable(message)
+        return (try? AttributedString(markdown: named)) ?? AttributedString(named)
+    }
+
+    static func readable(_ message: String) -> String {
+        var out = ""
+        var rest = Substring(message)
+        while let open = rest.firstIndex(of: "`"), let close = rest[rest.index(after: open)...].firstIndex(of: "`") {
+            let name = String(rest[rest.index(after: open) ..< close])
+            let title = PipelineVocabulary.paramTitle(name)
+            out += rest[..<open] + (title == name ? "`\(name)`" : "“\(title)”")
+            rest = rest[rest.index(after: close)...]
+        }
+        return out + rest
     }
 }

@@ -2,8 +2,8 @@
 
 import SwiftUI
 
-/// A pipeline in the editor's list: its icon and name, a lock for templates, a mark for a file
-/// with errors.
+/// A pipeline in the editor's list: its icon and name, and a mark for a file with errors. An
+/// example has no padlock: opening it offers Make It Mine.
 struct PipelineListRow: View {
     let name: String
     let icon: String
@@ -18,9 +18,6 @@ struct PipelineListRow: View {
                 .accessibilityHidden(true)
             Text(name).lineLimit(1)
             Spacer()
-            if isTemplate {
-                Image(systemName: "lock").foregroundStyle(.secondary).accessibilityHidden(true)
-            }
             if problem != nil {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Palette.caution).accessibilityHidden(true)
             }
@@ -31,6 +28,6 @@ struct PipelineListRow: View {
 
     private var label: String {
         if let problem { return Strings.format("%@, %@", name, problem) }
-        return isTemplate ? Strings.format("%@, built-in template", name) : name
+        return isTemplate ? Strings.format("%@, example", name) : name
     }
 }

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The pipeline editor window: saved pipelines and built-in templates on the left, the selected
-// one on the right. Templates are read-only; Duplicate makes an editable copy.
+// The pipeline editor window (`pr9-pipeline-editor`): your pipelines and the built-in examples on
+// the left, the selected one on the right. Examples are read-only; Make It Mine makes an editable
+// copy. Duplicate and Delete are in a row's context menu and the toolbar.
 
 import EsclopCore
 import EsclopPipelines
@@ -47,7 +48,7 @@ public struct PipelineEditorView: View {
 
     private var sidebar: some View {
         List(selection: $model.listSelection) {
-            Section(Strings.text("Your pipelines")) {
+            Section(Strings.text("Yours")) {
                 if model.saved.isEmpty, model.selection != .new {
                     Text(Strings.text("None yet")).foregroundStyle(.secondary)
                 }
@@ -61,32 +62,46 @@ public struct PipelineEditorView: View {
                         problem: entry.pipeline == nil ? Strings.text("Has errors") : nil, isTemplate: false
                     )
                     .tag(PipelineEditorModel.Selection.saved(entry.name))
+                    .contextMenu { rowMenu(.saved(entry.name)) }
                 }
             }
-            Section(Strings.text("Templates")) {
+            Section(Strings.text("Examples")) {
                 ForEach(model.templates, id: \.name) { template in
                     PipelineListRow(name: template.name, icon: template.icon ?? "", problem: nil, isTemplate: true)
                         .tag(PipelineEditorModel.Selection.template(template.name))
+                        .contextMenu { rowMenu(.template(template.name)) }
                 }
             }
         }
         .accessibilityLabel(Strings.text("Pipelines"))
         .safeAreaInset(edge: .bottom) {
-            HStack(spacing: 4) {
-                Button(Strings.text("New Pipeline"), systemImage: "plus") { model.newPipeline() }
-                    .keyboardShortcut("n", modifiers: .command)
-                Button(Strings.text("Duplicate"), systemImage: "plus.square.on.square") { model.duplicate() }
-                    .keyboardShortcut("d", modifiers: .command)
-                    .disabled(model.selection == nil || model.selection == .new)
-                Button(Strings.text("Delete"), systemImage: "trash") { confirmingDelete = true }
-                    .disabled(!isSaved)
-                Spacer()
+            Button { model.newPipeline() } label: {
+                Label(Strings.text("New Pipeline"), systemImage: "plus")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, Spacing.m)
+                    .padding(.vertical, Spacing.s)
+                    .contentShape(Rectangle())
             }
-            .labelStyle(.iconOnly)
-            .buttonStyle(.borderless)
-            .padding(8)
+            .buttonStyle(.plain)
+            .foregroundStyle(Ink.charcoalText)
+            .background(RoundedRectangle(cornerRadius: Radius.panel / 2, style: .continuous).strokeBorder(Ink.secondary.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
+            .keyboardShortcut("n", modifiers: .command)
+            .padding(Spacing.m)
         }
     }
 
-    private var isSaved: Bool { if case .saved = model.selection { return true } else { return false } }
+    /// Duplicate for any pipeline; Delete only for one of yours.
+    @ViewBuilder private func rowMenu(_ selection: PipelineEditorModel.Selection) -> some View {
+        Button(Strings.text("Duplicate")) {
+            model.request(selection)
+            if model.selection == selection { model.duplicate() }
+        }
+        if case .saved = selection {
+            Button(Strings.text("Delete…")) {
+                model.request(selection)
+                if model.selection == selection { confirmingDelete = true }
+            }
+        }
+    }
+
 }

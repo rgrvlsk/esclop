@@ -120,6 +120,9 @@ Mac's own encoders.
 - Copied AVIF images are optimised.
 
 ### Changed
+- The pipeline editor reads as a sentence: "Runs for … when …" in chips that open the filter
+  and what runs it, and the steps as a numbered flow that opens in place. The built-in
+  templates are Examples, with Make It Mine, and problems name settings by their titles.
 - Copying the web address of an image, video, PDF or audio file offers to download it. Nothing
   is fetched until you click. Settings › Clipboard › Copied web addresses can download on its own
   or do nothing instead (`optimiseURLClipboard`: `offer`, `download` or `ignore`). Copying any

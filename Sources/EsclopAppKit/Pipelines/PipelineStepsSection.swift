@@ -9,6 +9,8 @@ import SwiftUI
 
 struct PipelineStepsSection: View {
     @Bindable var model: PipelineEditorModel
+    /// The steps opened by hand, by id. A step with a problem is always open.
+    @State private var opened: Set<UUID> = []
 
     var body: some View {
         Section {
@@ -48,9 +50,14 @@ struct PipelineStepsSection: View {
                 // gone by the time a row is read (removed, or another pipeline opened).
                 ForEach(steps) { step in
                     let position = steps.firstIndex { $0.id == step.id } ?? 0
+                    let issues = model.check.issues[step.id] ?? []
                     StepRowView(
                         step: model.binding(for: step), kind: kind, number: position + 1, count: steps.count,
-                        issues: model.check.issues[step.id] ?? [],
+                        issues: issues,
+                        isOpen: Binding(
+                            get: { opened.contains(step.id) || issues.contains { $0.severity == .error } },
+                            set: { if $0 { opened.insert(step.id) } else { opened.remove(step.id) } }
+                        ),
                         move: { model.moveStep(step.id, by: $0) }, remove: { model.removeStep(step.id) }
                     )
                 }
@@ -88,19 +95,32 @@ struct PipelineStepsSection: View {
         }
     }
 
+    /// Adds a step and opens it on its settings.
+    private func add(_ name: String) {
+        model.addStep(name)
+        if let added = model.currentSection?.steps.last { opened.insert(added.id) }
+    }
+
+    /// "Add a step", dashed like a place still empty.
     private func addStepMenu(kind: MediaKind?) -> some View {
         Menu {
             ForEach(StepCategory.allCases, id: \.self) { category in
                 Section(PipelineVocabulary.categoryTitle(category)) {
                     ForEach(Self.specs(in: category, for: kind), id: \.name) { spec in
-                        Button(PipelineVocabulary.stepTitle(spec.name)) { model.addStep(spec.name) }
+                        Button(PipelineVocabulary.stepTitle(spec.name)) { add(spec.name) }
                     }
                 }
             }
         } label: {
-            Label(Strings.text("Add Step"), systemImage: "plus")
+            Label(Strings.text("Add a Step"), systemImage: "plus")
         }
-        .fixedSize()
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .foregroundStyle(Ink.charcoalText)
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.s)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: Radius.panel / 2, style: .continuous).strokeBorder(Ink.secondary.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
         .accessibilityLabel(Strings.format("Add a step for %@", PipelineVocabulary.sectionTitle(kind)))
     }
 }

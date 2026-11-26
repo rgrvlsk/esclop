@@ -281,3 +281,33 @@ import Testing
         #expect(try FileManager.default.contentsOfDirectory(atPath: root.path) == ["clipboard-keep"])
     }
 }
+
+/// The editor's words (`pr9-pipeline-editor`): the sentence of chips and problems written for people.
+@MainActor @Suite struct PipelineEditorWordsTests {
+    @Test func theSentenceSaysWhatItRunsOnAndWhatRunsIt() throws {
+        let pipeline = try PipelineParser.parse("if(types: png, nameContains: \"Screenshot\") -> convert(to: webp)", name: "Shots")
+        var draft = PipelineDraft(pipeline)
+        #expect(PipelineSentence.filterPhrase(draft.filter) == Strings.format("%@ named “%@”", Strings.format("%@ files", "PNG"), "Screenshot"))
+        #expect(PipelineSentence.filterPhrase(nil) == Strings.text("every file"))
+        #expect(PipelineSentence.triggerPhrases(draft).isEmpty, "nothing runs it on its own")
+        draft.set(.clipboard, on: true)
+        draft.set(.presetZone, on: true)
+        draft.set(.folder("~/Downloads"), on: true)
+        #expect(PipelineSentence.triggerPhrases(draft) == [Strings.text("copied"), Strings.text("dropped on its tile"), Strings.format("new in %@", "Downloads")])
+    }
+
+    @Test func problemsNameTheSettingByItsTitle() {
+        #expect(StepIssues.readable("`longEdge` must be a whole number of at least 1; `-5` is too small.")
+            == "“\(PipelineVocabulary.paramTitle("longEdge"))” must be a whole number of at least 1; `-5` is too small.")
+        #expect(StepIssues.readable("no backticks") == "no backticks")
+    }
+
+    @Test func aStepSaysItsSettingsInWords() {
+        var step = StepDraft(name: "crop", values: ["longEdge": "1600"])
+        let row = StepRowView(step: .constant(step), kind: nil, number: 1, count: 1, issues: [], isOpen: .constant(false), move: { _ in }, remove: {})
+        #expect(row.summary == "\(PipelineVocabulary.paramTitle("longEdge")) 1600")
+        step.values = [:]
+        let bare = StepRowView(step: .constant(step), kind: nil, number: 1, count: 1, issues: [], isOpen: .constant(false), move: { _ in }, remove: {})
+        #expect(!bare.summary.isEmpty, "a step with no settings says what it does")
+    }
+}

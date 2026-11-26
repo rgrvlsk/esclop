@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// One step: its title and language name, its arguments with a control for each type, what the
-// parser says about it, and buttons to move or remove it. A script step shows its code plainly.
+// One step in the flow (`pr9-pipeline-editor`): its number on the line, its kind's symbol in a
+// circle, its name and its settings in plain words. Opened, it shows the settings' controls,
+// what the parser says, and Move Up, Move Down and Remove. A script step shows its code plainly.
 
 import EsclopCore
 import EsclopPipelines
@@ -13,55 +14,104 @@ struct StepRowView: View {
     let number: Int
     let count: Int
     let issues: [PipelineDiagnostic]
+    @Binding var isOpen: Bool
     let move: (Int) -> Void
     let remove: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var title: String { PipelineVocabulary.stepTitle(step.name) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Text("\(number)")
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-                    .frame(minWidth: 16, alignment: .trailing)
-                    .accessibilityHidden(true)
-                Image(systemName: symbol).foregroundStyle(step.isScript ? Palette.caution : Ink.charcoalText).frame(width: 18).accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title).font(.headline)
-                    Text(step.name).font(.caption.monospaced()).foregroundStyle(.secondary)
+        HStack(alignment: .top, spacing: Spacing.m) {
+            // The number on the flow's line.
+            Text("\(number)")
+                .font(Typeface.label)
+                .monospacedDigit()
+                .foregroundStyle(Ink.text)
+                .frame(width: 26, height: 26)
+                .background(Circle().fill(Surface.tile))
+                .overlay(Circle().strokeBorder(Ink.secondary.opacity(0.35), lineWidth: 0.5))
+                .padding(.top, 6)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: Spacing.s) {
+                Button(action: toggle) {
+                    HStack(spacing: Spacing.m) {
+                        Image(systemName: symbol)
+                            .font(.system(size: 14))
+                            .foregroundStyle(step.isScript ? Ink.warm : Ink.charcoalText)
+                            .frame(width: 30, height: 30)
+                            .background(Circle().fill(NeutralFill.resting))
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(title).font(Typeface.title)
+                            Text(summary)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                        Spacer(minLength: 0)
+                        if !issues.isEmpty {
+                            Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Palette.error)
+                        }
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .rotationEffect(.degrees(isOpen ? 90 : 0))
+                    }
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
                 .help(step.spec.map(PipelineVocabulary.stepHelp) ?? "")
-                Spacer()
-                Button(Strings.text("Move Up"), systemImage: "chevron.up") { move(-1) }
-                    .disabled(number == 1)
-                    .accessibilityLabel(Strings.format("Move %@ up", title))
-                Button(Strings.text("Move Down"), systemImage: "chevron.down") { move(1) }
-                    .disabled(number == count)
-                    .accessibilityLabel(Strings.format("Move %@ down", title))
-                Button(Strings.text("Remove Step"), systemImage: "minus.circle", action: remove)
-                    .accessibilityLabel(Strings.format("Remove %@", title))
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Strings.format("Step %d of %d: %@", number, count, title))
+                .accessibilityValue(summary)
+                .accessibilityHint(isOpen ? Strings.text("Hides its settings") : Strings.text("Shows its settings"))
+                if isOpen {
+                    if step.isScript {
+                        Text(Strings.text("Runs code on your Mac. Read it before you run the pipeline."))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    StepParamsEditor(step: $step, kind: kind)
+                    StepIssues(issues: issues)
+                    HStack(spacing: Spacing.s) {
+                        Button(Strings.text("Move Up"), systemImage: "chevron.up") { move(-1) }
+                            .disabled(number == 1)
+                            .accessibilityLabel(Strings.format("Move %@ up", title))
+                        Button(Strings.text("Move Down"), systemImage: "chevron.down") { move(1) }
+                            .disabled(number == count)
+                            .accessibilityLabel(Strings.format("Move %@ down", title))
+                        Spacer()
+                        Button(Strings.text("Remove Step"), systemImage: "minus.circle", action: remove)
+                            .accessibilityLabel(Strings.format("Remove %@", title))
+                    }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                }
             }
-            .labelStyle(.iconOnly)
-            .buttonStyle(.borderless)
-            if step.isScript {
-                Text(Strings.text("Runs code on your Mac. Read it before you run the pipeline."))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.leading, 50)
-            }
-            StepParamsEditor(step: $step, kind: kind)
-                .padding(.leading, 50)
-            StepIssues(issues: issues)
-                .padding(.leading, 50)
         }
         .padding(.vertical, 2)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(Strings.format("Step %d of %d: %@", number, count, title))
         .accessibilityAction(named: Strings.text("Move Up")) { move(-1) }
         .accessibilityAction(named: Strings.text("Move Down")) { move(1) }
         .accessibilityAction(named: Strings.text("Remove Step"), remove)
+    }
+
+    private func toggle() {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) { isOpen.toggle() }
+    }
+
+    /// The step's settings in plain words, in the order the step lists them: "Long edge (px)
+    /// 1600 · Format webp". A step with none says what it does.
+    var summary: String {
+        let params = step.spec?.params ?? []
+        let set = params.compactMap { param -> String? in
+            guard let value = step.values[param.name], !value.isEmpty else { return nil }
+            return "\(PipelineVocabulary.paramTitle(param.name)) \(value)"
+        }
+        if !set.isEmpty { return set.joined(separator: " · ") }
+        return step.spec.map(PipelineVocabulary.stepHelp) ?? step.name
     }
 
     private var symbol: String {

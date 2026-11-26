@@ -221,6 +221,27 @@ many copied files, or a list from the CLI or an agent. It comes forward without 
 - Pause holds the files still waiting; the ones running finish. Stop keeps every original. New
   files join a batch that is still running. VoiceOver announces the batch once, when it ends.
 
+## Pipeline editor
+A stock window (`pr9-pipeline-editor`). On the left, Yours and Examples (the built-in templates,
+with no padlock), and a dashed "New Pipeline" at the bottom; a row's context menu has Duplicate
+and Delete…. On the right, one pipeline:
+
+- **The name as the one heading,** in New York, edited in place, and its description under it.
+  An example says so and offers Make It Mine (an editable copy).
+- **One sentence of chips:** "Runs for [PNG files named “Screenshot”] when [copied] or [new in
+  Inbox] ⊕". The filter chip opens the filter in a popover; a trigger chip and ⊕ open what runs
+  it (each source, and watched folders).
+- **Steps as a numbered flow:** the number in a circle, the kind of step's symbol, its name and
+  its settings in plain words ("Long edge (px) 1600"). The chevron opens it in place: its
+  controls, what the parser says, Move Up, Move Down and Remove. A step with an error is always
+  open, and a new step opens on its settings. "Add a Step" is dashed. Rows still reorder by
+  dragging and with VoiceOver's Move Up and Move Down; the steps for each kind keep their tabs.
+- **Problems name settings by their titles:** "“Long edge (px)” must be a whole number of at
+  least 1", not the language's `longEdge`.
+- **Toolbar:** Steps · Text, Try It… (a sheet: drop or choose a file, run on a copy), Run on
+  Files…, Duplicate (⌘D), Revert and Save (⌘S). Options sit at the bottom; a pipeline with
+  scripts says so with the warm terminal symbol and a link to Settings › Agents.
+
 ## Color
 Use system Liquid Glass materials for floating surfaces, with one accent colour and one warning
 colour.

@@ -41,6 +41,16 @@
         }
       }
     },
+    "%@ and %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ i %@"
+          }
+        }
+      }
+    },
     "%@ animated GIFs": {
       "localizations": {
         "ca": {
@@ -107,6 +117,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fitxer %@"
+          }
+        }
+      }
+    },
+    "%@ files": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "fitxers %@"
           }
         }
       }
@@ -197,6 +217,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ més lleuger"
+          }
+        }
+      }
+    },
+    "%@ named “%@”": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ amb «%@» al nom"
           }
         }
       }
@@ -397,6 +427,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@, s’està baixant"
+          }
+        }
+      }
+    },
+    "%@, example": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, exemple"
           }
         }
       }
@@ -1231,6 +1271,16 @@
         }
       }
     },
+    "Add a Step": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afegeix un pas"
+          }
+        }
+      }
+    },
     "Add a folder to %@": {
       "localizations": {
         "ca": {
@@ -1547,6 +1597,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Un fitxer .esclopignore en una carpeta fa que s’ometin els noms que hi consten, com fa .gitignore; el .clopignore del Clop també funciona."
+          }
+        }
+      }
+    },
+    "An example. Make it yours to change it.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un exemple. Fes-lo teu per canviar-lo."
           }
         }
       }
@@ -2087,6 +2147,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tria la carpeta on han d’anar els resultats."
+          }
+        }
+      }
+    },
+    "Choose what runs it": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tria què l’executa"
           }
         }
       }
@@ -3081,6 +3151,16 @@
         }
       }
     },
+    "Delete…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elimina…"
+          }
+        }
+      }
+    },
     "Denied": {
       "localizations": {
         "ca": {
@@ -3547,6 +3627,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Totes les imatges, vídeos, PDF i fitxers d’àudio que hi ha a dins, subcarpetes incloses."
+          }
+        }
+      }
+    },
+    "Examples": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exemples"
           }
         }
       }
@@ -4297,6 +4387,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Amaga la llista"
+          }
+        }
+      }
+    },
+    "Hides its settings": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "N’amaga la configuració"
           }
         }
       }
@@ -5107,6 +5207,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Manteniment"
+          }
+        }
+      }
+    },
+    "Make %@ yours": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fes teu %@"
+          }
+        }
+      }
+    },
+    "Make It Mine": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fes-lo meu"
           }
         }
       }
@@ -6071,12 +6191,12 @@
         }
       }
     },
-    "Open Agents and MCP Settings": {
+    "Open Agents Settings": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Obre la configuració d’Agents i MCP"
+            "value": "Obre la configuració d’Agents"
           }
         }
       }
@@ -7881,6 +8001,16 @@
         }
       }
     },
+    "Run the pipeline as it is here on a copy of a file": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Executa el pipeline tal com és aquí sobre una còpia d’un fitxer"
+          }
+        }
+      }
+    },
     "Run the saved pipeline on files you choose": {
       "localizations": {
         "ca": {
@@ -7937,6 +8067,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Executa codi al Mac. Llegeix-lo abans d’executar el pipeline."
+          }
+        }
+      }
+    },
+    "Runs for": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’aplica a"
           }
         }
       }
@@ -8201,6 +8341,26 @@
         }
       }
     },
+    "Show the pipeline as steps or as text": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra el pipeline com a passos o com a text"
+          }
+        }
+      }
+    },
+    "Shows its settings": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En mostra la configuració"
+          }
+        }
+      }
+    },
     "Stop All": {
       "localizations": {
         "ca": {
@@ -8227,6 +8387,126 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aquest no és un fitxer de configuració exportat per L’Esclop. No s’ha canviat res."
+          }
+        }
+      }
+    },
+    "Try It…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prova-ho…"
+          }
+        }
+      }
+    },
+    "What it runs on and what runs it": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A què s’aplica i què l’executa"
+          }
+        }
+      }
+    },
+    "Yours": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teus"
+          }
+        }
+      }
+    },
+    "an AI agent asks": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "un agent d’IA ho demana"
+          }
+        }
+      }
+    },
+    "chosen in Finder": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "es trien al Finder"
+          }
+        }
+      }
+    },
+    "copied": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "es copien"
+          }
+        }
+      }
+    },
+    "dropped on its tile": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "es deixen anar a la seva casella"
+          }
+        }
+      }
+    },
+    "dropped on the drop zone": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "es deixen anar a la zona"
+          }
+        }
+      }
+    },
+    "every file": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tots els fitxers"
+          }
+        }
+      }
+    },
+    "new in %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "són nous a %@"
+          }
+        }
+      }
+    },
+    "or": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "o"
+          }
+        }
+      }
+    },
+    "run from the command line": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "s’executa des de la línia d’ordres"
           }
         }
       }
@@ -13561,6 +13841,16 @@
         }
       }
     },
+    "some files": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "alguns fitxers"
+          }
+        }
+      }
+    },
     "sort screenshots": {
       "localizations": {
         "ca": {
@@ -14561,12 +14851,32 @@
         }
       }
     },
+    "when": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "quan"
+          }
+        }
+      }
+    },
     "where Settings say": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "on digui la Configuració"
+          }
+        }
+      }
+    },
+    "you choose it": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "el tries"
           }
         }
       }
