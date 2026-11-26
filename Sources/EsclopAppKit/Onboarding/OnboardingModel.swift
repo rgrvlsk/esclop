@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The first-run window's state: which step is showing, whether onboarding has been finished
-// (or skipped), and the permissions the app depends on. It opens by itself once, on the first
-// launch, and again from the menu whenever the person wants.
+// The first-run window's state: which of its three steps is showing, whether it has been
+// finished (or skipped), the person's first result while it is open, and the clipboard access
+// and login item it shows. It opens by itself once, on the first launch, and again from the
+// menu whenever the person wants.
 
 import AppKit
 import EsclopCore
@@ -13,22 +14,29 @@ import ServiceManagement
 @MainActor @Observable
 public final class OnboardingModel {
     public enum Step: Int, CaseIterable, Identifiable, Sendable {
-        case welcome, automatic, permissions, agents, done
+        case copy, result, ready
 
         public var id: Int { rawValue }
 
         public var title: String {
             switch self {
-            case .welcome: return Strings.text("Welcome")
-            case .automatic: return Strings.text("Automatic")
-            case .permissions: return Strings.text("Permissions")
-            case .agents: return Strings.text("Agents")
-            case .done: return Strings.text("Done")
+            case .copy: return Strings.text("Copy or drop an image")
+            case .result: return Strings.text("Same image. Lighter file.")
+            case .ready: return Strings.text("Ready when you are")
             }
         }
     }
 
-    public private(set) var step: Step = .welcome
+    public private(set) var step: Step = .copy
+    /// When the tour last opened: a result after it is the person's own, shown on the second step.
+    public private(set) var openedAt = Date()
+    /// The newest results first (the app's recent results); none in tests and renders.
+    @ObservationIgnored public var results: @MainActor () -> [OptimisationResult] = { [] }
+
+    /// The first image the person optimised while the tour was open, if it made the file smaller.
+    public var ownResult: OptimisationResult? {
+        results().last { $0.finishedAt >= openedAt && $0.kind == .image && $0.bytesAfter < $0.bytesBefore }
+    }
     /// The direction of the last move, so the transition slides the right way.
     public private(set) var forward = true
 
@@ -60,7 +68,7 @@ public final class OnboardingModel {
         guard let following = Step(rawValue: step.rawValue + 1) else { finish(); return }
         forward = true
         step = following
-        if step.rawValue >= Step.permissions.rawValue { startWatching() }
+        if step == .ready { startWatching() }
     }
 
     public func back() {
@@ -72,12 +80,12 @@ public final class OnboardingModel {
     public func go(to target: Step) {
         forward = target.rawValue >= step.rawValue
         step = target
-        if step.rawValue >= Step.permissions.rawValue { startWatching() }
+        if step == .ready { startWatching() }
     }
 
-    /// Starts watching the folders (AppServices, on the first run): only once the Permissions page
-    /// explains why macOS asks about the Desktop, or the tour ends, so the question never covers
-    /// the Welcome page. Runs once.
+    /// Starts watching the folders (AppServices, on the first run): only once the last step says
+    /// macOS will ask about the Desktop, or the tour ends, so the question never covers the first
+    /// steps. Runs once.
     @ObservationIgnored public var onPermissions: (() -> Void)?
 
     private func startWatching() {
@@ -101,7 +109,8 @@ public final class OnboardingModel {
     /// Back to the first step, for opening it again from the menu.
     public func restart() {
         forward = true
-        step = .welcome
+        step = .copy
+        openedAt = Date()
     }
 
     // MARK: Permissions
@@ -129,27 +138,6 @@ public final class OnboardingModel {
     public func refreshAccess() {
         clipboardAccess = readClipboardAccess()
         loginStatus = readLoginStatus()
-        // Again only once its page read it: reading the Desktop is what makes macOS ask.
-        if step == .permissions, desktopAccess != .unknown { Task { await checkDesktop() } }
-    }
-
-    /// Whether L’Esclop may read the Desktop, as Settings' folder rows see it; unknown until the
-    /// Permissions page shows.
-    public private(set) var desktopAccess: Access = .unknown
-    @ObservationIgnored var readDesktopAccess: @Sendable () -> Access = {
-        guard let desktop = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first else { return .unknown }
-        switch FolderStatus.check(desktop) {
-        case .watching: return .allowed
-        case .unreadable: return .denied
-        case .missing, .notWatching: return .unknown
-        }
-    }
-
-    /// Off the main actor: macOS holds the read until the person answers its question, and the
-    /// page explaining it must be drawn by then.
-    public func checkDesktop() async {
-        let read = readDesktopAccess
-        desktopAccess = await Task.detached(priority: .userInitiated) { read() }.value
     }
 
     /// macOS 15.4 and later can ask before every programmatic read of the clipboard.

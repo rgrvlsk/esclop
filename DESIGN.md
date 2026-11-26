@@ -221,6 +221,26 @@ many copied files, or a list from the CLI or an agent. It comes forward without 
 - Pause holds the files still waiting; the ones running finish. Stop keeps every original. New
   files join a batch that is still running. VoiceOver announces the batch once, when it ends.
 
+## First run
+One 600 × 480 window with a transparent title bar (`pr8-first-run`), three steps under numbered
+circles joined by a line (the current one charcoal), each with one heading in New York:
+
+1. **Copy or drop an image.** A picture going to the clog in the menu bar. When macOS asks before
+   every clipboard read, an amber "Asks each time" with Privacy Settings…; otherwise nothing.
+2. **Same image. Lighter file.** The saving as the figure, the arc from the original size (brick
+   red) to the new one (grey), and the picture twice at the same size: compression never shows
+   as the image getting smaller. It is the person's own first image optimised while the tour is
+   open; before there is one, an example that says it is one.
+3. **Ready when you are.** The clog in the menu bar, a result with Copy, Show in Finder and Undo,
+   where results appear and how long originals are kept, the Desktop question macOS asks next,
+   Open at login and Connect an AI Agent… (Settings › Agents).
+
+Skip (every step but the last) and Back are flat; Continue and Get Started sit at the trailing
+edge. Steps slide in the direction of travel (350 ms spring); Reduce Motion makes it a 180 ms
+crossfade. The folders are watched from the last step, or when the tour closes, so macOS's
+Desktop question never covers the first steps. What the tour no longer shows lives in Settings:
+the automatic switches, each folder's access and the agents.
+
 ## Color
 Use system Liquid Glass materials for floating surfaces, with one accent colour and one warning
 colour.
@@ -274,13 +294,7 @@ Symbols; checkmarks are symbols, not text glyphs.
   beside the control, while the value differs from the default. The search folds accents. A typed value is checked as it is typed, and a refused one
   keeps the field and says why under the row in red. A deep link scrolls to its row and marks
   it with an accent wash that fades after 2.5 s (no scroll animation with Reduce Motion).
-- Onboarding: one 640 × 560 window with a transparent title bar, five steps (welcome, automatic,
-  permissions, agents, done) and a footer with Skip, step dots and Back/Continue. Steps slide in
-  the direction of travel (350 ms spring); Reduce Motion turns it into a 180 ms crossfade. The
-  steps reuse Settings rows, so a switch flipped in the tour is the same setting (Open at login
-  is also in Settings › General). Permissions shows the Desktop's access as Settings' folder rows
-  read it; on the first run the folders are watched only from that page on, so macOS's question
-  never covers Welcome.
+- First run: see First run above.
 
 ## Motion
 | Event | Motion |

@@ -107,45 +107,27 @@ import Testing
         #expect(model.hits.contains { $0.id == SettingsPaneView.openAtLoginRow })
     }
 
-    /// W6: on the first run the folders are watched once the Permissions page shows, never at
-    /// Welcome, and once only; skipping or closing the tour starts them too.
-    @Test func theTourStartsWatchingOnItsPermissionsPage() {
+    /// W6: on the first run the folders are watched once the last step says macOS will ask about
+    /// the Desktop, never before, and once only; skipping or closing the tour starts them too.
+    @Test func theTourStartsWatchingOnItsLastStep() {
         let model = OnboardingModel(defaults: settings.store.defaults)
-        model.readDesktopAccess = { .unknown }
         var started = 0
         model.onPermissions = { started += 1 }
         model.next()
-        #expect(started == 0, "Automatic explains nothing about the Desktop")
+        #expect(started == 0, "the result step asks nothing")
         model.next()
-        #expect(model.step == .permissions)
+        #expect(model.step == .ready)
         #expect(started == 1)
-        model.next()
         model.back()
+        model.next()
         model.finish()
         #expect(started == 1, "once")
 
         let skipped = OnboardingModel(defaults: TestSettings().store.defaults)
-        skipped.readDesktopAccess = { .unknown }
         var skippedStarts = 0
         skipped.onPermissions = { skippedStarts += 1 }
         skipped.finish()
-        #expect(skippedStarts == 1, "skipping from Welcome still starts watching")
-    }
-
-    /// W6: the Desktop's status is read only on the Permissions page, where reading it makes
-    /// macOS ask; coming back from System Settings reads it again there.
-    @Test func theDesktopStatusIsReadOnItsPage() async {
-        let model = OnboardingModel(defaults: settings.store.defaults)
-        model.readDesktopAccess = { .denied }
-        model.refreshAccess()
-        try? await Task.sleep(for: .milliseconds(100))
-        #expect(model.desktopAccess == .unknown, "not read before its page")
-        model.go(to: .permissions)
-        await model.checkDesktop()
-        #expect(model.desktopAccess == .denied)
-        model.readDesktopAccess = { .allowed }
-        NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: nil)
-        #expect(await eventually { model.desktopAccess == .allowed })
+        #expect(skippedStarts == 1, "skipping from the first step still starts watching")
     }
 
     /// W8: accents fold on both sides of the search.

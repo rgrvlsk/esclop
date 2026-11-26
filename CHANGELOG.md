@@ -120,6 +120,9 @@ Mac's own encoders.
 - Copied AVIF images are optimised.
 
 ### Changed
+- The first run has three steps instead of five: copy or drop an image, the same image as a
+  lighter file (your own first result, or an example), and where results appear. The automatic
+  switches, the Desktop's access and the agents are in Settings.
 - Copying the web address of an image, video, PDF or audio file offers to download it. Nothing
   is fetched until you click. Settings › Clipboard › Copied web addresses can download on its own
   or do nothing instead (`optimiseURLClipboard`: `offer`, `download` or `ignore`). Copying any

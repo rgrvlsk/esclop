@@ -33,9 +33,7 @@ public final class OnboardingWindowController {
     }
 
     func makeWindow() -> NSWindow {
-        let view = OnboardingView(
-            onboarding: model, settings: settings.model, agents: settings.agents, actions: settings.actions
-        ) { [weak settings] in settings?.show() }
+        let view = OnboardingView(onboarding: model, settings: settings.model) { [weak settings] in settings?.show() }
         let window = NSWindow(contentViewController: NSHostingController(rootView: view))
         window.title = Strings.text("Welcome to L’Esclop")
         window.styleMask = [.titled, .closable, .fullSizeContentView]

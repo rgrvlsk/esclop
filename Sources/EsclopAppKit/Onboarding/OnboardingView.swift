@@ -1,42 +1,33 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The first-run window: welcome, what L'Esclop does on its own (the same rows as Settings),
-// what macOS will ask and why, connecting an agent (the Agents pane's section), and where to
-// find it afterwards. Every step can be skipped; the menu opens it again.
+// The first-run window (`pr8-first-run`): three steps. Copy or drop an image; the same image,
+// lighter; where the results appear. Every step but the last can be skipped; the menu opens it
+// again. What it no longer walks through lives in Settings: the automatic switches (Automatic),
+// the Desktop's access (each folder's row) and the agents (Agents).
 
 import AppKit
 import EsclopCore
 import EsclopIPC
-import EsclopMCP
-import KeyboardShortcuts
 import ServiceManagement
 import SwiftUI
 
 public struct OnboardingView: View {
     let onboarding: OnboardingModel
     let settings: SettingsViewModel
-    let agents: AgentsModel?
-    let actions: SettingsActions
     let openSettings: () -> Void
-    /// The app's icon; renders pass the one in `assets/`, since a test process has none.
-    let icon: NSImage?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    public init(
-        onboarding: OnboardingModel, settings: SettingsViewModel, agents: AgentsModel?, actions: SettingsActions,
-        icon: NSImage? = NSApp.applicationIconImage, openSettings: @escaping () -> Void
-    ) {
+    public init(onboarding: OnboardingModel, settings: SettingsViewModel, openSettings: @escaping () -> Void) {
         self.onboarding = onboarding
-        self.icon = icon
         self.settings = settings
-        self.agents = agents
-        self.actions = actions
         self.openSettings = openSettings
     }
 
     public var body: some View {
         VStack(spacing: 0) {
+            StepNumbers(step: onboarding.step)
+                .padding(.top, Spacing.xl)
             ZStack {
                 page(onboarding.step)
                     .id(onboarding.step)
@@ -44,10 +35,9 @@ public struct OnboardingView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
-            Divider()
             footer
         }
-        .frame(width: 640, height: 560)
+        .frame(width: 600, height: 480)
         .designTint()
     }
 
@@ -67,61 +57,68 @@ public struct OnboardingView: View {
 
     @ViewBuilder private func page(_ step: OnboardingModel.Step) -> some View {
         switch step {
-        case .welcome: WelcomePage(icon: icon)
-        case .automatic: AutomaticPage(settings: settings, actions: actions)
-        case .permissions: PermissionsPage(onboarding: onboarding, settings: settings, actions: actions)
-        case .agents: AgentsPage(agents: agents, settings: settings, actions: actions)
-        case .done:
-            DonePage { name in
-                settings.open(SettingsRoute(pane: .general, row: Hotkeys.rowID(name)))
+        case .copy: CopyPage(onboarding: onboarding)
+        case .result: ResultPage(result: onboarding.ownResult, retentionDays: retentionDays)
+        case .ready:
+            ReadyPage(onboarding: onboarding, retentionDays: retentionDays) {
+                settings.open(SettingsRoute(pane: SettingsPane.named("agents")))
+                onboarding.finish()
                 openSettings()
             }
         }
     }
 
+    private var retentionDays: Int {
+        settings.value(EsclopSettings.backupRetentionDays.key)?.intValue ?? EsclopSettings.backupRetentionDays.defaultValue
+    }
+
     private var footer: some View {
-        HStack {
+        HStack(spacing: Spacing.m) {
             if !onboarding.isLast {
                 Button(Strings.text("Skip")) { onboarding.finish() }
                     .buttonStyle(.borderless)
                     .foregroundStyle(.secondary)
                     .help(Strings.text("Close the tour. It stays in the menu: Welcome to L’Esclop."))
             }
-            Spacer()
-            StepDots(step: onboarding.step)
-            Spacer()
             if !onboarding.isFirst {
                 Button(Strings.text("Back")) { withAnimation(animation) { onboarding.back() } }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(.secondary)
             }
+            Spacer()
             if onboarding.isLast {
-                Button(Strings.text("Open Settings")) {
-                    onboarding.finish()
-                    openSettings()
-                }
-                Button(Strings.text("Done")) { onboarding.finish() }
+                Button(Strings.text("Get Started")) { onboarding.finish() }
                     .keyboardShortcut(.defaultAction)
                     .primaryButton()
+                    .controlSize(.large)
             } else {
-                Button(onboarding.isFirst ? Strings.text("Get Started") : Strings.text("Continue")) { withAnimation(animation) { onboarding.next() } }
+                Button(Strings.text("Continue")) { withAnimation(animation) { onboarding.next() } }
                     .keyboardShortcut(.defaultAction)
-                    .primaryButton()
+                    .controlSize(.large)
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        .padding(.horizontal, Spacing.xl)
+        .padding(.bottom, Spacing.l)
     }
 }
 
-/// Where the person is: one dot per step, the current one filled with the accent.
-struct StepDots: View {
+/// Where the person is: the three steps as numbered circles on a line, the current one charcoal.
+struct StepNumbers: View {
     let step: OnboardingModel.Step
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 0) {
             ForEach(OnboardingModel.Step.allCases) { each in
-                Capsule()
-                    .fill(each == step ? AnyShapeStyle(Ink.charcoal) : AnyShapeStyle(.quaternary))
-                    .frame(width: each == step ? 18 : 7, height: 7)
+                if each != OnboardingModel.Step.allCases.first {
+                    Rectangle().fill(Ink.secondary.opacity(0.35)).frame(width: 36, height: 1)
+                }
+                Text("\(each.rawValue + 1)")
+                    .font(Typeface.title)
+                    .monospacedDigit()
+                    .foregroundStyle(each == step ? AnyShapeStyle(Ink.onCharcoal) : AnyShapeStyle(Ink.text))
+                    .frame(width: 30, height: 30)
+                    .background(Circle().fill(each == step ? AnyShapeStyle(Ink.charcoal) : AnyShapeStyle(Surface.tile)))
+                    .overlay(Circle().strokeBorder(Ink.secondary.opacity(each == step ? 0 : 0.3), lineWidth: 0.5))
             }
         }
         .animation(.easeOut(duration: 0.2), value: step)
@@ -130,195 +127,269 @@ struct StepDots: View {
     }
 }
 
-/// The heading every step but the first carries.
-struct PageHeading: View {
+/// A step's one heading, in New York, and its sentence.
+struct StepHeading: View {
     let title: String
-    let summary: String
+    let summary: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(spacing: Spacing.s) {
             Text(title)
-                .font(.title.weight(.semibold))
-            Text(summary)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+                .font(Typeface.heading)
+                .accessibilityAddTraits(.isHeader)
+            if let summary {
+                Text(summary)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: 400)
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 32)
-        .padding(.top, 36)
+        .multilineTextAlignment(.center)
+        .padding(.top, Spacing.l)
     }
 }
 
 // MARK: - Pages
 
-struct WelcomePage: View {
-    let icon: NSImage?
+/// 1. Copy or drop an image: a picture going to the clog in the menu bar, and macOS's clipboard
+/// question when it is still to come.
+struct CopyPage: View {
+    let onboarding: OnboardingModel
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         VStack(spacing: 0) {
-            Spacer(minLength: 24)
-            if let icon {
-                Image(nsImage: icon)
-                    .resizable()
-                    .frame(width: 112, height: 112)
-                    .accessibilityHidden(true)
+            StepHeading(
+                title: OnboardingModel.Step.copy.title,
+                summary: Strings.text("L’Esclop wakes up when you copy a screenshot or drop a file on the clog.")
+            )
+            HStack(spacing: Spacing.l) {
+                PictureTile(image: nil)
+                    .frame(width: 150, height: 108)
+                    .rotationEffect(.degrees(-4))
+                Image(systemName: "arrow.turn.right.down")
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundStyle(Ink.saving)
+                MenuBarStrip(icons: ["wifi", "battery.100"])
             }
-            Text(Strings.text("L’Esclop"))
-                .font(.largeTitle.weight(.bold))
-                .padding(.top, 12)
-            Text(Strings.text("Makes the images, videos, PDFs and audio you copy and drop smaller, right where they are."))
-                .font(.title3)
+            .padding(.top, Spacing.xl)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Strings.text("A picture goes to the clog in the menu bar."))
+            Spacer(minLength: Spacing.m)
+            if onboarding.clipboardAccess == .asks || onboarding.clipboardAccess == .denied {
+                HStack(spacing: Spacing.m) {
+                    AccessBadge(access: onboarding.clipboardAccess)
+                    Text(Strings.text("macOS may ask before L’Esclop reads what you copy."))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(Strings.text("Privacy Settings…")) { openURL(OnboardingModel.privacySettings) }
+                }
+                .font(.callout)
+                .padding(.horizontal, Spacing.xl)
+                .padding(.bottom, Spacing.s)
+            }
+        }
+    }
+}
+
+/// 2. The same image, lighter: the person's own result when one arrived while the tour was open,
+/// otherwise an example that says it is one. The picture is the same size twice: compression
+/// never shows as the image getting smaller (owner, 2026-11-13).
+struct ResultPage: View {
+    let result: OptimisationResult?
+    let retentionDays: Int
+    @State private var picture: CGImage?
+
+    /// The example's sizes when the person has not optimised anything yet.
+    static let example = (before: 2_400_000, after: 612_000)
+
+    var body: some View {
+        let before = result?.bytesBefore ?? Self.example.before
+        let after = result?.bytesAfter ?? Self.example.after
+        let saved = before > 0 ? 1 - Double(after) / Double(before) : 0
+        VStack(spacing: 0) {
+            StepHeading(title: OnboardingModel.Step.result.title, summary: nil)
+            Figure(percentSaved: Int((saved * 100).rounded()), size: .panel)
+                .padding(.top, Spacing.s)
+            SavingGauge(saved: saved, shape: .arc, lineWidth: 4)
+                .frame(width: 220, height: 34)
+                .accessibilityHidden(true)
+            HStack(spacing: Spacing.xl) {
+                sized(Figures.bytes(before), ink: Ink.original)
+                sized(Figures.bytes(after), ink: Ink.secondary)
+            }
+            .padding(.top, Spacing.xs)
+            Text(caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                // Catalan runs to three lines; without this the stack cut it to one.
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: 440)
-                .padding(.top, 6)
-            VStack(alignment: .leading, spacing: 16) {
-                Point(symbol: "doc.on.clipboard", title: Strings.text("Copy a screenshot"), text: Strings.text("It is optimised at once and put back on the clipboard, smaller."))
-                Point(symbol: "square.and.arrow.down.on.square", title: Strings.text("Drag files"), text: Strings.text("A drop zone appears in the corner; drop on it to optimise."))
-                Point(symbol: "arrow.uturn.backward", title: Strings.text("Change your mind"), text: Strings.text("Originals are kept, so every result can be undone."))
-                Point(symbol: "sparkles", title: Strings.text("Ask an agent"), text: Strings.text("Claude, Codex, Cursor and others can optimise, convert and crop for you."))
-            }
-            .frame(maxWidth: 440, alignment: .leading)
-            .padding(.top, 28)
-            Spacer(minLength: 24)
+                .padding(.top, Spacing.m)
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 32)
+        .task(id: result?.id) {
+            guard let url = result?.output, FileManager.default.fileExists(atPath: url.path) else { return }
+            picture = await Thumbnails.load(url, side: 240)
+        }
     }
 
-    struct Point: View {
-        let symbol: String
-        let title: String
-        let text: String
-
-        var body: some View {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Image(systemName: symbol)
-                    .foregroundStyle(Ink.charcoalText)
-                    .frame(width: 22)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.headline)
-                    Text(text).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                }
-            }
+    private func sized(_ size: String, ink: some ShapeStyle) -> some View {
+        VStack(spacing: Spacing.s) {
+            PictureTile(image: picture)
+                .frame(width: 180, height: 120)
+            Text(size)
+                .font(.title3.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(ink)
         }
+    }
+
+    private var caption: String {
+        let kept = retentionDays <= 0
+            ? Strings.text("Nothing you can see changes. The original is always kept.")
+            : Strings.format("Nothing you can see changes. The original is kept for %@.", SettingPresentation.retention(days: retentionDays))
+        return result == nil ? kept + " " + Strings.text("This is an example: copy a screenshot to see your own.") : kept
     }
 }
 
-/// The settings that decide what happens without asking, as the same rows Settings shows.
-struct AutomaticPage: View {
-    let settings: SettingsViewModel
-    let actions: SettingsActions
-
-    static let keys = [
-        EsclopSettings.enableClipboardOptimiser.key, EsclopSettings.optimiseVideoClipboard.key,
-        EsclopSettings.optimisePDFClipboard.key, EsclopSettings.optimiseAudioClipboard.key,
-        EsclopSettings.enableDragAndDrop.key, EsclopSettings.optimisedImageBehaviour.key,
-    ]
-
-    /// 0 keeps originals for ever: "kept for 0 days" read as the opposite.
-    static func summary(retentionDays days: Int) -> String {
-        days <= 0
-            ? Strings.text("L’Esclop optimises what you copy as soon as you copy it. Originals are always kept and can be restored from the menu.")
-            : Strings.format("L’Esclop optimises what you copy as soon as you copy it. Originals are kept for %@ and can be restored from the menu.", SettingPresentation.retention(days: days))
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            PageHeading(
-                title: Strings.text("What happens on its own"),
-                summary: Self.summary(retentionDays: settings.value(EsclopSettings.backupRetentionDays.key)?.intValue ?? EsclopSettings.backupRetentionDays.defaultValue)
-            )
-            Form {
-                Section {
-                    ForEach(Self.keys.compactMap(settings.descriptor), id: \.key) { descriptor in
-                        SettingRow(descriptor: descriptor, model: settings, actions: actions)
-                    }
-                }
-            }
-            .formStyle(.grouped)
-            .scrollDisabled(true)
-        }
-    }
-}
-
-/// What macOS will ask for, why, and the one switch that is a system setting (open at login).
-struct PermissionsPage: View {
+/// 3. Ready when you are: the clog in the menu bar, a result with what it offers, where results
+/// go and what macOS asks next, Open at login and a way to connect an agent.
+struct ReadyPage: View {
     let onboarding: OnboardingModel
-    let settings: SettingsViewModel
-    let actions: SettingsActions
-    @Environment(\.openURL) private var openURL
-    @Environment(\.screenshotLocation) private var screenshotLocation
-
-    private var imageFolders: [String] {
-        settings.value(EsclopSettings.imageDirs.key)?.arrayValue?.compactMap(\.stringValue) ?? []
-    }
-
-    private var screenshotsElsewhere: Bool { Self.elsewhere(screenshotLocation) }
-
-    /// Screenshots land in another folder than the Desktop (Screenshot's Options › Save to).
-    static func elsewhere(_ screenshotLocation: String) -> Bool {
-        WatchPlan.canonical(screenshotLocation).path != WatchPlan.canonical("~/Desktop").path
-    }
+    let retentionDays: Int
+    let connectAgent: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
-            PageHeading(
-                title: Strings.text("What macOS will ask"),
-                summary: Strings.text("Files are optimised on this Mac, with no account. They leave it only when you upload them or set up automatic uploads. A copied media link is only offered for download: nothing is fetched until you click. L’Esclop needs no Accessibility, Screen Recording or Full Disk Access.")
-            )
-            Form {
-                Section {
-                    LabeledContent {
-                        HStack {
-                            AccessBadge(access: onboarding.clipboardAccess)
-                            Button(Strings.text("Privacy Settings…")) { openURL(OnboardingModel.privacySettings) }
-                        }
-                    } label: {
-                        SettingLabel(
-                            title: Strings.text("Read the clipboard"),
-                            summary: Strings.text("To find images you copy. macOS may ask before L’Esclop reads it; choose Allow under Privacy & Security › Paste from Other Apps so it does not ask every time.")
-                        )
-                    }
-                    // The Desktop as Settings sees it: asking here is what brings macOS's
-                    // question, while this page explains it.
-                    LabeledContent {
-                        HStack {
-                            AccessBadge(access: onboarding.desktopAccess)
-                            if onboarding.desktopAccess == .denied {
-                                Button(Strings.text("Privacy Settings…")) { FolderRow.openPrivacySettings() }
-                            }
-                        }
-                    } label: {
-                        SettingLabel(
-                            title: Strings.text("Files in Desktop, Documents and Downloads"),
-                            summary: screenshotsElsewhere
-                                ? Strings.text("macOS will ask to let L’Esclop see your Desktop, which it watches for new images. It asks again the first time L’Esclop replaces a file in Documents or Downloads. If you say no, the Desktop is left alone; Settings › Images shows how to allow it later.")
-                                : Strings.text("macOS will ask to let L’Esclop see your Desktop: that is where screenshots land, and L’Esclop watches it for new ones. It asks again the first time L’Esclop replaces a file in Documents or Downloads. If you say no, the Desktop is left alone; Settings › Images shows how to allow it later.")
-                        )
-                    }
-                    // Screenshots saved elsewhere: that folder, offered as in Settings › Images. Screen
-                    // recordings there are offered in Settings › Video, not here.
-                    if screenshotsElsewhere, let folder = FolderListEditor.unwatched(screenshotLocation, in: imageFolders) {
-                        ScreenshotFolderRow(folder: folder) {
-                            settings.set(EsclopSettings.imageDirs.key, to: .array((imageFolders + [folder]).map(JSONValue.string)))
-                        }
-                    }
-                    LoginItemRows(onboarding: onboarding)
+            StepHeading(title: OnboardingModel.Step.ready.title, summary: nil)
+            VStack(spacing: Spacing.m) {
+                MenuBarStrip(icons: ["wifi", "battery.100", "magnifyingglass"])
+                HStack(spacing: Spacing.m) {
+                    SavingGauge(saved: 0.75, shape: .ring, lineWidth: 4)
+                        .frame(width: 30, height: 30)
+                    Figure(percentSaved: 75, size: .card)
+                }
+                .padding(.horizontal, Spacing.m)
+                .padding(.vertical, Spacing.s)
+                .background(Capsule().fill(Surface.tile))
+                HStack(spacing: Spacing.xl) {
+                    action("square.on.square", Strings.text("Copy"))
+                    action("folder", Strings.text("Show in Finder"))
+                    action("arrow.uturn.backward", Strings.text("Undo"))
                 }
             }
-            .formStyle(.grouped)
-            // Still while the rows fit; they scroll when every optional row is there (Catalan,
-            // screenshots elsewhere, Login Items waiting, an error).
-            .scrollBounceBehavior(.basedOnSize)
+            .padding(.top, Spacing.m)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Strings.text("A result under the clog, with Copy, Show in Finder and Undo."))
+            Text(summary)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 460)
+                .padding(.top, Spacing.m)
+            HStack(spacing: Spacing.l) {
+                Toggle(Strings.text("Open at login"), isOn: Binding(get: { onboarding.opensAtLogin }, set: { onboarding.opensAtLogin = $0 }))
+                    .toggleStyle(.switch)
+                    .tint(Ink.charcoal)
+                    .switchLabel(title: Strings.text("Open at login"), hint: Strings.text("Keep L’Esclop in the menu bar after a restart, so copies are optimised from the start."))
+                Button(Strings.text("Connect an AI Agent…"), action: connectAgent)
+                    .textButton()
+            }
+            .padding(.top, Spacing.m)
+            if let error = onboarding.loginError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(Ink.error)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: 460)
+            } else if onboarding.loginNeedsApproval {
+                Button(Strings.text("Open Login Items")) { SMAppService.openSystemSettingsLoginItems() }
+                    .textButton()
+                    .help(Strings.text("macOS waits for you to allow L’Esclop in Login Items & Extensions."))
+            }
+            Spacer(minLength: 0)
         }
-        .task { await onboarding.checkDesktop() }
+    }
+
+    private var summary: String {
+        let kept = retentionDays <= 0
+            ? Strings.text("Results appear in the corner and fade away. Originals are always kept.")
+            : Strings.format("Results appear in the corner and fade away. Originals are kept for %@.", SettingPresentation.retention(days: retentionDays))
+        return kept + " " + Strings.text("macOS will then ask to let L’Esclop see your Desktop, where screenshots land.")
+    }
+
+    private func action(_ symbol: String, _ name: String) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: symbol)
+                .font(.system(size: 15))
+                .foregroundStyle(Ink.charcoalText)
+                .frame(width: 36, height: 36)
+                .background(Circle().fill(Surface.tile))
+                .overlay(Circle().strokeBorder(Ink.secondary.opacity(0.3), lineWidth: 0.5))
+            Text(name).sectionLabel()
+        }
     }
 }
 
-/// Open at login, the one switch that is a system setting: in the tour and in Settings › General,
+extension View {
+    /// A text button: charcoal semibold, flat, never the system's link blue.
+    func textButton() -> some View {
+        buttonStyle(.plain).font(.body.weight(.semibold)).foregroundStyle(Ink.charcoalText)
+    }
+}
+
+/// A picture on a tile: the given image, or a stand-in photo symbol.
+struct PictureTile: View {
+    let image: CGImage?
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: Radius.tile, style: .continuous).fill(Surface.tile)
+            if let image {
+                Image(decorative: image, scale: 2)
+                    .resizable()
+                    .scaledToFill()
+                    // The tile sets the size; the picture fills it and is cut, never grows it.
+                    .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.tile - 4, style: .continuous))
+                    .padding(4)
+            } else {
+                Image(systemName: "photo")
+                    .font(.system(size: 40, weight: .light))
+                    .foregroundStyle(Ink.secondary)
+            }
+        }
+        .overlay(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous).strokeBorder(Ink.secondary.opacity(0.25), lineWidth: 0.5))
+    }
+}
+
+/// A piece of the menu bar with the clog first, as it looks up there.
+struct MenuBarStrip: View {
+    let icons: [String]
+
+    var body: some View {
+        HStack(spacing: Spacing.l) {
+            Group {
+                if let glyph = MenuBarLabel.customGlyph {
+                    Image(nsImage: glyph).renderingMode(.template)
+                } else {
+                    Image(systemName: "arrow.down.right.and.arrow.up.left")
+                }
+            }
+            .padding(6)
+            .background(RoundedRectangle(cornerRadius: Radius.key, style: .continuous).fill(NeutralFill.button))
+            ForEach(icons, id: \.self) { Image(systemName: $0) }
+        }
+        .font(.system(size: 15))
+        .foregroundStyle(Ink.text)
+        .padding(.horizontal, Spacing.l)
+        .padding(.vertical, Spacing.s)
+        .background(Capsule().fill(Surface.tile))
+        .overlay(Capsule().strokeBorder(Ink.secondary.opacity(0.25), lineWidth: 0.5))
+    }
+}
+
+/// Open at login, the one switch that is a system setting, in Settings › General,
 /// on the same model, with what macOS still waits for and why it refused.
 struct LoginItemRows: View {
     let onboarding: OnboardingModel
@@ -365,108 +436,5 @@ struct AccessBadge: View {
         case .unknown:
             EmptyView()
         }
-    }
-}
-
-/// The Agents pane's list, so an agent can be connected without leaving the tour.
-struct AgentsPage: View {
-    let agents: AgentsModel?
-    let settings: SettingsViewModel
-    let actions: SettingsActions
-
-    var body: some View {
-        VStack(spacing: 0) {
-            PageHeading(
-                title: Strings.text("Connect an AI agent"),
-                summary: Strings.text("Agents use L’Esclop through its MCP server to optimise, convert and crop files when you ask them. You can do this later in Settings › Agents and MCP.")
-            )
-            if let agents {
-                Form {
-                    AgentsConnectSection(agents: agents, model: settings, actions: actions)
-                }
-                .formStyle(.grouped)
-            } else {
-                Spacer()
-            }
-        }
-    }
-}
-
-struct DonePage: View {
-    /// Opens a hotkey's row in Settings.
-    var setShortcut: (KeyboardShortcuts.Name) -> Void = { _ in }
-    /// Read again when the window comes back from Settings, where a key may have been set.
-    @State private var shortcutsRead = 0
-
-    /// "Look for <icon> at the top of the screen…": the sentence comes from the catalog with %@
-    /// where the icon goes, so each language puts it where it reads naturally.
-    static func lookFor(_ icon: Image) -> Text {
-        let parts = Strings.text("Look for %@ at the top of the screen. It has recent results, originals to restore and Settings.").components(separatedBy: "%@")
-        guard parts.count == 2 else { return Text(parts.joined()) }
-        return Text(parts[0]) + Text(icon) + Text(parts[1])
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 24)
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 56))
-                .foregroundStyle(Ink.charcoalText)
-                .accessibilityHidden(true)
-            Text(Strings.text("L’Esclop is in the menu bar"))
-                .font(.title.weight(.semibold))
-                .padding(.top, 14)
-            Group {
-                if let glyph = MenuBarLabel.customGlyph {
-                    // A template, so it takes the text colour: as is, it was dark on the dark ground.
-                    Self.lookFor(Image(nsImage: glyph).renderingMode(.template))
-                } else {
-                    Text(Strings.text("Look for the clog at the top of the screen. It has recent results, originals to restore and Settings."))
-                }
-            }
-            .foregroundStyle(.secondary)
-            .padding(.top, 6)
-            .frame(maxWidth: 520)
-            Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 10) {
-                ForEach(Hotkeys.all, id: \.name.rawValue) { hotkey in
-                    GridRow {
-                        Group {
-                            let _ = shortcutsRead
-                            if let shortcut = KeyboardShortcuts.getShortcut(for: hotkey.name) {
-                                Text(shortcut.description)
-                                    .font(.title3.weight(.medium))
-                                    .monospacedDigit()
-                            } else {
-                                // A hotkey with no key ("Show the last result", or one cleared):
-                                // this opens its row in Settings, so the keyboard alone finds it.
-                                Button(Strings.text("Set…")) { setShortcut(hotkey.name) }
-                            }
-                        }
-                        .gridColumnAlignment(.trailing)
-                        Text(hotkey.title)
-                    }
-                }
-            }
-            .padding(.top, 28)
-            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in shortcutsRead += 1 }
-            Text(Strings.text("Change the shortcuts in Settings › General."))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .padding(.top, 16)
-            // The card keys (DESIGN.md › Keys), the three most used. They are fixed, so they sit
-            // apart from the shortcuts Settings changes.
-            Grid(alignment: .leading, horizontalSpacing: 18) {
-                GridRow {
-                    Text(Strings.text("Space, ⌘Z, ⌘C"))
-                        .font(.title3.weight(.medium))
-                        .gridColumnAlignment(.trailing)
-                    Text(Strings.text("On the result under the pointer: Quick Look, Undo, Copy"))
-                }
-            }
-            .padding(.top, 22)
-            Spacer(minLength: 24)
-        }
-        .multilineTextAlignment(.center)
-        .padding(.horizontal, 32)
     }
 }
