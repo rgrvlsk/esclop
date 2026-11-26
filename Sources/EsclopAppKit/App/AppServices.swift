@@ -22,6 +22,7 @@ public final class AppServices {
     let dropZone: DropZoneController
     let batchWindow: BatchWindowController
     let originalsWindow: OriginalsWindowController
+    let allResultsWindow: AllResultsWindowController
     public let folders: WatchedFolders
     private var folderSettings: DefaultsObserver?
     /// The menu bar rows of Settings › General: the glyph and the screenshots switch.
@@ -99,6 +100,7 @@ public final class AppServices {
         model.onBatch = { [weak batchWindow] batch in batchWindow?.show(batch) }
         model.onBatchForgotten = { [weak batchWindow] in batchWindow?.close() }
         originalsWindow = OriginalsWindowController(model: OriginalsModel(app: model))
+        allResultsWindow = AllResultsWindowController(model: model)
         let store = model.service.context.pipelines
         finderServices = FinderServices(model: model, pipelines: { (try? store.list()) ?? [] })
         let updater = Updater(settings: settings)
@@ -135,12 +137,13 @@ public final class AppServices {
     /// Starts everything. Throws when another L'Esclop already serves the CLI.
     /// The glyph in the menu bar, and the panel it opens.
     public func startStatusItem() {
-        let model = model, settingsWindow = settingsWindow, onboarding = onboarding, originalsWindow = originalsWindow
+        let model = model, settingsWindow = settingsWindow, onboarding = onboarding, originalsWindow = originalsWindow, allResultsWindow = allResultsWindow
         statusItem = StatusItemController(model: model) { close in
             MenuPanelActions(
                 settings: { settingsWindow.show() },
                 pipelines: { model.onOpenPipelines?(nil) },
                 originals: { originalsWindow.show() },
+                allResults: { allResultsWindow.show() },
                 welcome: { onboarding.show() },
                 checkForUpdates: model.onCheckForUpdates,
                 close: close

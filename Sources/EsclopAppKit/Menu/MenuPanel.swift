@@ -20,6 +20,8 @@ public struct MenuPanelActions {
     public var pipelines: () -> Void
     /// The Originals window: every original L'Esclop keeps.
     public var originals: (() -> Void)?
+    /// All Results: every result of the last seven days.
+    public var allResults: (() -> Void)?
     public var welcome: (() -> Void)?
     public var checkForUpdates: (() -> Void)?
     public var quit: () -> Void
@@ -27,12 +29,13 @@ public struct MenuPanelActions {
     public var close: () -> Void
 
     public init(
-        settings: @escaping () -> Void, pipelines: @escaping () -> Void, originals: (() -> Void)? = nil, welcome: (() -> Void)?,
-        checkForUpdates: (() -> Void)?, quit: @escaping () -> Void = { NSApp.terminate(nil) }, close: @escaping () -> Void
+        settings: @escaping () -> Void, pipelines: @escaping () -> Void, originals: (() -> Void)? = nil, allResults: (() -> Void)? = nil,
+        welcome: (() -> Void)?, checkForUpdates: (() -> Void)?, quit: @escaping () -> Void = { NSApp.terminate(nil) }, close: @escaping () -> Void
     ) {
         self.settings = settings
         self.pipelines = pipelines
         self.originals = originals
+        self.allResults = allResults
         self.welcome = welcome
         self.checkForUpdates = checkForUpdates
         self.quit = quit
@@ -182,6 +185,9 @@ public struct MenuPanel: View {
                 Divider()
                 Button(Strings.text("Settings…"), action: run(actions.settings)).keyboardShortcut(",")
                 Button(Strings.text("Pipelines…"), action: run(actions.pipelines))
+                if let allResults = actions.allResults {
+                    Button(Strings.text("All Results…"), action: run(allResults))
+                }
                 if let originals = actions.originals {
                     Button(Strings.text("Originals…"), action: run(originals))
                 }

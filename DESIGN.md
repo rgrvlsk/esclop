@@ -221,6 +221,21 @@ many copied files, or a list from the CLI or an agent. It comes forward without 
 - Pause holds the files still waiting; the ones running finish. Stop keeps every original. New
   files join a batch that is still running. VoiceOver announces the batch once, when it ends.
 
+## All Results
+A stock window (`pr6-results-window`), from the menu's gear (All Results…): every result of the
+last seven days, newest first, from the shared log and this session.
+
+- **Header:** "All Results" in New York, a search by name (accents and case fold), and the kinds
+  as chips (All · Images · Video · PDF · Audio), charcoal when chosen.
+- **Saved:** one tile with SAVED in small caps, the arc from the original size (brick red, at its
+  left end) to the new one (grey, at its right), the saving as the figure between them, and the
+  counts beside it ("4 files · 1 converted · 1 failed"). It follows the search and the kind.
+- **Rows:** today grouped by hour ("14:00"), the days before by day ("Yesterday", "Monday 23"),
+  each the menu panel's Recent row on a tile: Copy and Show in Finder on hover, Compare and
+  Restore Original in the context menu and as VoiceOver actions, a click shows its card.
+- **Failures** still on screen come first, in amber, with Retry when another try can help.
+- Originals (the gear's Originals…) stays the place to restore or remove kept originals.
+
 ## Color
 Use system Liquid Glass materials for floating surfaces, with one accent colour and one warning
 colour.

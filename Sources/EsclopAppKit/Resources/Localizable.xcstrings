@@ -521,6 +521,16 @@
         }
       }
     },
+    "%d converted": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d convertits"
+          }
+        }
+      }
+    },
     "%d days": {
       "localizations": {
         "ca": {
@@ -1407,6 +1417,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "AirDrop, Mail, Missatges"
+          }
+        }
+      }
+    },
+    "All": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tot"
+          }
+        }
+      }
+    },
+    "All Results": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tots els resultats"
+          }
+        }
+      }
+    },
+    "All Results…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tots els resultats…"
           }
         }
       }
@@ -5721,6 +5761,16 @@
         }
       }
     },
+    "No result matches.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cap resultat no hi coincideix."
+          }
+        }
+      }
+    },
     "No shortcuts yet. Make one in the Shortcuts app.": {
       "localizations": {
         "ca": {
@@ -5877,6 +5927,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No apareix res a la pantalla quan s’executa sol."
+          }
+        }
+      }
+    },
+    "Nothing optimised in the last 7 days.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No s’ha optimitzat res els últims 7 dies."
           }
         }
       }
@@ -8101,6 +8161,26 @@
         }
       }
     },
+    "Search": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cerca"
+          }
+        }
+      }
+    },
+    "Search by name": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cerca pel nom"
+          }
+        }
+      }
+    },
     "Search settings": {
       "localizations": {
         "ca": {
@@ -8227,6 +8307,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aquest no és un fitxer de configuració exportat per L’Esclop. No s’ha canviat res."
+          }
+        }
+      }
+    },
+    "Yesterday": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ahir"
           }
         }
       }
