@@ -746,7 +746,22 @@ fn subset(data: &[u8], gids: &BTreeSet<u16>) -> Result<Vec<u8>, String> {
         return subset_cff(data, gids);
     }
     let font = FontRef::new(data).map_err(|e| format!("read: {e}"))?;
-    font.glyf().map_err(|e| format!("glyf: {e}"))?;
+    let glyf = font.glyf().map_err(|e| format!("glyf: {e}"))?;
+    // skera sizes its output from the glyph lengths `loca` states; crafted offsets found by
+    // fuzzing asked it for 11 GB. Every offset, including the one past the last glyph, must
+    // rise and stay inside `glyf`, or the font is kept whole.
+    let loca = font.loca(None).map_err(|e| format!("loca: {e}"))?;
+    let glyf_len = glyf.offset_data().len() as u64;
+    let mut last = 0u64;
+    let mut i = 0;
+    while let Some(o) = loca.get_raw(i) {
+        let o = u64::from(o);
+        if o < last || o > glyf_len {
+            return Err("loca points outside glyf".into());
+        }
+        last = o;
+        i += 1;
+    }
     let total = font.maxp().map_err(|e| format!("maxp: {e}"))?.num_glyphs();
     let mut input = IntSet::<GlyphId>::empty();
     input.insert(GlyphId::NOTDEF);
@@ -921,5 +936,26 @@ mod tests {
         assert_eq!(gid_of_name("g12"), Some(12));
         assert_eq!(gid_of_name("glyph7"), Some(7));
         assert_eq!(gid_of_name("grave"), None);
+    }
+
+    /// A crafted TrueType font from fuzzing: the first byte picks the glyphs a page draws, the
+    /// rest is the font. Its `loca` claims glyphs far past the end of `glyf`.
+    fn crafted_loca(data: &[u8]) -> Result<Vec<u8>, String> {
+        let gids = (0..512u16).filter(|g| g % 8 <= u16::from(data[0] % 8)).collect();
+        subset(&data[1..], &gids)
+    }
+
+    #[test]
+    fn a_loca_claiming_gigabytes_is_not_given_to_skera() {
+        // skera sized an 11 GB buffer from these offsets.
+        let err = crafted_loca(include_bytes!("testdata/loca-11gb.bin")).unwrap_err();
+        assert!(err.contains("loca"), "{err}");
+    }
+
+    #[test]
+    fn a_last_loca_offset_claiming_704_mb_is_not_given_to_skera() {
+        // `loca` holds one offset more than there are glyphs; skera sized 704 MB from the last.
+        let err = crafted_loca(include_bytes!("testdata/loca-last-704mb.bin")).unwrap_err();
+        assert!(err.contains("loca"), "{err}");
     }
 }
