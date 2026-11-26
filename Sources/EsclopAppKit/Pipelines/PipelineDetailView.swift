@@ -19,12 +19,12 @@ struct PipelineDetailView: View {
             if model.showsText {
                 PipelineTextSection(model: model)
             } else {
-                Group {
-                    Section { PipelineSentence(model: model) }
-                    PipelineStepsSection(model: model)
-                    optionsSection
-                }
-                .disabled(model.isTemplate)
+                // An example can be read, not changed: its chips and steps still open, their
+                // controls are disabled inside.
+                Section { PipelineSentence(model: model) }
+                PipelineStepsSection(model: model)
+                optionsSection
+                    .disabled(model.isTemplate)
             }
             if model.draft.hasScripts { scriptNotice }
         }
@@ -180,19 +180,21 @@ struct PipelineSentence: View {
     var body: some View {
         FlowLayout(spacing: Spacing.s) {
             Text(Strings.text("Runs for")).foregroundStyle(.secondary)
-            chip(Self.filterPhrase(model.draft.filter), isOn: $editingFilter) {
-                Form { PipelineFilterSection(model: model) }.formStyle(.grouped).frame(width: 460, height: 320)
-            }
+            chip(Self.filterPhrase(model.draft.filter)) { editingFilter = true }
+                .popover(isPresented: $editingFilter, arrowEdge: .bottom) {
+                    editor { PipelineFilterSection(model: model) }.frame(width: 460, height: 320)
+                }
             Text(Strings.text("when")).foregroundStyle(.secondary)
             let triggers = Self.triggerPhrases(model.draft)
             if triggers.isEmpty {
-                chip(Strings.text("you choose it"), isOn: $editingTriggers) { triggersEditor }
+                chip(Strings.text("you choose it")) { editingTriggers = true }
             } else {
                 ForEach(Array(triggers.enumerated()), id: \.offset) { index, phrase in
                     if index > 0 { Text(index == triggers.count - 1 ? Strings.text("or") : ",").foregroundStyle(.secondary) }
-                    chip(phrase, isOn: $editingTriggers) { triggersEditor }
+                    chip(phrase) { editingTriggers = true }
                 }
             }
+            // One popover for what runs it, whichever chip asked for it.
             Button { editingTriggers = true } label: {
                 Image(systemName: "plus.circle")
                     .font(.system(size: 15))
@@ -203,19 +205,27 @@ struct PipelineSentence: View {
             .foregroundStyle(Ink.charcoalText)
             .accessibilityLabel(Strings.text("Choose what runs it"))
             .help(Strings.text("Choose what runs it"))
+            .popover(isPresented: $editingTriggers, arrowEdge: .bottom) {
+                editor { PipelineTriggersSection(model: model) }.frame(width: 460, height: 440)
+            }
         }
         .padding(.vertical, Spacing.xs)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Strings.text("What it runs on and what runs it"))
     }
 
-    private var triggersEditor: some View {
-        Form { PipelineTriggersSection(model: model) }.formStyle(.grouped).frame(width: 460, height: 440)
+    /// A popover's editor: its own view tree, so it pins the tint and follows an example's
+    /// read-only state itself.
+    private func editor(@ViewBuilder _ content: () -> some View) -> some View {
+        Form { content() }
+            .formStyle(.grouped)
+            .disabled(model.isTemplate)
+            .designTint()
     }
 
-    /// A chip: a capsule on the resting tile that opens its editor in a popover.
-    private func chip(_ text: String, isOn: Binding<Bool>, @ViewBuilder editor: @escaping () -> some View) -> some View {
-        Button { isOn.wrappedValue = true } label: {
+    /// A chip: a capsule on the resting tile that opens its editor.
+    private func chip(_ text: String, open: @escaping () -> Void) -> some View {
+        Button(action: open) {
             Text(text)
                 .lineLimit(1)
                 .padding(.horizontal, Spacing.m)
@@ -226,13 +236,13 @@ struct PipelineSentence: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(Ink.text)
-        .popover(isPresented: isOn, arrowEdge: .bottom) { editor() }
     }
 
     /// The filter in a few words: "every file", "png files", "png files named “Screenshot”".
     static func filterPhrase(_ filter: StepDraft?) -> String {
         guard let filter else { return Strings.text("every file") }
-        let types = filter.values["types"].map { $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } } ?? []
+        // The language separates types with spaces ("png jpeg"); a comma is read too.
+        let types = filter.values["types"].map { $0.split { $0 == " " || $0 == "," }.map(String.init) } ?? []
         let kind = types.isEmpty ? Strings.text("files") : Strings.format("%@ files", PanelList.join(types.map { $0.uppercased() }))
         if let name = filter.values["nameContains"], !name.isEmpty {
             return Strings.format("%@ named “%@”", kind, name)
@@ -280,7 +290,7 @@ struct FlowLayout: Layout {
         for row in arrange(subviews, width: bounds.width) {
             var x = bounds.minX
             for index in row.items {
-                let size = subviews[index].sizeThatFits(.unspecified)
+                let size = Self.size(of: subviews[index], width: bounds.width)
                 subviews[index].place(at: CGPoint(x: x, y: y + (row.height - size.height) / 2), proposal: ProposedViewSize(size))
                 x += size.width + spacing
             }
@@ -290,10 +300,17 @@ struct FlowLayout: Layout {
 
     private struct Row { var items: [Int] = []; var width: CGFloat = 0; var height: CGFloat = 0 }
 
+    /// Its natural size, never wider than the row: a long name is cut, not run past the edge.
+    private static func size(of subview: LayoutSubview, width: CGFloat) -> CGSize {
+        let natural = subview.sizeThatFits(.unspecified)
+        guard width.isFinite, natural.width > width else { return natural }
+        return subview.sizeThatFits(ProposedViewSize(width: max(width, 0), height: nil))
+    }
+
     private func arrange(_ subviews: Subviews, width: CGFloat) -> [Row] {
         var rows = [Row()]
         for index in subviews.indices {
-            let size = subviews[index].sizeThatFits(.unspecified)
+            let size = Self.size(of: subviews[index], width: width)
             if !rows[rows.count - 1].items.isEmpty, rows[rows.count - 1].width + spacing + size.width > width { rows.append(Row()) }
             var row = rows[rows.count - 1]
             row.width += (row.items.isEmpty ? 0 : spacing) + size.width

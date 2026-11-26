@@ -289,6 +289,8 @@ import Testing
         var draft = PipelineDraft(pipeline)
         #expect(PipelineSentence.filterPhrase(draft.filter) == Strings.format("%@ named “%@”", Strings.format("%@ files", "PNG"), "Screenshot"))
         #expect(PipelineSentence.filterPhrase(nil) == Strings.text("every file"))
+        let two = StepDraft(name: "if", values: ["types": "png jpeg"])
+        #expect(PipelineSentence.filterPhrase(two) == Strings.format("%@ files", PanelList.join(["PNG", "JPEG"])), "types are space separated")
         #expect(PipelineSentence.triggerPhrases(draft).isEmpty, "nothing runs it on its own")
         draft.set(.clipboard, on: true)
         draft.set(.presetZone, on: true)

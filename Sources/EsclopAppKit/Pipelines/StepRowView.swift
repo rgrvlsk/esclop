@@ -14,6 +14,8 @@ struct StepRowView: View {
     let number: Int
     let count: Int
     let issues: [PipelineDiagnostic]
+    /// An example's step: it opens to be read, its controls stay disabled.
+    var isReadOnly = false
     @Binding var isOpen: Bool
     let move: (Int) -> Void
     let remove: () -> Void
@@ -50,8 +52,9 @@ struct StepRowView: View {
                                 .lineLimit(1)
                         }
                         Spacer(minLength: 0)
-                        if !issues.isEmpty {
-                            Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Palette.error)
+                        if let worst = issues.first(where: { $0.severity == .error }) ?? issues.first {
+                            Image(systemName: worst.severity == .error ? "exclamationmark.circle.fill" : "exclamationmark.triangle.fill")
+                                .foregroundStyle(worst.severity == .error ? Palette.error : Palette.caution)
                         }
                         Image(systemName: "chevron.right")
                             .font(.system(size: 11, weight: .semibold))
@@ -64,7 +67,7 @@ struct StepRowView: View {
                 .help(step.spec.map(PipelineVocabulary.stepHelp) ?? "")
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(Strings.format("Step %d of %d: %@", number, count, title))
-                .accessibilityValue(summary)
+                .accessibilityValue(([summary] + issues.map { StepIssues.readable(PipelineVocabulary.message($0)) }).joined(separator: ". "))
                 .accessibilityHint(isOpen ? Strings.text("Hides its settings") : Strings.text("Shows its settings"))
                 if isOpen {
                     if step.isScript {
@@ -74,6 +77,7 @@ struct StepRowView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     StepParamsEditor(step: $step, kind: kind)
+                        .disabled(isReadOnly)
                     StepIssues(issues: issues)
                     HStack(spacing: Spacing.s) {
                         Button(Strings.text("Move Up"), systemImage: "chevron.up") { move(-1) }
@@ -88,6 +92,7 @@ struct StepRowView: View {
                     }
                     .labelStyle(.iconOnly)
                     .buttonStyle(.borderless)
+                    .disabled(isReadOnly)
                 }
             }
         }

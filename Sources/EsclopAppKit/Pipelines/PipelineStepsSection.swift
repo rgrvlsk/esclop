@@ -30,10 +30,11 @@ struct PipelineStepsSection: View {
                 }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
-                .disabled(missingKinds.isEmpty)
+                .disabled(missingKinds.isEmpty || model.isTemplate)
                 .help(Strings.text("Give one kind of file its own steps"))
                 if model.draft.sections.count > 1 {
                     Button(Strings.text("Remove These Steps"), systemImage: "minus.circle") { model.removeSection(model.sectionID) }
+                        .disabled(model.isTemplate)
                         .labelStyle(.iconOnly)
                         .buttonStyle(.borderless)
                         .accessibilityLabel(Strings.format("Remove the steps for %@", PipelineVocabulary.sectionTitle(model.currentSection?.kind)))
@@ -53,16 +54,21 @@ struct PipelineStepsSection: View {
                     let issues = model.check.issues[step.id] ?? []
                     StepRowView(
                         step: model.binding(for: step), kind: kind, number: position + 1, count: steps.count,
-                        issues: issues,
+                        issues: issues, isReadOnly: model.isTemplate,
                         isOpen: Binding(
                             get: { opened.contains(step.id) || issues.contains { $0.severity == .error } },
-                            set: { if $0 { opened.insert(step.id) } else { opened.remove(step.id) } }
+                            // Closing a step with an error is ignored, and it stays opened by hand:
+                            // fixing the value must not fold it away mid-typing.
+                            set: { open in
+                                if open || issues.contains(where: { $0.severity == .error }) { opened.insert(step.id) } else { opened.remove(step.id) }
+                            }
                         ),
                         move: { model.moveStep(step.id, by: $0) }, remove: { model.removeStep(step.id) }
                     )
                 }
                 .onMove { model.moveSteps(from: $0, to: $1) }
                 addStepMenu(kind: kind)
+                    .disabled(model.isTemplate)
             }
         } header: {
             Text(Strings.text("Steps"))
