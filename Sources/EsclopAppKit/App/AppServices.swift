@@ -154,8 +154,8 @@ public final class AppServices {
         try server.start()
         watcher.start()
         dropZone.start()
-        // On the first run the tour starts watching once its last step says macOS will ask about
-        // the Desktop, so the question never covers the first steps.
+        // On the first run the tour starts watching once it ends or the person leaves it, so
+        // macOS's Desktop question never covers a step.
         if onboarding.model.shouldShowAtLaunch {
             onboarding.model.onPermissions = { [weak folders] in folders?.refresh() }
         } else {
@@ -174,8 +174,9 @@ public final class AppServices {
         pipelineFiles?.start([model.service.context.pipelines.directory])
         let workspace = NSWorkspace.shared.notificationCenter
         volumeObservers = [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification].map { name in
-            workspace.addObserver(forName: name, object: nil, queue: .main) { [weak folders] _ in
-                MainActor.assumeIsolated { folders?.refresh() }
+            workspace.addObserver(forName: name, object: nil, queue: .main) { [weak folders, weak tour = onboarding.model] _ in
+                // Not while the first run still holds the folders back.
+                MainActor.assumeIsolated { if tour?.onPermissions == nil { folders?.refresh() } }
             }
         }
         // Finder's Quick Actions come to this object; refreshing makes a new install's show at once.

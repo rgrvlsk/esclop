@@ -37,8 +37,8 @@ import Testing
         #expect(parts.text.hasPrefix(parts.number) && parts.text.hasSuffix("MB"))
     }
 
-    @Test func theFigureHasFourSizes() {
-        #expect(Figure.Size.allCases.map(\.rawValue) == [17, 32, 20, 72])
+    @Test func theFigureHasItsSizes() {
+        #expect(Figure.Size.allCases.map(\.rawValue) == [17, 32, 20, 56, 48])
         #expect(CardFooter.ring.figure == Figure.Size.card.rawValue && CardFooter.largeRing.figure == Figure.Size.detail.rawValue, "the rings take theirs from the token")
     }
 

@@ -222,24 +222,34 @@ many copied files, or a list from the CLI or an agent. It comes forward without 
   files join a batch that is still running. VoiceOver announces the batch once, when it ends.
 
 ## First run
-One 600 × 480 window with a transparent title bar (`pr8-first-run`), three steps under numbered
-circles joined by a line (the current one charcoal), each with one heading in New York:
+One warm window, 600 × 540 pt of content under a transparent title bar (`pr8-first-run`), the
+cream lit from the top. Three steps under numbered circles joined by a line (the current one charcoal, the ones to
+come quieter), each with one heading in New York, regular:
 
-1. **Copy or drop an image.** A picture going to the clog in the menu bar. When macOS asks before
-   every clipboard read, an amber "Asks each time" with Privacy Settings…; otherwise nothing.
-2. **Same image. Lighter file.** The saving as the figure, the arc from the original size (brick
-   red) to the new one (grey), and the picture twice at the same size: compression never shows
-   as the image getting smaller. It is the person's own first image optimised while the tour is
-   open; before there is one, an example that says it is one.
-3. **Ready when you are.** The clog in the menu bar, a result with Copy, Show in Finder and Undo,
-   where results appear and how long originals are kept, the Desktop question macOS asks next,
-   Open at login and Connect an AI Agent… (Settings › Agents).
+1. **Copy or drop an image.** A photograph (the bay of Jóncols, Cap de Creus; CC0, ARTWORK.md)
+   going to the clog in the menu bar, with the pointer on it. When macOS asks before every
+   clipboard read or refuses it, an amber band (an amber sign, the sentence in text ink and
+   Privacy Settings…, as step 3's); otherwise nothing.
+2. **Same image. Lighter file.** The saving as the figure at its first-run size, the arc from
+   the original size (brick red) to the new one (grey), and the picture twice at the same size:
+   compression never shows as the image getting smaller. It is the person's own first image
+   optimised while the tour is open, shown whole, and a line says it is theirs; before there
+   is one, the example, which says it is one.
+3. **Ready when you are.** The corner of the screen: the bezel turning down at the right, the
+   clog in the menu bar, a result under it, and Copy, Show in Finder and Undo as round buttons.
+   Under it, where results show and how long originals are kept, then that macOS may ask about
+   the Desktop next. Open at login and Connect an AI Agent… (Settings › Agents) sit in the
+   footer; a refused or waiting login item adds an amber band with Open Login Items right above
+   the footer, next to its switch, and VoiceOver says it. The drawing gives up 36 pt for the
+   band; its labels keep their size.
 
-Skip (every step but the last) and Back are flat; Continue and Get Started sit at the trailing
-edge. Steps slide in the direction of travel (350 ms spring); Reduce Motion makes it a 180 ms
-crossfade. The folders are watched from the last step, or when the tour closes, so macOS's
-Desktop question never covers the first steps. What the tour no longer shows lives in Settings:
-the automatic switches, each folder's access and the agents.
+Continue is a white pill and Get Started a charcoal one, at the trailing edge. There is no Skip
+or Back button: Esc and the close button end the tour, ← goes back and → goes on, and a step
+number already seen goes back to it; VoiceOver hears each new step. Steps slide in the direction
+of travel (350 ms spring); Reduce Motion makes it a 180 ms crossfade. The folders are watched
+once the tour ends (Get Started, Esc or the close button) or the person leaves its window for
+another, so macOS's Desktop question never covers a step. What the tour no longer shows lives in Settings: the automatic switches, each folder's
+access and the agents.
 
 ## Color
 Use system Liquid Glass materials for floating surfaces, with one accent colour and one warning
@@ -253,14 +263,20 @@ colour.
 | `clog` | `#8A5A33` | `#8A5A33` | app icon wood only, never in UI |
 | error | `#C4281C` | `#FF6961` | failures (system red is 3.4:1 on light) |
 
-Never: cream page backgrounds, terracotta, acid green on black, gradient washes. Dark glass
-stays translucent; it must not become an opaque slab.
+Warm windows (owner's decision, 2026-11-26, which replaces "never cream page backgrounds"):
+Settings, the first run, the pipeline editor and All Results sit on a warm page (`Surface.page`,
+#EDE8E0 light, walnut #1D1916 dark) with their content on cream tiles (`warmTile`, the cream lit
+from the top at the control elevation), pressable things as white pills and dashed outlines for
+what adds something (`Design/WarmWindow.swift`). Never: terracotta, acid green on black, gradient
+washes. Dark glass stays translucent; it must not become an opaque slab.
 
 ## Type
 System font (SF Pro) everywhere, sizes from the macOS text styles, nothing below 11 pt. Byte
 figures and percentages use SF Pro with monospaced digits (`monospacedDigit()`), never a
 monospaced typeface. The saving is the one large figure, set by `Figure`: SF Pro
-Compressed, bold, at one of its four sizes. Labels are sentence case, never all caps, never tracked out. Icons are SF
+Compressed, bold, at one of its sizes (card 17, panel 32, detail 20, first run 56, a window's
+saving 48), its unit on the digits' baseline at 70 % (owner, 2026-11-27). Labels are sentence
+case; the one section label of a tile is small caps, tracked (owner's grammar, `warmLabel`). Icons are SF
 Symbols; checkmarks are symbols, not text glyphs.
 
 ## Layout

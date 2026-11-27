@@ -39,6 +39,8 @@ public final class OnboardingModel {
     }
     /// The direction of the last move, so the transition slides the right way.
     public private(set) var forward = true
+    /// The furthest step shown: every step up to it stays a button back or forward to it.
+    public private(set) var furthest: Step = .copy
 
     @ObservationIgnored let defaults: UserDefaults
     @ObservationIgnored var onFinish: () -> Void = {}
@@ -68,7 +70,7 @@ public final class OnboardingModel {
         guard let following = Step(rawValue: step.rawValue + 1) else { finish(); return }
         forward = true
         step = following
-        if step == .ready { startWatching() }
+        if following.rawValue > furthest.rawValue { furthest = following }
     }
 
     public func back() {
@@ -80,13 +82,19 @@ public final class OnboardingModel {
     public func go(to target: Step) {
         forward = target.rawValue >= step.rawValue
         step = target
-        if step == .ready { startWatching() }
+        if target.rawValue > furthest.rawValue { furthest = target }
     }
 
-    /// Starts watching the folders (AppServices, on the first run): only once the last step says
-    /// macOS will ask about the Desktop, or the tour ends, so the question never covers the first
-    /// steps. Runs once.
+    /// Starts watching the folders (AppServices, on the first run): once the tour ends, or the
+    /// person leaves its window for another, so macOS's Desktop question never covers a step.
+    /// Runs once.
     @ObservationIgnored public var onPermissions: (() -> Void)?
+
+    /// The tour's window gave the keyboard to another: a tour left open must not keep the folders
+    /// from being watched.
+    public func windowLeft() {
+        startWatching()
+    }
 
     private func startWatching() {
         let start = onPermissions
@@ -110,6 +118,7 @@ public final class OnboardingModel {
     public func restart() {
         forward = true
         step = .copy
+        furthest = .copy
         openedAt = Date()
     }
 
@@ -138,6 +147,8 @@ public final class OnboardingModel {
     public func refreshAccess() {
         clipboardAccess = readClipboardAccess()
         loginStatus = readLoginStatus()
+        // The person set it in System Settings as asked: the refusal no longer holds.
+        if let wanted = loginWanted, opensAtLogin == wanted { loginError = nil }
     }
 
     /// macOS 15.4 and later can ask before every programmatic read of the clipboard.
@@ -160,6 +171,7 @@ public final class OnboardingModel {
     public var opensAtLogin: Bool {
         get { loginStatus == .enabled || loginStatus == .requiresApproval }
         set {
+            loginWanted = newValue
             do {
                 try setLoginItem(newValue)
                 loginError = nil
@@ -176,6 +188,8 @@ public final class OnboardingModel {
     public var loginNeedsApproval: Bool { loginStatus == .requiresApproval }
 
     public var loginError: String?
+    /// What the person last asked of Open at login: which way a refusal went.
+    public private(set) var loginWanted: Bool?
 
     /// System Settings at Privacy & Security › Paste from Other Apps (Privacy & Security on a macOS
     /// without that list).

@@ -1441,12 +1441,12 @@
         }
       }
     },
-    "Allowed": {
+    "Allow L’Esclop in Login Items & Extensions.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Permès"
+            "value": "Permet L’Esclop a Ítems d’inici de sessió i extensions."
           }
         }
       }
@@ -1577,6 +1577,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Un fitxer .esclopignore en una carpeta fa que s’ometin els noms que hi consten, com fa .gitignore; el .clopignore del Clop també funciona."
+          }
+        }
+      }
+    },
+    "An example. Copy a screenshot to see your own.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "És un exemple. Copia una captura de pantalla per veure la teva."
           }
         }
       }
@@ -5671,6 +5681,16 @@
         }
       }
     },
+    "Next, macOS may ask to let L’Esclop see your Desktop, where screenshots land.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Després el macOS pot demanar accés a l’Escriptori, on van les captures."
+          }
+        }
+      }
+    },
     "No address was given to the action.": {
       "localizations": {
         "ca": {
@@ -6031,22 +6051,12 @@
         }
       }
     },
-    "Nothing you can see changes. The original is always kept.": {
+    "Nothing you can see changes.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "No canvia res que es vegi. L’original es conserva sempre."
-          }
-        }
-      }
-    },
-    "Nothing you can see changes. The original is kept for %@.": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No canvia res que es vegi. L’original es conserva %@."
+            "value": "No canvia res que es vegi."
           }
         }
       }
@@ -6176,7 +6186,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Obre els ítems d’inici de sessió"
+            "value": "Obre els ítems d’inici"
           }
         }
       }
@@ -7091,16 +7101,6 @@
         }
       }
     },
-    "Privacy Settings…": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Privacitat i seguretat…"
-          }
-        }
-      }
-    },
     "Public link": {
       "localizations": {
         "ca": {
@@ -7761,22 +7761,22 @@
         }
       }
     },
-    "Results appear in the corner and fade away. Originals are always kept.": {
+    "Results show in a corner and fade away; the clog keeps the latest. Originals are always kept.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Els resultats apareixen a la cantonada i s’esvaeixen. Els originals es conserven sempre."
+            "value": "Els resultats surten en una cantonada i s’esvaeixen; l’esclop guarda els últims. Els originals es conserven sempre."
           }
         }
       }
     },
-    "Results appear in the corner and fade away. Originals are kept for %@.": {
+    "Results show in a corner and fade away; the clog keeps the latest. Originals are kept for %@.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Els resultats apareixen a la cantonada i s’esvaeixen. Els originals es conserven %@."
+            "value": "Els resultats surten en una cantonada i s’esvaeixen; l’esclop guarda els últims. Els originals es conserven %@."
           }
         }
       }
@@ -8076,7 +8076,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "La mateixa imatge. Un fitxer més lleuger."
+            "value": "Mateixa imatge. Fitxer més lleuger."
           }
         }
       }
@@ -8351,16 +8351,6 @@
         }
       }
     },
-    "This is an example: copy a screenshot to see your own.": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Això és un exemple: copia una captura de pantalla per veure la teva."
-          }
-        }
-      }
-    },
     "This is not a settings file L’Esclop exported. Nothing was changed.": {
       "localizations": {
         "ca": {
@@ -8371,12 +8361,42 @@
         }
       }
     },
+    "Your own copy, optimised just now.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La teva còpia, optimitzada ara mateix."
+          }
+        }
+      }
+    },
+    "macOS did not add L’Esclop to your login items.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El macOS no ha afegit L’Esclop a l’inici de sessió."
+          }
+        }
+      }
+    },
+    "macOS did not remove L’Esclop from your login items.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El macOS no ha tret L’Esclop de l’inici de sessió."
+          }
+        }
+      }
+    },
     "macOS does not let L’Esclop read what you copy. Allow it in Privacy & Security.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "El macOS no deixa que L’Esclop llegeixi el que copies. Permet-ho a Privadesa i seguretat."
+            "value": "El macOS no deixa que L’Esclop llegeixi el que copies. Permet-ho a Privacitat i seguretat."
           }
         }
       }
@@ -8391,12 +8411,12 @@
         }
       }
     },
-    "macOS will then ask to let L’Esclop see your Desktop, where screenshots land.": {
+    "macOS may ask each time L’Esclop reads what you copy. Choose Allow there so it stops asking.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Després el macOS et demanarà que deixis que L’Esclop vegi l’Escriptori, on van a parar les captures."
+            "value": "El macOS pot preguntar a cada còpia. Tria Permet i no ho tornarà a demanar."
           }
         }
       }

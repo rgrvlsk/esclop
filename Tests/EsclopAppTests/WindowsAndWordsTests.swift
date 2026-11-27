@@ -107,20 +107,20 @@ import Testing
         #expect(model.hits.contains { $0.id == SettingsPaneView.openAtLoginRow })
     }
 
-    /// W6: on the first run the folders are watched once the last step says macOS will ask about
-    /// the Desktop, never before, and once only; skipping or closing the tour starts them too.
-    @Test func theTourStartsWatchingOnItsLastStep() {
+    /// W6: on the first run the folders are watched once the tour ends (Get Started, Skip or the
+    /// close button), never during it, so macOS's Desktop question comes after the last step, as
+    /// it says; and once only.
+    @Test func theTourStartsWatchingWhenItEnds() {
         let model = OnboardingModel(defaults: settings.store.defaults)
         var started = 0
         model.onPermissions = { started += 1 }
         model.next()
-        #expect(started == 0, "the result step asks nothing")
         model.next()
         #expect(model.step == .ready)
-        #expect(started == 1)
-        model.back()
-        model.next()
+        #expect(started == 0, "the last step only says macOS will ask next")
         model.finish()
+        #expect(started == 1)
+        model.windowClosed()
         #expect(started == 1, "once")
 
         let skipped = OnboardingModel(defaults: TestSettings().store.defaults)
@@ -128,6 +128,18 @@ import Testing
         skipped.onPermissions = { skippedStarts += 1 }
         skipped.finish()
         #expect(skippedStarts == 1, "skipping from the first step still starts watching")
+
+        // A tour left open behind another window still lets the folders be watched, once.
+        let left = OnboardingModel(defaults: TestSettings().store.defaults)
+        var leftStarts = 0
+        left.onPermissions = { leftStarts += 1 }
+        left.next()
+        left.windowLeft()
+        left.windowLeft()
+        #expect(leftStarts == 1)
+        // Opened again from the menu, the steps ahead are steps to come again.
+        left.restart()
+        #expect(left.furthest == .copy)
     }
 
     /// W8: accents fold on both sides of the search.
