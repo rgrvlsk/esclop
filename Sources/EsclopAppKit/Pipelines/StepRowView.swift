@@ -343,7 +343,7 @@ private struct StepFocus: ViewModifier {
                         move(delta)
                         return .handled
                     }
-                    guard press.modifiers.subtracting([.numericPad, .function]).isEmpty, let neighbour else { return .ignored }
+                    guard press.modifiers.subtracting(.numericPad).isEmpty, let neighbour else { return .ignored }
                     neighbour(delta)
                     return .handled
                 }
