@@ -108,14 +108,18 @@ private struct DetailChrome: ViewModifier {
         }
         .modifier(NoToolbarTitle())
         .toolbar {
+            // Over the pipeline's column, not the window's middle: half the sidebar along. The
+            // macOS 26 SDK's bar draws a shared platter, which would stay behind: it is hidden.
+            #if compiler(>=6.2)
             if #available(macOS 26, *) {
-                // Over the pipeline's column, not the window's middle: half the sidebar along,
-                // without the bar's shared platter, which would stay behind.
                 ToolbarItem(placement: .principal) { viewPicker.offset(x: PipelineEditorView.sidebarWidth / 2) }
                     .sharedBackgroundVisibility(.hidden)
             } else {
                 ToolbarItem(placement: .principal) { viewPicker.offset(x: PipelineEditorView.sidebarWidth / 2) }
             }
+            #else
+            ToolbarItem(placement: .principal) { viewPicker.offset(x: PipelineEditorView.sidebarWidth / 2) }
+            #endif
             ToolbarItemGroup(placement: .primaryAction) {
                 Button(Strings.text("Duplicate"), systemImage: "plus.square.on.square") { model.duplicate() }
                     .keyboardShortcut("d", modifiers: .command)
