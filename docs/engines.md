@@ -241,7 +241,7 @@ Swift code reads typed values: `EsclopSettings.stripMetadata.value` (or `.value(
 | `convertedImageBehaviour` | FileBehaviour | `.sameFolder` | output | Converted images go |
 | `convertedVideoBehaviour` | FileBehaviour | `.inPlace` | output | Converted videos go |
 | `convertedAudioBehaviour` | FileBehaviour | `.inPlace` | output | Converted audio goes |
-| `sameFolderNameTemplate` | String | `%f-optimised` | output | Same folder name |
+| `sameFolderNameTemplate` | String | `%f-optimised` | output | File name beside the original |
 | `specificFolderTemplate` | String | `%d/optimised/%f` | output | Specific folder path |
 | `backupRetentionDays` | Int | `7` | backups | Keep backups for |
 | `enableClipboardOptimiser` | Bool | `true` | clipboard | Optimise copied images |

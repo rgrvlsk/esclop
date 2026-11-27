@@ -22,7 +22,7 @@ struct StringListEditor: View {
             label
             if items.isEmpty {
                 Text(isApps ? Strings.text("No apps") : Strings.text("No folders"))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Ink.secondary)
             }
             ForEach(items, id: \.self) { item in
                 HStack(spacing: 8) {
@@ -35,19 +35,18 @@ struct StringListEditor: View {
                         .truncationMode(.middle)
                         .help(item)
                     Spacer()
-                    Button {
+                    // On the rows' one axis of trailing buttons, a 28 pt target.
+                    RoundIconButton(symbol: "minus.circle", help: Strings.text("Remove")) {
                         write(items.filter { $0 != item })
-                    } label: {
-                        Image(systemName: "minus.circle")
                     }
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(.secondary)
+                    .padding(.trailing, -2)
                     .accessibilityLabel(Strings.format("Remove %@", isApps ? Self.appName(item) : item))
                 }
             }
-            Button(isApps ? Strings.text("Add App…") : Strings.text("Add Folder…"), systemImage: "plus") { add() }
-
-                .buttonStyle(.borderless)
+            Button { add() } label: {
+                Label(isApps ? Strings.text("Add App…") : Strings.text("Add Folder…"), systemImage: "plus")
+            }
+            .buttonStyle(DashedAddButtonStyle(radius: 12))
         }
     }
 

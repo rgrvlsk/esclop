@@ -44,13 +44,15 @@ public final class SettingsWindowController {
 
     private func makeWindow() -> NSWindow {
         let host = NSHostingController(rootView: SettingsView(model: model, agents: agents, actions: actions))
-        host.sceneBridgingOptions = [.title, .toolbars]
+        host.sceneBridgingOptions = [.title]
         let window = NSWindow(contentViewController: host)
         window.title = model.pane.title
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
-        window.toolbarStyle = .unified
+        // The pane's heading names it; the title stays for the Window menu and VoiceOver.
+        window.titleVisibility = .hidden
+        window.dressWarm()
         window.isReleasedWhenClosed = false
-        window.setContentSize(NSSize(width: 800, height: 620))
+        window.setContentSize(NSSize(width: 780, height: 600))
         window.contentMinSize = NSSize(width: 720, height: 480)
         window.center()
         window.setFrameAutosaveName("dev.esclop.settings")
