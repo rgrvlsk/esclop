@@ -222,18 +222,25 @@ many copied files, or a list from the CLI or an agent. It comes forward without 
   files join a batch that is still running. VoiceOver announces the batch once, when it ends.
 
 ## All Results
-A stock window (`pr6-results-window`), from the menu's gear (All Results…): every result of the
+A warm window (`pr6-results-window`), from the menu's gear (All Results…): every result of the
 last seven days, newest first, from the shared log and this session.
 
-- **Header:** "All Results" in New York, a search by name (accents and case fold), and the kinds
-  as chips (All · Images · Video · PDF · Audio), charcoal when chosen.
+- **Header:** "All Results" in New York, regular, a search by name (⌘F; accents and case fold)
+  and the kinds as chips (All · Images · Video · PDF · Audio), charcoal when chosen; on one line
+  when they fit.
 - **Saved:** one tile with SAVED in small caps, the arc from the original size (brick red, at its
-  left end) to the new one (grey, at its right), the saving as the figure between them, and the
-  counts beside it ("4 files · 1 converted · 1 failed"). It follows the search and the kind.
+  left end) to the new one (grey, at its right), the saving between them at a window's figure
+  size, and the counts spread beside it ("4 files · 1 converted · 1 error"; a count of nothing
+  stays out). It follows the search and the kind. With nothing yet, the track alone.
 - **Rows:** today grouped by hour ("14:00"), the days before by day ("Yesterday", "Monday 23"),
-  each the menu panel's Recent row on a tile: Copy and Show in Finder on hover, Compare and
-  Restore Original in the context menu and as VoiceOver actions, a click shows its card.
-- **Failures** still on screen come first, in amber, with Retry when another try can help.
+  down one line at the left, the hour on the name's baseline and an earlier day's time on the
+  sizes'. 20 pt between the page's blocks, 12 between groups, 4 between the rows of one. Each row is a 66 pt cream tile: picture, name, "2.4 MB → 612 kB",
+  the saving at the panel's size. Under the pointer or the arrow keys it brightens and shows
+  Copy, Show in Finder and a "…" with Compare and Restore Original; Return or a click shows its
+  card, ⌘C copies it and ⌘R shows it in Finder. VoiceOver reads "Beach.jpg, 75 % smaller, 2.4 MB to 612 kB" with every action.
+- **Failures** still on screen come first: the same row in amber, with the reason and Retry when
+  another try can help.
+- **Empty:** the tile shows its track alone, and the line says how to get a first result.
 - Originals (the gear's Originals…) stays the place to restore or remove kept originals.
 
 ## Color
@@ -248,14 +255,20 @@ colour.
 | `clog` | `#8A5A33` | `#8A5A33` | app icon wood only, never in UI |
 | error | `#C4281C` | `#FF6961` | failures (system red is 3.4:1 on light) |
 
-Never: cream page backgrounds, terracotta, acid green on black, gradient washes. Dark glass
-stays translucent; it must not become an opaque slab.
+Warm windows (owner's decision, 2026-11-26, which replaces "never cream page backgrounds"):
+Settings, the first run, the pipeline editor and All Results sit on a warm page (`Surface.page`,
+#EDE8E0 light, walnut #1D1916 dark) with their content on cream tiles (`warmTile`, the cream lit
+from the top at the control elevation), pressable things as white pills and dashed outlines for
+what adds something (`Design/WarmWindow.swift`). Never: terracotta, acid green on black, gradient
+washes. Dark glass stays translucent; it must not become an opaque slab.
 
 ## Type
 System font (SF Pro) everywhere, sizes from the macOS text styles, nothing below 11 pt. Byte
 figures and percentages use SF Pro with monospaced digits (`monospacedDigit()`), never a
 monospaced typeface. The saving is the one large figure, set by `Figure`: SF Pro
-Compressed, bold, at one of its four sizes. Labels are sentence case, never all caps, never tracked out. Icons are SF
+Compressed, bold, at one of its sizes (card 17, panel 32, detail 20, first run 56, a window's
+saving 48), its unit on the digits' baseline at 70 % (owner, 2026-11-27). Labels are sentence
+case; the one section label of a tile is small caps, tracked (owner's grammar, `warmLabel`). Icons are SF
 Symbols; checkmarks are symbols, not text glyphs.
 
 ## Layout

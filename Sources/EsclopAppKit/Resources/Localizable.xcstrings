@@ -351,6 +351,26 @@
         }
       }
     },
+    "%@, %@ larger, %@ to %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, un %2$@ més gran, de %3$@ a %4$@"
+          }
+        }
+      }
+    },
+    "%@, %@ smaller, %@ to %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, un %2$@ més petit, de %3$@ a %4$@"
+          }
+        }
+      }
+    },
     "%@, %d %% smaller": {
       "localizations": {
         "ca": {
@@ -537,6 +557,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%d dies"
+          }
+        }
+      }
+    },
+    "%d errors": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d errors"
           }
         }
       }
@@ -751,12 +781,32 @@
         }
       }
     },
+    "1 converted": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 convertit"
+          }
+        }
+      }
+    },
     "1 day": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "1 dia"
+          }
+        }
+      }
+    },
+    "1 error": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 error"
           }
         }
       }
@@ -2041,6 +2091,16 @@
         }
       }
     },
+    "Choose All.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tria Tot."
+          }
+        }
+      }
+    },
     "Choose a File…": {
       "localizations": {
         "ca": {
@@ -2157,6 +2217,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Esborra"
+          }
+        }
+      }
+    },
+    "Clear the search or choose All.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esborra la cerca o tria Tot."
+          }
+        }
+      }
+    },
+    "Clear the search.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esborra la cerca."
           }
         }
       }
@@ -2727,6 +2807,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Copia una captura de pantalla"
+          }
+        }
+      }
+    },
+    "Copy a screenshot or drop a file on the clog: its result shows here.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia una captura de pantalla o deixa anar un fitxer a l’esclop: el resultat surt aquí."
           }
         }
       }
@@ -3547,6 +3637,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Introdueix l’ID de la clau d’accés i el secret."
+          }
+        }
+      }
+    },
+    "Errors": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Errors"
           }
         }
       }
@@ -5761,7 +5861,7 @@
         }
       }
     },
-    "No result matches.": {
+    "No results match.": {
       "localizations": {
         "ca": {
           "stringUnit": {
@@ -8071,6 +8171,16 @@
         }
       }
     },
+    "Saved %@ in the last 7 days, from %@ to %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estalviat %1$@ els últims 7 dies, de %2$@ a %3$@"
+          }
+        }
+      }
+    },
     "Saved in the Keychain": {
       "localizations": {
         "ca": {
@@ -8097,6 +8207,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "S’ha desat a Baixades"
+          }
+        }
+      }
+    },
+    "Saved · last 7 days": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estalviat · últims 7 dies"
+          }
+        }
+      }
+    },
+    "Saved: no result on show": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estalviat: cap resultat a la vista"
+          }
+        }
+      }
+    },
+    "Saved: nothing yet": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estalviat: encara res"
           }
         }
       }

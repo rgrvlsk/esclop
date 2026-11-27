@@ -22,7 +22,7 @@ import Testing
     @discardableResult
     static func renderBoth(
         _ view: (ColorScheme) -> some View, size: CGSize, name: String, settle: Duration = .milliseconds(250),
-        before: (() async throws -> Void)? = nil
+        warm: Bool = false, before: (() async throws -> Void)? = nil
     ) async throws -> [CGSize] {
         _ = NSApplication.shared
         let schemes: [ColorScheme] = [.light, .dark]
@@ -35,6 +35,8 @@ import Testing
             window.isReleasedWhenClosed = false
             window.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
             window.contentView = host
+            // A warm window, as its controller dresses it.
+            if warm { window.dressWarm() }
             window.setFrameOrigin(NSPoint(x: 40, y: 40))
             window.orderFrontRegardless()
             return window
@@ -60,7 +62,7 @@ import Testing
     @discardableResult
     static func renderWindow(
         _ view: some View, size: CGSize, name: String, scheme: ColorScheme, settle: Duration = .milliseconds(250),
-        before: (() async throws -> Void)? = nil
+        warm: Bool = false, before: (() async throws -> Void)? = nil
     ) async throws -> CGSize {
         _ = NSApplication.shared
         // A fixed screenshot location: the machine's own stays out of the pictures.
@@ -72,6 +74,8 @@ import Testing
         window.isReleasedWhenClosed = false
         window.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
         window.contentView = host
+        // A warm window, as its controller dresses it.
+        if warm { window.dressWarm() }
         window.setFrameOrigin(NSPoint(x: 40, y: 40))
         window.orderFrontRegardless()
         // SwiftUI fills the AppKit controls in over a few run loop turns; sleeping on the main
