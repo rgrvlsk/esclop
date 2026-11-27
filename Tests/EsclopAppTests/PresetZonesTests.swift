@@ -135,7 +135,7 @@ import Testing
         try store.save(Self.pipeline("Mine", Self.everything))
         let model = SettingsViewModel(provider: RegistrySettingsProvider(store: settings.store), extraRows: [])
         model.pipelines = store
-        model.open(SettingsRoute(pane: .floatingResults, row: "presetZones"))
+        model.open(SettingsRoute(pane: .results, row: "presetZones"))
         let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView(model: model)))
         window.isReleasedWhenClosed = false
         window.setContentSize(CGSize(width: 800, height: 620))
@@ -171,6 +171,6 @@ import Testing
         #expect(EsclopSettings.all.contains { $0.key == "presetZones" })
         let descriptor = try RegistrySettingsProvider(store: TestSettings().store).descriptor(forKey: "presetZones")
         #expect(SettingPresentation.control(for: descriptor) == .presetZones)
-        #expect(SettingsPane.pane(for: .interface) == .floatingResults)
+        #expect(SettingsPane.place(of: "presetZones")?.pane == .results)
     }
 }

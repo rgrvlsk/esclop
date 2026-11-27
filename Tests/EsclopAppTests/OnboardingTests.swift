@@ -60,7 +60,7 @@ import Testing
         model.opensAtLogin = false
         #expect(model.loginError == nil)
         // In Settings it leads General, with the menu bar rows (council C7-F4).
-        #expect(SettingsPane.general.sections.first == .menuBar)
+        #expect(SettingsPane.general.panels.first?.id == "general.menuBar")
     }
 
     /// Screenshots saved outside the Desktop: Settings offers that folder (council C8-F1).

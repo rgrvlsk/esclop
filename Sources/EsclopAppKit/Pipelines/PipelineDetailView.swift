@@ -109,7 +109,7 @@ struct PipelineDetailView: View {
                     Text(Strings.text("Its script steps run code on your Mac with your permissions. AI agents may only run this pipeline when “Agents may run scripts” is on."))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
-                    Button(Strings.text("Open Agents and MCP Settings")) {
+                    Button(Strings.text("Open Agents Settings")) {
                         if let url = URL(string: "esclop://settings/agents/allowRunScripts") { NSWorkspace.shared.open(url) }
                     }
                     // Plain, not `.link`: a link button is system blue whatever the tint.

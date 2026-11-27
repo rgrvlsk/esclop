@@ -221,6 +221,47 @@ many copied files, or a list from the CLI or an agent. It comes forward without 
 - Pause holds the files still waiting; the ones running finish. Stop keeps every original. New
   files join a batch that is still running. VoiceOver announces the batch once, when it ends.
 
+## Settings
+A warm window (`pr7-settings`): a warm sidebar of seven panes, the search at its top and ⌘1–⌘7
+for the panes, the one shown cream and raised; and the chosen pane as cream panels on the page.
+Each pane opens with its one heading in New York and a line on what it is for ("Automatic / What
+L'Esclop does on its own").
+
+| Pane | Panels |
+|---|---|
+| General | Menu bar (with Open at login), Every file, Keyboard shortcuts, Where results go |
+| Automatic | the pause, Clipboard, Images · Videos · PDFs · Audio in folders, Pipelines |
+| Compression | Normally, When aggressive, then Images · Video · PDF · Audio |
+| Results | Floating results, Drop zone |
+| Uploads | the targets, the default one and automatic uploads |
+| Agents | connect an agent, test the server, what agents may do |
+| Advanced | Updates, Backups, File names and folders, Settings file, Maintenance |
+
+- **A panel is a feature.** It is a cream tile. Its heading is a 36 pt symbol in a sunken
+  circle, the name, and one line on what it does now ("Watching 2 folders", "Off", "Images and
+  PDFs"). When the feature has a switch, the switch is in the heading (charcoal when on) and the
+  settings show under a hairline once the chevron, or the heading, opens it. A panel with no
+  switch and few rows is a tile named in small caps, always open.
+- **Round checks** for a set of kinds: Clipboard's (Images, Videos, PDFs, Audio) and the formats
+  always squeezed hard (JPEG, PNG, GIF, Video, PDF): charcoal with a white check when on, a
+  sand disc with a ring at 3:1 when off, on one pitch. Each is the same setting as
+  before.
+- **Every registry setting is in exactly one panel**, by key; the registry's own sections stay
+  for the CLI and agents. A test fails when a key has no panel or two.
+- **Finding your way among 100 settings:** under the heading, the pane's panels as chips (a
+  click opens the panel and scrolls to it); a dot on a chip and on a sidebar pane, and "2 settings
+  changed" in a panel's status, where something differs from its default; ⌘1–⌘7 for the panes
+  and ↑ ↓ in the sidebar. Pause is a panel heading of its own, and while it is on the panels under
+  it dim and say Paused.
+- A deep link or a search result opens the pane and the closed panel that holds the row, then
+  scrolls to it and marks it. The panes before 0.2 (`images`, `clipboard`, `floatingResults`…)
+  still open from a link, in their new place.
+- Rows keep native controls: a yes-or-no inside a panel is a checkbox (the panel's switch is
+  the feature's), menus are pop-up buttons, sliders show their figure, fields have a stepper and
+  unit; each row has its title and a one-line explanation, and the reset arrow while the value
+  differs from the default. A folder L'Esclop cannot watch is amber with Open Privacy Settings;
+  Add Folder… is a dashed outline.
+
 ## First run
 One warm window, 600 × 540 pt of content under a transparent title bar (`pr8-first-run`), the
 cream lit from the top. Three steps under numbered circles joined by a line (the current one charcoal, the ones to
@@ -304,12 +345,9 @@ Symbols; checkmarks are symbols, not text glyphs.
   below the pointer (hint "Tap ⌥ to hide"), and the next tap hides it; with "Show the drop zone
   only after tapping ⌥" that tap is the only way it shows. While results follow the pointer, the
   zone follows the drag to the display under it.
-- Settings: sidebar panes with the search at the top of the sidebar, grouped forms with native
-  controls (switches, menus, sliders with their figure, fields with a stepper and unit). Each
-  row has its title and a one-line explanation; a reset arrow appears at the trailing edge,
-  beside the control, while the value differs from the default. The search folds accents. A typed value is checked as it is typed, and a refused one
-  keeps the field and says why under the row in red. A deep link scrolls to its row and marks
-  it with an accent wash that fades after 2.5 s (no scroll animation with Reduce Motion).
+- Settings: see Settings above. The search folds accents. A typed value is checked as it is
+  typed, and a refused one keeps the field and says why under the row in red. A deep link marks
+  its row with a charcoal wash that fades after 2.5 s (no scroll animation with Reduce Motion).
 - First run: see First run above.
 
 ## Motion

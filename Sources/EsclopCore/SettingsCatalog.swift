@@ -82,7 +82,7 @@ public enum EsclopSettings {
     )
     public static let keepHDR = Setting<Bool>(
         "keepHDR", default: true, title: "Keep HDR",
-        description: "Keep HDR gain maps and HDR video when the output format can carry them. Off makes photos SDR; HDR video stays HDR, as this build cannot convert it to SDR.",
+        description: "Keep HDR gain maps and HDR video when the output format can carry them. Off makes photos SDR; HDR video stays HDR.",
         section: .general
     )
 
@@ -423,7 +423,7 @@ public enum EsclopSettings {
     }
 
     public static let sameFolderNameTemplate = Setting<String>(
-        "sameFolderNameTemplate", default: "%f-optimised", title: "Same folder name",
+        "sameFolderNameTemplate", default: "%f-optimised", title: "File name beside the original",
         description: "File name for results written next to the original. %f is the original name without extension. With the default, a result in another format keeps the original name (photo.webp).",
         section: .output
     )
@@ -470,7 +470,7 @@ public enum EsclopSettings {
     )
     public static let clipboardIgnoredAppBundleIds = Setting<[String]>(
         "clipboardIgnoredAppBundleIds", default: [], title: "Ignored apps",
-        description: "Bundle identifiers of apps whose copies are never optimised.", section: .clipboard
+        description: "Copies made in these apps are never optimised.", section: .clipboard
     )
     public static let clipboardRules = Setting<[String]>(
         "clipboardRules", default: [], title: "Clipboard rules",

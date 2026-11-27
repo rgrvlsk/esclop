@@ -33,7 +33,7 @@ struct PresetZoneList: View {
             ForEach(zones) { zone in
                 HStack(spacing: 8) {
                     Image(systemName: zone.icon)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Ink.secondary)
                         .frame(width: 18)
                         .accessibilityHidden(true)
                     TitledToggle(
@@ -57,7 +57,7 @@ struct PresetZoneList: View {
             }
             Text(Strings.text("A drag shows the first four that work on every file in it, beside the drop zone."))
                 .font(.callout)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Ink.secondary)
         }
     }
 

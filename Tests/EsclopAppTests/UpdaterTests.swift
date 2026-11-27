@@ -98,7 +98,7 @@ final class UpdaterHost: @unchecked Sendable {
 
     @Test func installingDependsOnChecking() {
         #expect(SettingPresentation.dependsOn[EsclopSettings.installUpdatesAutomatically.key] == EsclopSettings.checkForUpdatesAutomatically.key)
-        #expect(SettingsPane.pane(for: .updates) == .general)
+        #expect(SettingsPane.place(of: EsclopSettings.checkForUpdatesAutomatically.key)?.pane == .advanced)
         #expect(EsclopSettings.all.contains { $0.key == EsclopSettings.checkForUpdatesAutomatically.key })
     }
 }
