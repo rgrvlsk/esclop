@@ -57,6 +57,10 @@ public final class PipelineEditorModel {
     public private(set) var original: Pipeline?
     /// The section the step list shows.
     public var sectionID = "any"
+    /// The steps opened by hand, by id. A step with a problem is always open.
+    public var openedSteps: Set<UUID> = []
+    /// The steps with an error that were closed by hand.
+    public var closedSteps: Set<UUID> = []
 
     /// The text view is on.
     public private(set) var showsText = false

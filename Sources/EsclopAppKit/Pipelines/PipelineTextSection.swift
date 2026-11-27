@@ -11,34 +11,48 @@ import SwiftUI
 struct PipelineTextSection: View {
     @Bindable var model: PipelineEditorModel
 
-    var body: some View {
-        Section {
-            PipelineTextView(text: model.text, diagnostics: model.textDiagnostics, isEditable: !model.isTemplate) { model.editText($0) }
-                .frame(minHeight: 220)
-                .accessibilityLabel(Strings.text("Pipeline text"))
+    private var diagnostics: some View {
+        VStack(alignment: .leading, spacing: Spacing.s) {
             ForEach(Array(model.textDiagnostics.enumerated()), id: \.offset) { _, issue in
                 Label {
-                    Text(StepIssues.markdown(Strings.format("Line %d: %@", issue.line, PipelineVocabulary.message(issue)))).fixedSize(horizontal: false, vertical: true)
+                    Text(StepIssues.markdown(Strings.format("Line %d: %@", issue.line, PipelineVocabulary.brief(PipelineVocabulary.message(issue))))).fixedSize(horizontal: false, vertical: true)
                 } icon: {
                     Image(systemName: issue.severity == .error ? "exclamationmark.circle.fill" : "exclamationmark.triangle.fill")
                 }
                 .font(.callout)
                 .foregroundStyle(issue.severity == .error ? Palette.error : Palette.caution)
             }
-        } header: {
-            Text(Strings.text("Text"))
-        } footer: {
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.s) {
+            PipelineTextView(text: model.text, diagnostics: model.textDiagnostics, isEditable: !model.isTemplate) { model.editText($0) }
+                // Down to the window's foot, the lines and the notes under it; small enough at
+                // its least that the window keeps its own smallest size.
+                .frame(minHeight: 240, idealHeight: 400, maxHeight: .infinity)
+                .accessibilityLabel(Strings.text("Pipeline text"))
+                .padding(Spacing.s)
+                .warmTile(fill: Surface.tile)
+                .padding(.top, Spacing.s)
+            // A few marked lines sit under the editor; more scroll in a short list, so the window
+            // never grows to hold them.
+            if model.textDiagnostics.count > 4 {
+                ScrollView { diagnostics }.frame(height: 110)
+            } else if !model.textDiagnostics.isEmpty {
+                diagnostics
+            }
             Text(model.textDiagnostics.contains { $0.severity == .error }
-                ? Strings.text("Fix the marked lines to go back to the form or to save.")
-                : Strings.text("The same pipeline as the form. Saving writes it in this layout; comments are not kept."))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                ? Strings.text("Fix the marked lines to go back to the steps or to save.")
+                : Strings.text("The same pipeline as the steps. Saving writes it in this layout; comments are not kept."))
+                .font(.system(size: 12))
+                .foregroundStyle(Ink.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
 
-/// A monospaced text view that marks the lines diagnostics point at.
 struct PipelineTextView: NSViewRepresentable {
     let text: String
     let diagnostics: [PipelineDiagnostic]
@@ -50,6 +64,8 @@ struct PipelineTextView: NSViewRepresentable {
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = NSTextView.scrollableTextView()
         scroll.hasVerticalScroller = true
+        // No empty track while the text fits.
+        scroll.autohidesScrollers = true
         scroll.borderType = .noBorder
         scroll.drawsBackground = false
         let view = scroll.documentView as! NSTextView

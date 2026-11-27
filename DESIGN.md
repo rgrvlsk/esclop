@@ -292,6 +292,33 @@ once the tour ends (Get Started, Esc or the close button) or the person leaves i
 another, so macOS's Desktop question never covers a step. What the tour no longer shows lives in Settings: the automatic switches, each folder's
 access and the agents.
 
+## Pipeline editor
+A warm window (`pr9-pipeline-editor`). On the left, a warm sidebar with Yours and Examples (the
+built-in templates, with no padlock) in small caps, the open one cream and raised, ↑ and ↓ to
+move and ⌫ to delete one of yours; a dashed "New Pipeline" at the bottom. On the right, one
+pipeline on the page:
+
+- **The name as the one heading,** in New York, regular, edited in place, and its description
+  under it; Try It…, Run on Files… and a "…" menu (Duplicate, Delete…) as white pills at the top
+  right in every state. Run on Files… runs the saved pipeline, so it waits, dimmed, while there
+  are changes to save (Save is in the toolbar). An example says so and offers Make It Mine.
+- **One sentence of chips:** "Runs for [PNG files named “Screenshot”] when [copied] or [new in
+  Inbox] ⊕". A connective travels with its chip and ⊕ with the last one, so a line never ends on
+  "or". The filter chip opens the filter in a popover; a trigger chip and ⊕ open what runs it.
+- **Steps as a numbered flow:** 28 pt numbers on a line, each step a cream tile with its symbol
+  in a sunken circle, its name and its settings in words ("Half size", "To WebP", "Long edge
+  1600 px"). The chevron opens it in place on a lighter panel with its settings only (a
+  conversion's usual formats as chips, a bounded number as a slider, values in sunken fields);
+  a "…" on the heading has Move Up, Move Down and Remove Step. A step with an error opens by
+  itself and keeps its red mark when closed. "Add a Step" is dashed, at the end of the line.
+  Steps reorder by dragging, from the "…" menu, with ⌥⌘↑ ⌥⌘↓ on the step the keyboard is on
+  (its tile shows the ring), and with VoiceOver's actions; an example's do not move. A problem
+  that names a setting sits under it, its field outlined in red.
+- **Problems name settings by their titles,** in the language's quotes: "“Long edge (px)” must
+  be…", «Costat llarg (px)» in Catalan.
+- **Toolbar:** Steps · Text, Duplicate (⌘D), Revert and Save (⌘S). Try It… is a sheet (Esc
+  closes it). Options sit at the bottom as checkboxes; a pipeline with scripts is amber.
+
 ## Color
 Use system Liquid Glass materials for floating surfaces, with one accent colour and one warning
 colour.

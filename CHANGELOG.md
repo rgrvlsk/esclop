@@ -127,6 +127,9 @@ Mac's own encoders.
 - Settings has seven panes instead of ten (General, Automatic, Compression, Results, Uploads,
   Agents, Advanced), and each feature is a panel with its own switch that opens its settings.
   Every setting keeps its name, and links to the old panes still open.
+- The pipeline editor reads as a sentence: "Runs for … when …" in chips that open the filter
+  and what runs it, and the steps as a numbered flow that opens in place. The built-in
+  templates are Examples, with Make It Mine, and problems name settings by their titles.
 - Copying the web address of an image, video, PDF or audio file offers to download it. Nothing is
   fetched until you click. Settings › Automatic › Clipboard › Copied web addresses can download
   on its own or do nothing instead (`optimiseURLClipboard`: `offer`, `download` or `ignore`).

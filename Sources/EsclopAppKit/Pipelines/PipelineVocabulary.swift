@@ -8,6 +8,21 @@ import EsclopPipelines
 import Foundation
 
 enum PipelineVocabulary {
+    /// A built-in example's name as the person reads it: in their language, with a capital
+    /// ("To WebP", "Ordena les captures", "PDF per enviar"). The file keeps its own name.
+    static func exampleTitle(_ name: String) -> String {
+        let shown = Strings.text(name)
+        if shown.lowercased().hasPrefix("pdf") { return "PDF" + shown.dropFirst(3) }
+        return shown.prefix(1).uppercased(with: Strings.locale) + shown.dropFirst()
+    }
+
+    /// A problem as the editor shows it: when it asks "Did you mean …?", what follows the
+    /// question (the whole list of values) stays out; the question is the help.
+    static func brief(_ message: String) -> String {
+        guard let question = message.lastIndex(of: "?") else { return message }
+        return String(message[...question])
+    }
+
     static func stepTitle(_ name: String) -> String {
         switch name {
         case "optimise": Strings.text("Optimise")
@@ -59,7 +74,28 @@ enum PipelineVocabulary {
     /// up in the catalog, the English when there is none. The CLI keeps printing `message`.
     static func message(_ diagnostic: PipelineDiagnostic, locale: Locale = Strings.locale) -> String {
         guard let text = diagnostic.text else { return diagnostic.message }
-        return text.rendered { Strings.text($0, locale: locale) }
+        if let plain = wrongValue(text, locale: locale) { return plain }
+        return text.rendered { Strings.text(editorWords[$0] ?? $0, locale: locale) }
+    }
+
+    /// The editor's shorter forms of some of the parser's templates: the field already shows the
+    /// value, so "must be" does not repeat it.
+    static let editorWords = [
+        "`%@` must be %@; `%@` is too small.": "`%@` must be %@.",
+        "`%@` must be %@; `%@` is too large.": "`%@` must be %@.",
+        "a whole number of at least %@": "a whole number, %@ or more",
+    ]
+
+    /// "“webpp” is not a format. Did you mean webp?": a value the parser does not know, with a
+    /// guess, in the editor's words; the CLI's version names the argument and lists the values.
+    static func wrongValue(_ text: DiagnosticText, locale: Locale = Strings.locale) -> String? {
+        guard text.template == "`%@` is not a valid `%@`. Did you mean `%@`? Use %@.", text.arguments.count >= 3,
+              case let .text(value) = text.arguments[0], case let .text(param) = text.arguments[1],
+              case let .text(guess) = text.arguments[2] else { return nil }
+        let what = param == "to"
+            ? Strings.text("a format", locale: locale)
+            : Strings.format("a valid “%@”", paramTitle(param), locale: locale)
+        return Strings.format("%@ is not %@. Did you mean %@?", Strings.format("“%@”", value, locale: locale), what, guess, locale: locale)
     }
 
     static func paramTitle(_ name: String) -> String {
