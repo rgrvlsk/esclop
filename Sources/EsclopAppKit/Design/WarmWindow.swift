@@ -308,10 +308,11 @@ struct ChoiceChipStyle: ButtonStyle {
 
 /// What takes typing on a warm tile: sunk a shade, with a hairline, and the charcoal ring while
 /// it has the keyboard (the caller says so: its own focus state commits the value).
-struct WarmFieldStyle: TextFieldStyle {
+struct WarmFieldStyle: @preconcurrency TextFieldStyle {
     var focused = false
 
-    func _body(configuration: TextField<Self._Label>) -> some View {
+    // SwiftUI calls the style on the main actor; the protocol does not say so.
+    @MainActor func _body(configuration: TextField<Self._Label>) -> some View {
         WarmField(field: configuration, focused: focused)
     }
 }
