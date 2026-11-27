@@ -221,6 +221,47 @@ many copied files, or a list from the CLI or an agent. It comes forward without 
 - Pause holds the files still waiting; the ones running finish. Stop keeps every original. New
   files join a batch that is still running. VoiceOver announces the batch once, when it ends.
 
+## Settings
+A warm window (`pr7-settings`): a warm sidebar of seven panes, the search at its top and ⌘1–⌘7
+for the panes, the one shown cream and raised; and the chosen pane as cream panels on the page.
+Each pane opens with its one heading in New York and a line on what it is for ("Automatic / What
+L'Esclop does on its own").
+
+| Pane | Panels |
+|---|---|
+| General | Menu bar (with Open at login), Every file, Keyboard shortcuts, Where results go |
+| Automatic | the pause, Clipboard, Images · Videos · PDFs · Audio in folders, Pipelines |
+| Compression | Normally, When aggressive, then Images · Video · PDF · Audio |
+| Results | Floating results, Drop zone |
+| Uploads | the targets, the default one and automatic uploads |
+| Agents | connect an agent, test the server, what agents may do |
+| Advanced | Updates, Backups, File names and folders, Settings file, Maintenance |
+
+- **A panel is a feature.** It is a cream tile. Its heading is a 36 pt symbol in a sunken
+  circle, the name, and one line on what it does now ("Watching 2 folders", "Off", "Images and
+  PDFs"). When the feature has a switch, the switch is in the heading (charcoal when on) and the
+  settings show under a hairline once the chevron, or the heading, opens it. A panel with no
+  switch and few rows is a tile named in small caps, always open.
+- **Round checks** for a set of kinds: Clipboard's (Images, Videos, PDFs, Audio) and the formats
+  always squeezed hard (JPEG, PNG, GIF, Video, PDF): charcoal with a white check when on, a
+  sand disc with a ring at 3:1 when off, on one pitch. Each is the same setting as
+  before.
+- **Every registry setting is in exactly one panel**, by key; the registry's own sections stay
+  for the CLI and agents. A test fails when a key has no panel or two.
+- **Finding your way among 100 settings:** under the heading, the pane's panels as chips (a
+  click opens the panel and scrolls to it); a dot on a chip and on a sidebar pane, and "2 settings
+  changed" in a panel's status, where something differs from its default; ⌘1–⌘7 for the panes
+  and ↑ ↓ in the sidebar. Pause is a panel heading of its own, and while it is on the panels under
+  it dim and say Paused.
+- A deep link or a search result opens the pane and the closed panel that holds the row, then
+  scrolls to it and marks it. The panes before 0.2 (`images`, `clipboard`, `floatingResults`…)
+  still open from a link, in their new place.
+- Rows keep native controls: a yes-or-no inside a panel is a checkbox (the panel's switch is
+  the feature's), menus are pop-up buttons, sliders show their figure, fields have a stepper and
+  unit; each row has its title and a one-line explanation, and the reset arrow while the value
+  differs from the default. A folder L'Esclop cannot watch is amber with Open Privacy Settings;
+  Add Folder… is a dashed outline.
+
 ## Color
 Use system Liquid Glass materials for floating surfaces, with one accent colour and one warning
 colour.
@@ -233,14 +274,20 @@ colour.
 | `clog` | `#8A5A33` | `#8A5A33` | app icon wood only, never in UI |
 | error | `#C4281C` | `#FF6961` | failures (system red is 3.4:1 on light) |
 
-Never: cream page backgrounds, terracotta, acid green on black, gradient washes. Dark glass
-stays translucent; it must not become an opaque slab.
+Warm windows (owner's decision, 2026-11-26, which replaces "never cream page backgrounds"):
+Settings, the first run, the pipeline editor and All Results sit on a warm page (`Surface.page`,
+#EDE8E0 light, walnut #1D1916 dark) with their content on cream tiles (`warmTile`, the cream lit
+from the top at the control elevation), pressable things as white pills and dashed outlines for
+what adds something (`Design/WarmWindow.swift`). Never: terracotta, acid green on black, gradient
+washes. Dark glass stays translucent; it must not become an opaque slab.
 
 ## Type
 System font (SF Pro) everywhere, sizes from the macOS text styles, nothing below 11 pt. Byte
 figures and percentages use SF Pro with monospaced digits (`monospacedDigit()`), never a
 monospaced typeface. The saving is the one large figure, set by `Figure`: SF Pro
-Compressed, bold, at one of its four sizes. Labels are sentence case, never all caps, never tracked out. Icons are SF
+Compressed, bold, at one of its sizes (card 17, panel 32, detail 20, first run 56, a window's
+saving 48), its unit on the digits' baseline at 70 % (owner, 2026-11-27). Labels are sentence
+case; the one section label of a tile is small caps, tracked (owner's grammar, `warmLabel`). Icons are SF
 Symbols; checkmarks are symbols, not text glyphs.
 
 ## Layout
@@ -268,12 +315,9 @@ Symbols; checkmarks are symbols, not text glyphs.
   below the pointer (hint "Tap ⌥ to hide"), and the next tap hides it; with "Show the drop zone
   only after tapping ⌥" that tap is the only way it shows. While results follow the pointer, the
   zone follows the drag to the display under it.
-- Settings: sidebar panes with the search at the top of the sidebar, grouped forms with native
-  controls (switches, menus, sliders with their figure, fields with a stepper and unit). Each
-  row has its title and a one-line explanation; a reset arrow appears at the trailing edge,
-  beside the control, while the value differs from the default. The search folds accents. A typed value is checked as it is typed, and a refused one
-  keeps the field and says why under the row in red. A deep link scrolls to its row and marks
-  it with an accent wash that fades after 2.5 s (no scroll animation with Reduce Motion).
+- Settings: see Settings above. The search folds accents. A typed value is checked as it is
+  typed, and a refused one keeps the field and says why under the row in red. A deep link marks
+  its row with a charcoal wash that fades after 2.5 s (no scroll animation with Reduce Motion).
 - Onboarding: one 640 × 560 window with a transparent title bar, five steps (welcome, automatic,
   permissions, agents, done) and a footer with Skip, step dots and Back/Continue. Steps slide in
   the direction of travel (350 ms spring); Reduce Motion turns it into a 180 ms crossfade. The

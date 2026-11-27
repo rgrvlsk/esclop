@@ -52,8 +52,8 @@ import Testing
         let window = try #require(controller.window)
         defer { window.close() }
         #expect(window.title == SettingsPane.agents.title)
-        controller.show(SettingsRoute(pane: .clipboard, row: nil))
-        #expect(window.title == SettingsPane.clipboard.title)
+        controller.show(SettingsRoute(pane: .automatic, row: nil))
+        #expect(window.title == SettingsPane.automatic.title)
     }
 }
 

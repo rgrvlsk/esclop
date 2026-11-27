@@ -1,23 +1,26 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The saving as a piece of typography (docs/design/proposal.md › Spark 1): SF Pro Compressed,
-// bold, tall and narrow, in `Ink.saving`. Its unit ("%", "MB") is 55 % of its size, semibold,
-// raised to the cap line. Only a saving is ever set this way, and at most one per surface.
+// bold, tall and narrow, in `Ink.saving`. Its unit ("%", "MB") is 70 % of its size, bold, on
+// the digits' baseline (owner, 2026-11-27). Only a saving is ever set this way, and at most one
+// per surface.
 
 import Foundation
 import SwiftUI
 
 public struct Figure: View {
-    /// The four sizes.
+    /// The five sizes.
     public enum Size: CGFloat, CaseIterable, Sendable {
         /// The card, inside its 50 pt ring (`CardFooter.ring`); a batch window's row.
         case card = 17
         /// The menu panel, the options popover.
         case panel = 32
-        /// The detail, inside its 62 pt ring; the batch window's header, and All Results until it has its own.
+        /// The detail, inside its 62 pt ring; the batch window's header.
         case detail = 20
         /// The first run.
-        case firstRun = 72
+        case firstRun = 56
+        /// A window's one saving: All Results' saved tile.
+        case window = 48
     }
 
     /// The number with its sign, "−75".
@@ -55,10 +58,11 @@ public struct Figure: View {
     }
 
     public var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: size * 0.045) {
+        // The unit on the digits' baseline (owner's grammar, 2026-11-13; confirmed 2026-11-27).
+        HStack(alignment: .firstTextBaseline, spacing: size * 0.1) {
             Text(number).font(Self.font(size))
             if !unit.isEmpty {
-                Text(unit).font(Self.font(size * 0.55, weight: .semibold)).baselineOffset(size * 0.3)
+                Text(unit).font(Self.font(size * 0.7, weight: .bold))
             }
         }
         .monospacedDigit()

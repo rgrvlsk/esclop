@@ -17,7 +17,7 @@ struct AgentsConnectSection: View {
     @State private var showsOthers = false
 
     var body: some View {
-        Section {
+        TileSection(Strings.text("Connect an agent"), id: Self.tileID) {
             if !agents.loaded {
                 ProgressView().controlSize(.small).frame(maxWidth: .infinity)
             } else if agents.command == nil {
@@ -26,7 +26,7 @@ struct AgentsConnectSection: View {
             }
             if agents.loaded, agents.found.isEmpty {
                 Text(Strings.text("No agents found on this Mac. Pick one below to set it up anyway, or copy a snippet at the end of this pane."))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Ink.secondary)
             }
             ForEach(agents.found) { row in
                 AgentRow(row: row, agents: agents, model: model, actions: actions)
@@ -37,11 +37,13 @@ struct AgentsConnectSection: View {
                 Button {
                     withAnimation(.easeOut(duration: 0.18)) { showsOthers.toggle() }
                 } label: {
-                    HStack(spacing: 6) {
+                    // The words on the agents' names' edge: a 16 pt glyph column, then 8.
+                    HStack(spacing: 8) {
                         Image(systemName: "chevron.right")
                             .font(.caption.weight(.semibold))
                             .rotationEffect(.degrees(showsOthers ? 90 : 0))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Ink.secondary)
+                            .frame(width: 16)
                         Text(Strings.format("Not found on this Mac (%d)", agents.notFound.count))
                         Spacer()
                     }
@@ -56,15 +58,11 @@ struct AgentsConnectSection: View {
                     }
                 }
             }
-        } header: {
-            Text(Strings.text("Connect an agent"))
-        } footer: {
+            // What connecting does, inside the tile under its rows.
             Text(Strings.text("Connecting adds an esclop entry to the agent’s own config file and nothing else. You see the change before it is written, and the previous version is kept in L’Esclop’s folder."))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                // Grouped forms put footers on the trailing side; these read with the rows above.
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .font(.system(size: 11.5))
+                .foregroundStyle(Ink.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .task { if !agents.loaded { await agents.refresh() } }
         .sheet(item: Binding(get: { agents.pending.map(PendingChange.init) }, set: { if $0 == nil { agents.cancel() } })) { pending in
@@ -78,6 +76,8 @@ struct AgentsConnectSection: View {
             if let row = model.highlighted, agents.notFound.contains(where: { AgentRow.rowID($0.agent) == row }) { showsOthers = true }
         }
     }
+
+    static let tileID = "agents.connectTile"
 
     struct PendingChange: Identifiable {
         let change: ConfigChange
@@ -99,12 +99,14 @@ struct AgentRow: View {
                 buttons
             } label: {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    stateIcon
+                    stateIcon.frame(width: 16)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(row.agent.shownName)
                         Text(stateText)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 12))
+                            .foregroundStyle(Ink.secondary)
+                            .lineLimit(2)
+                            .truncationMode(.middle)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -114,20 +116,39 @@ struct AgentRow: View {
             }
             switch agents.outcomes[row.id] {
             case let .done(text)?:
-                Label(text, systemImage: "checkmark.circle.fill")
-                    .font(.subheadline)
-                    .foregroundStyle(Ink.charcoalText)
+                // In the names' column, under the row: the state icon already says connected.
+                Text(text)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Ink.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 24)
             case let .failed(text)?:
-                Label(text, systemImage: "exclamationmark.triangle.fill")
-                    .font(.subheadline)
+                Text(text)
+                    .font(.system(size: 12))
                     .foregroundStyle(Ink.error)
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
+                    .padding(.leading, 24)
             case nil:
                 EmptyView()
             }
         }
+        // A row that needs a decision (another esclop, a file L'Esclop cannot read) is amber,
+        // as every such state.
+        .padding(.vertical, needsDecision ? 6 : 0)
+        .background {
+            if needsDecision {
+                RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Surface.warmDecision).padding(.horizontal, -8)
+            }
+        }
         .markable(Self.rowID(row.agent))
+    }
+
+    private var needsDecision: Bool {
+        switch row.status.state {
+        case .different, .unreadable: return true
+        default: return false
+        }
     }
 
     static func accessibilityLabel(name: String, state: String) -> String { "\(name): \(state)" }
@@ -141,10 +162,11 @@ struct AgentRow: View {
             Image(systemName: "arrow.triangle.2.circlepath.circle.fill").foregroundStyle(Ink.warm)
                 .accessibilityLabel(Strings.text("Runs another esclop"))
         case .unreadable:
-            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Ink.error)
+            // A file L'Esclop cannot read needs a decision: amber.
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Ink.warm)
                 .accessibilityLabel(Strings.text("Config unreadable"))
         case .absent, .manual:
-            Image(systemName: "circle.dashed").foregroundStyle(.secondary)
+            Image(systemName: "circle.dashed").foregroundStyle(Ink.secondary)
                 .accessibilityLabel(Strings.text("Not connected"))
         }
     }
@@ -153,7 +175,7 @@ struct AgentRow: View {
         let path = row.status.configPath ?? ""
         switch row.status.state {
         case .installed: return Strings.format("Connected in %@", path)
-        case .different: return Strings.format("Runs another esclop: %@. Update it to this one.", row.status.command?.command ?? "?")
+        case .different: return Strings.format("Runs another esclop: %@", row.status.command?.command ?? "?")
         case .absent: return row.status.present ? Strings.format("Not connected. %@", path) : Strings.format("Not found on this Mac. %@", path)
         case .unreadable: return Strings.format("%@ does not parse, so it is left alone: %@", path, row.status.detail ?? "")
         case .manual: return Strings.text("Configured in Warp’s own settings: Settings → AI → MCP Servers → Add, then paste the JSON.")
@@ -164,19 +186,26 @@ struct AgentRow: View {
         switch row.status.state {
         case .installed:
             Button(Strings.text("Disconnect…")) { agents.disconnect(row.agent) }
+                .accessibilityLabel(Strings.format("Disconnect %@…", row.agent.shownName))
         case .different:
-            HStack {
-                Button(Strings.text("Disconnect…")) { agents.disconnect(row.agent) }
+            // The decision is Update…; Disconnect… stays quiet beside it.
+            HStack(spacing: 6) {
+                RoundIconButton(symbol: "minus.circle", help: Strings.text("Disconnect…")) { agents.disconnect(row.agent) }
+                    .accessibilityLabel(Strings.format("Disconnect %@…", row.agent.shownName))
                 Button(Strings.text("Update…")) { agents.connect(row.agent) }
+                    .accessibilityLabel(Strings.format("Update %@…", row.agent.shownName))
+                    .buttonStyle(PillButtonStyle(compact: true, decision: true))
                     .disabled(agents.command == nil)
             }
         case .absent:
             Button(Strings.text("Connect…")) { agents.connect(row.agent) }
+                .accessibilityLabel(Strings.format("Connect %@…", row.agent.shownName))
                 .disabled(agents.command == nil)
         case .unreadable:
             Button(Strings.text("Show in Finder")) {
                 if let path = row.status.configPath { actions.reveal(URL(fileURLWithPath: (path as NSString).expandingTildeInPath)) }
             }
+            .buttonStyle(PillButtonStyle(compact: true, decision: true))
         case .manual:
             Button(Strings.text("Copy JSON")) { if let json = agents.manualJSON { actions.copy(json) } }
                 .disabled(agents.manualJSON == nil)
@@ -197,7 +226,7 @@ struct ConfigChangeSheet: View {
             Text(change.action == .install ? Strings.format("Connect %@", change.agentName) : Strings.format("Disconnect %@", change.agentName))
                 .font(.title2.weight(.semibold))
             Text(explanation)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Ink.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             DiffView(lines: change.diff())
             HStack {
@@ -310,7 +339,7 @@ struct AgentsTestSection: View {
     let agents: AgentsModel
 
     var body: some View {
-        Section(Strings.text("Test the server")) {
+        TileSection(Strings.text("Test the server"), id: Self.rowID) {
             LabeledContent {
                 Button(agents.probe == .running ? Strings.text("Testing…") : Strings.text("Run Test")) {
                     Task { await agents.test() }
@@ -319,22 +348,28 @@ struct AgentsTestSection: View {
             } label: {
                 SettingLabel(title: Strings.text("Talk to the MCP server"), summary: Strings.text("Starts esclop mcp serve as an agent would, then asks for its tools and status."))
             }
-            .id(Self.rowID)
             switch agents.probe {
             case .idle:
                 EmptyView()
             case .running:
                 ProgressView().controlSize(.small)
             case let .passed(report):
-                Label(AgentsModel.summary(of: report), systemImage: "checkmark.circle.fill")
-
-                    .foregroundStyle(Ink.charcoalText)
-                    .monospacedDigit()
+                // The agents' row grammar: a 13 pt glyph in a 16 pt column, the words 8 after it.
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill").font(.system(size: 13)).frame(width: 16)
+                    Text(AgentsModel.summary(of: report)).font(.system(size: 12)).monospacedDigit()
+                }
+                .foregroundStyle(Ink.charcoalText)
+                .accessibilityElement(children: .combine)
             case let .failed(why):
-                Label(why, systemImage: "xmark.octagon.fill")
-                    .foregroundStyle(Ink.error)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .textSelection(.enabled)
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Image(systemName: "xmark.octagon.fill").font(.system(size: 13)).frame(width: 16)
+                    Text(why).font(.system(size: 12))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
+                }
+                .foregroundStyle(Ink.error)
+                .accessibilityElement(children: .combine)
             }
         }
     }
@@ -347,8 +382,10 @@ struct AgentsManualSection: View {
     let agents: AgentsModel
     let actions: SettingsActions
 
+    static let tileID = "agents.manualTile"
+
     var body: some View {
-        Section {
+        TileSection(Strings.text("Set up by hand"), id: Self.tileID) {
             ForEach(agents.snippets) { snippet in
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
@@ -367,14 +404,8 @@ struct AgentsManualSection: View {
                 }
                 .id("agents.snippet.\(snippet.id)")
             }
-        } header: {
-            Text(Strings.text("Set up by hand"))
         } footer: {
-            Text(Strings.text("Agents start the server with this command and talk to it over standard input and output. Each agent keeps it in its own settings file; Connect above writes it for you."))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            PanelFooter(text: Strings.text("Agents start the server with this command and talk to it over standard input and output. Each agent keeps it in its own settings file; Connect above writes it for you."))
         }
     }
 }

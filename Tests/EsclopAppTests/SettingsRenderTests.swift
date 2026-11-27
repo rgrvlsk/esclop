@@ -22,7 +22,7 @@ import Testing
     @discardableResult
     static func renderBoth(
         _ view: (ColorScheme) -> some View, size: CGSize, name: String, settle: Duration = .milliseconds(250),
-        before: (() async throws -> Void)? = nil
+        warm: Bool = false, before: (() async throws -> Void)? = nil
     ) async throws -> [CGSize] {
         _ = NSApplication.shared
         let schemes: [ColorScheme] = [.light, .dark]
@@ -35,6 +35,8 @@ import Testing
             window.isReleasedWhenClosed = false
             window.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
             window.contentView = host
+            // A warm window, as its controller dresses it.
+            if warm { window.dressWarm() }
             window.setFrameOrigin(NSPoint(x: 40, y: 40))
             window.orderFrontRegardless()
             return window
@@ -60,7 +62,7 @@ import Testing
     @discardableResult
     static func renderWindow(
         _ view: some View, size: CGSize, name: String, scheme: ColorScheme, settle: Duration = .milliseconds(250),
-        before: (() async throws -> Void)? = nil
+        warm: Bool = false, before: (() async throws -> Void)? = nil
     ) async throws -> CGSize {
         _ = NSApplication.shared
         // A fixed screenshot location: the machine's own stays out of the pictures.
@@ -72,6 +74,8 @@ import Testing
         window.isReleasedWhenClosed = false
         window.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
         window.contentView = host
+        // A warm window, as its controller dresses it.
+        if warm { window.dressWarm() }
         window.setFrameOrigin(NSPoint(x: 40, y: 40))
         window.orderFrontRegardless()
         // SwiftUI fills the AppKit controls in over a few run loop turns; sleeping on the main
@@ -150,25 +154,25 @@ import Testing
     func deepLinkToARefusedValue(scheme: ColorScheme) async throws {
         let model = model(TestSettings())
         model.set("imageCompression", text: "45")
-        model.open(SettingsRoute(pane: .images, row: "maxImageSizeMB"))
+        model.open(SettingsRoute(pane: .automatic, row: "maxImageSizeMB"))
         model.set("maxImageSizeMB", text: "50000")
-        let size = try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-deep-link-error", scheme: scheme, settle: .milliseconds(600))
-        #expect(size.width == 800)
+        let size = try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 780, height: 600), name: "settings-deep-link-error", scheme: scheme, settle: .milliseconds(600), warm: true)
+        #expect(size.width == 780)
     }
 
-    /// General › Updates, reached by its link (the section sits at the end of the pane).
+    /// Advanced › Updates, reached by its link.
     @Test(arguments: [ColorScheme.light, .dark])
     func updates(scheme: ColorScheme) async throws {
         let model = model(TestSettings())
-        model.open(SettingsRoute(pane: .general, row: "installUpdatesAutomatically"))
-        let size = try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-updates", scheme: scheme, settle: .milliseconds(600)) {
+        model.open(SettingsRoute(pane: .advanced, row: "installUpdatesAutomatically"))
+        let size = try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 780, height: 600), name: "settings-updates", scheme: scheme, settle: .milliseconds(600), warm: true) {
             // While the window is open: a closed one never reports the row (council C7-F1).
             #expect(await eventually(.seconds(10)) { model.markInView == "installUpdatesAutomatically" }, "scrolled into view and marked")
         }
         #expect(size.width > 0)
     }
 
-    /// Search hits and links to rows low in General, with the window already open on another pane:
+    /// Search hits and links to rows in General and Advanced, with the window already open on another pane:
     /// each row comes into view marked, however late the pane lays out (council C7-F1). The picture
     /// is the last one, the pause hotkey.
     @Test(arguments: [ColorScheme.light, .dark])
@@ -176,16 +180,16 @@ import Testing
         let settings = TestSettings()
         let model = model(settings)
         model.login = OnboardingModel(defaults: settings.store.defaults)
-        model.pane = .images
+        model.pane = .compression
         let rows = [
             "installUpdatesAutomatically", EsclopSettings.cardKeysUnderPointer.key, SettingsPaneView.openAtLoginRow,
             // Twice: again after the pane was left while it was marked.
             EsclopSettings.showInScreenshots.key, EsclopSettings.showInScreenshots.key, Hotkeys.rowID(.togglePause),
         ]
-        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-link-low-row", scheme: scheme, settle: .milliseconds(400)) {
+        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 780, height: 600), name: "settings-link-low-row", scheme: scheme, settle: .milliseconds(400), warm: true) {
             for row in rows {
                 // Away while the last row is still marked, as a person moving on would be.
-                model.pane = .images
+                model.pane = .compression
                 try await Task.sleep(for: .milliseconds(150))
                 model.query = row
                 let hit = try #require(model.hits.first { $0.id == row }, "the search finds \(row)")
@@ -202,30 +206,31 @@ import Testing
     func keyboardShortcuts(scheme: ColorScheme) async throws {
         let model = model(TestSettings())
         model.open(SettingsRoute(pane: .general, row: EsclopSettings.cardKeysUnderPointer.key))
-        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-keyboard-shortcuts", scheme: scheme, settle: .milliseconds(600)) {
+        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 780, height: 600), name: "settings-keyboard-shortcuts", scheme: scheme, settle: .milliseconds(600), warm: true) {
             #expect(await eventually(.seconds(10)) { model.markInView == EsclopSettings.cardKeysUnderPointer.key }, "scrolled into view and marked")
         }
     }
 
-    /// General › Settings on another Mac: Export… and Import…, reached by its search row.
+    /// Advanced › Settings on another Mac: Export… and Import…, reached by its search row.
     @Test(arguments: [ColorScheme.light, .dark])
     func settingsFile(scheme: ColorScheme) async throws {
         let settings = TestSettings()
         let model = model(settings)
-        model.open(SettingsRoute(pane: .general, row: SettingsPaneView.settingsFileRow))
+        model.open(SettingsRoute(pane: .advanced, row: SettingsPaneView.settingsFileRow))
         let view = SettingsView(model: model, actions: SettingsActions(settingsStore: settings.store))
-        try await Self.renderWindow(view, size: CGSize(width: 800, height: 620), name: "settings-export-import", scheme: scheme, settle: .milliseconds(600))
+        try await Self.renderWindow(view, size: CGSize(width: 780, height: 600), name: "settings-export-import", scheme: scheme, settle: .milliseconds(600))
     }
 
-    /// "Show floating results" in its pane (the hotkeys, with ⌃⇧N, show on onboarding's last page).
+    /// Results, with Floating results open (the hotkeys, with ⌃⇧N, show on onboarding's last page).
     @Test(arguments: [ColorScheme.light, .dark])
     func floatingResults(scheme: ColorScheme) async throws {
         let model = model(TestSettings())
-        model.pane = .floatingResults
-        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-floating-results", scheme: scheme)
+        model.pane = .results
+        model.expanded = ["results.floating"]
+        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 780, height: 600), name: "settings-floating-results", scheme: scheme, warm: true)
     }
 
-    /// Floating results › Preset zones: a saved pipeline and a template on, the rest off.
+    /// Results › Drop zone › Preset zones: a saved pipeline and a template on, the rest off.
     @Test(arguments: [ColorScheme.light, .dark])
     func presetZones(scheme: ColorScheme) async throws {
         let temp = TempDir()
@@ -237,8 +242,8 @@ import Testing
         let model = model(TestSettings())
         model.pipelines = store
         model.set("presetZones", to: .array([.string("to WebP")]))
-        model.open(SettingsRoute(pane: .floatingResults, row: "presetZones"))
-        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-preset-zones", scheme: scheme, settle: .milliseconds(600))
+        model.open(SettingsRoute(pane: .results, row: "presetZones"))
+        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 780, height: 600), name: "settings-preset-zones", scheme: scheme, settle: .milliseconds(600), warm: true)
     }
 
     /// Settings › Uploads with two targets, one with its keys saved, and automatic uploads from
@@ -255,7 +260,7 @@ import Testing
         model.set("uploadTargets", to: .array(UploadTarget.encode(targets).map { .string($0) }))
         model.set("uploadAutomatically", to: .array([.string("clipboard")]))
         model.pane = .uploads
-        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-uploads", scheme: scheme)
+        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 780, height: 600), name: "settings-uploads", scheme: scheme, warm: true)
         var draft = UploadTargetDraft(targets[0], keysSaved: true)
         draft.accessKeyID = ""
         let editor = UploadTargetEditor(draft: draft, others: [targets[1]], model: model) {}
@@ -267,20 +272,43 @@ import Testing
         try await Self.renderWindow(warned, size: CGSize(width: 520, height: 760), name: "settings-upload-editor-private-link", scheme: scheme)
     }
 
-    /// Settings › Clipboard, tall enough for every row, with an ignored app shown by its name.
+    /// Settings › Automatic with Clipboard open, tall enough for every row, with an ignored app
+    /// shown by its name.
     @Test(arguments: [ColorScheme.light, .dark])
     func clipboardPane(scheme: ColorScheme) async throws {
         let model = model(TestSettings())
         model.set("clipboardIgnoredAppBundleIds", to: .array([.string("com.apple.TextEdit")]))
-        model.pane = .clipboard
-        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 1100), name: "settings-clipboard", scheme: scheme)
+        model.pane = .automatic
+        model.expanded = ["automatic.clipboard"]
+        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 780, height: 1100), name: "settings-clipboard", scheme: scheme, warm: true)
     }
 
     @Test(arguments: [ColorScheme.light, .dark])
     func search(scheme: ColorScheme) async throws {
         let model = model(TestSettings())
         model.query = "aggressive"
-        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-search", scheme: scheme)
+        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 780, height: 600), name: "settings-search", scheme: scheme, warm: true)
+        // A search that finds nothing: the sidebar's own words.
+        model.query = "zebra"
+        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 780, height: 600), name: "settings-search-none", scheme: scheme, warm: true)
+    }
+
+    /// Automatic as the target draws it: a kind's panel open on its folders, one of them a
+    /// folder macOS keeps L'Esclop out of, for a side-by-side with `pr7-settings`.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["ESCLOP_RENDER_ALL"] == "1"), arguments: [ColorScheme.light, .dark])
+    func likeTheTarget(scheme: ColorScheme) async throws {
+        let locked = URL(fileURLWithPath: "/tmp/esclop-render-\(UUID().uuidString.prefix(6))/Exports", isDirectory: true)
+        try FileManager.default.createDirectory(at: locked, withIntermediateDirectories: true)
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: locked.path)
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: locked.path)
+            try? FileManager.default.removeItem(at: locked.deletingLastPathComponent())
+        }
+        let model = model(TestSettings())
+        model.set("imageDirs", to: .array(["~/Desktop", locked.path].map(JSONValue.string)))
+        model.pane = .automatic
+        model.expanded = ["automatic.images"]
+        try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 780, height: 600), name: "settings-target", scheme: scheme, warm: true)
     }
 
     /// Every pane, for a pull request's screenshots: ESCLOP_RENDER_ALL=1.
@@ -291,7 +319,13 @@ import Testing
         model.set("capVideoFPS", to: .bool(false))
         for pane in SettingsPane.allCases {
             model.pane = pane
-            try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 800, height: 620), name: "settings-\(pane.rawValue)", scheme: scheme)
+            model.expanded = []
+            try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 780, height: 600), name: "settings-\(pane.rawValue)", scheme: scheme, warm: true)
+            // Every panel open, tall enough to show them.
+            let panels = pane.panels.filter(\.collapsible).map(\.id)
+            guard !panels.isEmpty else { continue }
+            model.expanded = Set(panels)
+            try await Self.renderWindow(SettingsView(model: model), size: CGSize(width: 780, height: 1400), name: "settings-\(pane.rawValue)-open", scheme: scheme, warm: true)
         }
     }
 }
@@ -313,7 +347,7 @@ import Testing
             serverName: "esclop-mcp", serverVersion: "0.1.0", protocolVersion: MCPProbe.protocolVersion, toolCount: 24,
             route: "app", appRunning: true, elapsed: .milliseconds(184)
         ))
-        try await SettingsRenderTests.renderWindow(SettingsView(model: model, agents: agents), size: CGSize(width: 800, height: 900), name: "settings-agents-connect", scheme: scheme)
+        try await SettingsRenderTests.renderWindow(SettingsView(model: model, agents: agents), size: CGSize(width: 780, height: 900), name: "settings-agents-connect", scheme: scheme, warm: true)
     }
 
     /// The note under the permission switches, which states who they bind.
@@ -325,7 +359,7 @@ import Testing
         model.pane = .agents
         let agents = AgentsModel(installer: fixture.installer, command: AgentsFixture.command)
         await agents.refresh()
-        try await SettingsRenderTests.renderWindow(SettingsView(model: model, agents: agents), size: CGSize(width: 800, height: 1500), name: "settings-agents-permissions", scheme: scheme)
+        try await SettingsRenderTests.renderWindow(SettingsView(model: model, agents: agents), size: CGSize(width: 780, height: 1500), name: "settings-agents-permissions", scheme: scheme, warm: true)
     }
 
     @Test(arguments: [ColorScheme.light, .dark])

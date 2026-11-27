@@ -585,7 +585,7 @@ public struct CardPresentation: Equatable, Sendable {
     // `.invalidArgument`, `.invalidPipeline`, `.other`. Key them when a card shows one in practice.
     private static func forPeople(_ why: String) -> String {
         if why.hasPrefix("agents may not overwrite originals") {
-            return Strings.text("Agents may not replace originals. Allow it in Settings › Agents and MCP, or ask for the result somewhere else.")
+            return Strings.text("Agents may not replace originals. Allow it in Settings › Agents, or ask for the result somewhere else.")
         }
         if why.hasSuffix(" is password protected") {
             return Strings.format("%@ is password protected.", String(why.dropLast(" is password protected".count)))

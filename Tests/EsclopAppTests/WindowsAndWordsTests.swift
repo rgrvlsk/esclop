@@ -196,7 +196,7 @@ import Testing
         model.login = login
         model.pane = .general
         // A changed switch, so its reset arrow shows at the trailing edge (W8).
-        let toggle = try #require(model.groups(in: .general).first { $0.section == .general }?.settings.first { $0.value?.boolValue != nil })
+        let toggle = try #require(model.groups(in: .general).first { $0.panel.id == "general.everyFile" }?.settings.first { $0.value?.boolValue != nil })
         #expect(model.set(toggle.key, to: .bool(!(toggle.value?.boolValue ?? false))))
         try await SettingsRenderTests.renderBoth({ _ in SettingsView(model: model) }, size: CGSize(width: 800, height: 620), name: "settings-general-login")
         // The search's way there: the row scrolled into view and marked.
