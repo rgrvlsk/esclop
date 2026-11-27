@@ -12,6 +12,7 @@ public final class OnboardingWindowController {
     let settings: SettingsWindowController
     private var window: NSWindow?
     private var closing: (any NSObjectProtocol)?
+    private var leaving: (any NSObjectProtocol)?
 
     public init(model: OnboardingModel, settings: SettingsWindowController) {
         self.model = model
@@ -33,20 +34,22 @@ public final class OnboardingWindowController {
     }
 
     func makeWindow() -> NSWindow {
-        let view = OnboardingView(
-            onboarding: model, settings: settings.model, agents: settings.agents, actions: settings.actions
-        ) { [weak settings] in settings?.show() }
+        let view = OnboardingView(onboarding: model, settings: settings.model) { [weak settings] in settings?.show() }
         let window = NSWindow(contentViewController: NSHostingController(rootView: view))
         window.title = Strings.text("Welcome to L’Esclop")
         window.styleMask = [.titled, .closable, .fullSizeContentView]
-        window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
+        window.dressWarm()
         window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
         window.center()
         // The close button and ⌘W end the tour like Skip; it stays in the menu.
         closing = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: nil) { [weak model] _ in
             MainActor.assumeIsolated { model?.windowClosed() }
+        }
+        // Left open behind another window, the tour still lets the folders be watched.
+        leaving = NotificationCenter.default.addObserver(forName: NSWindow.didResignKeyNotification, object: window, queue: nil) { [weak model] _ in
+            MainActor.assumeIsolated { model?.windowLeft() }
         }
         return window
     }

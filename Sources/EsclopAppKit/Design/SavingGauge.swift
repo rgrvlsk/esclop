@@ -72,16 +72,18 @@ public struct SavingGauge: View {
             let centre = CGPoint(x: proxy.size.width / 2, y: shape == .ring ? proxy.size.height / 2 : radius + lineWidth)
             ZStack {
                 arc(centre, radius, from: start, to: start + span)
-                    .stroke(Ink.secondary.opacity(0.3), style: StrokeStyle(lineWidth: Self.trackWidth(lineWidth: lineWidth), lineCap: .round))
+                    .stroke(Ink.secondary.opacity(0.7), style: StrokeStyle(lineWidth: Self.trackWidth(lineWidth: lineWidth), lineCap: .round))
                 if let saved {
                     let fraction = min(max(saved, 0), 1)
                     let dot = Self.dotAngle(saved: fraction, shape: shape) * .pi / 180
                     let dotSide = 2 * Self.dotRadius(lineWidth: lineWidth)
                     arc(centre, radius, from: start, to: start + span * fraction)
                         .stroke(Ink.saving, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-                    // A shadow, not an outline, sets the white dot off a cream card.
+                    // A shadow and a hairline of the saving's colour set the white dot off a
+                    // cream surface (3:1).
                     Circle()
                         .fill(.white)
+                        .overlay(Circle().strokeBorder(Ink.saving, lineWidth: 1))
                         .shadow(color: .black.opacity(0.3), radius: 1.5, y: 0.5)
                         .frame(width: dotSide, height: dotSide)
                         .position(x: centre.x + radius * cos(dot), y: centre.y + radius * sin(dot))

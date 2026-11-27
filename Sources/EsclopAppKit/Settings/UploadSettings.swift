@@ -61,18 +61,18 @@ struct UploadTargetList: View {
             if targets.isEmpty {
                 Text(Strings.text("No upload targets yet. Add an S3-compatible bucket: AWS S3, Cloudflare R2, Backblaze B2 or MinIO."))
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Ink.secondary)
             }
             ForEach(targets) { target in
                 HStack(spacing: 10) {
                     Image(systemName: "externaldrive.connected.to.line.below")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Ink.secondary)
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(target.name)
                         Text(Self.summary(of: target, keysSaved: hasKeys(target)))
                             .font(.callout)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Ink.secondary)
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
@@ -217,7 +217,7 @@ struct UploadTargetEditor: View {
             .formStyle(.grouped)
             Text(Strings.text("Path tokens: %f name, %e extension, %y %m %d date, %r five random letters. In the public link, {path} is the uploaded path; leave it empty to use the endpoint’s address."))
                 .font(.callout)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Ink.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             if problem == nil, let warning = draft.target.linkWarning {
                 Label(warning, systemImage: "exclamationmark.triangle.fill")
@@ -261,7 +261,7 @@ struct UploadTargetEditor: View {
         } else if case let .failure(error) = outcome {
             Label(CardPresentation.message(for: error), systemImage: "exclamationmark.triangle").foregroundStyle(Ink.error)
         } else if let problem {
-            Text(problem).font(.callout).foregroundStyle(.secondary)
+            Text(problem).font(.callout).foregroundStyle(Ink.secondary)
         }
     }
 

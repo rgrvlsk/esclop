@@ -220,7 +220,7 @@ final class EventLog: @unchecked Sendable {
             Issue.record("expected a refusal")
         } catch let EsclopError.notPermitted(message) {
             #expect(message.contains("allowOverwriteOriginals"))
-            #expect(message.contains("Settings → Agents and MCP"))
+            #expect(message.contains("Settings → Agents"))
             #expect(message.contains("esclop://settings/agents/allowOverwriteOriginals"), "a link the person can click")
         } catch {
             Issue.record("wrong error \(error)")

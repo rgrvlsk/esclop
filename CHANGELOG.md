@@ -54,7 +54,7 @@ Mac's own encoders.
 - Open With L'Esclop and a drop on its Dock icon optimise images, videos, PDFs and audio, and
   folders of them.
   L'Esclop never becomes their default app.
-- Settings › General › Export… and Import…, and `esclop settings export` and `import`, carry your
+- Settings › Advanced › Export… and Import…, and `esclop settings export` and `import`, carry your
   settings to another Mac.
 - Watched folders can skip formats, and images or videos by their size in pixels, each folder on
   its own. An `.esclopignore` (or Clop's `.clopignore`) file in the folder skips the names it
@@ -75,9 +75,9 @@ Mac's own encoders.
   Stop (a drop of many files is one row with Stop All), the arrow keys reach them and ⌫ stops one,
   and a failed drop or copy says so in a notice.
 - A "Show the last result" hotkey: each press goes one result further back.
-- "Gather clipboard results" (Settings › Clipboard, off by default): each new result joins the
-  ones L'Esclop last put on the clipboard, so one paste gives them all. It starts again after
-  30 seconds without a new result.
+- "Gather clipboard results" (Settings › Automatic › Clipboard, off by default): each new result
+  joins the ones L'Esclop last put on the clipboard, so one paste gives them all. It starts
+  again after 30 seconds without a new result.
 - Recent › Clear forgets the names of recent results and the last finished batch, in the panel
   and in the shared log the CLI and MCP read: only sizes and dates stay, so the saving still
   counts. Files and backups are not touched.
@@ -120,14 +120,21 @@ Mac's own encoders.
 - Copied AVIF images are optimised.
 
 ### Changed
+- The first run has three steps instead of five: copy or drop an image, the same image as a
+  lighter file (your own first result, or an example), and where results appear. The automatic
+  switches, the Desktop's access and the agents are in Settings. Folders are watched once the
+  tour ends or you leave its window, so macOS asks about the Desktop after it, never over a step.
+- Settings has seven panes instead of ten (General, Automatic, Compression, Results, Uploads,
+  Agents, Advanced), and each feature is a panel with its own switch that opens its settings.
+  Every setting keeps its name, and links to the old panes still open.
 - The pipeline editor reads as a sentence: "Runs for … when …" in chips that open the filter
   and what runs it, and the steps as a numbered flow that opens in place. The built-in
   templates are Examples, with Make It Mine, and problems name settings by their titles.
-- Copying the web address of an image, video, PDF or audio file offers to download it. Nothing
-  is fetched until you click. Settings › Clipboard › Copied web addresses can download on its own
-  or do nothing instead (`optimiseURLClipboard`: `offer`, `download` or `ignore`). Copying any
-  other link offers nothing. Optimise Clipboard (⌃⇧C) downloads any copied web address at once,
-  also one without a file extension, and keeps it when it serves media.
+- Copying the web address of an image, video, PDF or audio file offers to download it. Nothing is
+  fetched until you click. Settings › Automatic › Clipboard › Copied web addresses can download
+  on its own or do nothing instead (`optimiseURLClipboard`: `offer`, `download` or `ignore`).
+  Copying any other link offers nothing. Optimise Clipboard (⌃⇧C) downloads any copied web
+  address at once, also one without a file extension, and keeps it when it serves media.
 - Every download shows its progress on a card from the start, with Stop. Downloads stop at 2 GB
   and after an hour, and refuse an answer that is not an image, video, PDF or audio file (also a
   web page at an image's address). Downloads from a copy also send no cookies, wait for Low Data
@@ -139,9 +146,10 @@ Mac's own encoders.
 - The disk image opens on a window that shows where to drag the app.
 - Copying an image file in Finder no longer changes it on disk: L'Esclop optimises a copy and
   puts that copy on the clipboard, as Clop does. A clipboard pipeline also works on a copy.
-- Copying the results of dropped files is a switch, Settings › Clipboard › "Copy results of
-  dropped files", off by default, so a drop never replaces what you copied. A dropped file that
-  was already optimised goes on the clipboard as it is, so a paste gives everything dropped.
+- Copying the results of dropped files is a switch, Settings › Results › Drop zone › "Copy results
+  of dropped files", off by default, so a drop never replaces what you copied. A dropped file
+  that was already optimised goes on the clipboard as it is, so a paste gives everything
+  dropped.
 - Hold ⌥ while dropping to keep the originals: the results go beside them, also on a preset
   zone. Its pipeline runs on a copy beside the original, which goes again when the pipeline
   writes its result elsewhere.
@@ -213,7 +221,7 @@ Mac's own encoders.
   inplace|samefolder|temp` is a usage error.
 - CLI: `esclop upload` takes only the options it honours and refuses `-o`, `--behaviour` and
   `--in-process`. `--copy` copies every link, one per line.
-- Importing settings (Settings › General › Import… or `esclop settings import`) no longer turns
+- Importing settings (Settings › Advanced › Import… or `esclop settings import`) no longer turns
   on agent permissions or changes upload targets and automatic uploads unless you allow it: the
   app asks, and the CLI needs `--allow-permissions`. Emptying the upload targets counts as such a
   change. Both name each setting they changed.
@@ -389,7 +397,7 @@ Mac's own encoders.
   end, with the full name in a tooltip.
 - In the menu bar panel, the arrow keys reach the commands when Recent is empty, and Resume and
   the last batch. The panel's saving counts the recent results as soon as it opens.
-- A link or search result to a setting low in Settings › General scrolls to it and marks it.
+- A link or search result to a setting low in a Settings pane scrolls to it and marks it.
   Turning off Open at login says so when macOS refuses.
 - The welcome window no longer reopens at every launch, and its permissions refresh after a visit
   to System Settings, and its Permissions page scrolls when its rows do not fit. "Kept for 0

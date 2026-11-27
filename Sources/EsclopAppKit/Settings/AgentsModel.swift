@@ -115,7 +115,7 @@ public final class AgentsModel {
             try installer.apply(change)
             switch change.action {
             case .install:
-                outcomes[change.agentID] = .done(Strings.format("Connected. Restart %@, or start a new session, to load L’Esclop.", change.agentName))
+                outcomes[change.agentID] = .done(Strings.format("Restart %@, or start a new session, to load L’Esclop.", change.agentName))
             case .uninstall:
                 outcomes[change.agentID] = .done(Strings.format("Disconnected. %@ stops offering L’Esclop after a restart.", change.agentName))
             }

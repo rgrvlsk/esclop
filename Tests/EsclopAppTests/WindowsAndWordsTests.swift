@@ -107,45 +107,39 @@ import Testing
         #expect(model.hits.contains { $0.id == SettingsPaneView.openAtLoginRow })
     }
 
-    /// W6: on the first run the folders are watched once the Permissions page shows, never at
-    /// Welcome, and once only; skipping or closing the tour starts them too.
-    @Test func theTourStartsWatchingOnItsPermissionsPage() {
+    /// W6: on the first run the folders are watched once the tour ends (Get Started, Skip or the
+    /// close button), never during it, so macOS's Desktop question comes after the last step, as
+    /// it says; and once only.
+    @Test func theTourStartsWatchingWhenItEnds() {
         let model = OnboardingModel(defaults: settings.store.defaults)
-        model.readDesktopAccess = { .unknown }
         var started = 0
         model.onPermissions = { started += 1 }
         model.next()
-        #expect(started == 0, "Automatic explains nothing about the Desktop")
         model.next()
-        #expect(model.step == .permissions)
-        #expect(started == 1)
-        model.next()
-        model.back()
+        #expect(model.step == .ready)
+        #expect(started == 0, "the last step only says macOS will ask next")
         model.finish()
+        #expect(started == 1)
+        model.windowClosed()
         #expect(started == 1, "once")
 
         let skipped = OnboardingModel(defaults: TestSettings().store.defaults)
-        skipped.readDesktopAccess = { .unknown }
         var skippedStarts = 0
         skipped.onPermissions = { skippedStarts += 1 }
         skipped.finish()
-        #expect(skippedStarts == 1, "skipping from Welcome still starts watching")
-    }
+        #expect(skippedStarts == 1, "skipping from the first step still starts watching")
 
-    /// W6: the Desktop's status is read only on the Permissions page, where reading it makes
-    /// macOS ask; coming back from System Settings reads it again there.
-    @Test func theDesktopStatusIsReadOnItsPage() async {
-        let model = OnboardingModel(defaults: settings.store.defaults)
-        model.readDesktopAccess = { .denied }
-        model.refreshAccess()
-        try? await Task.sleep(for: .milliseconds(100))
-        #expect(model.desktopAccess == .unknown, "not read before its page")
-        model.go(to: .permissions)
-        await model.checkDesktop()
-        #expect(model.desktopAccess == .denied)
-        model.readDesktopAccess = { .allowed }
-        NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: nil)
-        #expect(await eventually { model.desktopAccess == .allowed })
+        // A tour left open behind another window still lets the folders be watched, once.
+        let left = OnboardingModel(defaults: TestSettings().store.defaults)
+        var leftStarts = 0
+        left.onPermissions = { leftStarts += 1 }
+        left.next()
+        left.windowLeft()
+        left.windowLeft()
+        #expect(leftStarts == 1)
+        // Opened again from the menu, the steps ahead are steps to come again.
+        left.restart()
+        #expect(left.furthest == .copy)
     }
 
     /// W8: accents fold on both sides of the search.
@@ -196,7 +190,7 @@ import Testing
         model.login = login
         model.pane = .general
         // A changed switch, so its reset arrow shows at the trailing edge (W8).
-        let toggle = try #require(model.groups(in: .general).first { $0.section == .general }?.settings.first { $0.value?.boolValue != nil })
+        let toggle = try #require(model.groups(in: .general).first { $0.panel.id == "general.everyFile" }?.settings.first { $0.value?.boolValue != nil })
         #expect(model.set(toggle.key, to: .bool(!(toggle.value?.boolValue ?? false))))
         try await SettingsRenderTests.renderBoth({ _ in SettingsView(model: model) }, size: CGSize(width: 800, height: 620), name: "settings-general-login")
         // The search's way there: the row scrolled into view and marked.

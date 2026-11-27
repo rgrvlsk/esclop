@@ -41,7 +41,7 @@ The cards take Clop's keys while the pointer rests on them: Space Quick Look, �
 The app also has Settings with search and `esclop://settings/<key>` links, one-click setup for
 AI agents, a pipeline editor, preset zones beside the drop zone, an Originals window to restore
 or remove the kept originals, Open With and Dock drops, Finder Quick Actions, Shortcuts actions,
-uploads to your own S3-compatible storage, and automatic updates. Settings › General ›
+uploads to your own S3-compatible storage, and automatic updates. Settings › Advanced ›
 Export… and Import… carry your settings to another Mac. It is in English and Catalan. See the
 [roadmap](docs/PLAN.md) and [architecture](docs/ARCHITECTURE.md).
 
