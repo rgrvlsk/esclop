@@ -262,6 +262,36 @@ L'Esclop does on its own").
   differs from the default. A folder L'Esclop cannot watch is amber with Open Privacy Settings;
   Add Folder… is a dashed outline.
 
+## First run
+One warm window, 600 × 540 pt of content under a transparent title bar (`pr8-first-run`), the
+cream lit from the top. Three steps under numbered circles joined by a line (the current one charcoal, the ones to
+come quieter), each with one heading in New York, regular:
+
+1. **Copy or drop an image.** A photograph (the bay of Jóncols, Cap de Creus; CC0, ARTWORK.md)
+   going to the clog in the menu bar, with the pointer on it. When macOS asks before every
+   clipboard read or refuses it, an amber band (an amber sign, the sentence in text ink and
+   Privacy Settings…, as step 3's); otherwise nothing.
+2. **Same image. Lighter file.** The saving as the figure at its first-run size, the arc from
+   the original size (brick red) to the new one (grey), and the picture twice at the same size:
+   compression never shows as the image getting smaller. It is the person's own first image
+   optimised while the tour is open, shown whole, and a line says it is theirs; before there
+   is one, the example, which says it is one.
+3. **Ready when you are.** The corner of the screen: the bezel turning down at the right, the
+   clog in the menu bar, a result under it, and Copy, Show in Finder and Undo as round buttons.
+   Under it, where results show and how long originals are kept, then that macOS may ask about
+   the Desktop next. Open at login and Connect an AI Agent… (Settings › Agents) sit in the
+   footer; a refused or waiting login item adds an amber band with Open Login Items right above
+   the footer, next to its switch, and VoiceOver says it. The drawing gives up 36 pt for the
+   band; its labels keep their size.
+
+Continue is a white pill and Get Started a charcoal one, at the trailing edge. There is no Skip
+or Back button: Esc and the close button end the tour, ← goes back and → goes on, and a step
+number already seen goes back to it; VoiceOver hears each new step. Steps slide in the direction
+of travel (350 ms spring); Reduce Motion makes it a 180 ms crossfade. The folders are watched
+once the tour ends (Get Started, Esc or the close button) or the person leaves its window for
+another, so macOS's Desktop question never covers a step. What the tour no longer shows lives in Settings: the automatic switches, each folder's
+access and the agents.
+
 ## Color
 Use system Liquid Glass materials for floating surfaces, with one accent colour and one warning
 colour.
@@ -318,13 +348,7 @@ Symbols; checkmarks are symbols, not text glyphs.
 - Settings: see Settings above. The search folds accents. A typed value is checked as it is
   typed, and a refused one keeps the field and says why under the row in red. A deep link marks
   its row with a charcoal wash that fades after 2.5 s (no scroll animation with Reduce Motion).
-- Onboarding: one 640 × 560 window with a transparent title bar, five steps (welcome, automatic,
-  permissions, agents, done) and a footer with Skip, step dots and Back/Continue. Steps slide in
-  the direction of travel (350 ms spring); Reduce Motion turns it into a 180 ms crossfade. The
-  steps reuse Settings rows, so a switch flipped in the tour is the same setting (Open at login
-  is also in Settings › General). Permissions shows the Desktop's access as Settings' folder rows
-  read it; on the first run the folders are watched only from that page on, so macOS's question
-  never covers Welcome.
+- First run: see First run above.
 
 ## Motion
 | Event | Motion |

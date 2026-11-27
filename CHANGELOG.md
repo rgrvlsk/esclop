@@ -120,6 +120,10 @@ Mac's own encoders.
 - Copied AVIF images are optimised.
 
 ### Changed
+- The first run has three steps instead of five: copy or drop an image, the same image as a
+  lighter file (your own first result, or an example), and where results appear. The automatic
+  switches, the Desktop's access and the agents are in Settings. Folders are watched once the
+  tour ends or you leave its window, so macOS asks about the Desktop after it, never over a step.
 - Settings has seven panes instead of ten (General, Automatic, Compression, Results, Uploads,
   Agents, Advanced), and each feature is a panel with its own switch that opens its settings.
   Every setting keeps its name, and links to the old panes still open.

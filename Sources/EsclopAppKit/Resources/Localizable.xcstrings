@@ -1101,6 +1101,16 @@
         }
       }
     },
+    "A picture goes to the clog in the menu bar.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una imatge va a l’esclop de la barra de menús."
+          }
+        }
+      }
+    },
     "A pipeline also runs when you choose it: from a result’s Share tab, with Run on Files…, or in Terminal with esclop pipeline run.": {
       "localizations": {
         "ca": {
@@ -1137,6 +1147,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Un quart de l’original"
+          }
+        }
+      }
+    },
+    "A result under the clog, with Copy, Show in Finder and Undo.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un resultat sota l’esclop, amb Copia, Mostra al Finder i Desfés."
           }
         }
       }
@@ -1401,6 +1421,16 @@
         }
       }
     },
+    "After": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Després"
+          }
+        }
+      }
+    },
     "After tapping ⌥ during a drag": {
       "localizations": {
         "ca": {
@@ -1471,16 +1501,6 @@
         }
       }
     },
-    "Agents use L’Esclop through its MCP server to optimise, convert and crop files when you ask them. You can do this later in Settings › Agents.": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Els agents fan servir L’Esclop a través del seu servidor MCP per optimitzar, convertir i retallar fitxers quan els ho demanes. Ho pots fer més endavant a Configuració › Agents."
-          }
-        }
-      }
-    },
     "Aggressive": {
       "localizations": {
         "ca": {
@@ -1511,12 +1531,12 @@
         }
       }
     },
-    "Allowed": {
+    "Allow L’Esclop in Login Items & Extensions.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Permès"
+            "value": "Permet L’Esclop a Ítems d’inici de sessió i extensions."
           }
         }
       }
@@ -1657,6 +1677,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Un fitxer .esclopignore en una carpeta fa que s’ometin els noms que hi consten, com fa .gitignore; el .clopignore del Clop també funciona."
+          }
+        }
+      }
+    },
+    "An example. Copy a screenshot to see your own.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "És un exemple. Copia una captura de pantalla per veure la teva."
           }
         }
       }
@@ -1897,6 +1927,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lot acabat: 1 fitxer, %@ estalviats"
+          }
+        }
+      }
+    },
+    "Before": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abans"
           }
         }
       }
@@ -2501,6 +2541,16 @@
         }
       }
     },
+    "Connect an AI Agent…": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecta un agent d’IA…"
+          }
+        }
+      }
+    },
     "Connect an AI agent": {
       "localizations": {
         "ca": {
@@ -2847,6 +2897,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Primer copia una imatge o un fitxer."
+          }
+        }
+      }
+    },
+    "Copy or drop an image": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia o deixa anar una imatge"
           }
         }
       }
@@ -5341,6 +5401,16 @@
         }
       }
     },
+    "L’Esclop wakes up when you copy a screenshot or drop a file on the clog.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’Esclop es desperta quan copies una captura de pantalla o deixes anar un fitxer a l’esclop."
+          }
+        }
+      }
+    },
     "L’Esclop was not in the config of %@.": {
       "localizations": {
         "ca": {
@@ -5881,6 +5951,16 @@
         }
       }
     },
+    "Next, macOS may ask to let L’Esclop see your Desktop, where screenshots land.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Després el macOS pot demanar accés a l’Escriptori, on van les captures."
+          }
+        }
+      }
+    },
     "No address was given to the action.": {
       "localizations": {
         "ca": {
@@ -6291,6 +6371,16 @@
         }
       }
     },
+    "Nothing you can see changes.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No canvia res que es vegi."
+          }
+        }
+      }
+    },
     "Off": {
       "localizations": {
         "ca": {
@@ -6426,7 +6516,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Obre els ítems d’inici de sessió"
+            "value": "Obre els ítems d’inici"
           }
         }
       }
@@ -7361,16 +7451,6 @@
         }
       }
     },
-    "Privacy Settings…": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Privacitat i seguretat…"
-          }
-        }
-      }
-    },
     "Public link": {
       "localizations": {
         "ca": {
@@ -7517,6 +7597,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "A punt"
+          }
+        }
+      }
+    },
+    "Ready when you are": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A punt quan vulguis"
           }
         }
       }
@@ -8041,6 +8131,26 @@
         }
       }
     },
+    "Results show in a corner and fade away; the clog keeps the latest. Originals are always kept.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els resultats surten en una cantonada i s’esvaeixen; l’esclop guarda els últims. Els originals es conserven sempre."
+          }
+        }
+      }
+    },
+    "Results show in a corner and fade away; the clog keeps the latest. Originals are kept for %@.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Els resultats surten en una cantonada i s’esvaeixen; l’esclop guarda els últims. Els originals es conserven %@."
+          }
+        }
+      }
+    },
     "Resume": {
       "localizations": {
         "ca": {
@@ -8327,6 +8437,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "S’executa sol per a"
+          }
+        }
+      }
+    },
+    "Same image. Lighter file.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mateixa imatge. Fitxer més lleuger."
           }
         }
       }
@@ -8811,12 +8931,72 @@
         }
       }
     },
+    "Your own copy, optimised just now.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La teva còpia, optimitzada ara mateix."
+          }
+        }
+      }
+    },
     "closed": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "tancat"
+          }
+        }
+      }
+    },
+    "macOS did not add L’Esclop to your login items.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El macOS no ha afegit L’Esclop a l’inici de sessió."
+          }
+        }
+      }
+    },
+    "macOS did not remove L’Esclop from your login items.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El macOS no ha tret L’Esclop de l’inici de sessió."
+          }
+        }
+      }
+    },
+    "macOS does not let L’Esclop read what you copy. Allow it in Privacy & Security.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El macOS no deixa que L’Esclop llegeixi el que copies. Permet-ho a Privacitat i seguretat."
+          }
+        }
+      }
+    },
+    "macOS may ask before L’Esclop reads what you copy.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El macOS pot preguntar abans que L’Esclop llegeixi el que copies."
+          }
+        }
+      }
+    },
+    "macOS may ask each time L’Esclop reads what you copy. Choose Allow there so it stops asking.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El macOS pot preguntar a cada còpia. Tria Permet i no ho tornarà a demanar."
           }
         }
       }
@@ -12017,26 +12197,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "El macOS espera que permetis L’Esclop a Ítems d’inici de sessió i extensions."
-          }
-        }
-      }
-    },
-    "macOS will ask to let L’Esclop see your Desktop, which it watches for new images. It asks again the first time L’Esclop replaces a file in Documents or Downloads. If you say no, the Desktop is left alone; Settings › Automatic shows how to allow it later.": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El macOS et demanarà que deixis que L’Esclop vegi l’Escriptori, on vigila les imatges noves. Torna a preguntar la primera vegada que L’Esclop substitueix un fitxer de Documents o Baixades. Si dius que no, no es toca l’Escriptori; a Configuració › Automàtic hi ha com permetre-ho més endavant."
-          }
-        }
-      }
-    },
-    "macOS will ask to let L’Esclop see your Desktop: that is where screenshots land, and L’Esclop watches it for new ones. It asks again the first time L’Esclop replaces a file in Documents or Downloads. If you say no, the Desktop is left alone; Settings › Automatic shows how to allow it later.": {
-      "localizations": {
-        "ca": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El macOS et demanarà que deixis que L’Esclop vegi l’Escriptori: és on van a parar les captures de pantalla, i L’Esclop hi vigila les noves. Torna a preguntar la primera vegada que L’Esclop substitueix un fitxer de Documents o Baixades. Si dius que no, no es toca l’Escriptori; a Configuració › Automàtic hi ha com permetre-ho més endavant."
           }
         }
       }
