@@ -63,7 +63,8 @@ import Testing
     @Test func nestedPhrasesAreTranslatedToo() throws {
         let diagnostic = try #require(PipelineParser.check("lowerBitrate(kbps: 2)").errors.first)
         #expect(diagnostic.message == "`kbps` must be a whole number from 8 to 1024; `2` is too small.")
-        #expect(PipelineVocabulary.message(diagnostic, locale: ca) == "`kbps` ha de ser un nombre enter de 8 a 1024; `2` és massa petit.")
+        // The editor drops the value its field already shows; the CLI keeps it.
+        #expect(PipelineVocabulary.message(diagnostic, locale: ca) == "`kbps` ha de ser un nombre enter de 8 a 1024.")
         let unknown = try #require(PipelineParser.check("optimze").errors.first)
         #expect(PipelineVocabulary.message(unknown, locale: ca) == "Pas desconegut: `optimze`. Volies dir `optimise`?")
         #expect(PipelineVocabulary.message(unknown, locale: Locale(identifier: "en")) == unknown.message)

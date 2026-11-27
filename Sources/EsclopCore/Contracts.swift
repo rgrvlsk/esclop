@@ -360,7 +360,7 @@ public enum EsclopError: Error, Codable, Equatable, Sendable, CustomStringConver
         case .appNotRunning: return "The esclop app is not running"
         case let .unreadable(kind): return Self.unreadableMessage(kind)
         case let .leftAsIs(reason): return reason
-        case let .backupRemoved(file, days?): return "The backup of \(file) was removed after \(days) \(days == 1 ? "day" : "days") (Settings → Backups)"
+        case let .backupRemoved(file, days?): return "The backup of \(file) was removed after \(days) \(days == 1 ? "day" : "days") (Settings → Advanced → Backups)"
         case let .backupRemoved(file, nil): return "The backup of \(file) is no longer there"
         case let .cannotFit(target, smallest):
             let size = { (bytes: Int) in ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file) }

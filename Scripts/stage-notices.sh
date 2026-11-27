@@ -7,6 +7,7 @@
 #   esclop-engine.md    the crates linked into esclop-engine (engine/THIRD_PARTY-engine.md)
 #   swift-packages.md   the Swift packages linked into the CLI and the app (Scripts/swift-notices.sh)
 #   THIRD_PARTY.md      the record of the bundled tools
+#   ARTWORK.md          pictures by others that ship in the app, with their licences
 # Scripts/licence-gate.sh --dist checks the result.
 #
 #   Scripts/stage-notices.sh DEST
@@ -20,4 +21,5 @@ cp "$ROOT"/Binaries/LICENSES/*.txt "$DEST/"
 cp "$ROOT/LICENSE" "$DEST/esclop.txt"
 cp "$ROOT/engine/THIRD_PARTY-engine.md" "$DEST/esclop-engine.md"
 cp "$ROOT/THIRD_PARTY.md" "$DEST/THIRD_PARTY.md"
+cp "$ROOT/ARTWORK.md" "$DEST/ARTWORK.md"
 "$ROOT/Scripts/swift-notices.sh" "$DEST/swift-packages.md"

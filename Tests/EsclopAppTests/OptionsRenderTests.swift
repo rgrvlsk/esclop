@@ -205,14 +205,14 @@ import UniformTypeIdentifiers
         let settings = SettingsViewModel(provider: harness.model.service.context.settings)
         let rules = try #require(settings.descriptor(EsclopSettings.clipboardRules.key))
         #expect(SettingPresentation.control(for: rules) == .clipboardRules)
-        #expect(settings.pane(of: rules.key) == .clipboard, "the rules sit in Settings › Clipboard")
+        #expect(settings.pane(of: rules.key) == .automatic, "the rules sit in Settings › Automatic › Clipboard")
         let label = AnyView(SettingLabel(title: rules.title, summary: rules.summary))
         let list = Form { ClipboardRuleList(descriptor: rules, model: settings, label: label) }.formStyle(.grouped).frame(width: 480, height: 240)
         try await snapshot(list, name: "settings-clipboard-rules", scheme: scheme)
 
         // Search finds the rules.
         settings.query = "clipboard rules"
-        #expect(settings.hits.contains { $0.id == EsclopSettings.clipboardRules.key && $0.pane == .clipboard })
+        #expect(settings.hits.contains { $0.id == EsclopSettings.clipboardRules.key && $0.pane == .automatic })
 
         // Deleting goes through the registry, like any other setting.
         let stored = EsclopSettings.clipboardRules.value(in: harness.settings.store)

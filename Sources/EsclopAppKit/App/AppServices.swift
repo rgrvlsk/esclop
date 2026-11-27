@@ -93,6 +93,8 @@ public final class AppServices {
             }
         )
         onboarding = OnboardingWindowController(model: OnboardingModel(defaults: settings.defaults), settings: settingsWindow)
+        // The tour's second step shows the person's own first result.
+        onboarding.model.results = { [weak model] in model?.recent ?? [] }
         server = AppServer(handler: AppIPCHandler(model: model))
         model.onCardsChange = { [weak panels] in panels?.update() }
         let batchWindow = BatchWindowController(model: model)
@@ -155,8 +157,8 @@ public final class AppServices {
         try server.start()
         watcher.start()
         dropZone.start()
-        // On the first run the tour starts watching once its Permissions page explains macOS's
-        // question about the Desktop, so the question never covers the Welcome page.
+        // On the first run the tour starts watching once it ends or the person leaves it, so
+        // macOS's Desktop question never covers a step.
         if onboarding.model.shouldShowAtLaunch {
             onboarding.model.onPermissions = { [weak folders] in folders?.refresh() }
         } else {
@@ -175,8 +177,9 @@ public final class AppServices {
         pipelineFiles?.start([model.service.context.pipelines.directory])
         let workspace = NSWorkspace.shared.notificationCenter
         volumeObservers = [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification].map { name in
-            workspace.addObserver(forName: name, object: nil, queue: .main) { [weak folders] _ in
-                MainActor.assumeIsolated { folders?.refresh() }
+            workspace.addObserver(forName: name, object: nil, queue: .main) { [weak folders, weak tour = onboarding.model] _ in
+                // Not while the first run still holds the folders back.
+                MainActor.assumeIsolated { if tour?.onPermissions == nil { folders?.refresh() } }
             }
         }
         // Finder's Quick Actions come to this object; refreshing makes a new install's show at once.

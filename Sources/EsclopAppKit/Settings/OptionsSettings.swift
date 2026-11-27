@@ -28,7 +28,7 @@ struct ClipboardRuleList: View {
             if stored.isEmpty {
                 Text(Strings.text("No clipboard rules yet. Tick “Always apply” in a file’s options to make one."))
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Ink.secondary)
             }
             ForEach(Array(stored.enumerated()), id: \.offset) { index, text in
                 if let rule = try? JSONDecoder().decode(ClipboardRule.self, from: Data(text.utf8)) {
@@ -37,7 +37,7 @@ struct ClipboardRuleList: View {
                             // Alone as a title it starts with a capital ("Captures de pantalla PNG").
                             let subject = rule.subject()
                             Text(subject.prefix(1).uppercased() + subject.dropFirst())
-                            Text(rule.choice.summary(input: rule.inputFormat)).font(.callout).foregroundStyle(.secondary)
+                            Text(rule.choice.summary(input: rule.inputFormat)).font(.callout).foregroundStyle(Ink.secondary)
                         }
                         Spacer()
                         Button(role: .destructive) {

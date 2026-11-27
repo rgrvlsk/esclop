@@ -51,8 +51,10 @@ public final class PipelineEditorWindowController {
         window.title = Strings.text("Pipelines")
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         window.toolbarStyle = .unified
+        window.titleVisibility = .hidden
+        window.dressWarm()
         window.isReleasedWhenClosed = false
-        window.setContentSize(NSSize(width: 900, height: 680))
+        window.setContentSize(NSSize(width: 920, height: 680))
         window.contentMinSize = NSSize(width: 760, height: 520)
         window.center()
         window.setFrameAutosaveName("dev.esclop.pipelines")

@@ -29,21 +29,21 @@ import Testing
         var seen: [String: SettingsPane] = [:]
         for pane in SettingsPane.allCases {
             for group in model.groups(in: pane) {
-                for setting in group.settings {
+                for setting in group.allSettings {
                     #expect(seen[setting.key] == nil, "\(setting.key) is in \(seen[setting.key]?.title ?? "") and \(pane.title)")
                     seen[setting.key] = pane
                 }
             }
         }
         #expect(Set(seen.keys) == Set(SettingsRegistry.shared.keys), "every registry setting shows up in a pane")
-        for section in SettingsSection.allCases {
-            #expect(SettingsPane.allCases.filter { $0.sections.contains(section) }.count == 1, "\(section) belongs to one pane")
+        for key in SettingsRegistry.shared.keys {
+            #expect(SettingsPane.place(of: key)?.pane == seen[key], "\(key) is placed where it is shown")
         }
     }
 
     @Test func panesTheBriefNames() {
         #expect(SettingsPane.allCases.map(\.title) == [
-            "General", "Images", "Video", "PDF", "Audio", "Clipboard", "Floating results", "Uploads", "Agents and MCP", "Advanced",
+            "General", "Automatic", "Compression", "Results", "Uploads", "Agents", "Advanced",
         ])
         #expect(model().groups(in: .agents).flatMap(\.settings).map(\.key) == AgentPermission.allCases.map(\.rawValue))
     }
@@ -106,16 +106,18 @@ import Testing
 
     @Test func deepLinks() {
         #expect(route("esclop://settings") == SettingsRoute())
-        #expect(route("esclop://settings/images") == SettingsRoute(pane: .images))
-        #expect(route("esclop://settings/Floating%20results") == SettingsRoute(pane: .floatingResults))
+        #expect(route("esclop://settings/compression") == SettingsRoute(pane: .compression))
+        #expect(route("esclop://settings/images") == SettingsRoute(pane: .compression), "a pane before 0.2 still opens")
+        #expect(route("esclop://settings/Floating%20results") == SettingsRoute(pane: .results))
+        #expect(route("esclop://settings/clipboard") == SettingsRoute(pane: .automatic))
         #expect(route("esclop://settings/mcp") == SettingsRoute(pane: .agents))
-        #expect(route("esclop://settings/interface") == SettingsRoute(pane: .floatingResults), "a registry section names its pane")
-        #expect(route("esclop://settings/imageCompression") == SettingsRoute(pane: .images, row: "imageCompression"))
-        #expect(route("esclop://settings/images/imageCompression") == SettingsRoute(pane: .images, row: "imageCompression"))
-        #expect(route("esclop://settings/video/imageCompression") == SettingsRoute(pane: .images, row: "imageCompression"), "the row's own pane wins over a stale one")
+        #expect(route("esclop://settings/interface") == SettingsRoute(pane: .results), "a registry section names its pane")
+        #expect(route("esclop://settings/imageCompression") == SettingsRoute(pane: .compression, row: "imageCompression"))
+        #expect(route("esclop://settings/images/imageCompression") == SettingsRoute(pane: .compression, row: "imageCompression"))
+        #expect(route("esclop://settings/video/imageDirs") == SettingsRoute(pane: .automatic, row: "imageDirs"), "the row's own pane wins over a stale one")
         #expect(route("esclop://settings/agents?highlight=allowRunScripts") == SettingsRoute(pane: .agents, row: "allowRunScripts"))
         #expect(route("esclop://settings/hotkey.optimiseClipboard") == SettingsRoute(pane: .general, row: "hotkey.optimiseClipboard"))
-        #expect(route("esclop://settings/sameFolderNameTemplate") == SettingsRoute(pane: .general, row: "sameFolderNameTemplate"))
+        #expect(route("esclop://settings/sameFolderNameTemplate") == SettingsRoute(pane: .advanced, row: "sameFolderNameTemplate"))
         #expect(route("esclop://results/recent") == nil)
         #expect(route("https://settings/images") == nil)
     }
@@ -140,20 +142,26 @@ import Testing
 
     @Test func openingALinkSelectsPaneAndRow() {
         let model = model()
-        model.open(SettingsRoute(pane: .pdf, row: "pdfDPI"))
-        #expect(model.pane == .pdf)
+        model.open(SettingsRoute(pane: .compression, row: "pdfDPI"))
+        #expect(model.pane == .compression)
         #expect(model.highlighted == "pdfDPI")
+        #expect(model.expanded == ["compression.pdf"], "the closed panel that holds the row opens")
         model.open(SettingsRoute(pane: nil, row: nil))
-        #expect(model.pane == .pdf, "a bare link keeps the pane")
+        #expect(model.pane == .compression, "a bare link keeps the pane")
+        model.open(SettingsRoute(pane: .automatic, row: "enableAutomaticVideoOptimisations"))
+        #expect(model.expanded == ["compression.pdf"], "a panel's own switch is in its heading: nothing to open")
+        model.open(SettingsRoute(pane: .automatic, row: "watchedFolderRules"))
+        #expect(model.expanded.contains("automatic.images"), "the rules are edited under the image folders")
+        #expect(model.highlighted == "imageDirs", "and marked where they are edited")
     }
 
     // MARK: Search
 
     @Test func searchFindsAcrossPanes() {
         let model = model()
-        model.query = "aggressive"
+        model.query = "video"
         let panes = Set(model.hits.map(\.pane))
-        #expect(panes.isSuperset(of: [.images, .video, .pdf, .audio]))
+        #expect(panes.isSuperset(of: [.compression, .automatic]), "the video folders and the video settings")
         model.query = "shortcut"
         #expect(model.hits.map(\.id).contains("hotkey.optimiseClipboard"))
         model.query = "agents overwrite"
@@ -168,8 +176,8 @@ import Testing
 
     @Test func searchByPaneName() {
         let model = model()
-        model.query = "floating results"
-        #expect(model.hits.count == model.groups(in: .floatingResults).flatMap(\.settings).count)
+        model.query = "compression"
+        #expect(model.hits.count >= model.groups(in: .compression).flatMap(\.allSettings).count)
     }
 
     // MARK: Writing

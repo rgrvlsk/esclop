@@ -221,6 +221,104 @@ many copied files, or a list from the CLI or an agent. It comes forward without 
 - Pause holds the files still waiting; the ones running finish. Stop keeps every original. New
   files join a batch that is still running. VoiceOver announces the batch once, when it ends.
 
+## Settings
+A warm window (`pr7-settings`): a warm sidebar of seven panes, the search at its top and ⌘1–⌘7
+for the panes, the one shown cream and raised; and the chosen pane as cream panels on the page.
+Each pane opens with its one heading in New York and a line on what it is for ("Automatic / What
+L'Esclop does on its own").
+
+| Pane | Panels |
+|---|---|
+| General | Menu bar (with Open at login), Every file, Keyboard shortcuts, Where results go |
+| Automatic | the pause, Clipboard, Images · Videos · PDFs · Audio in folders, Pipelines |
+| Compression | Normally, When aggressive, then Images · Video · PDF · Audio |
+| Results | Floating results, Drop zone |
+| Uploads | the targets, the default one and automatic uploads |
+| Agents | connect an agent, test the server, what agents may do |
+| Advanced | Updates, Backups, File names and folders, Settings file, Maintenance |
+
+- **A panel is a feature.** It is a cream tile. Its heading is a 36 pt symbol in a sunken
+  circle, the name, and one line on what it does now ("Watching 2 folders", "Off", "Images and
+  PDFs"). When the feature has a switch, the switch is in the heading (charcoal when on) and the
+  settings show under a hairline once the chevron, or the heading, opens it. A panel with no
+  switch and few rows is a tile named in small caps, always open.
+- **Round checks** for a set of kinds: Clipboard's (Images, Videos, PDFs, Audio) and the formats
+  always squeezed hard (JPEG, PNG, GIF, Video, PDF): charcoal with a white check when on, a
+  sand disc with a ring at 3:1 when off, on one pitch. Each is the same setting as
+  before.
+- **Every registry setting is in exactly one panel**, by key; the registry's own sections stay
+  for the CLI and agents. A test fails when a key has no panel or two.
+- **Finding your way among 100 settings:** under the heading, the pane's panels as chips (a
+  click opens the panel and scrolls to it); a dot on a chip and on a sidebar pane, and "2 settings
+  changed" in a panel's status, where something differs from its default; ⌘1–⌘7 for the panes
+  and ↑ ↓ in the sidebar. Pause is a panel heading of its own, and while it is on the panels under
+  it dim and say Paused.
+- A deep link or a search result opens the pane and the closed panel that holds the row, then
+  scrolls to it and marks it. The panes before 0.2 (`images`, `clipboard`, `floatingResults`…)
+  still open from a link, in their new place.
+- Rows keep native controls: a yes-or-no inside a panel is a checkbox (the panel's switch is
+  the feature's), menus are pop-up buttons, sliders show their figure, fields have a stepper and
+  unit; each row has its title and a one-line explanation, and the reset arrow while the value
+  differs from the default. A folder L'Esclop cannot watch is amber with Open Privacy Settings;
+  Add Folder… is a dashed outline.
+
+## First run
+One warm window, 600 × 540 pt of content under a transparent title bar (`pr8-first-run`), the
+cream lit from the top. Three steps under numbered circles joined by a line (the current one charcoal, the ones to
+come quieter), each with one heading in New York, regular:
+
+1. **Copy or drop an image.** A photograph (the bay of Jóncols, Cap de Creus; CC0, ARTWORK.md)
+   going to the clog in the menu bar, with the pointer on it. When macOS asks before every
+   clipboard read or refuses it, an amber band (an amber sign, the sentence in text ink and
+   Privacy Settings…, as step 3's); otherwise nothing.
+2. **Same image. Lighter file.** The saving as the figure at its first-run size, the arc from
+   the original size (brick red) to the new one (grey), and the picture twice at the same size:
+   compression never shows as the image getting smaller. It is the person's own first image
+   optimised while the tour is open, shown whole, and a line says it is theirs; before there
+   is one, the example, which says it is one.
+3. **Ready when you are.** The corner of the screen: the bezel turning down at the right, the
+   clog in the menu bar, a result under it, and Copy, Show in Finder and Undo as round buttons.
+   Under it, where results show and how long originals are kept, then that macOS may ask about
+   the Desktop next. Open at login and Connect an AI Agent… (Settings › Agents) sit in the
+   footer; a refused or waiting login item adds an amber band with Open Login Items right above
+   the footer, next to its switch, and VoiceOver says it. The drawing gives up 36 pt for the
+   band; its labels keep their size.
+
+Continue is a white pill and Get Started a charcoal one, at the trailing edge. There is no Skip
+or Back button: Esc and the close button end the tour, ← goes back and → goes on, and a step
+number already seen goes back to it; VoiceOver hears each new step. Steps slide in the direction
+of travel (350 ms spring); Reduce Motion makes it a 180 ms crossfade. The folders are watched
+once the tour ends (Get Started, Esc or the close button) or the person leaves its window for
+another, so macOS's Desktop question never covers a step. What the tour no longer shows lives in Settings: the automatic switches, each folder's
+access and the agents.
+
+## Pipeline editor
+A warm window (`pr9-pipeline-editor`). On the left, a warm sidebar with Yours and Examples (the
+built-in templates, with no padlock) in small caps, the open one cream and raised, ↑ and ↓ to
+move and ⌫ to delete one of yours; a dashed "New Pipeline" at the bottom. On the right, one
+pipeline on the page:
+
+- **The name as the one heading,** in New York, regular, edited in place, and its description
+  under it; Try It…, Run on Files… and a "…" menu (Duplicate, Delete…) as white pills at the top
+  right in every state. Run on Files… runs the saved pipeline, so it waits, dimmed, while there
+  are changes to save (Save is in the toolbar). An example says so and offers Make It Mine.
+- **One sentence of chips:** "Runs for [PNG files named “Screenshot”] when [copied] or [new in
+  Inbox] ⊕". A connective travels with its chip and ⊕ with the last one, so a line never ends on
+  "or". The filter chip opens the filter in a popover; a trigger chip and ⊕ open what runs it.
+- **Steps as a numbered flow:** 28 pt numbers on a line, each step a cream tile with its symbol
+  in a sunken circle, its name and its settings in words ("Half size", "To WebP", "Long edge
+  1600 px"). The chevron opens it in place on a lighter panel with its settings only (a
+  conversion's usual formats as chips, a bounded number as a slider, values in sunken fields);
+  a "…" on the heading has Move Up, Move Down and Remove Step. A step with an error opens by
+  itself and keeps its red mark when closed. "Add a Step" is dashed, at the end of the line.
+  Steps reorder by dragging, from the "…" menu, with ⌥⌘↑ ⌥⌘↓ on the step the keyboard is on
+  (its tile shows the ring), and with VoiceOver's actions; an example's do not move. A problem
+  that names a setting sits under it, its field outlined in red.
+- **Problems name settings by their titles,** in the language's quotes: "“Long edge (px)” must
+  be…", «Costat llarg (px)» in Catalan.
+- **Toolbar:** Steps · Text, Duplicate (⌘D), Revert and Save (⌘S). Try It… is a sheet (Esc
+  closes it). Options sit at the bottom as checkboxes; a pipeline with scripts is amber.
+
 ## All Results
 A warm window (`pr6-results-window`), from the menu's gear (All Results…): every result of the
 last seven days, newest first, from the shared log and this session.
@@ -296,19 +394,10 @@ Symbols; checkmarks are symbols, not text glyphs.
   below the pointer (hint "Tap ⌥ to hide"), and the next tap hides it; with "Show the drop zone
   only after tapping ⌥" that tap is the only way it shows. While results follow the pointer, the
   zone follows the drag to the display under it.
-- Settings: sidebar panes with the search at the top of the sidebar, grouped forms with native
-  controls (switches, menus, sliders with their figure, fields with a stepper and unit). Each
-  row has its title and a one-line explanation; a reset arrow appears at the trailing edge,
-  beside the control, while the value differs from the default. The search folds accents. A typed value is checked as it is typed, and a refused one
-  keeps the field and says why under the row in red. A deep link scrolls to its row and marks
-  it with an accent wash that fades after 2.5 s (no scroll animation with Reduce Motion).
-- Onboarding: one 640 × 560 window with a transparent title bar, five steps (welcome, automatic,
-  permissions, agents, done) and a footer with Skip, step dots and Back/Continue. Steps slide in
-  the direction of travel (350 ms spring); Reduce Motion turns it into a 180 ms crossfade. The
-  steps reuse Settings rows, so a switch flipped in the tour is the same setting (Open at login
-  is also in Settings › General). Permissions shows the Desktop's access as Settings' folder rows
-  read it; on the first run the folders are watched only from that page on, so macOS's question
-  never covers Welcome.
+- Settings: see Settings above. The search folds accents. A typed value is checked as it is
+  typed, and a refused one keeps the field and says why under the row in red. A deep link marks
+  its row with a charcoal wash that fades after 2.5 s (no scroll animation with Reduce Motion).
+- First run: see First run above.
 
 ## Motion
 | Event | Motion |
