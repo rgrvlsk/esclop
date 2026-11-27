@@ -319,6 +319,28 @@ pipeline on the page:
 - **Toolbar:** Steps · Text, Duplicate (⌘D), Revert and Save (⌘S). Try It… is a sheet (Esc
   closes it). Options sit at the bottom as checkboxes; a pipeline with scripts is amber.
 
+## All Results
+A warm window (`pr6-results-window`), from the menu's gear (All Results…): every result of the
+last seven days, newest first, from the shared log and this session.
+
+- **Header:** "All Results" in New York, regular, a search by name (⌘F; accents and case fold)
+  and the kinds as chips (All · Images · Video · PDF · Audio), charcoal when chosen; on one line
+  when they fit.
+- **Saved:** one tile with SAVED in small caps, the arc from the original size (brick red, at its
+  left end) to the new one (grey, at its right), the saving between them at a window's figure
+  size, and the counts spread beside it ("4 files · 1 converted · 1 error"; a count of nothing
+  stays out). It follows the search and the kind. With nothing yet, the track alone.
+- **Rows:** today grouped by hour ("14:00"), the days before by day ("Yesterday", "Monday 23"),
+  down one line at the left, the hour on the name's baseline and an earlier day's time on the
+  sizes'. 20 pt between the page's blocks, 12 between groups, 4 between the rows of one. Each row is a 66 pt cream tile: picture, name, "2.4 MB → 612 kB",
+  the saving at the panel's size. Under the pointer or the arrow keys it brightens and shows
+  Copy, Show in Finder and a "…" with Compare and Restore Original; Return or a click shows its
+  card, ⌘C copies it and ⌘R shows it in Finder. VoiceOver reads "Beach.jpg, 75 % smaller, 2.4 MB to 612 kB" with every action.
+- **Failures** still on screen come first: the same row in amber, with the reason and Retry when
+  another try can help.
+- **Empty:** the tile shows its track alone, and the line says how to get a first result.
+- Originals (the gear's Originals…) stays the place to restore or remove kept originals.
+
 ## Color
 Use system Liquid Glass materials for floating surfaces, with one accent colour and one warning
 colour.

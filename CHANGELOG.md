@@ -22,6 +22,9 @@ The bundled ffmpeg stays LGPL, without the x264 and x265 encoders: H.264 and HEV
 Mac's own encoders.
 
 ### Added
+- All Results, from the menu's gear: every result of the last seven days by hour and by day,
+  searchable and by kind, with the week's saving, failures still on screen with Retry, and each
+  result's Copy, Show in Finder, Compare and Restore Original.
 - The detail says what optimising removed from a photo's metadata (location, camera, date) and
   offers Restore, which runs the file again from its original and keeps the metadata. A crop,
   scale or Fit stays.
