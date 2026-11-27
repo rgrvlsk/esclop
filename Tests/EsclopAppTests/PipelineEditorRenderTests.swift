@@ -50,8 +50,30 @@ import Testing
         model.draft.sections[0].steps[0].values["longEdge"] = "-5"
         model.setSample(temp.file("Screenshot 2026-11-10.png"))
         await model.checkFilter()
-        try await SettingsRenderTests.renderBoth({ _ in PipelineEditorView(model: model) }, size: CGSize(width: 960, height: 1000), name: "pipelines-form")
+        try await SettingsRenderTests.renderBoth({ _ in PipelineEditorView(model: model) }, size: CGSize(width: 920, height: 1000), name: "pipelines-form", settle: .milliseconds(900), warm: true)
         #expect(model.filterMatches == true)
+    }
+
+    /// The target's own pipeline, for a side-by-side with `pr9-pipeline-editor`: the convert
+    /// step open.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["ESCLOP_RENDER_ALL"] == "1"))
+    func likeTheTarget() async throws {
+        let temp = TempDir()
+        let store = PipelineStore(directory: temp.url.appendingPathComponent("pipelines", isDirectory: true), useTrash: false)
+        _ = try store.save(text: """
+        ---
+        description: Lighter screenshots for the blog
+        icon: photo
+        triggers: clipboard, presetZone
+        ---
+        if(types: png, nameContains: "Screenshot") -> downscale(factor: 0.5) -> convert(to: webp) -> copyToClipboard(format: path)
+        """, name: "Screenshots to WebP")
+        _ = try store.save(Pipeline(name: "Shrink for email", sections: [PipelineSection(kind: .image, steps: [.optimise(dpi: 150)])]))
+        let model = PipelineEditorModel(store: store, engine: ShrinkingEngine(backups: temp.url.appendingPathComponent("backups", isDirectory: true)))
+        model.open(name: "Screenshots to WebP")
+        // The convert step open, as in the target.
+        model.openedSteps = [model.draft.sections[0].steps[1].id]
+        try await SettingsRenderTests.renderBoth({ _ in PipelineEditorView(model: model) }, size: CGSize(width: 920, height: 700), name: "pipelines-target", settle: .milliseconds(400), warm: true)
     }
 
     @Test(.enabled(if: ProcessInfo.processInfo.environment["ESCLOP_RENDER_ALL"] == "1"))
@@ -61,7 +83,7 @@ import Testing
         await model.tryIt(on: temp.file("Screenshot 2026-11-10.png", bytes: 240_000))
         model.setShowsText(true)
         model.editText(Self.text.replacingOccurrences(of: "convert(to: webp)", with: "convert(to: webpp)") + "\n")
-        try await SettingsRenderTests.renderBoth({ _ in PipelineEditorView(model: model) }, size: CGSize(width: 960, height: 900), name: "pipelines-text", settle: .milliseconds(400))
+        try await SettingsRenderTests.renderBoth({ _ in PipelineEditorView(model: model) }, size: CGSize(width: 920, height: 900), name: "pipelines-text", settle: .milliseconds(400), warm: true)
         #expect(model.textDiagnostics.contains { $0.line == 6 })
     }
 }

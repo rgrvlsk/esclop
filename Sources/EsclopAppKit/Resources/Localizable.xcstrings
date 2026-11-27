@@ -191,6 +191,16 @@
         }
       }
     },
+    "%@ is not %@. Did you mean %@?": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ no és %@. Volies dir %@?"
+          }
+        }
+      }
+    },
     "%@ is not installed.": {
       "localizations": {
         "ca": {
@@ -237,6 +247,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "El %@ dels píxels són visiblement diferents"
+          }
+        }
+      }
+    },
+    "%@ of the size": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ de la mida"
           }
         }
       }
@@ -981,6 +1001,16 @@
         }
       }
     },
+    "A Markdown link": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un enllaç en Markdown"
+          }
+        }
+      }
+    },
     "A built-in template. Duplicate it to make your own version.": {
       "localizations": {
         "ca": {
@@ -1087,6 +1117,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Una zona predefinida mentre arrossegues"
+          }
+        }
+      }
+    },
+    "A quarter of the size": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una quarta part de la mida"
           }
         }
       }
@@ -1257,6 +1297,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Afegeix un pas"
+          }
+        }
+      }
+    },
+    "Add Steps for One Kind": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afegeix passos per a un tipus"
           }
         }
       }
@@ -3121,6 +3171,16 @@
         }
       }
     },
+    "Default: %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Per defecte: %@"
+          }
+        }
+      }
+    },
     "Delete": {
       "localizations": {
         "ca": {
@@ -4011,6 +4071,16 @@
         }
       }
     },
+    "Fix the marked lines to go back to the steps or to save.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Corregeix les línies marcades per tornar als passos o per desar."
+          }
+        }
+      }
+    },
     "Fix the marked steps first.": {
       "localizations": {
         "ca": {
@@ -4317,6 +4387,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Meitat"
+          }
+        }
+      }
+    },
+    "Half size": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La meitat de la mida"
           }
         }
       }
@@ -5337,6 +5417,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Més opcions"
+          }
+        }
+      }
+    },
+    "More options for %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Més opcions per a %@"
           }
         }
       }
@@ -7986,7 +8076,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "Executa en fitxers…"
+            "value": "Aplica a fitxers…"
           }
         }
       }
@@ -8107,6 +8197,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Desa com a…"
+          }
+        }
+      }
+    },
+    "Save the changes first: Run on Files… runs the saved pipeline": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Primer desa els canvis: Aplica a fitxers… executa el pipeline desat"
           }
         }
       }
@@ -8371,6 +8471,16 @@
         }
       }
     },
+    "The file’s path": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El camí del fitxer"
+          }
+        }
+      }
+    },
     "The file’s value for “%@” is not one this setting takes. Nothing was changed.": {
       "localizations": {
         "ca": {
@@ -8381,12 +8491,42 @@
         }
       }
     },
+    "The picture itself": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La imatge mateixa"
+          }
+        }
+      }
+    },
+    "The same pipeline as the steps. Saving writes it in this layout; comments are not kept.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El mateix flux que els passos. En desar s’escriu amb aquesta disposició; els comentaris no es conserven."
+          }
+        }
+      }
+    },
     "This is not a settings file L’Esclop exported. Nothing was changed.": {
       "localizations": {
         "ca": {
           "stringUnit": {
             "state": "translated",
             "value": "Aquest no és un fitxer de configuració exportat per L’Esclop. No s’ha canviat res."
+          }
+        }
+      }
+    },
+    "To %@": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A %@"
           }
         }
       }
@@ -8417,6 +8557,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Teus"
+          }
+        }
+      }
+    },
+    "`%@` must be %@.": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "`%@` ha de ser %@."
+          }
+        }
+      }
+    },
+    "a format": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "un format"
+          }
+        }
+      }
+    },
+    "a valid “%@”": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "un valor vàlid per a «%@»"
+          }
+        }
+      }
+    },
+    "a whole number, %@ or more": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "un nombre enter, %@ o més"
           }
         }
       }
@@ -11316,7 +11496,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "un nombre com a mínim de %@"
+            "value": "un nombre igual o superior a %@"
           }
         }
       }
@@ -11376,7 +11556,7 @@
         "ca": {
           "stringUnit": {
             "state": "translated",
-            "value": "un nombre enter com a mínim de %@"
+            "value": "un nombre enter igual o superior a %@"
           }
         }
       }
@@ -14877,6 +15057,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "el tries"
+          }
+        }
+      }
+    },
+    "“%@”": {
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@»"
           }
         }
       }

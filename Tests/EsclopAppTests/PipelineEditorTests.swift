@@ -307,9 +307,13 @@ import Testing
     @Test func aStepSaysItsSettingsInWords() {
         var step = StepDraft(name: "crop", values: ["longEdge": "1600"])
         let row = StepRowView(step: .constant(step), kind: nil, number: 1, count: 1, issues: [], isOpen: .constant(false), move: { _ in }, remove: {})
-        #expect(row.summary == "\(PipelineVocabulary.paramTitle("longEdge")) 1600")
+        // "Long edge (px)" and 1600 read "Long edge 1600 px".
+        #expect(row.summary == "Long edge 1600 px")
         step.values = [:]
         let bare = StepRowView(step: .constant(step), kind: nil, number: 1, count: 1, issues: [], isOpen: .constant(false), move: { _ in }, remove: {})
-        #expect(!bare.summary.isEmpty, "a step with no settings says what it does")
+        #expect(!bare.summary.isEmpty && !bare.summary.hasSuffix("."), "a step with no settings says what it does, without a full stop")
+        #expect(StepRowView.phrase(step: "downscale", param: "factor", value: "0.5", locale: Locale(identifier: "en")) == "Half size")
+        #expect(StepRowView.phrase(step: "convert", param: "to", value: "webp", locale: Locale(identifier: "en")) == "To WebP")
+        #expect(StepRowView.phrase(step: "crop", param: "width", value: "0.5", locale: Locale(identifier: "ca")).contains("0,5"), "the language's decimal mark")
     }
 }

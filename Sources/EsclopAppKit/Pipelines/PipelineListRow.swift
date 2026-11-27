@@ -12,8 +12,9 @@ struct PipelineListRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: icon.isEmpty ? "wand.and.rays" : icon)
-                .frame(width: 18)
+            Image(systemName: icon.isEmpty ? "flowchart" : icon)
+                .font(.system(size: 15, weight: icon.isEmpty ? .semibold : .regular))
+                .frame(width: 22)
                 .foregroundStyle(Ink.charcoalText)
                 .accessibilityHidden(true)
             Text(name).lineLimit(1)

@@ -222,25 +222,31 @@ many copied files, or a list from the CLI or an agent. It comes forward without 
   files join a batch that is still running. VoiceOver announces the batch once, when it ends.
 
 ## Pipeline editor
-A stock window (`pr9-pipeline-editor`). On the left, Yours and Examples (the built-in templates,
-with no padlock), and a dashed "New Pipeline" at the bottom; a row's context menu has Duplicate
-and Delete…. On the right, one pipeline:
+A warm window (`pr9-pipeline-editor`). On the left, a warm sidebar with Yours and Examples (the
+built-in templates, with no padlock) in small caps, the open one cream and raised, ↑ and ↓ to
+move and ⌫ to delete one of yours; a dashed "New Pipeline" at the bottom. On the right, one
+pipeline on the page:
 
-- **The name as the one heading,** in New York, edited in place, and its description under it.
-  An example says so and offers Make It Mine (an editable copy).
+- **The name as the one heading,** in New York, regular, edited in place, and its description
+  under it; Try It…, Run on Files… and a "…" menu (Duplicate, Delete…) as white pills at the top
+  right in every state. Run on Files… runs the saved pipeline, so it waits, dimmed, while there
+  are changes to save (Save is in the toolbar). An example says so and offers Make It Mine.
 - **One sentence of chips:** "Runs for [PNG files named “Screenshot”] when [copied] or [new in
-  Inbox] ⊕". The filter chip opens the filter in a popover; a trigger chip and ⊕ open what runs
-  it (each source, and watched folders).
-- **Steps as a numbered flow:** the number in a circle, the kind of step's symbol, its name and
-  its settings in plain words ("Long edge (px) 1600"). The chevron opens it in place: its
-  controls, what the parser says, Move Up, Move Down and Remove. A step with an error is always
-  open, and a new step opens on its settings. "Add a Step" is dashed. Rows still reorder by
-  dragging and with VoiceOver's Move Up and Move Down; the steps for each kind keep their tabs.
-- **Problems name settings by their titles:** "“Long edge (px)” must be a whole number of at
-  least 1", not the language's `longEdge`.
-- **Toolbar:** Steps · Text, Try It… (a sheet: drop or choose a file, run on a copy), Run on
-  Files…, Duplicate (⌘D), Revert and Save (⌘S). Options sit at the bottom; a pipeline with
-  scripts says so with the warm terminal symbol and a link to Settings › Agents.
+  Inbox] ⊕". A connective travels with its chip and ⊕ with the last one, so a line never ends on
+  "or". The filter chip opens the filter in a popover; a trigger chip and ⊕ open what runs it.
+- **Steps as a numbered flow:** 28 pt numbers on a line, each step a cream tile with its symbol
+  in a sunken circle, its name and its settings in words ("Half size", "To WebP", "Long edge
+  1600 px"). The chevron opens it in place on a lighter panel with its settings only (a
+  conversion's usual formats as chips, a bounded number as a slider, values in sunken fields);
+  a "…" on the heading has Move Up, Move Down and Remove Step. A step with an error opens by
+  itself and keeps its red mark when closed. "Add a Step" is dashed, at the end of the line.
+  Steps reorder by dragging, from the "…" menu, with ⌥⌘↑ ⌥⌘↓ on the step the keyboard is on
+  (its tile shows the ring), and with VoiceOver's actions; an example's do not move. A problem
+  that names a setting sits under it, its field outlined in red.
+- **Problems name settings by their titles,** in the language's quotes: "“Long edge (px)” must
+  be…", «Costat llarg (px)» in Catalan.
+- **Toolbar:** Steps · Text, Duplicate (⌘D), Revert and Save (⌘S). Try It… is a sheet (Esc
+  closes it). Options sit at the bottom as checkboxes; a pipeline with scripts is amber.
 
 ## Color
 Use system Liquid Glass materials for floating surfaces, with one accent colour and one warning
@@ -254,14 +260,20 @@ colour.
 | `clog` | `#8A5A33` | `#8A5A33` | app icon wood only, never in UI |
 | error | `#C4281C` | `#FF6961` | failures (system red is 3.4:1 on light) |
 
-Never: cream page backgrounds, terracotta, acid green on black, gradient washes. Dark glass
-stays translucent; it must not become an opaque slab.
+Warm windows (owner's decision, 2026-11-26, which replaces "never cream page backgrounds"):
+Settings, the first run, the pipeline editor and All Results sit on a warm page (`Surface.page`,
+#EDE8E0 light, walnut #1D1916 dark) with their content on cream tiles (`warmTile`, the cream lit
+from the top at the control elevation), pressable things as white pills and dashed outlines for
+what adds something (`Design/WarmWindow.swift`). Never: terracotta, acid green on black, gradient
+washes. Dark glass stays translucent; it must not become an opaque slab.
 
 ## Type
 System font (SF Pro) everywhere, sizes from the macOS text styles, nothing below 11 pt. Byte
 figures and percentages use SF Pro with monospaced digits (`monospacedDigit()`), never a
 monospaced typeface. The saving is the one large figure, set by `Figure`: SF Pro
-Compressed, bold, at one of its four sizes. Labels are sentence case, never all caps, never tracked out. Icons are SF
+Compressed, bold, at one of its sizes (card 17, panel 32, detail 20, first run 56, a window's
+saving 48), its unit on the digits' baseline at 70 % (owner, 2026-11-27). Labels are sentence
+case; the one section label of a tile is small caps, tracked (owner's grammar, `warmLabel`). Icons are SF
 Symbols; checkmarks are symbols, not text glyphs.
 
 ## Layout
